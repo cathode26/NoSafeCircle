@@ -7,8 +7,8 @@
     },
     {
       "criterion_id": "AC-002",
-      "reference": "NSC-007 owns the charged fireball input and charge state machine",
-      "requirement": "DECIDED BY GER - TRIGGER. Fleeing begins when the charge passes a named charge threshold, not at charge start. A tap-cast, and a charge abandoned below the threshold, must not scatter the room. The threshold is a serialized tunable with a stated default and is read from NSC-007's existing charge state rather than re-implemented."
+      "reference": "NSC-118 owns the charged fireball input and charge state machine",
+      "requirement": "DECIDED BY GER - TRIGGER. Fleeing begins when the charge passes a named charge threshold, not at charge start. A tap-cast, and a charge abandoned below the threshold, must not scatter the room. The threshold is a serialized tunable with a stated default and is read from NSC-118's charge state rather than re-implemented."
     },
     {
       "criterion_id": "AC-003",
@@ -31,12 +31,12 @@
     {
       "gate_id": "VAL-001",
       "reference": "CLAUDE.md: break the guard on purpose; a test nobody has tried to break is a claim",
-      "requirement": "In Play Mode, EnemyChargeFleePlayModeTests drives NSC-007's real charge state - not a flee flag set directly - and asserts, with the enemy starting inside the radius: that a charge held below the threshold produces NO flee; that crossing the threshold starts one; that the enemy's distance from the wizard strictly increases while fleeing; and that it stops fleeing and resumes normal behaviour once beyond the radius. Separate cases cover each end condition in AC-004 - release, cancel, dropping below the threshold, and wizard death mid-charge - and each asserts the enemy is no longer fleeing afterwards, because an enemy stuck in flight after the charge is gone is the failure this gate exists to catch. A case with the enemy starting outside the radius asserts it does not flee, so the radius is proven to bound the behaviour rather than being assumed. No human review is claimed by this gate and none may be recorded against it."
+      "requirement": "In Play Mode, EnemyChargeFleePlayModeTests drives NSC-118's real charge state - not a flee flag set directly - and asserts, with the enemy starting inside the radius: that a charge held below the threshold produces NO flee; that crossing the threshold starts one; that the enemy's distance from the wizard strictly increases while fleeing; and that it stops fleeing and resumes normal behaviour once beyond the radius. Separate cases cover each end condition in AC-004 - release, cancel, dropping below the threshold, and wizard death mid-charge - and each asserts the enemy is no longer fleeing afterwards, because an enemy stuck in flight after the charge is gone is the failure this gate exists to catch. A case with the enemy starting outside the radius asserts it does not flee, so the radius is proven to bound the behaviour rather than being assumed. No human review is claimed by this gate and none may be recorded against it."
     }
   ],
   "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "decomposition_reason": "One bounded responsibility with a measurable outcome; no sub-behaviour needs independent scheduling.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -61,14 +61,25 @@
   ],
   "id": "NSC-116",
   "kind": "implementation",
-  "notes": "AUTHORED FROM agent-state/intent-NSC-116-fireball-charge-enemy-flee.md. THIS IS GREENFIELD - nothing shipped to build on, confirmed by two independent sweeps with positive controls. VINCENT'S DECISION IS AC-001 AND IS QUOTED VERBATIM; EVERY OTHER PARAMETER IS MARKED 'DECIDED BY GER' so nobody later mistakes a GER choice for his. The five parameters the intent listed are all answered here rather than bounced back to him, per the 80-percent rule: trigger is a charge threshold (AC-002), radius is a serialized default (AC-003), who flees is everything on the NSC-091/NSC-092 foundation (AC-003), flee shape is away-until-beyond-radius (AC-004), and the release/cancel/death cases are all enumerated (AC-004). THE FLEE SHAPE IS THE LEAST CONFIDENT CHOICE: directly-away was chosen over break-line-of-sight or away-and-regroup because it is the one shape that can be asserted by a monotonic distance check, which makes VAL-001 a real test rather than an eyeball. If playtesting shows directly-away reads badly, changing it is a revision and VAL-001's distance assertion is what will need rewriting. confidence is MEDIUM rather than high for that reason and because the GDD tension in AC-005 is unresolved. NOT ESTABLISHED: no Unity was run, the size of the change is unmeasured, and the exact public surface of NSC-007's charge state was not read at authoring time.",
+  "notes": "AUTHORED FROM agent-state/intent-NSC-116-fireball-charge-enemy-flee.md. THIS IS GREENFIELD - nothing shipped to build on, confirmed by two independent sweeps with positive controls. VINCENT'S DECISION IS AC-001 AND IS QUOTED VERBATIM; EVERY OTHER PARAMETER IS MARKED 'DECIDED BY GER' so nobody later mistakes a GER choice for his. The five parameters the intent listed are all answered here rather than bounced back to him, per the 80-percent rule: trigger is a charge threshold (AC-002), radius is a serialized default (AC-003), who flees is everything on the NSC-091/NSC-092 foundation (AC-003), flee shape is away-until-beyond-radius (AC-004), and the release/cancel/death cases are all enumerated (AC-004). THE FLEE SHAPE IS THE LEAST CONFIDENT CHOICE: directly-away was chosen over break-line-of-sight or away-and-regroup because it is the one shape that can be asserted by a monotonic distance check, which makes VAL-001 a real test rather than an eyeball. If playtesting shows directly-away reads badly, changing it is a revision and VAL-001's distance assertion is what will need rewriting. confidence is MEDIUM rather than high for that reason and because the GDD tension in AC-005 is unresolved. NOT ESTABLISHED: no Unity was run, the size of the change is unmeasured, and the exact public surface of NSC-118's charge state was not read at authoring time - and NSC-118 is itself not_delivered, with Fireball.cs absent from main as of 2026-09-25, so the charge threshold AC-002 reads is a surface NSC-118 has yet to introduce. REVISION 3 IS A TEXT-ONLY ID CORRECTION AND CHANGES NO REQUIREMENT, GATE, RESOURCE OR PARAMETER: the fireball aggregate this contract originally named was decomposed into NSC-117/NSC-118/NSC-119, and NSC-118 is the child that owns Fireball.cs and FireballCastAndChargePlayModeTests.cs. depends_on had already been rewritten by the decomposition tool but the prose had not, which is the general trap - a dependency rewrite fixes the field the validator enforces and not the prose that means the same thing.",
   "parent": "NSC-010",
   "provenance": {
     "graph_delta_plan_id": null,
     "origin": "ger_agent_contract_request",
     "parent_contract_revision": null,
     "parent_contract_sha256": null,
-    "parent_task_id": null
+    "parent_task_id": null,
+    "contract_followups": [
+      {
+        "date": "2026-09-25",
+        "reason": "Rev 3, text only: NSC-007 was decomposed into NSC-117/NSC-118/NSC-119 and now owns zero resources, so the four prose references that still named it (AC-002 reference and requirement, VAL-001 requirement, notes) are rewritten to NSC-118, the child owning Fireball.cs and FireballCastAndChargePlayModeTests.cs. depends_on was already rewritten to NSC-118 by the decomposition tool; the prose was not. No requirement, gate, resource or parameter changed. taskcontrol state NSC-116 at 5928835285 was not_delivered with no selected_record, so nothing is un-delivered.",
+        "source_head": "5928835285d49db7a7d73f60e5a7eb516b3b5298",
+        "previous_contract_revision": 2,
+        "base_contract_sha256": "fea02931a6105d93e7b47f899d9b7f8b928e1ac6087d7eac6784e2d47923de9a",
+        "revised_contract_sha256": "a20a122eea2088af65c6b29f398148fbe2650a6f8f1050171d0add791d798a1a",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   },
   "reconciliation_key": "enemies-flee-a-charging-fireball",
   "repository_evidence_at_bootstrap": [],
