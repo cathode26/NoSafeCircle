@@ -53,6 +53,15 @@ from Pipeline.AssistantControl.admission import _read_registry, _source_registry
 from Pipeline.AssistantControl.checkouts import Checkouts, write_record
 from Pipeline.AssistantControl.candidate_validation_retry import validation_failure_sha256
 from Pipeline.AssistantControl.inspect_project import git
+from Pipeline.AssistantControl.reconciliation_binding import (
+    HUMAN_REJECTION,
+    MATERIALIZATION_FAILURE,
+    candidate_receipt_problem,
+    crew_provenance_problem,
+    canonical_sha256,
+    review_entry_index,
+)
+from Pipeline.AssistantControl.worker_state import is_settled_worker
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
 from Pipeline.TaskReviewAgent.contracts import validate_task_id
 from Pipeline.TaskReviewAgent.execution_session_pool import _exclusive_file_lock
@@ -105,6 +114,152 @@ def _remove_staging(staging: Path, plan: dict[str, Any]) -> None:
         plan["staging_cleanup_failed"] = str(staging)
 
 
+def _resume_interrupted(
+    checkouts,
+    task_id: str,
+    record: dict[str, Any],
+    record_path: Path,
+    journal_path: Path,
+    *,
+    expected_candidate: str,
+    expected_source_commit: str,
+    accept_contract_sha256: str,
+    apply: bool,
+) -> dict[str, Any] | None:
+    """Finish, or refuse to guess at, a reconciliation that was interrupted.
+
+    THE STRANDING THIS REMOVES, found by Astra in the code as it stood. The
+    archive is written BEFORE the owned checkout advances and the authoritative
+    record AFTER it, so a crash between those two leaves one of two states and
+    NEITHER could be retried:
+
+        archive written, checkout still at C   ->  "a reconciliation archive
+                                                   already exists for this pair"
+        checkout at M, record still names C    ->  "checkout HEAD is not the
+                                                   candidate this request names"
+
+    Both messages describe a symptom, neither offers a route, and the task this
+    command exists to rescue is stranded exactly as before.
+
+    Returning None means "nothing durable happened; retry normally". Recovery is
+    otherwise EXACT-REQUEST only: the journal names the request it was serving,
+    and this finishes just that one, with the world in just the state the
+    interrupted run left it. Anything else is refused WITH the journal path,
+    because guessing which half-finished operation an operator meant is how a
+    recovery path destroys work.
+    """
+    try:
+        journal = json.loads(journal_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise ReviseOnSourceError(
+            f"an interrupted reconciliation is journalled at {journal_path} and cannot "
+            f"be read; inspect it before retrying") from exc
+    if not isinstance(journal, Mapping):
+        raise ReviseOnSourceError(
+            f"the reconciliation journal at {journal_path} is not a record; inspect it")
+
+    same_request = (
+        journal.get("schema_version") == SCHEMA_VERSION
+        and journal.get("task_id") == task_id
+        and journal.get("rejected_candidate") == expected_candidate
+        and journal.get("inspected_source_commit") == expected_source_commit
+        and journal.get("accepted_contract_sha256") == accept_contract_sha256
+    )
+    if not same_request:
+        raise ReviseOnSourceError(
+            f"an interrupted reconciliation for a DIFFERENT request is journalled at "
+            f"{journal_path}; resolve that one before starting another")
+
+    merged = journal.get("reconciled_commit")
+    archive = Path(str(journal.get("archived_record", "")))
+    recorded_checkout = str(record.get("checkout", ""))
+    if not recorded_checkout:
+        # An empty path resolves to the CWD, and this tool is run from
+        # canonical: without this the probe below would read CANONICAL's HEAD
+        # and report on the wrong repository entirely.
+        raise ReviseOnSourceError("task record names no checkout to recover")
+    checkout = Path(recorded_checkout)
+    if not isinstance(merged, str) or not _COMMIT.fullmatch(merged):
+        raise ReviseOnSourceError(
+            f"the reconciliation journal at {journal_path} names no reconciled commit")
+
+    head = git(checkout, "rev-parse", "HEAD").decode().strip()
+    dirty = bool(git(checkout, "status", "--porcelain=v1", "--untracked-files=all"))
+
+    if head == expected_candidate and not dirty and not archive.exists():
+        # Interrupted before anything durable was written. The staging clone is
+        # disposable and carries a fresh uuid per run, so there is nothing to
+        # reconcile with: clear the journal and let the caller start over.
+        journal_path.unlink()
+        return None
+
+    if record.get("status") == "prepared" and record.get("source_commit") == merged:
+        # The record write landed and only the journal removal did not. The
+        # operation is complete; saying so is the whole remedy.
+        journal_path.unlink()
+        return {
+            "schema_version": SCHEMA_VERSION, "task_id": task_id, "applied": True,
+            "resumed": "journal_only", "rejected_candidate": expected_candidate,
+            "inspected_source_commit": expected_source_commit,
+            "reconciled_commit": merged, "archived_record": str(archive),
+            "next_status": "prepared", "carries_no_candidate": True,
+        }
+
+    if head != merged or dirty or not archive.exists():
+        raise ReviseOnSourceError(
+            f"a reconciliation was interrupted and this cannot finish it from here: "
+            f"journal {journal_path}, phase {journal.get('phase')!r}, archive "
+            f"{'present' if archive.exists() else 'absent'}, checkout HEAD {head}"
+            f"{' (dirty)' if dirty else ''}. Inspect those before retrying.")
+
+    plan = {
+        "schema_version": SCHEMA_VERSION, "task_id": task_id, "applied": False,
+        "resumed": "record_write", "rejected_candidate": expected_candidate,
+        "inspected_source_commit": expected_source_commit,
+        "reconciled_commit": merged, "archived_record": str(archive),
+        "next_status": "prepared", "carries_no_candidate": True,
+        "not_proven": (
+            "the reconciled tree has never been built, tested or reviewed. This "
+            "carries the rejected implementation forward as INPUT to fresh crew "
+            "work; it carries none of its validation authority."
+        ),
+    }
+    if not apply:
+        return plan
+
+    entry = journal.get("history_entry")
+    if not isinstance(entry, Mapping):
+        raise ReviseOnSourceError(
+            f"the reconciliation journal at {journal_path} carries no history entry to publish")
+    _publish_reconciled(record, dict(entry), merged, accept_contract_sha256)
+    write_record(record_path, record)
+    journal_path.unlink()
+    plan["applied"] = True
+    return plan
+
+
+def _publish_reconciled(record: dict[str, Any], entry: dict[str, Any], merged: str,
+                        accept_contract_sha256: str) -> None:
+    """Move the record onto the reconciled baseline. The ONE writer of that shape.
+
+    Called from the normal path and from the interrupted-run recovery, so a
+    resumed reconciliation cannot publish a differently-shaped record from the
+    one an uninterrupted run would have published.
+    """
+    record.setdefault("revise_on_source_history", []).append(entry)
+    record["status"] = "prepared"
+    record["source_commit"] = merged
+    record["task_contract_sha256"] = accept_contract_sha256
+    # No active candidate: nothing here has been built or reviewed, and a record
+    # that still names one invites a reader to believe it has.
+    record.pop("candidate", None)
+    record.pop("materialization_failure", None)
+    record.pop("human_review", None)
+    # `review_history` is deliberately NOT popped: the withdrawal binds one of
+    # its entries by index and hash, and dropping it would break that binding.
+    record.pop("revision", None)
+
+
 def revise_on_source(
     checkouts: Checkouts,
     task_id: str,
@@ -139,35 +294,123 @@ def revise_on_source(
         record = json.loads(record_path.read_text(encoding="utf-8"))
         if record.get("task_id") != task_id or record.get("source") != str(checkouts.source):
             raise ReviseOnSourceError("task record identity differs")
+        journal_path = (checkouts.records / "revise-on-source" /
+                        f"{task_id}.in-progress.json")
+        if journal_path.is_file():
+            # BEFORE the HEAD and status guards below, deliberately: an
+            # interrupted run leaves the world in a state those guards refuse,
+            # and refusing is what stranded the task in the first place.
+            resumed = _resume_interrupted(
+                checkouts, task_id, record, record_path, journal_path,
+                expected_candidate=expected_candidate,
+                expected_source_commit=expected_source_commit,
+                accept_contract_sha256=accept_contract_sha256, apply=apply)
+            if resumed is not None:
+                return resumed
+
         if record.get("approval") is not None:
             raise ReviseOnSourceError(
                 "an approved candidate is not reconciled here; that is an integration decision")
-        if record.get("status") != "validation_failed":
-            raise ReviseOnSourceError(
-                f"reconciliation is for a candidate that FAILED authoritative validation, "
-                f"not {record.get('status')!r}")
-
         candidate = record.get("candidate")
         if not isinstance(candidate, Mapping):
             raise ReviseOnSourceError("record carries no candidate")
-        if candidate.get("kind") != "unity_materialization_failed":
-            raise ReviseOnSourceError(
-                f"reconciliation is for a failed MATERIALIZED candidate, not "
-                f"{candidate.get('kind')!r}")
         if candidate.get("commit") != expected_candidate:
             raise ReviseOnSourceError("candidate differs from the exact request")
-        if candidate.get("source_candidate_crew_review") is not True:
-            raise ReviseOnSourceError(
-                "candidate lost its crew-review authority; there is no work to carry forward")
 
-        failure = record.get("materialization_failure")
-        if not isinstance(failure, Mapping):
-            raise ReviseOnSourceError("record carries no materialization failure")
+        # TWO WAYS INTO ONE TRANSITION, AND THEY ARE NOT THE SAME FACT.
+        #
+        # The original basis is a MATERIALIZED candidate that failed
+        # authoritative Unity validation. The second is an exact HUMAN REJECTION
+        # of a registered crew candidate -- which is the shape every stranded
+        # task on the board actually has, and which used to fall out of here as
+        # "reconciliation is for a candidate that FAILED authoritative
+        # validation, not 'changes_requested'".
+        #
+        # Astra, on whether the second is enough: "an exact human rejection is
+        # sufficient reason to withdraw an authenticated crew candidate and
+        # prepare it for fresh crew work on current Source. Crew provenance,
+        # checkout ownership, settlement, scope and execution authorization
+        # remain separate requirements." Each of those is checked separately
+        # below and none of them is waived here.
+        #
+        # They enter ONE transition on purpose. What differs is the BASIS: what
+        # is being withdrawn, and what the next crew has to be told about it.
+        status = record.get("status")
+        failure: Mapping[str, Any] | None = None
+        review: Mapping[str, Any] | None = None
+        review_index = -1
+        review_digest = ""
+        if status == "validation_failed":
+            basis = MATERIALIZATION_FAILURE
+            if candidate.get("kind") != "unity_materialization_failed":
+                raise ReviseOnSourceError(
+                    f"reconciliation is for a failed MATERIALIZED candidate, not "
+                    f"{candidate.get('kind')!r}")
+            if candidate.get("source_candidate_crew_review") is not True:
+                raise ReviseOnSourceError(
+                    "candidate lost its crew-review authority; there is no work to carry forward")
+            failure = record.get("materialization_failure")
+            if not isinstance(failure, Mapping):
+                raise ReviseOnSourceError("record carries no materialization failure")
+        elif status == "changes_requested":
+            basis = HUMAN_REJECTION
+            review = record.get("human_review")
+            if not isinstance(review, Mapping) or review.get("decision") != "reject":
+                raise ReviseOnSourceError(
+                    "reconciliation on a human basis needs an exact recorded rejection")
+            if review.get("commit") != expected_candidate:
+                raise ReviseOnSourceError(
+                    "the recorded rejection names a different commit from the request")
+            message = review.get("message")
+            if not isinstance(message, str) or not message.strip() or "\x00" in message:
+                raise ReviseOnSourceError("the rejection carries no feedback a crew could use")
+            if len(message.encode("utf-8")) > 64 * 1024:
+                raise ReviseOnSourceError(
+                    "the rejection exceeds the bounded feedback size a crew is given")
+            # PROVENANCE, NOT AUTHORITY, AND THEY ARE ORTHOGONAL. The rejection
+            # establishes that the named work needs changes; it establishes
+            # nothing about who produced it. `source_candidate_crew_review` is a
+            # MATERIALIZATION field and testing for it here would exclude
+            # exactly the earlier-stage crew candidates this branch exists for.
+            # A raw crew candidate proves its own provenance through its
+            # registered commit receipt instead.
+            problem = crew_provenance_problem(record, candidate, task_id)
+            if problem is not None:
+                raise ReviseOnSourceError(
+                    f"candidate is not an authenticated crew result: {problem}")
+            # Freeze the rejection by identity now, at plan time. The frozen
+            # copy is the guarantee; the `review_history` index is corroboration
+            # and is -1 when `human_review` has been corrected in place, which
+            # is legitimate and is recorded rather than refused.
+            review_index = review_entry_index(record, review)
+            review_digest = canonical_sha256(dict(review))
+        else:
+            raise ReviseOnSourceError(
+                f"reconciliation is for a candidate that FAILED authoritative validation "
+                f"or was rejected by a human, not {status!r}")
 
         worker = record.get("worker")
         if isinstance(worker, Mapping) and worker.get("capacity_released") is not True:
             raise ReviseOnSourceError(
                 "the prior worker has not released capacity; settle it first")
+        if (basis == HUMAN_REJECTION and isinstance(worker, Mapping)
+                and not is_settled_worker(worker)):
+            # Released capacity is not settlement. `settle-worker` writes
+            # `settled_at` only after verifying the host process and the run's
+            # containers are gone, and this path re-dispatches the task.
+            raise ReviseOnSourceError(
+                "the prior worker is not settled; its process or containers may still be running")
+
+        # The runs whose output this withdrawal removes from the review path.
+        # `output_was_withdrawn()` derives this today by comparing baselines,
+        # which cannot tell WHICH run produced the candidate -- these two ids
+        # already differ on NSC-118. Naming them is cheap now and impossible to
+        # retrofit onto an entry once it is written.
+        withdrawn_run_ids = sorted({
+            run for run in (candidate.get("run_id"),
+                            worker.get("run_id") if isinstance(worker, Mapping) else None)
+            if isinstance(run, str) and run.strip()
+        })
 
         source_head = git(checkouts.source, "rev-parse", "HEAD").decode().strip()
         if source_head != expected_source_commit:
@@ -177,6 +420,36 @@ def revise_on_source(
         if old_source == source_head:
             raise ReviseOnSourceError(
                 "Source has not advanced past the candidate's base; ordinary revise applies")
+
+        # A TASK WHOSE DELIVERY EVIDENCE IS ALREADY COMMITTED IS NOT A TASK TO
+        # RE-DISPATCH, AND NOTHING IN THE RECORD SAYS SO.
+        #
+        # Found the expensive way: NSC-113 planned OK under my own hands while
+        # being taskcontrol CONFORMANT and delivered. Its checkout record still
+        # read `changes_requested` with a rejection on it, because the delivery
+        # went out as a REBUILT commit and nothing wrote back. Every guard above
+        # reads that record, so every one of them said yes. Caught by the
+        # Pipeline Runner checking the real instances against taskcontrol.
+        #
+        # Applying this WOULD have: withdrawn a delivered candidate, moved the
+        # record backwards to `prepared`, and spent a crew on finished work.
+        #
+        # THIS IS A PROXY AND SAYING SO IS THE POINT. It tests for committed
+        # evidence at the INSPECTED commit, not for the derived state, because
+        # AssistantControl imports nothing from TaskGraph and a lock path is the
+        # wrong place to start. It separates the live population exactly today
+        # -- NSC-113 has 3 evidence files at HEAD, NSC-008/009/118 have none --
+        # and WHAT WOULD FALSIFY IT is a task carrying partial evidence that
+        # genuinely still needs a crew pass. If one appears, this refuses it and
+        # the operator will have to say so; a taskcontrol-backed check is the
+        # stronger answer and is deliberately not built here.
+        delivered = git(checkouts.source, "ls-tree", "-r", "--name-only", source_head,
+                        "--", f"Pipeline/TaskGraph/evidence/{task_id}").decode().strip()
+        if delivered:
+            raise ReviseOnSourceError(
+                f"{task_id} already has committed delivery evidence at {source_head}; "
+                "its checkout record may be stale. Check its taskcontrol state before "
+                "withdrawing a candidate whose work may already be delivered")
 
         # The adopted contract is named, never inferred. `revise` refuses when
         # the contract moved precisely so that carrying work across a changed
@@ -204,6 +477,8 @@ def revise_on_source(
             "task_id": task_id,
             "applied": False,
             "rejected_candidate": expected_candidate,
+            "withdrawal_basis": basis,
+            "withdrawn_run_ids": withdrawn_run_ids,
             "old_source_commit": old_source,
             "old_contract_sha256": record.get("task_contract_sha256"),
             "inspected_source_commit": source_head,
@@ -278,47 +553,97 @@ def revise_on_source(
                 load_committed_task(staging, task_id, commit=merged,
                                     expected_sha256=accept_contract_sha256)
 
-                archive_dir.mkdir(parents=True, exist_ok=True)
-                archive.write_text(json.dumps({
+                history_entry: dict[str, Any] = {
+                    "schema_version": SCHEMA_VERSION, "at": _now(), "reason": reason,
+                    "withdrawal_basis": basis,
+                    "rejected_candidate": expected_candidate,
+                    "rejected_candidate_tree": candidate.get("tree"),
+                    "withdrawn_run_ids": withdrawn_run_ids,
+                    "old_contract_sha256": record.get("task_contract_sha256"),
+                    "accepted_contract_sha256": accept_contract_sha256,
+                    # Admission needs the Source this merged. Entries written
+                    # before this field existed force it to be derived from
+                    # parent order.
+                    "inspected_source_commit": source_head,
+                    "reconciled_commit": merged, "archived_record": str(archive),
+                }
+                archive_body: dict[str, Any] = {
                     "schema_version": SCHEMA_VERSION, "task_id": task_id,
                     "archived_at": _now(), "reason": reason,
+                    "withdrawal_basis": basis,
                     "rejected_candidate": copy.deepcopy(dict(candidate)),
-                    "materialization_failure": copy.deepcopy(dict(failure)),
                     "old_source_commit": old_source,
                     "old_contract_sha256": record.get("task_contract_sha256"),
-                    "failure_sha256": validation_failure_sha256(failure),
+                    "inspected_source_commit": source_head,
+                    "reconciled_commit": merged,
+                    "withdrawn_run_ids": withdrawn_run_ids,
                     "candidate_lineage": copy.deepcopy(record.get("candidate_lineage", [])),
-                }, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+                }
+                if failure is not None:
+                    archive_body["materialization_failure"] = copy.deepcopy(dict(failure))
+                    archive_body["failure_sha256"] = validation_failure_sha256(failure)
+                if review is not None:
+                    # THE TYPED BINDING. Frozen here rather than looked up at
+                    # dispatch: a correction landing after dispatch would
+                    # otherwise change what a running crew had been told, with
+                    # nothing in the record showing the feedback had moved.
+                    frozen = copy.deepcopy(dict(review))
+                    history_entry["rejected_review"] = frozen
+                    history_entry["review_entry_index"] = review_index
+                    history_entry["review_entry_sha256"] = review_digest
+                    archive_body["rejected_review"] = copy.deepcopy(dict(review))
+                    archive_body["review_entry_index"] = review_index
+                    archive_body["review_entry_sha256"] = review_digest
+                stale_revision = record.get("revision")
+                if isinstance(stale_revision, Mapping):
+                    # Astra: an ordinary `revision` left in place reintroduces
+                    # the blockage -- admission examines it BEFORE reconciliation
+                    # history, and worker retirement refuses an active revision.
+                    # Archive it into the entry rather than dropping it silently.
+                    history_entry["archived_revision"] = copy.deepcopy(dict(stale_revision))
+                    archive_body["archived_revision"] = copy.deepcopy(dict(stale_revision))
+
+                archive_dir.mkdir(parents=True, exist_ok=True)
+                # THE JOURNAL GOES DOWN FIRST, before ANY durable write. A crash
+                # from here on is recoverable by name; a crash before this point
+                # touched nothing.
+                write_record(journal_path, {
+                    "schema_version": SCHEMA_VERSION, "task_id": task_id,
+                    "phase": "merged", "operation": operation, "created_at": _now(),
+                    "rejected_candidate": expected_candidate,
+                    "inspected_source_commit": source_head,
+                    "accepted_contract_sha256": accept_contract_sha256,
+                    "reconciled_commit": merged, "archived_record": str(archive),
+                    "checkout": str(checkout), "history_entry": history_entry,
+                })
+                archive.write_text(json.dumps(
+                    archive_body, ensure_ascii=False, indent=2, sort_keys=True,
+                ) + "\n", encoding="utf-8")
 
                 git(checkout, "fetch", "--no-tags", str(staging), merged, timeout_seconds=300)
                 git(checkout, "merge", "--ff-only", "--no-edit", "FETCH_HEAD",
                     timeout_seconds=180)
                 if git(checkout, "rev-parse", "HEAD").decode().strip() != merged:
                     raise ReviseOnSourceError("task checkout did not fast-forward to the merge")
+                write_record(journal_path, {
+                    "schema_version": SCHEMA_VERSION, "task_id": task_id,
+                    "phase": "checkout_advanced", "operation": operation,
+                    "created_at": _now(),
+                    "rejected_candidate": expected_candidate,
+                    "inspected_source_commit": source_head,
+                    "accepted_contract_sha256": accept_contract_sha256,
+                    "reconciled_commit": merged, "archived_record": str(archive),
+                    "checkout": str(checkout), "history_entry": history_entry,
+                })
             finally:
                 if staging.exists() and plan.get("staging_retained") is not True:
                     _remove_staging(staging, plan)
 
-            history = record.setdefault("revise_on_source_history", [])
-            history.append({
-                "schema_version": SCHEMA_VERSION, "at": _now(), "reason": reason,
-                "rejected_candidate": expected_candidate,
-                "old_contract_sha256": record.get("task_contract_sha256"),
-                "accepted_contract_sha256": accept_contract_sha256,
-                # Admission needs the Source this merged. Entries written before
-                # this field existed force it to be derived from parent order.
-                "inspected_source_commit": source_head,
-                "reconciled_commit": merged, "archived_record": str(archive),
-            })
-            record["status"] = "prepared"
-            record["source_commit"] = merged
-            record["task_contract_sha256"] = accept_contract_sha256
-            # No active candidate: nothing here has been built or reviewed, and
-            # a record that still names one invites a reader to believe it has.
-            record.pop("candidate", None)
-            record.pop("materialization_failure", None)
-            record.pop("human_review", None)
+            _publish_reconciled(record, history_entry, merged, accept_contract_sha256)
             write_record(record_path, record)
+            # Last: the journal only stops being needed once the authoritative
+            # record agrees with it.
+            journal_path.unlink(missing_ok=True)
             plan["applied"] = True
             plan["reconciled_commit"] = merged
             return plan
