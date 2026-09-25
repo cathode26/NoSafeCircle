@@ -2,7 +2,7 @@
   "schema_version": "1.0",
   "tasks": {
     "NSC-020": {
-      "task_contract_sha256": "ad592751a099c94e346ab3241f4f25ebabf0c2d68e13ae3a9788ccecf1bdac29",
+      "task_contract_sha256": "00dae3a20d5bc5b62c085d18d3c56099aacd4a3c94f3ac0ebbe4256a7daeb8bd",
       "required_test_platforms": [
         "PlayMode"
       ],
