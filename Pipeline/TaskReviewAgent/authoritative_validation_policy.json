@@ -594,7 +594,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-109": {
-      "task_contract_sha256": "d27957c1a9f2f7d9668289c982e4602349d0c42a63a6842a5505ba04ca762e78",
+      "task_contract_sha256": "4e33126a991b7a58e4bea14ea786858686621fba0f9e72329278be59fff9e6fa",
       "required_test_platforms": [
         "EditMode"
       ],

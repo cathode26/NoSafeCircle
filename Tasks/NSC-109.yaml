@@ -3,7 +3,7 @@
     {
       "criterion_id": "AC-001",
       "reference": "Sprint 1 levels-and-art done-condition line 4; NSC-064 delivered art",
-      "requirement": "The five room builders and Editor/DoorPrototypeSceneBuilder.cs source their floor and wall Tile sprites from the eleven committed assets under Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source - floors/floor_RuinedEntry.png, floor_BoneArchive.png, floor_ChapelOfAsh.png, floor_LowerVault.png, floor_FinalRoom.png and walls/wall_straight.png, wall_corner.png, wall_end_cap.png, wall_door_jamb.png, wall_pilaster.png, wall_broken_stub.png - instead of generating the embedded procedural sprites they use today. Each room's floor Tile uses that room's own floor sprite. MEASURED ON MAIN 2026-09-24: all eleven currently have ZERO references, by GUID, excluding each asset's own .meta file; the sprites are delivered by NSC-064 and applied by nothing."
+      "requirement": "The five room builders and Editor/DoorPrototypeSceneBuilder.cs source their floor and wall Tile sprites from the SEVEN committed assets under Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source that the one-world-unit wall grid can paint - floors/floor_RuinedEntry.png, floor_BoneArchive.png, floor_ChapelOfAsh.png, floor_LowerVault.png, floor_FinalRoom.png and walls/wall_straight.png, wall_broken_stub.png - instead of generating the embedded procedural sprites they use today. REVISION 3, 2026-09-25: THIS AC NAMED ELEVEN ASSETS AND FOUR OF THEM CANNOT BE BOUND BY THIS TASK'S MACHINERY, SO IT NAMED AN OUTCOME IT COULD NOT REACH. The committed wall-segment check in Tests/Editor/DoorPrototypeSceneBuilderTests.cs asserts a TRIPLE for every painted wall sprite - bounds width exactly 1.0 world unit, bounds height exactly 2.5, and pivot y exactly 0 - and measured at the import PPU of 64 that every wall .meta actually carries: wall_corner.png is 128x160 = 2.000 wide, wall_door_jamb.png is 128x176 = 2.000 wide, wall_end_cap.png is 80x160 = 1.250 wide and 80 is not a multiple of 64. Binding any of those three reintroduces the exact one-unit failure this task removed; they need placement by role, which does not exist. THEY ARE NOT DROPPED: NSC-120 owns them, was authored before this revision precisely so they were never unowned, and is named in INT-002. wall_pilaster.png IS A SEPARATE AND NARROWER CASE AND IS DELIBERATELY RECORDED HERE RATHER THAN MOVED: at 64x176 it is 1.000 unit wide and so passes the width assertion, but it is 2.750 high against the required 2.5 and imports at pivot y 0.068182 against the required 0, so it fails two of the three. That is an art-geometry question for the Art Director, not placement logic and not builder work, and it is unresolved. INDEPENDENT CORROBORATION THAT THE PIVOTS ARE THE REAL DIVIDING LINE: both assets bound by this task import at pivot y exactly 0, and all four excluded ones do not - 0.1, 0.068182, 0.147727 and 0.1125. Each room's floor Tile uses that room's own floor sprite. MEASURED ON MAIN 2026-09-24, AT AUTHORING TIME AND NOT NOW: all eleven then had ZERO references, by GUID, excluding each asset's own .meta file; the sprites are delivered by NSC-064 and applied by nothing."
     },
     {
       "criterion_id": "AC-002",
@@ -36,13 +36,19 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "decomposition_reason": "One bounded responsibility with a measurable outcome; no sub-behaviour needs independent scheduling.",
   "decomposition_state": "concrete",
   "depends_on": [
     "NSC-064"
   ],
-  "downstream_integration_obligations": [],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-120 Corner, Jamb and End-Cap Architectural Wall Accent Placement; measured at main 2026-09-25",
+      "requirement": "NSC-120 owns wall_corner.png, wall_door_jamb.png and wall_end_cap.png and the placement logic that positions them by role, because they are 2.000, 2.000 and 1.250 world units wide and the wall grid paints one-unit segments. NSC-120 depends on this task for the binding machinery and on NSC-064 for the art. wall_pilaster.png is NOT part of NSC-120: it is one unit wide but 2.750 high with pivot y 0.068182, which is an art-geometry question owned by the Art Director as the .meta and source of art it delivered. Until that is resolved wall_pilaster is applied by nothing, and this obligation is the record that it is outstanding rather than forgotten."
+    }
+  ],
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/RuinedEntrySceneBuilder.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/BoneArchiveSceneBuilder.cs",
@@ -93,6 +99,15 @@
         "previous_contract_revision": 1,
         "base_contract_sha256": "eff193b15b6547eddd7ae708cf8a9df22115450466dcb558728b3b2c126acc2d",
         "revised_contract_sha256": "29896a1f63c442a6a7db72573577303a26e0a860e92bd3c7a97e10bf7851bc4a",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-25",
+        "reason": "Rev 3 scopes AC-001 from eleven committed assets to the SEVEN the one-world-unit wall grid can paint, because four could not be bound by this task's machinery and the AC therefore named an outcome it could not reach. Raised by the Game Agent. Measured at PPU 64, the PPU every wall .meta actually carries: wall_corner 128x160 = 2.000 units wide, wall_door_jamb 128x176 = 2.000, wall_end_cap 80x160 = 1.250; the committed wall-segment check asserts width 1.0, height 2.5 and pivot y 0, so binding any of the three reintroduces the one-unit failure this task removed. Those three are NOT dropped - NSC-120 was authored first, at 838cb8e4f, precisely so they were never unowned, and INT-001 names it. wall_pilaster is recorded in AC-001 rather than moved: it is 1.000 wide but 2.750 high with pivot y 0.068182, an art-geometry question for the Art Director, and the Game Agent's read that it 'PASSES' saw only the width assertion. Gates and resources untouched; the five room scenes stay owned. taskcontrol state NSC-109 was not_delivered with no selected_record, so nothing is un-delivered.",
+        "source_head": "838cb8e4f156f2da570581389841e62ad53a7150",
+        "previous_contract_revision": 2,
+        "base_contract_sha256": "a1609f0ea5eded282788f8272897a42797e3d9c31c6a6396411fa801c547edca",
+        "revised_contract_sha256": "a9a7fefb9321d60d3b61e8ffce7a94596fd88ca2231c9d638ef8e166fcb77365",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
