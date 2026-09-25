@@ -21,7 +21,9 @@ class InventoryTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)
-        self.run_git("init")
+        # Explicit: a bare init takes its branch from the host's
+        # init.defaultBranch, which changed under us on 2026-09-25.
+        self.run_git("init", "-b", "master")
         name, email = validated_agent_git_identity()
         self.run_git("config", "user.name", name)
         self.run_git("config", "user.email", email)
@@ -140,7 +142,9 @@ class ResolvableCommitTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name) / "repo"
         self.root.mkdir()
-        self.run_git("init")
+        # Explicit: a bare init takes its branch from the host's
+        # init.defaultBranch, which changed under us on 2026-09-25.
+        self.run_git("init", "-b", "master")
         name, email = validated_agent_git_identity()
         self.run_git("config", "user.name", name)
         self.run_git("config", "user.email", email)

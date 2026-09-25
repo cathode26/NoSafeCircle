@@ -97,7 +97,9 @@ class GraphControllerTests(unittest.TestCase):
         self.addCleanup(self.temp.cleanup)
         self.source = Path(self.temp.name) / "source"
         self.source.mkdir()
-        self.git("init")
+        # Explicit: see test_inspect_project -- host init.defaultBranch
+        # is not a fixture input.
+        self.git("init", "-b", "master")
         name, email = validated_agent_git_identity()
         self.git("config", "user.name", name)
         self.git("config", "user.email", email)
