@@ -552,6 +552,40 @@ namespace NoSafeCircle.DoorPrototype.Tests
             LogColliderColumn(new Vector3(-2f, 66f));
             Debug.Log("=== TEMP collider column at a PASSING Chapel spawn (-2,36), the control ===");
             LogColliderColumn(new Vector3(-2f, 36f));
+
+            var settings = NavMesh.GetSettingsByIndex(0);
+            Debug.Log($"TEMP agent settings: radius {settings.agentRadius} height {settings.agentHeight} " +
+                      $"climb {settings.agentClimb} slope {settings.agentSlope}");
+
+            // Both rooms' FloorCollision boxes are byte-identical in height, so a room-wide offset
+            // would have to come from the bake rather than the floor. This maps it: if the whole
+            // Lower Vault reads high the cause is room-wide, and if only the band near the 0.5-high
+            // LV-H1 spans does, they are being treated as a climbable step and ramping the surface.
+            Debug.Log("=== TEMP Lower Vault walkable height map (rows = Z, cols = X) ===");
+            for (var z = 56f; z <= 74f; z += 2f)
+            {
+                var row = $"TEMP z={z,5:F0} :";
+                for (var x = -18f; x <= 18f; x += 3f)
+                {
+                    row += NavMesh.SamplePosition(new Vector3(x, 0f, z), out var s, 0.6f, NavMesh.AllAreas)
+                        ? $" {s.position.y:F3}"
+                        : "     .";
+                }
+                Debug.Log(row);
+            }
+
+            Debug.Log("=== TEMP Chapel of Ash control band (same sampling, a room that passes) ===");
+            for (var z = 24f; z <= 32f; z += 4f)
+            {
+                var row = $"TEMP z={z,5:F0} :";
+                for (var x = -15f; x <= 15f; x += 3f)
+                {
+                    row += NavMesh.SamplePosition(new Vector3(x, 0f, z), out var s, 0.6f, NavMesh.AllAreas)
+                        ? $" {s.position.y:F3}"
+                        : "     .";
+                }
+                Debug.Log(row);
+            }
         }
 
         private static void LogColliderColumn(Vector3 groundPointXZ)

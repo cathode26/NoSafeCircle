@@ -339,7 +339,60 @@ namespace NoSafeCircle.DoorPrototype.Editor
             var navigationRoot = new GameObject(GameplayNavigationRootName);
             SceneManager.MoveGameObjectToScene(navigationRoot, scene);
 
-            navigationRoot.AddComponent<GameplayNavigationSurface>().ConfigureAndBuild();
+            // NSC-049 VAL-007/NSC-017 INT-003. Sealed is every door's construction-time state, so
+            // this bake used to run with each door's solid DoorVisual collider and its doorway
+            // blocker standing in the opening. That writes a PERMANENT hole across every doorway:
+            // measured at D1, the doorway centre carried no walkable surface at all (nearest
+            // 0.67 units away) and a BROKEN door still yielded only PathPartial, with its
+            // NavMeshObstacle correctly not carving.
+            //
+            // It contradicts the design DoorEnemyPassability documents and that
+            // DoorEnemyPassabilityPlayModeTests already proves green: bake ONE continuous
+            // surface, then let the obstacle CARVE the hole at runtime while the door is sealed
+            // or locked. That fixture builds its door AFTER its bake, which is the order this
+            // builder cannot use because DoorSequenceBuilder clones D2-D5 from D1 during
+            // composition. Suppressing the door's own blocking colliders for the duration of the
+            // bake is the same thing without reordering composition.
+            //
+            // Sealed doors keep blocking enemies - that is the carving, not the bake, and it is
+            // what the four SetDoorState_* passability tests assert.
+            var suppressed = SuppressDoorBlockingColliders(scene);
+            try
+            {
+                navigationRoot.AddComponent<GameplayNavigationSurface>().ConfigureAndBuild();
+            }
+            finally
+            {
+                foreach (var collider in suppressed)
+                {
+                    collider.enabled = true;
+                }
+            }
+        }
+
+        // Disables every enabled non-trigger collider owned by a door, returning exactly those it
+        // changed so the caller restores the same set. Triggers are left alone: the arm's-reach
+        // and forward-crossing volumes carry no navigation geometry and disabling them would
+        // change door behaviour rather than the bake.
+        private static List<Collider> SuppressDoorBlockingColliders(Scene scene)
+        {
+            var suppressed = new List<Collider>();
+
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                foreach (var door in root.GetComponentsInChildren<DoorInteractable>(true))
+                {
+                    foreach (var collider in door.GetComponentsInChildren<Collider>(true))
+                    {
+                        if (!collider.enabled || collider.isTrigger) continue;
+
+                        collider.enabled = false;
+                        suppressed.Add(collider);
+                    }
+                }
+            }
+
+            return suppressed;
         }
 
         private static void RemoveExistingGameplayNavigation(Scene scene)
