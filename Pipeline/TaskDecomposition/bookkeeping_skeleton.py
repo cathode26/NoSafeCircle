@@ -119,12 +119,16 @@ def _preserved_notes(design_notes: str, model_notes: Any, *, legacy: bool = Fals
     return f"{design_notes}\n\n{written}" if written else design_notes
 
 
-def impose_skeleton(skeleton: Mapping[str, Any], output: Any, *, legacy_notes: bool = False) -> dict[str, Any]:
+def impose_skeleton(skeleton: Mapping[str, Any], output: Any, *, legacy_notes: bool = False,
+                    legacy_entry_ids: bool = False) -> dict[str, Any]:
     """The model's answer with every structural field replaced by the skeleton's.
 
     Prose is matched to the skeleton by stable keys (child local_key, entry
-    ID, parent entry, dependent task) and anything the model did not write
-    stays empty, for the validators to refuse.
+    requirement, parent entry, dependent task) and anything the model did not
+    write stays empty, for the validators to refuse. Entry IDs are the model's
+    free text and it mis-numbers them, so they are only a fallback key;
+    ``legacy_entry_ids`` restores the pre-fix ID join for replaying evidence
+    recorded before that change.
     """
 
     answer = _as_map(output)
@@ -146,12 +150,23 @@ def impose_skeleton(skeleton: Mapping[str, Any], output: Any, *, legacy_notes: b
         child["notes"] = _preserved_notes(planned["notes"], model_child.get("notes"), legacy=legacy_notes)
         for entry_type in ENTRY_TYPES:
             id_field = _ID_FIELDS[entry_type][0]
-            model_entries = {entry.get(id_field): entry for entry in _as_list(model_child.get(entry_type))
-                             if isinstance(entry, Mapping)}
-            child[entry_type] = [
-                {**entry, "reference": _as_map(model_entries.get(entry[id_field])).get("reference", "")}
-                for entry in planned[entry_type]
-            ]
+            model_entries = [entry for entry in _as_list(model_child.get(entry_type))
+                             if isinstance(entry, Mapping)]
+            by_id = {entry.get(id_field): entry for entry in model_entries}
+            # The entry ID is the model's own free text and it mis-numbers it;
+            # the requirement is the sheet's, and conformance_problems compares
+            # requirements exactly, so match on the requirement and keep the ID
+            # only as a fallback. A requirement stated twice pairs up in order.
+            by_requirement: dict[Any, list[Mapping[str, Any]]] = {}
+            if not legacy_entry_ids:
+                for entry in model_entries:
+                    by_requirement.setdefault(entry.get("requirement"), []).append(entry)
+            imposed = []
+            for entry in planned[entry_type]:
+                matched = by_requirement.get(entry["requirement"])
+                model_entry = matched.pop(0) if matched else by_id.get(entry[id_field])
+                imposed.append({**entry, "reference": _as_map(model_entry).get("reference", "")})
+            child[entry_type] = imposed
         children.append(child)
     result["children"] = children
     model_coverage = {(record.get("parent_entry_type"), record.get("parent_entry_id")): record

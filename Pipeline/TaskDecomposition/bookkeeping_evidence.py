@@ -163,7 +163,8 @@ def _verify_legacy_bookkeeping(
         _require(isinstance(prompt, str) and sheet_text in prompt, f"{label} was not sent the frozen sheet")
         # The candidate is the model's prose on the code's structure, so the
         # imposition is recomputed here from the retained runtime output.
-        output = impose_skeleton(skeleton, result.get("structured_output"), legacy_notes=True)
+        output = impose_skeleton(skeleton, result.get("structured_output"),
+                                 legacy_notes=True, legacy_entry_ids=True)
         problems = conformance_problems(sheet, output)
         digest: tuple[str, str | None] | None = None
         if not problems:
