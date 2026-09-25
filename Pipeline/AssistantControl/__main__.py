@@ -296,6 +296,9 @@ def main(argv=None) -> int:
     decompose.add_argument("--compose-project", default="nosafecircle")
     decompose.add_argument("--authorize-provider-spend", action="store_true")
     decompose.add_argument(
+        "--max-calls", type=int, choices=(2, 3), default=2,
+        help="Review-call budget; 3 (two distinct providers only) lets an independent PASS approve a reviewer revision")
+    decompose.add_argument(
         "--author-checklist", choices=("parent-contract-v1",),
         help="Opt-in author checklist for the author, correction and reviewer; omit for unchanged prompts")
     inspect_decomposition = commands.add_parser("inspect-decomposition", help="Recheck the exact retained decomposition review")
@@ -759,6 +762,7 @@ def main(argv=None) -> int:
                         compose_project=args.compose_project,
                         execution_authorized=args.authorize_provider_spend,
                         author_checklist=args.author_checklist,
+                        max_calls=args.max_calls,
                     )
                 elif args.command == "inspect-decomposition":
                     result = decomposition.inspect(manager, args.task)
