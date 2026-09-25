@@ -314,8 +314,16 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             Assert.That(west.transform.localPosition.x, Is.EqualTo(-14.849f).Within(0.001f));
             Assert.That(east.transform.localPosition.x, Is.EqualTo(14.849f).Within(0.001f));
 
-            Tile floorTile = AssetDatabase.LoadAssetAtPath<Tile>(
-                "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/FloorTile.asset");
+            // Read the floor Tile off a painted cell rather than assuming the room's own
+            // generated Tile asset is already persisted: BuildInMemoryForTests() falls back to an
+            // equivalent transient Tile when no persisted asset exists yet.
+            Tile floorTile = null;
+            foreach (Vector3Int candidate in floor.cellBounds.allPositionsWithin)
+            {
+                if (!floor.HasTile(candidate)) continue;
+                floorTile = floor.GetTile(candidate) as Tile;
+                break;
+            }
             Tile wallTile = AssetDatabase.LoadAssetAtPath<Tile>(
                 "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WallTile.asset");
             Assert.IsNotNull(floorTile);
@@ -324,6 +332,12 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
                 "Full-height wall cells render at 2.5 units.");
             Assert.That(wallTile.sprite.bounds.size.y * 0.2f, Is.EqualTo(0.5f).Within(0.05f),
                 "Cutaway cells render at 0.5 units via the 0.2 cell transform.");
+
+            // NSC-109 AC-001/VAL-001: the painted floor Tile must resolve to the committed
+            // floor_FinalRoom sprite rather than a procedurally generated texture.
+            Assert.AreEqual(
+                "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_FinalRoom.png",
+                AssetDatabase.GetAssetPath(floorTile.sprite));
 
             AssertFloorCoversRoomBounds(floor);
 

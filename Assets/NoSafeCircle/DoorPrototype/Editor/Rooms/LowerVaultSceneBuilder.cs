@@ -20,13 +20,22 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
 
         private const string ArchitecturalTileFolder =
             "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles";
-        private const string FloorTilePath = ArchitecturalTileFolder + "/FloorTile.asset";
         private const string FullWallTilePath = ArchitecturalTileFolder + "/WallTile.asset";
         private const string WorldSpriteVisualPrefabPath =
             ArchitecturalTileFolder + "/WorldSprites/WorldSpriteVisual.prefab";
 
+        // NSC-109 AC-001/AC-002: this room's own floor Tile, owned and materialized here rather
+        // than borrowed from a room-agnostic shared asset, so it can be bound to this room's own
+        // committed floor sprite.
+        private const string FloorTileName = "LowerVaultFloorTile";
+        private const string FloorTilePath = ArchitecturalTileFolder + "/" + FloorTileName + ".asset";
+        private const string FloorSpriteSourcePath =
+            "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_LowerVault.png";
+
         private const string NearWallStubTileName = "LowerVaultNearWallStubTile";
         private const string NearWallStubTilePath = ArchitecturalTileFolder + "/" + NearWallStubTileName + ".asset";
+        private const string NearWallStubSpriteSourcePath =
+            "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_broken_stub.png";
 
         private const string BlockoutProxySpriteName = "LowerVaultBlockoutProxySprite";
         private const string BlockoutProxySpritePath = ArchitecturalTileFolder + "/" + BlockoutProxySpriteName + ".asset";
@@ -54,9 +63,10 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
 
             // Opening the old scene can unload a newly created Tile/Sprite sub-asset. Resolve them
             // only after the destination scene is active so the references survive materialization.
+            Tile floorTile = LoadOrCreateFloorTile(ArchitecturalTileFolder);
             Tile nearWallStubTile = LoadOrCreateNearWallStubTile(ArchitecturalTileFolder);
             Sprite blockoutProxySprite = LoadOrCreateBlockoutProxySprite(ArchitecturalTileFolder);
-            RebuildSceneContents(scene, nearWallStubTile, blockoutProxySprite);
+            RebuildSceneContents(scene, floorTile, nearWallStubTile, blockoutProxySprite);
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssetDatabase.SaveAssets();
@@ -67,10 +77,16 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         {
             CleanupTransientArchitecturalObjects();
 
+            Tile floorTile = AssetDatabase.LoadAssetAtPath<Tile>(FloorTilePath);
+            if (floorTile == null)
+            {
+                floorTile = CreateTransientTile(FloorTileName, FloorSpriteSourcePath);
+            }
+
             Tile nearWallStubTile = AssetDatabase.LoadAssetAtPath<Tile>(NearWallStubTilePath);
             if (nearWallStubTile == null)
             {
-                nearWallStubTile = CreateTransientNearWallStubTile();
+                nearWallStubTile = CreateTransientTile(NearWallStubTileName, NearWallStubSpriteSourcePath);
             }
 
             Sprite blockoutProxySprite = LoadPersistedBlockoutProxySprite();
@@ -79,7 +95,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
                 blockoutProxySprite = CreateTransientBlockoutProxySprite();
             }
 
-            RebuildSceneContents(SceneManager.GetActiveScene(), nearWallStubTile, blockoutProxySprite);
+            RebuildSceneContents(SceneManager.GetActiveScene(), floorTile, nearWallStubTile, blockoutProxySprite);
         }
 
         // AC-005/GAME_TASK_LESSONS_LEARNED: a non-destructive staging tool. It never saves the
@@ -117,7 +133,8 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             marker.transform.position = new Vector3(x, 0f, z);
         }
 
-        private static void RebuildSceneContents(Scene scene, Tile nearWallStubTile, Sprite blockoutProxySprite)
+        private static void RebuildSceneContents(
+            Scene scene, Tile floorTile, Tile nearWallStubTile, Sprite blockoutProxySprite)
         {
             foreach (GameObject root in scene.GetRootGameObjects())
             {
@@ -134,7 +151,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             Transform authoringRoot = CreateContentRoot(
                 roomRoot.transform, "Authoring", RoomContentCategory.Authoring);
 
-            BuildWallsAndFloor(visibleRoot, nearWallStubTile);
+            BuildWallsAndFloor(visibleRoot, floorTile, nearWallStubTile);
             BuildBlockoutObstacleProxies(visibleRoot, blockoutProxySprite);
             BuildGameplayGeometry(gameplayRoot);
 
@@ -155,13 +172,12 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         // Visuals: IsometricZAsY Grid (floor + four straight-run wall Tilemaps)
         // ------------------------------------------------------------------
 
-        private static void BuildWallsAndFloor(Transform parent, Tile nearWallStubTile)
+        private static void BuildWallsAndFloor(Transform parent, Tile floorTile, Tile nearWallStubTile)
         {
-            Tile floorTile = AssetDatabase.LoadAssetAtPath<Tile>(FloorTilePath);
             Tile fullWallTile = AssetDatabase.LoadAssetAtPath<Tile>(FullWallTilePath);
-            if (floorTile == null || fullWallTile == null)
+            if (fullWallTile == null)
             {
-                throw new InvalidOperationException("Lower Vault requires the existing FloorTile and WallTile assets.");
+                throw new InvalidOperationException("Lower Vault requires the existing WallTile asset.");
             }
 
             GameObject gridObject = new GameObject("IsometricZAsY", typeof(Grid));
@@ -423,34 +439,53 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         }
 
         // ------------------------------------------------------------------
-        // LowerVaultNearWallStubTile.asset: shared 64x32 cutaway wall Tile
+        // NSC-109 AC-001/AC-002: LowerVaultFloorTile.asset and LowerVaultNearWallStubTile.asset,
+        // now bound to the committed floor_LowerVault and wall_broken_stub sprites instead of
+        // procedurally generated textures.
         // ------------------------------------------------------------------
+
+        public static Tile LoadOrCreateFloorTile(string assetFolder)
+        {
+            return LoadOrCreateSpriteTile(assetFolder, FloorTileName, FloorSpriteSourcePath);
+        }
 
         public static Tile LoadOrCreateNearWallStubTile(string assetFolder)
         {
+            return LoadOrCreateSpriteTile(assetFolder, NearWallStubTileName, NearWallStubSpriteSourcePath);
+        }
+
+        private static Tile LoadOrCreateSpriteTile(string assetFolder, string tileName, string sourceSpritePath)
+        {
             if (string.IsNullOrWhiteSpace(assetFolder) || !assetFolder.StartsWith("Assets/", StringComparison.Ordinal))
             {
-                throw new ArgumentException("The near-wall stub Tile asset folder must be under Assets.", nameof(assetFolder));
+                throw new ArgumentException("The Tile asset folder must be under Assets.", nameof(assetFolder));
+            }
+
+            Sprite sourceSprite = AssetDatabase.LoadAssetAtPath<Sprite>(sourceSpritePath);
+            if (sourceSprite == null)
+            {
+                throw new InvalidOperationException(
+                    $"Lower Vault requires the committed sprite at '{sourceSpritePath}'.");
             }
 
             EnsureFolder(assetFolder);
-            string assetPath = assetFolder + "/" + NearWallStubTileName + ".asset";
-            Color32[] pixels = CreateNearWallStubPixels();
+            string assetPath = assetFolder + "/" + tileName + ".asset";
             Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(assetPath);
             if (tile == null)
             {
                 tile = ScriptableObject.CreateInstance<Tile>();
-                tile.name = NearWallStubTileName;
+                tile.name = tileName;
                 tile.colliderType = Tile.ColliderType.None;
+                tile.sprite = sourceSprite;
                 AssetDatabase.CreateAsset(tile, assetPath);
-                ReplaceNearWallStubVisual(tile, pixels);
+                EditorUtility.SetDirty(tile);
+                AssetDatabase.SaveAssetIfDirty(tile);
+                return tile;
             }
-            else if (!NearWallStubVisualMatches(tile, pixels))
+
+            if (tile.sprite != sourceSprite || tile.colliderType != Tile.ColliderType.None)
             {
-                ReplaceNearWallStubVisual(tile, pixels);
-            }
-            else if (tile.colliderType != Tile.ColliderType.None)
-            {
+                tile.sprite = sourceSprite;
                 tile.colliderType = Tile.ColliderType.None;
                 EditorUtility.SetDirty(tile);
                 AssetDatabase.SaveAssetIfDirty(tile);
@@ -459,106 +494,22 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             return tile;
         }
 
-        private static Tile CreateTransientNearWallStubTile()
+        private static Tile CreateTransientTile(string tileName, string sourceSpritePath)
         {
+            Sprite sourceSprite = AssetDatabase.LoadAssetAtPath<Sprite>(sourceSpritePath);
+            if (sourceSprite == null)
+            {
+                throw new InvalidOperationException(
+                    $"Lower Vault requires the committed sprite at '{sourceSpritePath}'.");
+            }
+
             Tile tile = ScriptableObject.CreateInstance<Tile>();
-            tile.name = NearWallStubTileName;
+            tile.name = tileName;
             tile.colliderType = Tile.ColliderType.None;
             tile.hideFlags = HideFlags.HideAndDontSave;
-            Texture2D texture = CreateNearWallStubTexture(CreateNearWallStubPixels());
-            texture.hideFlags = HideFlags.HideAndDontSave;
-            Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, 64f, 32f), new Vector2(0.5f, 0f), 64f);
-            sprite.name = NearWallStubTileName + "Sprite";
-            sprite.hideFlags = HideFlags.HideAndDontSave;
-            tile.sprite = sprite;
+            tile.sprite = sourceSprite;
             TransientArchitecturalObjects.Add(tile);
-            TransientArchitecturalObjects.Add(texture);
-            TransientArchitecturalObjects.Add(sprite);
             return tile;
-        }
-
-        // Texture repeat period (32) divides the 64px width so the stub reads as one continuous
-        // low wall rather than a row of visibly restarting pieces.
-        private static Color32[] CreateNearWallStubPixels()
-        {
-            const int width = 64;
-            const int height = 32;
-            const int repeatPeriod = 32;
-            Color32[] pixels = new Color32[width * height];
-            Color32 stone = new Color32(70, 78, 76, 255);
-            Color32 alternate = new Color32(82, 90, 86, 255);
-            Color32 mortar = new Color32(34, 40, 38, 255);
-            for (int y = 0; y < height; y++)
-            {
-                int course = y / 16;
-                for (int x = 0; x < width; x++)
-                {
-                    int phase = (x + course * 16) % repeatPeriod;
-                    bool isMortar = y % 16 < 2 || phase < 2;
-                    pixels[y * width + x] = isMortar ? mortar : (course == 0 ? stone : alternate);
-                }
-            }
-            return pixels;
-        }
-
-        private static Texture2D CreateNearWallStubTexture(Color32[] pixels)
-        {
-            Texture2D texture = new Texture2D(64, 32, TextureFormat.RGBA32, false)
-            {
-                name = NearWallStubTileName + "Texture",
-                filterMode = FilterMode.Point,
-                wrapMode = TextureWrapMode.Repeat
-            };
-            texture.SetPixels32(pixels);
-            texture.Apply(false, false);
-            return texture;
-        }
-
-        private static bool NearWallStubVisualMatches(Tile tile, Color32[] pixels)
-        {
-            Sprite sprite = tile.sprite;
-            if (sprite == null || sprite.texture == null || sprite.texture.width != 64 || sprite.texture.height != 32 ||
-                !Mathf.Approximately(sprite.pixelsPerUnit, 64f) ||
-                Vector2.Distance(sprite.pivot, new Vector2(32f, 0f)) > 0.01f)
-            {
-                return false;
-            }
-
-            try
-            {
-                Color32[] persisted = sprite.texture.GetPixels32();
-                if (persisted.Length != pixels.Length) return false;
-                for (int index = 0; index < pixels.Length; index++)
-                {
-                    if (!persisted[index].Equals(pixels[index])) return false;
-                }
-                return true;
-            }
-            catch (UnityException)
-            {
-                return false;
-            }
-        }
-
-        private static void ReplaceNearWallStubVisual(Tile tile, Color32[] pixels)
-        {
-            Sprite previousSprite = tile.sprite;
-            Texture2D previousTexture = previousSprite != null ? previousSprite.texture : null;
-            tile.sprite = null;
-            if (previousSprite != null && AssetDatabase.Contains(previousSprite)) Object.DestroyImmediate(previousSprite, true);
-            if (previousTexture != null && AssetDatabase.Contains(previousTexture)) Object.DestroyImmediate(previousTexture, true);
-
-            Texture2D texture = CreateNearWallStubTexture(pixels);
-            AssetDatabase.AddObjectToAsset(texture, tile);
-            Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, 64f, 32f), new Vector2(0.5f, 0f), 64f);
-            sprite.name = NearWallStubTileName + "Sprite";
-            AssetDatabase.AddObjectToAsset(sprite, tile);
-            tile.sprite = sprite;
-            tile.colliderType = Tile.ColliderType.None;
-            EditorUtility.SetDirty(texture);
-            EditorUtility.SetDirty(sprite);
-            EditorUtility.SetDirty(tile);
-            AssetDatabase.SaveAssetIfDirty(tile);
         }
 
         // ------------------------------------------------------------------
