@@ -1,0 +1,45 @@
+{
+    "schema_version":  "1.1",
+    "manifest_type":  "unity_test_validation",
+    "status":  "passed",
+    "validated_state":  {
+                            "commit":  "b44a34ce481eb9b05464ea7c13d08249234536bd",
+                            "tree":  "48068dc834af1de30d9d61cb036cb6f5d1b5db02",
+                            "post_commit":  "b44a34ce481eb9b05464ea7c13d08249234536bd",
+                            "post_tree":  "48068dc834af1de30d9d61cb036cb6f5d1b5db02",
+                            "repository_clean_before":  true,
+                            "repository_clean_after":  true
+                        },
+    "unity":  {
+                  "version":  "6000.1.8f1",
+                  "executable":  "C:\\Program Files\\Unity\\Hub\\Editor\\6000.1.8f1\\Editor\\Unity.exe",
+                  "exit_code":  0,
+                  "test_platform":  "EditMode",
+                  "test_filter":  "NoSafeCircle"
+              },
+    "test_run":  {
+                     "result":  "Skipped:Ignored",
+                     "total":  304,
+                     "passed":  292,
+                     "failed":  0,
+                     "skipped":  12
+                 },
+    "artifacts":  {
+                      "xml":  {
+                                  "relative_path":  "test-results.xml",
+                                  "sha256":  "6dc0a8a29f73c129a00941f32b4911a1218937a51f0969012164113cff3275e1",
+                                  "size_bytes":  272973
+                              },
+                      "log":  {
+                                  "relative_path":  "unity.log",
+                                  "sha256":  "1c5847f62e5ee0c4aca2ea0a405f1afa5bb6d11d30464c4b3ebaa0d146ecdc34",
+                                  "size_bytes":  6616987
+                              }
+                  },
+    "runner":  {
+                   "path":  "Pipeline/Testing/run_unity_tests_clean.ps1",
+                   "sha256":  "9cb1e7ade6adc7975b4d60f8cab6477b58373ac3353000ad33c7fea63569b09d",
+                   "source_commit":  "c0968c289497d4f8b683ee7b0a01bc4e2bc17946",
+                   "source_tree":  "1a641740d6bc61b66b79dfff1a97a3a0c58ae0cf"
+               }
+}
