@@ -24,6 +24,11 @@
       "criterion_id": "AC-005",
       "reference": "NSC-109 INT-001; CLAUDE.md: art goes to the Art Director",
       "requirement": "THIS TASK PLACES ONLY THE THREE ROLES NSC-120 BINDS - corner, door jamb and end cap - AND DOES NOT PLACE wall_pilaster.png. NSC-109 INT-001 records that the pilaster is one unit wide but 2.750 high with pivot y 0.068182 against a required 2.5 and 0, and assigns that art-geometry question to the Art Director. Until the sprite changes it cannot be placed correctly by anyone, and adding it here would create a criterion no crew could satisfy. It is excluded deliberately, not overlooked."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "Art Director Agent, 2026-09-25, ART-wall-pilaster-and-the-pivot-split-20260925.md; CLAUDE.md: art goes to the Art Director",
+      "requirement": "NO VERTICAL OFFSET IS BAKED INTO THE BUILDER TO COMPENSATE FOR ART MISALIGNMENT, AND NO SPRITE PIVOT IS EDITED BY THIS TASK. AC-003 already fixes each accent's Y as whatever ArchitecturalWallAccentPlacement.ComputeGroundContactAnchorY returns for that sprite; this criterion forbids adding any further constant, per-role nudge or hand-tuned correction on top of it. THE REASON IS MEASURED AND IT IS NOT HYPOTHETICAL: the Art Director measured on main 7c9c290e that wall_straight.png carries pivot y 0 with transparent padding beneath its masonry while wall_corner.png, wall_door_jamb.png and wall_end_cap.png carry ground-line pivots of 0.100000, 0.147727 and 0.112500 - each sprite's pivot being exactly its own ground line. Against the same cell origin all three therefore land in the SAME place, a uniform 19.00 px (0.297 world unit) LOWER than the straight wall they abut, and the entire seam comes from wall_straight.png's own 19 px of transparent pad rather than from any difference among the accents. That is an ART defect and its fix is a crop plus a .meta pivot, which is the Art Director's and is already precedented on main at 55bd6f32. A builder-side offset would hide it, make the art unfixable without breaking the builder, and put a second source of truth for ground contact into code. If the accents render misaligned, that is the expected result to REPORT, with the render, not to correct here."
     }
   ],
   "basis": "direct_gdd",
@@ -36,7 +41,7 @@
   ],
   "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "decomposition_reason": "One bounded responsibility - call an existing, delivered placement helper from five existing, delivered builders - with a single measurable outcome per room. No new capability is created.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -70,7 +75,18 @@
     "origin": "ger_agent_contract_request",
     "parent_contract_revision": null,
     "parent_contract_sha256": null,
-    "parent_task_id": null
+    "parent_task_id": null,
+    "contract_followups": [
+      {
+        "date": "2026-09-25",
+        "reason": "Adds AC-006 at the Art Director's request: no vertical offset may be baked into the builder to compensate for art misalignment, and this task edits no sprite pivot. Measured reason, corrected to the Art Director's own revised figure: wall_straight.png has pivot y 0 with 19 px of transparent pad under its masonry, while wall_corner, wall_door_jamb and wall_end_cap carry ground-line pivots of 0.100000, 0.147727 and 0.112500, so all three land a UNIFORM 19.00 px (0.297 unit) lower than the straight wall they abut and the seam comes from wall_straight's pad, not from differences among the accents. The fix is a crop plus a .meta pivot, which is the Art Director's and is precedented at 55bd6f32. A builder-side offset would hide the defect and put a second source of truth for ground contact into code. AC-006 is ADDED only: the five existing acceptance criteria, the completion gate and all seven resources are byte-identical to revision 1, and NSC-126 has no control record whose pin this could break.",
+        "source_head": "2facf17fc534cfcfe3ee4e5b4207d3e7ddfec506",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "a827991ec1c05f7545f19bd6cb79ae6963ddf70a41958c19321dcc8b6ca39794",
+        "revised_contract_sha256": "a28f5c7e651f55119470716f7d7176557236f9429cc2344621a80911eef5cb19",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   },
   "reconciliation_key": "room-builder-wall-accent-calls",
   "repository_evidence_at_bootstrap": [],
