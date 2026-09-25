@@ -1,0 +1,3 @@
+ Container nosafecircle-codex-review-run-1b2c9e4a8158 Creating 
+ Container nosafecircle-codex-review-run-1b2c9e4a8158 Created 
+OK smoke test: 1 accepted catalog, 15 guards each refused for its own reason, no fixture written outside the temporary directory

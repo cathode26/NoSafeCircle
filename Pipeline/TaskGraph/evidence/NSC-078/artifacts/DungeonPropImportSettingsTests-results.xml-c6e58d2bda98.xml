@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="8" result="Passed" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-25 23:32:17Z" end-time="2026-09-25 23:32:19Z" duration="1.7410486">
+  <test-suite type="TestSuite" id="1000" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="316" result="Passed" start-time="2026-09-25 23:32:17Z" end-time="2026-09-25 23:32:19Z" duration="1.741049" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1365" name="NoSafeCircle.DoorPrototype.Tests.Editor.dll" fullname="C:/NSC/NoSafeCircle-AssistantCheckouts/NSC-009/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.Editor.dll" runstate="Runnable" testcasecount="316" result="Passed" start-time="2026-09-25 23:32:17Z" end-time="2026-09-25 23:32:19Z" duration="1.727178" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="60968" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1366" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="316" result="Passed" start-time="2026-09-25 23:32:17Z" end-time="2026-09-25 23:32:19Z" duration="1.720417" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1367" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="316" result="Passed" start-time="2026-09-25 23:32:17Z" end-time="2026-09-25 23:32:19Z" duration="1.714022" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1368" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="316" result="Passed" start-time="2026-09-25 23:32:17Z" end-time="2026-09-25 23:32:19Z" duration="1.707719" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestSuite" id="1369" name="Editor" fullname="NoSafeCircle.DoorPrototype.Tests.Editor" runstate="Runnable" testcasecount="316" result="Passed" start-time="2026-09-25 23:32:17Z" end-time="2026-09-25 23:32:19Z" duration="1.701161" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="TestFixture" id="1116" name="DungeonPropImportSettingsTests" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DungeonPropImportSettingsTests" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DungeonPropImportSettingsTests" runstate="Runnable" testcasecount="8" result="Passed" start-time="2026-09-25 23:32:17Z" end-time="2026-09-25 23:32:19Z" duration="1.683458" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1118" name="AnUnreadableCatalogFallsBackToTheGroundLine" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DungeonPropImportSettingsTests.AnUnreadableCatalogFallsBackToTheGroundLine" methodname="AnUnreadableCatalogFallsBackToTheGroundLine" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DungeonPropImportSettingsTests" runstate="Runnable" seed="1083831172" result="Passed" start-time="2026-09-25 23:32:18Z" end-time="2026-09-25 23:32:18Z" duration="0.015327" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1124" name="CatalogPivotsMatchTheImportedPivots" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DungeonPropImportSettingsTests.CatalogPivotsMatchTheImportedPivots" methodname="CatalogPivotsMatchTheImportedPivots" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DungeonPropImportSettingsTests" runstate="Runnable" seed="920729905" result="Passed" start-time="2026-09-25 23:32:18Z" end-time="2026-09-25 23:32:18Z" duration="0.059323" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1119" name="ClassificationSurvivesTheCatalogReimportingWithTheProps" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DungeonPropImportSettingsTests.ClassificationSurvivesTheCatalogReimportingWithTheProps" methodname="ClassificationSurvivesTheCatalogReimportingWithTheProps" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DungeonPropImportSettingsTests" runstate="Runnable" seed="2093753545" result="Passed" start-time="2026-09-25 23:32:18Z" end-time="2026-09-25 23:32:18Z" duration="0.544499" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1117" name="EveryCatalogEntryClassifiesFromTheCatalogText" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DungeonPropImportSettingsTests.EveryCatalogEntryClassifiesFromTheCatalogText" methodname="EveryCatalogEntryClassifiesFromTheCatalogText" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DungeonPropImportSettingsTests" runstate="Runnable" seed="1991632443" result="Passed" start-time="2026-09-25 23:32:18Z" end-time="2026-09-25 23:32:18Z" duration="0.009414" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1123" name="EveryPivotMatchesItsClassifiedRule" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DungeonPropImportSettingsTests.EveryPivotMatchesItsClassifiedRule" methodname="EveryPivotMatchesItsClassifiedRule" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DungeonPropImportSettingsTests" runstate="Runnable" seed="750511840" result="Passed" start-time="2026-09-25 23:32:18Z" end-time="2026-09-25 23:32:19Z" duration="0.126908" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1121" name="EverySelectedPropImportsWithTheContractSettings" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DungeonPropImportSettingsTests.EverySelectedPropImportsWithTheContractSettings" methodname="EverySelectedPropImportsWithTheContractSettings" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DungeonPropImportSettingsTests" runstate="Runnable" seed="641871969" result="Passed" start-time="2026-09-25 23:32:19Z" end-time="2026-09-25 23:32:19Z" duration="0.009941" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1122" name="EverySelectedPropLoadsAsASprite" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DungeonPropImportSettingsTests.EverySelectedPropLoadsAsASprite" methodname="EverySelectedPropLoadsAsASprite" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DungeonPropImportSettingsTests" runstate="Runnable" seed="198372465" result="Passed" start-time="2026-09-25 23:32:19Z" end-time="2026-09-25 23:32:19Z" duration="0.076348" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1120" name="SelectedPropsExist" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DungeonPropImportSettingsTests.SelectedPropsExist" methodname="SelectedPropsExist" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DungeonPropImportSettingsTests" runstate="Runnable" seed="1277644122" result="Passed" start-time="2026-09-25 23:32:19Z" end-time="2026-09-25 23:32:19Z" duration="0.001277" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                  <output><![CDATA[Saving results to: C:/Users/VincentLiguori/AppData/LocalLow/DefaultCompany/NoSafeCircle\TestResults.xml
+]]></output>
+                </test-case>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

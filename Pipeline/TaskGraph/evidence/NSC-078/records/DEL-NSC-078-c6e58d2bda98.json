@@ -1,0 +1,130 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "b0c9af9b841cdf3675c2015626a001d808a51937",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/PropCatalog.json",
+      "role": "catalog"
+    },
+    {
+      "blob_sha": "6f29d357c0f2960a20d4fdadc021da15195a3347",
+      "path": "Docs/Art/Environment/NSC-078_ART_PLAN.md",
+      "role": "art_plan"
+    },
+    {
+      "blob_sha": "266ea2b11a852a6bcf5129a54b4afc9422d482b4",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/Art/DungeonPropImportPostprocessor.cs",
+      "role": "import_postprocessor"
+    },
+    {
+      "blob_sha": "bb26e647ae5bc46bee98bc32c7fad7ae9a6b782d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DungeonPropImportSettingsTests.cs",
+      "role": "val003_test"
+    },
+    {
+      "blob_sha": "f42716ffa304d9994baf0129ed8fedbe5c854411",
+      "path": "Pipeline/Art/validate_dungeon_prop_catalog.py",
+      "role": "val001_validator"
+    },
+    {
+      "blob_sha": "74fe458025f3ed939a3d1f3a749747080326d34a",
+      "path": "Docs/Art/Environment/Reviews/NSC-078-StylePilotContactSheet.png",
+      "role": "val002_sheet"
+    },
+    {
+      "blob_sha": "bd0a6962a6f6af47fce2e1a537b3070c026ede3d",
+      "path": "Docs/Art/Environment/Reviews/NSC-078-FurnishingsContactSheet.png",
+      "role": "val002_sheet"
+    },
+    {
+      "blob_sha": "18d76639c02a613e9159a638fd4e23fc9793b716",
+      "path": "Docs/Art/Environment/Reviews/NSC-078-ArchitectureContactSheet.png",
+      "role": "val002_sheet"
+    },
+    {
+      "blob_sha": "62d4d74d80cbc68cab167b710695f270f7393e1a",
+      "path": "Docs/Art/Environment/Reviews/NSC-078-HazardRouteContactSheet.png",
+      "role": "val002_sheet"
+    }
+  ],
+  "delivery": {
+    "base_commit": "2708669ba52c7de7f8fa8813f13ba029ad05eb3a",
+    "candidate_commit": "1a51f05043b5c51aba9d4a026b6a839ed09a483c",
+    "integrated_commit": "c6e58d2bda9828e045ee456a227824368ce28cb4",
+    "integrated_tree": "456116acc2f377d63129cdec04fac46f18af2c3d"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "ce42cac2bccca250b033fe0956328f5831c02040",
+          "path": "Pipeline/TaskGraph/evidence/NSC-078/artifacts/VAL-001-codex-review-run.txt-c6e58d2bda98.txt"
+        },
+        {
+          "blob_sha": "3c7dd7c957f4f5cd2dc192ee791db12316d0bf20",
+          "path": "Pipeline/TaskGraph/evidence/NSC-078/artifacts/VAL-001-validator-smoke-test.txt-c6e58d2bda98.txt"
+        },
+        {
+          "blob_sha": "e8bb530cab694291ab0211efc90a57ff350dd534",
+          "path": "Pipeline/TaskGraph/evidence/NSC-078/artifacts/VAL-001-production-validator.txt-c6e58d2bda98.txt"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Run in the gate's required form on 2026-09-25 at 23:31Z from a completely clean candidate checkout (C:/NSC/NoSafeCircle-AssistantCheckouts/NSC-032 detached at this validated_commit, 0 tracked and 0 untracked entries before the run): `docker compose -p nosafecircle run --rm codex-review python3 Pipeline/Art/validate_dungeon_prop_catalog_smoke_test.py` then the same for validate_dungeon_prop_catalog.py --catalog Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/PropCatalog.json. Both exit 0. Smoke: '1 accepted catalog, 15 guards each refused for its own reason, no fixture written outside the temporary directory'. Production: 'OK 45 catalog entries validated against their PNGs'. Tracked and untracked state rechecked after both commands and byte-identical, so no repository mutation. NOT PROVEN by this gate, in its own words: visual pivot, sorting, scale or composition correctness.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "cb920d17e771b344fc3abc1ff248306d44e4ed9a",
+          "path": "Pipeline/TaskGraph/evidence/NSC-078/artifacts/VAL-002-vincent-approval.md-c6e58d2bda98.txt"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "Vincent approved on 2026-09-25 in two sessions minutes apart: 'approve NSC-078 VAL-002' typed directly in the Art Director session at 22:28 UTC, and 'Approve' in the Documentation Agent session after it displayed all four contact sheets (sha256-verified against their blobs at candidate_commit 1a51f050 before display) together with the seven reference images the gate names as deliberately not embedded - R09/R17, R03, R05/R12, R02/R16 - and the gate's own failure list. WHAT IS NOT ASSERTED: that he performed each of the four named reference comparisons item by item. Every artifact the gate names was shown to him and he approved; what he did with them is his. AND HE CALLED THE STONE WRONG the same day: at 10:12:00Z, 'VAL-002 passes. The violet is WRONG. Regrade the stone - floors first.' Recording the approval without that is true and misleading. The gate's own scope limit applies: it approves source art only and does not claim in-room gameplay-camera approval, which is NSC-079..084.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "8cbd2ce51be6505a0e071ee12b68ad626c737e7b",
+          "path": "Pipeline/TaskGraph/evidence/NSC-078/artifacts/DungeonPropImportSettingsTests-results.xml-c6e58d2bda98.xml"
+        },
+        {
+          "blob_sha": "ede3623af8a93db663a8d68fc9f44c801ed69357",
+          "path": "Pipeline/TaskGraph/evidence/NSC-078/artifacts/DungeonPropImportSettingsTests-unity.log-c6e58d2bda98.log"
+        },
+        {
+          "blob_sha": "4c48037ef3ce88ff8f8d15bd6419599a821507b1",
+          "path": "Pipeline/TaskGraph/evidence/NSC-078/artifacts/DungeonPropImportSettingsTests-validation-manifest.json-c6e58d2bda98.json"
+        }
+      ],
+      "gate_id": "VAL-003",
+      "notes": "Unity 6000.1.8f1 Edit Mode run on 2026-09-25 at this validated_commit in C:/NSC/NoSafeCircle-AssistantCheckouts/NSC-009 detached at it, never canonical, filtered to NoSafeCircle.DoorPrototype.Tests.Editor.DungeonPropImportSettingsTests via Pipeline/Testing/run_unity_tests_clean.ps1. Git tree and post-run tree identical, so the repository was unchanged by the run, and the runner reports 'VALIDATION PASSED: assertions passed and the repository remained clean.' The checkout was restored to its own branch afterwards. Only this test class was run, not the full Edit Mode suite.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "Vincent",
+    "decision": "approved",
+    "notes": "VAL-002 only. His words, quoted not paraphrased: 'approve NSC-078 VAL-002' (2026-09-25 22:28 UTC, Art Director session) and 'Approve' (Documentation Agent session, after being shown all four sheets and the seven named references). He separately rejected the stone palette the same day - 'The violet is WRONG' - which is regraded but NOT yet landed; this approval covers the source art on the contact sheets and not that palette, and not in-room appearance.",
+    "required": true
+  },
+  "record_id": "DEL-NSC-078-c6e58d2bda98",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-25T23:33:48Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-078.yaml",
+    "revision": 14,
+    "sha256": "4080fff88045f6a3826926822a2e6240121b499c106f99dbb6bda0840e2411ee"
+  },
+  "task_id": "NSC-078",
+  "validated_state": {
+    "commit": "c6e58d2bda9828e045ee456a227824368ce28cb4",
+    "tree": "456116acc2f377d63129cdec04fac46f18af2c3d"
+  }
+}

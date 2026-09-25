@@ -1,0 +1,613 @@
+[Licensing::Module] Trying to connect to existing licensing client channel...
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-VincentLiguori" at "2026-09-25T23:31:59.7343224Z"
+[Licensing::Client] Code 10 while verifying Licensing Client signature (process Id: 74320, path: "C:/Program Files/Unity Hub/UnityLicensingClient_V1/Unity.Licensing.Client.exe")
+[Licensing::Module] LicensingClient has failed validation; ignoring
+[Licensing::Client] Handshaking with LicensingClient:
+  Version:                 1.18.3+d7ffd15
+  Session Id:              c4c9a82bf4014b6e9c5d37d8b7dfcf70
+  Correlation Id:          dd76f567f1bd3c2840642b135f6d00fa
+  External correlation Id: 7514733780942300174
+  Machine Id:              HxO4LzPDSZi5N+Qj55f7MhdwfeY=
+[Licensing::Module] Successfully connected to LicensingClient on channel: "LicenseClient-VincentLiguori" (connect: 0.00s, validation: 0.01s, handshake: 0.05s)
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-VincentLiguori-notifications" at "2026-09-25T23:31:59.7975363Z"
+[Licensing::Module] Error: Access token is unavailable; failed to update
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] Serial number assigned to: "37203-UnityPersXXXX"
+[Licensing::Client] Successfully updated license, isAync: True, time: 0.01
+Built from '6000.1/staging' branch; Version is '6000.1.8f1 (2a5b1522e5ab) revision 2775829'; Using compiler version '194234433'; Build Type 'Release'
+OS: 'Windows 11  (10.0.26200) 64bit Professional' Language: 'en' Physical Memory: 64969 MB
+[Licensing::Client] Successfully resolved entitlement details
+BatchMode: 1, IsHumanControllingUs: 0, StartBugReporterOnCrash: 0, Is64bit: 1, IsPro: 0
+Date: 2026-09-25T23:31:59Z
+
+COMMAND LINE ARGUMENTS:
+C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Unity.exe
+-batchmode
+-projectPath
+C:\NSC\NoSafeCircle-AssistantCheckouts\NSC-009
+-runTests
+-testPlatform
+EditMode
+-testFilter
+NoSafeCircle.DoorPrototype.Tests.Editor.DungeonPropImportSettingsTests
+-testResults
+C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-2c61d204b6af4453913eb77aeb55ce47\test-results.xml
+-logFile
+C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-2c61d204b6af4453913eb77aeb55ce47\unity.log
+Successfully changed project path to: C:\NSC\NoSafeCircle-AssistantCheckouts\NSC-009
+C:/NSC/NoSafeCircle-AssistantCheckouts/NSC-009
+[UnityMemory] Configuration Parameters - Can be set up in boot.config
+    "memorysetup-allocator-temp-initial-block-size-main=262144"
+    "memorysetup-allocator-temp-initial-block-size-worker=262144"
+    "memorysetup-bucket-allocator-granularity=16"
+    "memorysetup-bucket-allocator-bucket-count=8"
+    "memorysetup-bucket-allocator-block-size=33554432"
+    "memorysetup-bucket-allocator-block-count=8"
+    "memorysetup-main-allocator-block-size=16777216"
+    "memorysetup-thread-allocator-block-size=16777216"
+    "memorysetup-gfx-main-allocator-block-size=16777216"
+    "memorysetup-gfx-thread-allocator-block-size=16777216"
+    "memorysetup-cache-allocator-block-size=4194304"
+    "memorysetup-typetree-allocator-block-size=2097152"
+    "memorysetup-profiler-bucket-allocator-granularity=16"
+    "memorysetup-profiler-bucket-allocator-bucket-count=8"
+    "memorysetup-profiler-bucket-allocator-block-size=33554432"
+    "memorysetup-profiler-bucket-allocator-block-count=8"
+    "memorysetup-profiler-allocator-block-size=16777216"
+    "memorysetup-profiler-editor-allocator-block-size=1048576"
+    "memorysetup-temp-allocator-size-main=16777216"
+    "memorysetup-job-temp-allocator-block-size=2097152"
+    "memorysetup-job-temp-allocator-block-size-background=1048576"
+    "memorysetup-job-temp-allocator-reduction-small-platforms=262144"
+    "memorysetup-temp-allocator-size-background-worker=32768"
+    "memorysetup-temp-allocator-size-job-worker=262144"
+    "memorysetup-temp-allocator-size-preload-manager=33554432"
+    "memorysetup-temp-allocator-size-nav-mesh-worker=65536"
+    "memorysetup-temp-allocator-size-audio-worker=65536"
+    "memorysetup-temp-allocator-size-cloud-worker=32768"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gfx=262144"
+Player connection [22400]  Target information:
+
+Player connection [22400]  * "[IP] 172.28.64.1 [Port] 55504 [Flags] 2 [Guid] 3876427163 [EditorId] 3876427163 [Version] 1048832 [Id] WindowsEditor(7,DESKTOP-6LMNLCK) [Debug] 1 [PackageName] WindowsEditor [ProjectName] Editor"
+
+Player connection [22400]  * "[IP] 192.168.10.144 [Port] 55504 [Flags] 2 [Guid] 3876427163 [EditorId] 3876427163 [Version] 1048832 [Id] WindowsEditor(7,DESKTOP-6LMNLCK) [Debug] 1 [PackageName] WindowsEditor [ProjectName] Editor"
+
+Player connection [22400] Host joined multi-casting on [225.0.0.222:54997]...
+Player connection [22400] Host joined alternative multi-casting on [225.0.0.222:34997]...
+Input System module state changed to: Initialized.
+[Physics::Module] Initialized fallback backend.
+[Physics::Module] Id: 0xdecafbad
+[Package Manager] Connected to IPC stream "Upm-60968" after 0.3 seconds.
+Library Redirect Path: Library/
+[Package Manager] Restoring resolved packages state from cache
+[Licensing::Client] Successfully resolved entitlement details
+[Package Manager] Registered 56 packages:
+  Packages from [https://packages.unity.com]:
+    com.unity.ai.navigation@2.0.14 (location: C:\NSC\NoSafeCircle-AssistantCheckouts\NSC-009\Library\PackageCache\com.unity.ai.navigation@134dd6a3b97b)
+    com.unity.collab-proxy@2.13.5 (location: C:\NSC\NoSafeCircle-AssistantCheckouts\NSC-009\Library\PackageCache\com.unity.collab-proxy@120d77864ebc)
+    com.unity.inputsystem@1.14.0 (location: C:\NSC\NoSafeCircle-AssistantCheckouts\NSC-009\Library\PackageCache\com.unity.inputsystem@7fe8299111a7)
+    com.unity.timeline@1.8.7 (location: C:\NSC\NoSafeCircle-AssistantCheckouts\NSC-009\Library\PackageCache\com.unity.timeline@c58b4ee65782)
+    com.unity.visualscripting@1.9.7 (location: C:\NSC\NoSafeCircle-AssistantCheckouts\NSC-009\Library\PackageCache\com.unity.visualscripting@6279e2b7c485)
+    com.unity.ide.visualstudio@2.0.23 (location: C:\NSC\NoSafeCircle-AssistantCheckouts\NSC-009\Library\PackageCache\com.unity.ide.visualstudio@198cdf337d13)
+    com.unity.ide.rider@3.0.36 (location: C:\NSC\NoSafeCircle-AssistantCheckouts\NSC-009\Library\PackageCache\com.unity.ide.rider@4d374c7eb6db)
+    com.unity.editorcoroutines@1.0.0 (location: C:\NSC\NoSafeCircle-AssistantCheckouts\NSC-009\Library\PackageCache\com.unity.editorcoroutines@7d48783e7b8c)
+    com.unity.performance.profile-analyzer@1.2.3 (location: C:\NSC\NoSafeCircle-AssistantCheckouts\NSC-009\Library\PackageCache\com.unity.performance.profile-analyzer@a68e7bc84997)
+    com.unity.testtools.codecoverage@1.2.6 (location: C:\NSC\NoSafeCircle-AssistantCheckouts\NSC-009\Library\PackageCache\com.unity.testtools.codecoverage@205a02cbcb39)
+    com.unity.collections@2.6.8 (location: C:\NSC\NoSafeCircle-AssistantCheckouts\NSC-009\Library\PackageCache\com.unity.collections@84e8eb3fc12e)
+    com.unity.settings-manager@2.1.0 (location: C:\NSC\NoSafeCircle-AssistantCheckouts\NSC-009\Library\PackageCache\com.unity.settings-manager@41738c275190)
+    com.unity.burst@1.8.29 (location: C:\NSC\NoSafeCircle-AssistantCheckouts\NSC-009\Library\PackageCache\com.unity.burst@6bb9aca3ef38)
+    com.unity.mathematics@1.3.2 (location: C:\NSC\NoSafeCircle-AssistantCheckouts\NSC-009\Library\PackageCache\com.unity.mathematics@8017b507cc74)
+    com.unity.nuget.mono-cecil@1.11.6 (location: C:\NSC\NoSafeCircle-AssistantCheckouts\NSC-009\Library\PackageCache\com.unity.nuget.mono-cecil@ecb9724e46ff)
+    com.unity.test-framework.performance@3.1.0 (location: C:\NSC\NoSafeCircle-AssistantCheckouts\NSC-009\Library\PackageCache\com.unity.test-framework.performance@92d1d09a72ed)
+  Built-in packages:
+    com.unity.2d.tilemap@1.0.0 (location: C:\NSC\NoSafeCircle-AssistantCheckouts\NSC-009\Library\PackageCache\com.unity.2d.tilemap@855769f9baae)
+    com.unity.feature.development@1.0.2 (location: C:\NSC\NoSafeCircle-AssistantCheckouts\NSC-009\Library\PackageCache\com.unity.feature.development@767aadbc6eb7)
+    com.unity.multiplayer.center@1.0.0 (location: C:\NSC\NoSafeCircle-AssistantCheckouts\NSC-009\Library\PackageCache\com.unity.multiplayer.center@f3fb577b3546)
+    com.unity.ugui@2.0.0 (location: C:\NSC\NoSafeCircle-AssistantCheckouts\NSC-009\Library\PackageCache\com.unity.ugui@57cef44123c7)
+    com.unity.modules.accessibility@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.accessibility)
+    com.unity.modules.ai@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.ai)
+    com.unity.modules.androidjni@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.androidjni)
+    com.unity.modules.animation@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.animation)
+    com.unity.modules.assetbundle@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.assetbundle)
+    com.unity.modules.audio@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.audio)
+    com.unity.modules.cloth@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.cloth)
+    com.unity.modules.director@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.director)
+    com.unity.modules.imageconversion@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.imageconversion)
+    com.unity.modules.imgui@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.imgui)
+    com.unity.modules.jsonserialize@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.jsonserialize)
+    com.unity.modules.particlesystem@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.particlesystem)
+    com.unity.modules.physics@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.physics)
+    com.unity.modules.physics2d@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.physics2d)
+    com.unity.modules.screencapture@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.screencapture)
+    com.unity.modules.terrain@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.terrain)
+    com.unity.modules.terrainphysics@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.terrainphysics)
+    com.unity.modules.tilemap@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.tilemap)
+    com.unity.modules.ui@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.ui)
+    com.unity.modules.uielements@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.uielements)
+    com.unity.modules.umbra@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.umbra)
+    com.unity.modules.unityanalytics@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unityanalytics)
+    com.unity.modules.unitywebrequest@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequest)
+    com.unity.modules.unitywebrequestassetbundle@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequestassetbundle)
+    com.unity.modules.unitywebrequestaudio@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequestaudio)
+    com.unity.modules.unitywebrequesttexture@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequesttexture)
+    com.unity.modules.unitywebrequestwww@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequestwww)
+    com.unity.modules.vehicles@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.vehicles)
+    com.unity.modules.video@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.video)
+    com.unity.modules.vr@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.vr)
+    com.unity.modules.wind@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.wind)
+    com.unity.modules.xr@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.xr)
+    com.unity.modules.subsystems@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.subsystems)
+    com.unity.modules.hierarchycore@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.hierarchycore)
+    com.unity.test-framework@1.5.1 (location: C:\NSC\NoSafeCircle-AssistantCheckouts\NSC-009\Library\PackageCache\com.unity.test-framework@7056e7f856e9)
+    com.unity.ext.nunit@2.0.5 (location: C:\NSC\NoSafeCircle-AssistantCheckouts\NSC-009\Library\PackageCache\com.unity.ext.nunit@031a54704bff)
+[Physics::Module] Selected backend.
+[Physics::Module] Name: PhysX
+[Physics::Module] Id: 0xf2b8ea05
+[Physics::Module] SDK Version: 4.1.2
+[Physics::Module] Integration Version: 1.0.0
+[Physics::Module] Threading Mode: Multi-Threaded
+[Subsystems] No new subsystems found in resolved package list.
+Package Manager log level set to [2]
+[Package Manager] Done registering packages in 0.47 seconds
+Artifact Garbage Collection - Removed 2 unused hashed content files
+Refreshing native plugins compatible for Editor in 4.92 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Initialize engine version: 6000.1.8f1 (2a5b1522e5ab)
+[Subsystems] Discovering subsystems at path C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/Resources/UnitySubsystems
+[Subsystems] Discovering subsystems at path C:/NSC/NoSafeCircle-AssistantCheckouts/NSC-009/Assets
+GfxDevice: creating device client; kGfxThreadingModeNonThreaded
+Direct3D:
+    Version:         Direct3D 12 [level 12.1]
+    Renderer:        NVIDIA GeForce RTX 4070 Laptop GPU (ID=0x2820)
+    Vendor:          NVIDIA
+    VRAM:            7948 MB
+    App VRAM Budget: 7180 MB
+    Driver:          32.0.15.9658
+[Licensing::Client] Successfully resolved entitlement details
+Initialize mono
+Mono path[0] = 'C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/Managed'
+Mono path[1] = 'C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/MonoBleedingEdge/lib/mono/unityjit-win32'
+Mono config path = 'C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/MonoBleedingEdge/etc'
+Using monoOptions --debugger-agent=transport=dt_socket,embedding=1,server=y,suspend=n,address=127.0.0.1:56968
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+ImportWorker Server TCP listen port: 0
+AcceleratorClientConnectionCallback - disconnected - :0
+Begin MonoManager ReloadAssembly
+Registering precompiled unity dll's ...
+Register platform support module: C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/PlaybackEngines/WebGLSupport/UnityEditor.WebGL.Extensions.dll
+Register platform support module: C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/PlaybackEngines/WindowsStandaloneSupport/UnityEditor.WindowsStandalone.Extensions.dll
+Registered in 0.002908 seconds.
+- Loaded All Assemblies, in  0.434 seconds
+Native extension for WindowsStandalone target not found
+Native extension for WebGL target not found
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  0.386 seconds
+Domain Reload Profiling: 817ms
+	BeginReloadAssembly (159ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (0ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (1ms)
+	RebuildCommonClasses (35ms)
+	RebuildNativeTypeToScriptingClass (14ms)
+	initialDomainReloadingComplete (61ms)
+	LoadAllAssembliesAndSetupDomain (163ms)
+		LoadAssemblies (156ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (159ms)
+			TypeCache.Refresh (157ms)
+				TypeCache.ScanAssembly (145ms)
+			BuildScriptInfoCaches (0ms)
+			ResolveRequiredComponents (1ms)
+	FinalizeReload (387ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (352ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (65ms)
+			SetLoadedEditorAssemblies (5ms)
+			BeforeProcessingInitializeOnLoad (67ms)
+			ProcessInitializeOnLoadAttributes (151ms)
+			ProcessInitializeOnLoadMethodAttributes (63ms)
+			AfterProcessingInitializeOnLoad (0ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (0ms)
+[Licensing::Client] Successfully resolved entitlement details
+Application.AssetDatabase Initial Refresh Start
+Starting: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\bee_backend.exe --ipc --defer-dag-verification --dagfile="Library/Bee/1900b0aEDbg.dag" --continue-on-failure --profile="Library/Bee/backend1.traceevents" ScriptAssemblies
+WorkingDir: C:/NSC/NoSafeCircle-AssistantCheckouts/NSC-009
+DisplayProgressbar: Compiling Scripts
+ExitCode: 0 Duration: 3s244ms
+[572/728    0s] ILPP-Configuration Library/ilpp-configuration.nevergeneratedoutput
+[708/728    1s] Csc Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.dll (+2 others)
+[712/728    0s] Csc Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Editor.dll (+2 others)
+Assets\NoSafeCircle\DoorPrototype\Editor\DoorPrototypeSceneBuilder.cs(11,7): warning CS0105: The using directive for 'NoSafeCircle.DoorPrototype.World' appeared previously in this namespace
+[716/728    0s] Csc Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Tests.dll (+2 others)
+[720/728    0s] Csc Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Tests.Editor.dll (+2 others)
+Assets\NoSafeCircle\DoorPrototype\Tests\Editor\Rooms\LowerVaultSceneTests.cs(988,19): warning CS0219: The variable 'innerMinX' is assigned but its value is never used
+
+Assets\NoSafeCircle\DoorPrototype\Tests\Editor\Rooms\LowerVaultSceneTests.cs(989,19): warning CS0219: The variable 'innerMaxX' is assigned but its value is never used
+
+Assets\NoSafeCircle\DoorPrototype\Tests\Editor\Rooms\LowerVaultSceneTests.cs(990,19): warning CS0219: The variable 'innerMinZ' is assigned but its value is never used
+
+Assets\NoSafeCircle\DoorPrototype\Tests\Editor\Rooms\LowerVaultSceneTests.cs(991,19): warning CS0219: The variable 'innerMaxZ' is assigned but its value is never used
+*** Tundra build success (3.19 seconds), 5 items updated, 728 evaluated
+Assets\NoSafeCircle\DoorPrototype\Editor\DoorPrototypeSceneBuilder.cs(11,7): warning CS0105: The using directive for 'NoSafeCircle.DoorPrototype.World' appeared previously in this namespace
+Assets\NoSafeCircle\DoorPrototype\Tests\Editor\Rooms\LowerVaultSceneTests.cs(988,19): warning CS0219: The variable 'innerMinX' is assigned but its value is never used
+Assets\NoSafeCircle\DoorPrototype\Tests\Editor\Rooms\LowerVaultSceneTests.cs(989,19): warning CS0219: The variable 'innerMaxX' is assigned but its value is never used
+Assets\NoSafeCircle\DoorPrototype\Tests\Editor\Rooms\LowerVaultSceneTests.cs(990,19): warning CS0219: The variable 'innerMinZ' is assigned but its value is never used
+Assets\NoSafeCircle\DoorPrototype\Tests\Editor\Rooms\LowerVaultSceneTests.cs(991,19): warning CS0219: The variable 'innerMaxZ' is assigned but its value is never used
+AssetDatabase: script compilation time: 3.846552s
+Begin MonoManager ReloadAssembly
+- Loaded All Assemblies, in  1.187 seconds
+Refreshing native plugins compatible for Editor in 6.76 ms, found 4 plugins.
+Native extension for WindowsStandalone target not found
+Native extension for WebGL target not found
+Refreshing native plugins compatible for Editor in 2.65 ms, found 4 plugins.
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  5.638 seconds
+Domain Reload Profiling: 6820ms
+	BeginReloadAssembly (316ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (16ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (144ms)
+	RebuildCommonClasses (36ms)
+	RebuildNativeTypeToScriptingClass (12ms)
+	initialDomainReloadingComplete (37ms)
+	LoadAllAssembliesAndSetupDomain (781ms)
+		LoadAssemblies (609ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (286ms)
+			TypeCache.Refresh (227ms)
+				TypeCache.ScanAssembly (212ms)
+			BuildScriptInfoCaches (47ms)
+			ResolveRequiredComponents (6ms)
+	FinalizeReload (5639ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (5383ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (34ms)
+			SetLoadedEditorAssemblies (5ms)
+			BeforeProcessingInitializeOnLoad (255ms)
+			ProcessInitializeOnLoadAttributes (4994ms)
+			ProcessInitializeOnLoadMethodAttributes (87ms)
+			AfterProcessingInitializeOnLoad (8ms)
+			EditorAssembliesLoaded (1ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (15ms)
+Asset Pipeline Refresh (id=dbb4dcbe75f6d5043836d41751c6ab38): Total: 11.534 seconds - Initiated by InitialRefreshV2(ForceSynchronousImport)
+	Summary:
+		Imports: total=0 (actual=0, local cache=0, cache server=0)
+		Asset DB Process Time: managed=0 ms, native=6382 ms
+		Asset DB Callback time: managed=17 ms, native=0 ms
+		Scripting: domain reloads=1, domain reload time=1188 ms, compile time=3848 ms, other=96 ms
+		Project Asset Count: scripts=1076, non-scripts=2140
+		Asset File Changes: new=0, changed=0, moved=0, deleted=0
+		Scan Filter Count: 0
+	InvokeCustomDependenciesCallbacks: 0.001ms
+	InvokePackagesCallback: 4.318ms
+	ApplyChangesToAssetFolders: 0.488ms
+	Scan: 328.247ms
+	OnSourceAssetsModified: 0.002ms
+	CategorizeAssetsWithTransientArtifact: 47.642ms
+	ProcessAssetsWithTransientArtifactChanges: 98.132ms
+	CategorizeAssets: 34.047ms
+	ImportOutOfDateAssets: 5661.494ms (1811.804ms without children)
+		CompileScripts: 3847.942ms
+		ReloadNativeAssets: 0.001ms
+		UnloadImportedAssets: 0.264ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 0.677ms
+		InitializingProgressBar: 0.000ms
+		PostProcessAllAssetNotificationsAddChangedAssets: 0.001ms
+		OnDemandSchedulerStart: 0.806ms
+	PostProcessAllAssets: 17.944ms
+	GatherAllCurrentPrimaryArtifactRevisions: 0.001ms
+	UnloadStreamsBegin: 0.274ms
+	PersistCurrentRevisions: 0.113ms
+	UnloadStreamsEnd: 0.002ms
+	GenerateScriptTypeHashes: 1.761ms
+	Untracked: 5341.384ms
+
+Application.AssetDatabase Initial Refresh End
+Launched and connected shader compiler UnityShaderCompiler.exe after 0.01 seconds
+Scanning for USB devices : 1.414ms
+Initializing Unity extensions:
+[MODES] ModeService[none].Initialize
+[MODES] ModeService[none].LoadModes
+[MODES] Loading mode Default (0) for mode-current-id-NoSafeCircle
+Unloading 3 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 5090 unused Assets / (1.4 MB). Loaded Objects now: 5585.
+Memory consumption went from 133.9 MB to 132.5 MB.
+Total: 11.034400 ms (FindLiveObjects: 0.519400 ms CreateObjectMapping: 0.233800 ms MarkObjects: 7.945800 ms  DeleteObjects: 2.333300 ms)
+
+[Project] Loading completed in 16.327 seconds
+	Project init time: 				14.739 seconds
+		Template init time: 		0.000 seconds
+		Package Manager init time: 		0.300 seconds
+		Asset Database init time: 		0.626 seconds
+		Global illumination init time: 	0.004 seconds
+		Assemblies load time: 			0.842 seconds
+		Unity extensions init time: 	0.026 seconds
+		Asset Database refresh time: 	11.535 seconds
+	Scene opening time: 			1.395 seconds
+##utp:{"type":"ProjectInfo","version":2,"phase":"Immediate","time":1790379136047,"processId":60968,"projectLoad":16.327319799999999,"projectInit":14.7385561,"templateInit":0.0,"packageManagerInit":0.3001961,"assetDatabaseInit":0.6255113,"globalIlluminationInit":0.0036333,"assembliesLoad":0.8420041,"unityExtensionsInit":0.0262985,"assetDatabaseRefresh":11.5347259,"sceneOpening":1.3947083}
+##utp:{"type":"EditorInfo","version":2,"phase":"Immediate","time":1790379136047,"processId":60968,"editorVersion":"6000.1.8f1 (2a5b1522e5ab)","branch":"6000.1/staging","buildType":"Release","platform":"Windows"}
+Asset Pipeline Refresh (id=be71e5c19e0e1a043a460128d68da32b): Total: 0.037 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+Running tests for ExecutionSettings with details:
+targetPlatform =
+playerHeartbeatTimeout = 600
+filters[0] =
+   Filter with settings:
+   testMode = EditMode
+   targetPlatform =
+   testNames = null
+   groupNames = NoSafeCircle.DoorPrototype.Tests.Editor.DungeonPropImportSettingsTests
+   categoryNames = null
+   assemblyNames = null
+ignoreTests = {}
+featureFlags = null
+
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+UnityEditor.TestTools.TestRunner.CommandLineTest.Executer:InitializeAndExecuteRun (string[]) (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/CommandLineTest/Executer.cs:53)
+UnityEditor.TestTools.TestRunner.CommandLineTest.TestStarter:InitializeAndExecuteRun () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/CommandLineTest/TestStarter.cs:64)
+UnityEditor.EditorApplication:Internal_CallUpdateFunctions ()
+
+(Filename: ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/CommandLineTest/Executer.cs Line: 53)
+
+[UnityConnectServicesConfig] config is NOT valid, switching to default
+Created GICache directory at C:/Users/VincentLiguori/AppData/LocalLow/Unity/Caches/GiCache. Took: 0.020s, timestamps: [16.338 - 16.358]
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 2 unused Assets / (1.3 KB). Loaded Objects now: 5631.
+Memory consumption went from 122.4 MB to 122.4 MB.
+Total: 6.558200 ms (FindLiveObjects: 0.245800 ms CreateObjectMapping: 0.083400 ms MarkObjects: 6.197700 ms  DeleteObjects: 0.030100 ms)
+
+Executing IPrebuildSetup for: Unity.PerformanceTesting.Editor.TestRunBuilder.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+UnityEditor.TestTools.TestRunner.TestRun.Tasks.BuildActionTaskBase`1/<ExecuteMethods>d__8<UnityEngine.TestTools.IPrebuildSetup>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/Tasks/BuildActionTaskBase.cs:51)
+UnityEditor.TestTools.TestRunner.TestRun.Tasks.BuildActionTaskBase`1/<Execute>d__7<UnityEngine.TestTools.IPrebuildSetup>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/Tasks/BuildActionTaskBase.cs:35)
+UnityEditor.TestTools.TestRunner.TestRun.TestJobRunner:ExecuteStep () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/TestJobRunner.cs:173)
+UnityEditor.TestTools.TestRunner.TestRun.TestJobRunner:ExecuteCallback () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/TestJobRunner.cs:108)
+UnityEditor.EditorApplication:Internal_CallUpdateFunctions ()
+
+(Filename: ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/Tasks/BuildActionTaskBase.cs Line: 51)
+
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/fr_ritual_bone_candle_ring.png using Guid(10559061a5cbca54db1364087e2e7314) (TextureImporter) -> (artifact id: '2115ee14263bb2406b96128f49b65c00') in 0.0224786 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/lv_comedy_barrel_striped_socks.png using Guid(40e87fad725e18c40ad6c50bf1ff7584) (TextureImporter) -> (artifact id: '7dcbeaffc603903512fe62467d21dfe4') in 0.0092489 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_web_corner_a.png using Guid(70c7379416124ac5a781dc30b987ff32) (TextureImporter) -> (artifact id: '3c9cd86e2e0f7ce19a7550f9d427dd72') in 0.026661 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_ash_heap.png using Guid(8050c5a92b75cc2439de0a9c508d0f4e) (TextureImporter) -> (artifact id: '0bec1bd7b5fd76a5dc7eb97e89107ddd') in 0.0126738 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_shelf_bank_z_middle.png using Guid(c0062ef2c26ab75449130d2ecf72bd78) (TextureImporter) -> (artifact id: 'f36c615630c2b92296720c1425173873') in 0.0161844 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/re_roots_and_mushrooms.png using Guid(72e5ada526944b5da081e891821415ea) (TextureImporter) -> (artifact id: 'a593cc220982453f4fe09618e3018c07') in 0.0122902 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/lv_barrel.png using Guid(729edfc473fb9b84d9d8792d25b9b6e5) (TextureImporter) -> (artifact id: 'fd74c860c4a86acc7fa12b9d818060ba') in 0.0115745 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_spilled_scroll_basket.png using Guid(82b66bba789d49b3858bec6236be248e) (TextureImporter) -> (artifact id: '0954d4b9c20f4dcb158f6efc568adfdc') in 0.0128968 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/shared_rubble_pile_a.png using Guid(92f54dc7c7a51c243b19412c53b1678c) (TextureImporter) -> (artifact id: '92eec681700e30922b1b7922af484b22') in 0.0214008 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/shared_stone_column.png using Guid(03aae5ffb326e2c44a0e210b30fca3e5) (TextureImporter) -> (artifact id: '1bb2ae8c74678c84524240ae2b84af84') in 0.0164323 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_collapsed_reading_table_z.png using Guid(33e602547cfe4ba0a7b77d59e7e2f027) (TextureImporter) -> (artifact id: 'ba0cbfb09952cc918faf2e8962e561d6') in 0.013989 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/fr_comedy_party_hat_skull_cake.png using Guid(435b979316f43f64eb5eac9780dddb20) (TextureImporter) -> (artifact id: '441a4df4e4f329cedcb6b5358fdbf330') in 0.0133205 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_pew_x_middle.png using Guid(73b4f8573b4042a4198b07f0c70f3801) (TextureImporter) -> (artifact id: '649593fe55fdf9b1d19b59d9f7681c46') in 0.0176895 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_comedy_skull_with_spectacles.png using Guid(f398319372bf4590a71e9ec538ede070) (TextureImporter) -> (artifact id: '080255843cdc67570cd1b7064c6f88ef') in 0.0121714 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/ca_sigil_floor_mark.png using Guid(d4610cf6d50a77a4b99f9e62e53cdca8) (TextureImporter) -> (artifact id: '476ff8ba49d6afd5218ff00cf2d924c7') in 0.0152981 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/hazard_route/lv_broken_ledge_chunk.png using Guid(0502b287a96e5af49a9c74bdfb73b1a0) (TextureImporter) -> (artifact id: '18c8a89d90f07f2efd4cf21908d9866f') in 0.0136323 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/shared_rubble_scatter_b.png using Guid(35559de959a04d928ff28a703af9f752) (TextureImporter) -> (artifact id: '05e408e0e907c1eb48e995209ec90109') in 0.0188752 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/hazard_route/lv_iron_rail_z.png using Guid(85e28d267143af841bf36b111286be37) (TextureImporter) -> (artifact id: '10eefc4d068762607fd0a04f4932ba08') in 0.0120899 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_bone_pile_a.png using Guid(17720c828ef8433d8a346e92affd409a) (TextureImporter) -> (artifact id: 'cb4b4874ec92011980fcb8fcd1528692') in 0.0256431 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_bone_pile_b.png using Guid(57a1b49337db46e28acd25f46e1949b2) (TextureImporter) -> (artifact id: '35627a265c37af357434516ca1412bb4') in 0.0075035 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/hazard_route/lv_iron_rail_x.png using Guid(e73cd31abd996bb44b7fefbcc5174b5b) (TextureImporter) -> (artifact id: '8b17d48453a607b420022464b4bc1931') in 0.0075249 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/fr_bench_x.png using Guid(38d494d8510db9649a55d5f554e34802) (TextureImporter) -> (artifact id: '28b867102e5407ae3363ea8168c05917') in 0.0085135 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_shelf_bank_z_start.png using Guid(d8c0c5e76681aa1489085fefd0153623) (TextureImporter) -> (artifact id: 'b856728fcd48d65d3850ae9715a8e50f') in 0.0118807 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_pew_x_end.png using Guid(09dbaaaff70219c4691936a33daa1608) (TextureImporter) -> (artifact id: 'a79d0598ff54d19fbefa2cde03910395') in 0.0115648 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/lv_landmark_sluice_wheel_gate_x.png using Guid(a903de0f8b1d1114a9c0ef8d04974804) (TextureImporter) -> (artifact id: 'b735560756b87605f0e167313acc47d1') in 0.0167371 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/re_broken_masonry_blocks.png using Guid(f9813aa964bd4053b0acdd74c57b65d8) (TextureImporter) -> (artifact id: '5ec8795dd3f88158a2016548d44b3de8') in 0.0093343 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_candelabra_tall.png using Guid(ea27d9affc9f80f43beeea6248328300) (TextureImporter) -> (artifact id: 'af79f851f644cfd14daf0d5cc1ef52b4') in 0.0112781 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/re_landmark_guardian_statue_broken.png using Guid(1b9418b2a3eb45b3bc994ff6e665f6c6) (TextureImporter) -> (artifact id: 'f7726a93fef53185a4c5c940f0b7bda6') in 0.0119586 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_book_and_scroll_stack.png using Guid(5b24d277abc34b21b780ffd0657c5c54) (TextureImporter) -> (artifact id: '9f7445a3211fa9b383d9dafb012e55ab') in 0.0108185 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/fr_round_table_with_stools.png using Guid(6b77dcd051db48a468cf4a0e5ae3c809) (TextureImporter) -> (artifact id: '302aa96b345d9debbd35aa0d41b0f416') in 0.016701 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_web_drape_b.png using Guid(bb8ef000c28f4f19b33be8895fd62f83) (TextureImporter) -> (artifact id: 'f9f5672c6ed5e1efacb2f5497473df6e') in 0.0122861 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_shelf_bank_z_end.png using Guid(7c8264d4cec6f3f429ca4eb9353889fc) (TextureImporter) -> (artifact id: '54aca9e0e44dad6a09178b01048a6db6') in 0.0131993 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/ba_landmark_chained_grimoire_lectern.png using Guid(9c22c4c7671b4e1dbb997cda30447e41) (TextureImporter) -> (artifact id: '18917aec481da9ff4b16c9123bf86fd3') in 0.0122618 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_candle_cluster_a.png using Guid(bcc4181a2f836f64aab5a7b72ccff411) (TextureImporter) -> (artifact id: '86a2b5d54f5208cc9284ce330d8bfa38') in 0.0082603 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/lv_crate.png using Guid(dcf1f2a3300e1984386842a0425add63) (TextureImporter) -> (artifact id: 'e900dd92fea7a1a43a662208a4902eb2') in 0.0112574 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_altar_ash_bowl_x.png using Guid(ed140f29d4969294380b780837323dc0) (TextureImporter) -> (artifact id: '0f5fefe504c7dbfa415a5bf48a5b6643') in 0.0131463 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/re_debris_broken_handcart.png using Guid(2ed5b82ece5544e7bf5335007e9e6d69) (TextureImporter) -> (artifact id: 'b905b98b610870f2d65311c42d9ae3ee') in 0.0127909 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_pew_x_start.png using Guid(4e46b7b73eb6fa549892eb7b3638b629) (TextureImporter) -> (artifact id: '2ab0786dfb1c2f464278787f75a6ce61') in 0.0124182 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/hazard_route/fr_bone_chain_post.png using Guid(5ed8c48ace16bd84688043248b1e04df) (TextureImporter) -> (artifact id: 'd05cb450cff6518cfda6e3c3e6ef00cc') in 0.0083398 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/re_comedy_thumbs_up_skeleton_hand.png using Guid(de6d5acb62a94d3ebefeea0b3888d821) (TextureImporter) -> (artifact id: '5b53acf0930734c9fb9244e849f545eb') in 0.00724 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/hazard_route/lv_sluice_slime_spill.png using Guid(1ff3024546492dc48866d614655a6c25) (TextureImporter) -> (artifact id: '2c52767b8d942cfeaacc60613103ae17') in 0.0090166 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/ca_landmark_cracked_bell_frame_x.png using Guid(9faebc6aacde6fa478692aa199763f61) (TextureImporter) -> (artifact id: 'b92097b5698662c348d247e981a11abe') in 0.0133501 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/re_landmark_guardian_statue_standing.png using Guid(afa6913e9bae4f4f9451e459a5b92a22) (TextureImporter) -> (artifact id: 'bb3b0154b146879e5b89ce41ce6e01f1') in 0.0092571 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_comedy_offering_plate_sock.png using Guid(cf948a0033985324e99a725bbbdfa7bf) (TextureImporter) -> (artifact id: '25ba6566f48aba5b2e044d722862482a') in 0.007954 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/fr_landmark_bone_throne.png using Guid(ffa9dfef46c8c6a4c944fd81b87d006a) (TextureImporter) -> (artifact id: '43b026d3dbcffce09e572b43366938c3') in 0.0121786 seconds
+Refreshing native plugins compatible for Editor in 2.54 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=93e8b0828f51de147bd145772720a3a5): Total: 0.808 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+	Summary:
+		Imports: total=45 (actual=45, local cache=0, cache server=0)
+		Asset DB Process Time: managed=221 ms, native=460 ms
+		Asset DB Callback time: managed=116 ms, native=8 ms
+		Scripting: domain reloads=0, domain reload time=0 ms, compile time=0 ms, other=0 ms
+		Project Asset Count: scripts=1076, non-scripts=2140
+		Asset File Changes: new=0, changed=0, moved=0, deleted=0
+		Scan Filter Count: 56
+	InvokeCustomDependenciesCallbacks: 0.001ms
+	InvokePackagesCallback: 0.001ms
+	ApplyChangesToAssetFolders: 0.157ms
+	Scan: 24.682ms
+	OnSourceAssetsModified: 0.001ms
+	CategorizeAssetsWithTransientArtifact: 0.129ms
+	ProcessAssetsWithTransientArtifactChanges: 0.097ms
+	CategorizeAssets: 3.458ms
+	ImportOutOfDateAssets: 648.111ms (0.355ms without children)
+		ImportManagerImport: 646.686ms (3.425ms without children)
+			ImportInProcess: 642.824ms
+			UpdateCategorizedAssets: 0.437ms
+		ReloadNativeAssets: 0.001ms
+		UnloadImportedAssets: 0.201ms
+		ReloadImportedAssets: 0.004ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 0.487ms
+		InitializingProgressBar: 0.009ms
+		PostProcessAllAssetNotificationsAddChangedAssets: 0.001ms
+		OnDemandSchedulerStart: 0.367ms
+	PostProcessAllAssets: 121.954ms
+	Hotreload: 3.649ms
+	GatherAllCurrentPrimaryArtifactRevisions: 0.160ms
+	UnloadStreamsBegin: 0.003ms
+	PersistCurrentRevisions: 0.104ms
+	UnloadStreamsEnd: 0.001ms
+	Untracked: 5.278ms
+
+Asset Pipeline Refresh (id=46a6404af46d5a74aa8d3f2c939aa607): Total: 0.003 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/fr_ritual_bone_candle_ring.png using Guid(10559061a5cbca54db1364087e2e7314) (TextureImporter) -> (artifact id: '2115ee14263bb2406b96128f49b65c00') in 0.0077662 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/lv_comedy_barrel_striped_socks.png using Guid(40e87fad725e18c40ad6c50bf1ff7584) (TextureImporter) -> (artifact id: '7dcbeaffc603903512fe62467d21dfe4') in 0.0064989 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_web_corner_a.png using Guid(70c7379416124ac5a781dc30b987ff32) (TextureImporter) -> (artifact id: '3c9cd86e2e0f7ce19a7550f9d427dd72') in 0.0084261 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_ash_heap.png using Guid(8050c5a92b75cc2439de0a9c508d0f4e) (TextureImporter) -> (artifact id: '0bec1bd7b5fd76a5dc7eb97e89107ddd') in 0.0060549 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_shelf_bank_z_middle.png using Guid(c0062ef2c26ab75449130d2ecf72bd78) (TextureImporter) -> (artifact id: 'f36c615630c2b92296720c1425173873') in 0.0083364 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/re_roots_and_mushrooms.png using Guid(72e5ada526944b5da081e891821415ea) (TextureImporter) -> (artifact id: 'a593cc220982453f4fe09618e3018c07') in 0.0076096 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/lv_barrel.png using Guid(729edfc473fb9b84d9d8792d25b9b6e5) (TextureImporter) -> (artifact id: 'fd74c860c4a86acc7fa12b9d818060ba') in 0.0071616 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_spilled_scroll_basket.png using Guid(82b66bba789d49b3858bec6236be248e) (TextureImporter) -> (artifact id: '0954d4b9c20f4dcb158f6efc568adfdc') in 0.0067986 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/shared_rubble_pile_a.png using Guid(92f54dc7c7a51c243b19412c53b1678c) (TextureImporter) -> (artifact id: '92eec681700e30922b1b7922af484b22') in 0.0114776 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/shared_stone_column.png using Guid(03aae5ffb326e2c44a0e210b30fca3e5) (TextureImporter) -> (artifact id: '1bb2ae8c74678c84524240ae2b84af84') in 0.0083453 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_collapsed_reading_table_z.png using Guid(33e602547cfe4ba0a7b77d59e7e2f027) (TextureImporter) -> (artifact id: 'ba0cbfb09952cc918faf2e8962e561d6') in 0.0094882 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/fr_comedy_party_hat_skull_cake.png using Guid(435b979316f43f64eb5eac9780dddb20) (TextureImporter) -> (artifact id: '441a4df4e4f329cedcb6b5358fdbf330') in 0.0080732 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_pew_x_middle.png using Guid(73b4f8573b4042a4198b07f0c70f3801) (TextureImporter) -> (artifact id: '649593fe55fdf9b1d19b59d9f7681c46') in 0.0076723 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_comedy_skull_with_spectacles.png using Guid(f398319372bf4590a71e9ec538ede070) (TextureImporter) -> (artifact id: '080255843cdc67570cd1b7064c6f88ef') in 0.0055534 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/ca_sigil_floor_mark.png using Guid(d4610cf6d50a77a4b99f9e62e53cdca8) (TextureImporter) -> (artifact id: '476ff8ba49d6afd5218ff00cf2d924c7') in 0.0094879 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/hazard_route/lv_broken_ledge_chunk.png using Guid(0502b287a96e5af49a9c74bdfb73b1a0) (TextureImporter) -> (artifact id: '18c8a89d90f07f2efd4cf21908d9866f') in 0.0067949 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/shared_rubble_scatter_b.png using Guid(35559de959a04d928ff28a703af9f752) (TextureImporter) -> (artifact id: '05e408e0e907c1eb48e995209ec90109') in 0.007602 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/hazard_route/lv_iron_rail_z.png using Guid(85e28d267143af841bf36b111286be37) (TextureImporter) -> (artifact id: '10eefc4d068762607fd0a04f4932ba08') in 0.0063405 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_bone_pile_a.png using Guid(17720c828ef8433d8a346e92affd409a) (TextureImporter) -> (artifact id: 'cb4b4874ec92011980fcb8fcd1528692') in 0.0089464 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_bone_pile_b.png using Guid(57a1b49337db46e28acd25f46e1949b2) (TextureImporter) -> (artifact id: '35627a265c37af357434516ca1412bb4') in 0.0057352 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/hazard_route/lv_iron_rail_x.png using Guid(e73cd31abd996bb44b7fefbcc5174b5b) (TextureImporter) -> (artifact id: '8b17d48453a607b420022464b4bc1931') in 0.0068069 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/fr_bench_x.png using Guid(38d494d8510db9649a55d5f554e34802) (TextureImporter) -> (artifact id: '28b867102e5407ae3363ea8168c05917') in 0.0116449 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_shelf_bank_z_start.png using Guid(d8c0c5e76681aa1489085fefd0153623) (TextureImporter) -> (artifact id: 'b856728fcd48d65d3850ae9715a8e50f') in 0.0106058 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_pew_x_end.png using Guid(09dbaaaff70219c4691936a33daa1608) (TextureImporter) -> (artifact id: 'a79d0598ff54d19fbefa2cde03910395') in 0.0086184 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/lv_landmark_sluice_wheel_gate_x.png using Guid(a903de0f8b1d1114a9c0ef8d04974804) (TextureImporter) -> (artifact id: 'b735560756b87605f0e167313acc47d1') in 0.0119466 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/re_broken_masonry_blocks.png using Guid(f9813aa964bd4053b0acdd74c57b65d8) (TextureImporter) -> (artifact id: '5ec8795dd3f88158a2016548d44b3de8') in 0.0095809 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_candelabra_tall.png using Guid(ea27d9affc9f80f43beeea6248328300) (TextureImporter) -> (artifact id: 'af79f851f644cfd14daf0d5cc1ef52b4') in 0.0084338 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/re_landmark_guardian_statue_broken.png using Guid(1b9418b2a3eb45b3bc994ff6e665f6c6) (TextureImporter) -> (artifact id: 'f7726a93fef53185a4c5c940f0b7bda6') in 0.0081127 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_book_and_scroll_stack.png using Guid(5b24d277abc34b21b780ffd0657c5c54) (TextureImporter) -> (artifact id: '9f7445a3211fa9b383d9dafb012e55ab') in 0.0113617 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/fr_round_table_with_stools.png using Guid(6b77dcd051db48a468cf4a0e5ae3c809) (TextureImporter) -> (artifact id: '302aa96b345d9debbd35aa0d41b0f416') in 0.0149576 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_web_drape_b.png using Guid(bb8ef000c28f4f19b33be8895fd62f83) (TextureImporter) -> (artifact id: 'f9f5672c6ed5e1efacb2f5497473df6e') in 0.011827 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ba_shelf_bank_z_end.png using Guid(7c8264d4cec6f3f429ca4eb9353889fc) (TextureImporter) -> (artifact id: '54aca9e0e44dad6a09178b01048a6db6') in 0.0162522 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/ba_landmark_chained_grimoire_lectern.png using Guid(9c22c4c7671b4e1dbb997cda30447e41) (TextureImporter) -> (artifact id: '18917aec481da9ff4b16c9123bf86fd3') in 0.0158536 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/shared_candle_cluster_a.png using Guid(bcc4181a2f836f64aab5a7b72ccff411) (TextureImporter) -> (artifact id: '86a2b5d54f5208cc9284ce330d8bfa38') in 0.0108621 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/lv_crate.png using Guid(dcf1f2a3300e1984386842a0425add63) (TextureImporter) -> (artifact id: 'e900dd92fea7a1a43a662208a4902eb2') in 0.0113027 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_altar_ash_bowl_x.png using Guid(ed140f29d4969294380b780837323dc0) (TextureImporter) -> (artifact id: '0f5fefe504c7dbfa415a5bf48a5b6643') in 0.0157847 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/re_debris_broken_handcart.png using Guid(2ed5b82ece5544e7bf5335007e9e6d69) (TextureImporter) -> (artifact id: 'b905b98b610870f2d65311c42d9ae3ee') in 0.0376123 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_pew_x_start.png using Guid(4e46b7b73eb6fa549892eb7b3638b629) (TextureImporter) -> (artifact id: '2ab0786dfb1c2f464278787f75a6ce61') in 0.0116962 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/hazard_route/fr_bone_chain_post.png using Guid(5ed8c48ace16bd84688043248b1e04df) (TextureImporter) -> (artifact id: 'd05cb450cff6518cfda6e3c3e6ef00cc') in 0.008492 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/re_comedy_thumbs_up_skeleton_hand.png using Guid(de6d5acb62a94d3ebefeea0b3888d821) (TextureImporter) -> (artifact id: '5b53acf0930734c9fb9244e849f545eb') in 0.0075257 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/hazard_route/lv_sluice_slime_spill.png using Guid(1ff3024546492dc48866d614655a6c25) (TextureImporter) -> (artifact id: '2c52767b8d942cfeaacc60613103ae17') in 0.0087715 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/ca_landmark_cracked_bell_frame_x.png using Guid(9faebc6aacde6fa478692aa199763f61) (TextureImporter) -> (artifact id: 'b92097b5698662c348d247e981a11abe') in 0.0138939 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/re_landmark_guardian_statue_standing.png using Guid(afa6913e9bae4f4f9451e459a5b92a22) (TextureImporter) -> (artifact id: 'bb3b0154b146879e5b89ce41ce6e01f1') in 0.0099305 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/furnishings/ca_comedy_offering_plate_sock.png using Guid(cf948a0033985324e99a725bbbdfa7bf) (TextureImporter) -> (artifact id: '25ba6566f48aba5b2e044d722862482a') in 0.0071185 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Source/selected/architecture/fr_landmark_bone_throne.png using Guid(ffa9dfef46c8c6a4c944fd81b87d006a) (TextureImporter) -> (artifact id: '43b026d3dbcffce09e572b43366938c3') in 0.0126738 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/PropCatalog.json using Guid(5c61d7c85e504c39bc96b95f1099fc6c) (TextScriptImporter) -> (artifact id: 'bcfe89ae36d4634e22de4a0988ca75f2') in 0.003909 seconds
+Refreshing native plugins compatible for Editor in 4.68 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=09f760a0c3c0d0045971858ec54f1ea5): Total: 0.531 seconds - Initiated by StopAssetImportingV2(NoUpdateAssetOptions)
+	Summary:
+		Imports: total=46 (actual=46, local cache=0, cache server=0)
+		Asset DB Process Time: managed=193 ms, native=321 ms
+		Asset DB Callback time: managed=8 ms, native=8 ms
+		Scripting: domain reloads=0, domain reload time=0 ms, compile time=0 ms, other=0 ms
+		Project Asset Count: scripts=1076, non-scripts=2140
+		Asset File Changes: new=0, changed=0, moved=0, deleted=0
+		Scan Filter Count: 57
+	InvokeCustomDependenciesCallbacks: 0.001ms
+	InvokePackagesCallback: 0.001ms
+	ApplyChangesToAssetFolders: 0.111ms
+	Scan: 9.232ms
+	OnSourceAssetsModified: 0.000ms
+	CategorizeAssetsWithTransientArtifact: 0.053ms
+	ProcessAssetsWithTransientArtifactChanges: 0.034ms
+	CategorizeAssets: 1.001ms
+	ImportOutOfDateAssets: 500.738ms (-13.646ms without children)
+		ImportManagerImport: 499.323ms (16.315ms without children)
+			ImportInProcess: 482.345ms
+			UpdateCategorizedAssets: 0.662ms
+		ReloadNativeAssets: 0.001ms
+		UnloadImportedAssets: 0.420ms
+		ReloadImportedAssets: 13.894ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 0.343ms
+		InitializingProgressBar: 0.008ms
+		PostProcessAllAssetNotificationsAddChangedAssets: 0.001ms
+		OnDemandSchedulerStart: 0.395ms
+	PostProcessAllAssets: 10.322ms
+	Hotreload: 5.909ms
+	GatherAllCurrentPrimaryArtifactRevisions: 0.295ms
+	UnloadStreamsBegin: 0.367ms
+	PersistCurrentRevisions: 0.209ms
+	UnloadStreamsEnd: 0.001ms
+	Untracked: 2.416ms
+
+Asset Pipeline Refresh (id=70bb454f8f00e1c4e9d0aa6e17112172): Total: 0.004 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+Saving results to: C:/Users/VincentLiguori/AppData/LocalLow/DefaultCompany/NoSafeCircle\TestResults.xml
+Saving results to: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-2c61d204b6af4453913eb77aeb55ce47\test-results.xml
+Executing IPostBuildCleanup for: Unity.PerformanceTesting.Editor.TestRunBuilder.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+UnityEditor.TestTools.TestRunner.TestRun.Tasks.BuildActionTaskBase`1/<ExecuteMethods>d__8<UnityEngine.TestTools.IPostBuildCleanup>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/Tasks/BuildActionTaskBase.cs:51)
+UnityEditor.TestTools.TestRunner.TestRun.Tasks.BuildActionTaskBase`1/<Execute>d__7<UnityEngine.TestTools.IPostBuildCleanup>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/Tasks/BuildActionTaskBase.cs:35)
+UnityEditor.TestTools.TestRunner.TestRun.TestJobRunner:ExecuteStep () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/TestJobRunner.cs:173)
+UnityEditor.TestTools.TestRunner.TestRun.TestJobRunner:ExecuteCallback () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/TestJobRunner.cs:108)
+UnityEditor.EditorApplication:Internal_CallUpdateFunctions ()
+
+(Filename: ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/Tasks/BuildActionTaskBase.cs Line: 51)
+
+Asset Pipeline Refresh (id=93ff07fe61dce824ba816a37e39290e6): Total: 0.005 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 148 unused Assets / (64.1 KB). Loaded Objects now: 5635.
+Memory consumption went from 138.7 MB to 138.6 MB.
+Total: 8.003500 ms (FindLiveObjects: 0.279300 ms CreateObjectMapping: 0.104200 ms MarkObjects: 7.321800 ms  DeleteObjects: 0.297200 ms)
+
+DisplayProgressbar: Undo
+Test run completed. Exiting with code 0 (Ok). Run completed.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+UnityEditor.TestTools.TestRunner.CommandLineTest.Executer:ExitApplication (UnityEditor.TestTools.TestRunner.CommandLineTest.Executer/ReturnCodes,string) (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/CommandLineTest/Executer.cs:81)
+UnityEditor.TestTools.TestRunner.CommandLineTest.Executer:ExitIfRunIsCompleted () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/CommandLineTest/Executer.cs:74)
+UnityEditor.EditorApplication:Internal_CallUpdateFunctions ()
+
+(Filename: ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/CommandLineTest/Executer.cs Line: 81)
+
+[Physics::Module] Cleanup current backned.
+[Physics::Module] Id: 0xf2b8ea05
+Input System module state changed to: ShutdownInProgress.
+Input System polling thread exited.
+Input System module state changed to: Shutdown.
+[Licensing::IpcConnector] LicenseClient-VincentLiguori-notifications channel disconnected successfully.
+[Licensing::IpcConnector] LicenseClient-VincentLiguori channel disconnected successfully.
+AcceleratorClientConnectionCallback - disconnected - :0
+Cleanup mono
+Checking for leaked weakptr:
+  Found no leaked weakptrs.
+[Package Manager] Server process was shutdown
+##utp:{"type":"MemoryLeaks","version":2,"phase":"Immediate","time":1790379140564,"processId":60968,"allocatedMemory":14308271,"memoryLabels":[{"Default":14269},{"Permanent":15412},{"NewDelete":67953},{"Thread":4237960},{"Manager":29658},{"VertexData":8},{"Geometry":816},{"VFX":-104},{"Texture":296},{"Shader":78821},{"Material":24},{"GfxDevice":57248},{"Animation":328},{"Audio":4040},{"FontEngine":256},{"Physics":1241},{"Serialization":880},{"Input":14824},{"JobScheduler":39048},{"TextLib":160},{"Mono":32},{"ScriptingNativeRuntime":155060},{"BaseObject":1657392},{"Resource":1304},{"Renderer":2928},{"Transform":4646},{"File":1016},{"WebCam":616},{"Culling":32},{"Terrain":11394},{"Wind":24},{"STL":40},{"String":9773},{"DynamicArray":99882},{"HashMap":97838},{"Utility":2666358},{"Curl":48},{"PoolAlloc":1960},{"AI":40},{"TypeTree":5005},{"ScriptManager":512},{"RuntimeInitializeOnLoadManager":64},{"SpriteAtlas":112},{"GI":7824},{"Director":8240},{"WebRequest":808},{"VR":46058},{"SceneManager":496},{"Video":208},{"LazyScriptCache":32},{"NativeArray":8},{"Camera":17},{"Secure":1},{"SerializationCache":1576},{"APIUpdating":10320},{"Subsystems":336},{"VirtualTexturing":57888},{"StaticSafetyDebugInfo":278528},{"Analytics":256},{"Hierarchy":272},{"Gui":80},{"EditorUtility":94570},{"VersionControl":4},{"Undo":947},{"AssetDatabase":4476127},{"EditorGi":328},{"UnityConnect":24536},{"Upm":1972},{"DrivenProperties":72},{"LocalIPC":278},{"ProfilerEditor":9738},{"CoreBusinessMetrics":3961},{"Licensing":3512},{"AssetReference":32},{"IPCStream":32}]}

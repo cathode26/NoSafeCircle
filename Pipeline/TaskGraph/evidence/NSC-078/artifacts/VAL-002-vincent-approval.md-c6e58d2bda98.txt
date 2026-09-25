@@ -1,0 +1,73 @@
+# NSC-078 VAL-002: VINCENT APPROVED IT. 2026-09-25 22:28 UTC, host clock.
+
+**His words, typed directly in the Art Director session, unprompted by any A/B:**
+
+> `approve NSC-078 VAL-002`
+
+**And immediately before it, on being shown the two refreshed contact sheets:**
+
+> `002 looks good, I looked it earlier`
+
+**This supersedes `vincent-approval-NSC-078-VAL-002.md`, which is titled "VAL-002 IS STILL OPEN"
+and which I wrote at 11:1xZ when two of the four sheets were stale.** Both reasons it was reopened
+are closed: the Furnishings sheet now carries the redrawn handcart and the StylePilot sheet now
+carries `ca_candelabra_tall`, refreshed at `1a51f050` and shown to him in this session.
+
+## WHAT THE APPROVAL COVERS
+
+    gate            VAL-002, NSC-078
+    commit pinned   1a51f05043b5c51aba9d4a026b6a839ed09a483c
+    sheets          NSC-078-{StylePilot,Furnishings,Architecture,HazardRoute}ContactSheet.png
+                    all four byte-identical from that commit through main
+    granted         2026-09-25 22:28 UTC, read from `date -u`
+
+## AND HE CALLED THE STONE WRONG. RECORD BOTH OR THE RECORD IS MISLEADING.
+
+**At 10:12:00Z the same day:** *"VAL-002 passes. The violet is WRONG. Regrade the stone - floors
+first, because those are what he can see on screen."*
+
+**A delivery record that says "approved" and omits this is true and misleading.** The approval is
+of the SOURCE ART AS COMPOSED ON THE SHEETS. It is not approval of the stone palette, which he
+rejected in the same breath and which was regraded afterwards - floors `589bfb3c`, walls
+`7b85ad24`, both merged; eleven props regraded and still held.
+
+## WHAT IT DOES NOT COVER, from the gate's own text
+
+- **Not in-room appearance.** VAL-002 says so itself: *"This gate approves source art only and does
+  not claim in-room gameplay-camera approval"*, and in-room review is NSC-079..084.
+- **Not VAL-001 and not VAL-003.** See the correction below - those have NO committed evidence and
+  never have.
+
+## !!! CORRECTION, AND IT IS MINE, AND I REPEATED IT ALL SESSION !!!
+
+**I have been stating that "VAL-001 and VAL-003 are already evidenced by the Game Agent at
+`86242ab5e`". THAT IS FALSE.** Measured 2026-09-25 22:28 UTC:
+
+    86242ab5e is "TaskGraph: owner contract revision 2 for NSC-109"
+      -> touches RESOURCE_GROUPS.yaml, authoritative_validation_policy.json, Tasks/NSC-109.yaml
+      -> nothing to do with NSC-078
+    git log --all -- Pipeline/TaskGraph/evidence/NSC-078/   ->  EMPTY. Never existed on any ref.
+    taskcontrol state NSC-078  ->  not_delivered, selected_record (none),
+                                   one finding: no_committed_evidence
+
+**So NSC-078 has evidence for NOTHING, and the sentence "there is nothing unbuilt" that I put in
+my own post-compact prompt was wrong.** I carried a commit id I never opened. `CLAUDE.md` names
+this exactly: *a citation is a claim like any other - open the thing you cite.*
+
+**What is actually true and was the kernel of the error:** the catalog validator passes on the
+host right now - `OK 45 catalog entries validated against their PNGs`. **Passing a check is not
+evidence of passing it.** Nobody captured or committed that output.
+
+## THE REAL PATH TO A DELIVERY RECORD, now that the gate is approved
+
+    VAL-001   catalog validator - PASSES on the host, output must be captured and committed
+    VAL-002   APPROVED by Vincent, above. Done.
+    VAL-003   Unity Edit Mode DungeonPropImportSettingsTests - NOT RUN, no evidence
+
+**VAL-003 is a `.png.meta` import-settings test over art I delivered, which `CLAUDE.md` puts in
+the Art Director's lane as the one Unity run needing no approval.** It must run in a checkout,
+never canonical, and `run_unity_tests_clean.ps1` forwards `TestFilter` so only that class need
+run.
+
+**DO NOT WRITE THE RECORD UNTIL VAL-001 AND VAL-003 HAVE COMMITTED EVIDENCE.** The approval above
+is durable and does not expire; it is the two measured gates that are missing, not his word.

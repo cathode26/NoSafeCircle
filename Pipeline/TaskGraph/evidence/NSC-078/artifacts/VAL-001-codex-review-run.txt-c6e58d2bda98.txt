@@ -1,0 +1,27 @@
+=== VAL-001, NSC-078 ===
+checkout : C:/NSC/NoSafeCircle-AssistantCheckouts/NSC-032
+commit   : c6e58d2bda9828e045ee456a227824368ce28cb4
+host UTC : 2026-09-25T23:31:47Z
+
+tracked+untracked entries before: 0
+
+--- command 1of2: smoke test -------------------------------------------
+ Container nosafecircle-codex-review-run-1b2c9e4a8158 Creating 
+ Container nosafecircle-codex-review-run-1b2c9e4a8158 Created 
+OK smoke test: 1 accepted catalog, 15 guards each refused for its own reason, no fixture written outside the temporary directory
+exit: 0
+
+--- command 2of2: production validator ----------------------------------
+ Container nosafecircle-codex-review-run-696c78620ad0 Creating 
+ Container nosafecircle-codex-review-run-696c78620ad0 Created 
+OK 45 catalog entries validated against their PNGs
+exit: 0
+
+tracked+untracked entries after:  0
+
+--- MUTATION CHECK ------------------------------------------------------
+NO REPOSITORY MUTATION: tracked and untracked state identical before and after.
+
+commit after : c6e58d2bda9828e045ee456a227824368ce28cb4
+RESULT: smoke=0 validator=0 mutation=0
+VAL-001 SATISFIED
