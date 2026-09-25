@@ -21,10 +21,12 @@ for module_root in (ROOT, ROOT / "Pipeline", ROOT / "Pipeline" / "TaskGraph"):
     if str(module_root) not in sys.path:
         sys.path.insert(0, str(module_root))
 
+from TaskDecomposition.round_robin_decomposition import _round_invocation_id  # noqa: E402
 from TaskDecomposition.run_diagnosis import (  # noqa: E402
     RUN_RESULT_NAME,
     DiagnosisEvidenceError,
     diagnose_run,
+    expected_invocation_id,
 )
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "failure_diagnosis"
@@ -112,7 +114,7 @@ def test_a_setup_runtime_result_is_read_hashed_and_must_agree() -> None:
 
     def disagree(value: dict) -> None:
         value["failure_classification"] = "timeout"
-    refused(lambda: diagnose("decomp-nsc088-clone-20260924a", runtime=disagree), "disagrees with the round")
+    refused(lambda: diagnose("decomp-nsc088-clone-20260924a", runtime=disagree), "AgentRuntime result failure_classification")
 
 
 def test_model_text_in_a_provider_error_never_routes_to_setup() -> None:
@@ -135,6 +137,35 @@ def test_model_text_in_a_provider_error_never_routes_to_setup() -> None:
     assert route("decomp-nsc088-clone-20260924c", mutate=findings) == ("BUDGET", "revision_used_last_call")
 
 
+def test_the_runtime_result_must_be_this_rounds_own() -> None:
+    for name, value in (("run_id", "another-invocation"), ("provider", "openai-codex"),
+                        ("model", "claude-sonnet-5"), ("role", "decomposition_reviewer"),
+                        ("status", "succeeded"), ("schema_version", "9")):
+        def change(runtime: dict, name=name, value=value) -> None:
+            runtime[name] = value
+        refused(lambda change=change: diagnose("decomp-nsc088-clone-20260924a", runtime=change),
+                f"AgentRuntime result {name}")
+
+    def other_path(result: dict) -> None:
+        result["rounds"][-1]["agent_runtime_result_path"] = (
+            "rounds/01/agent_runtime/nsc-088-d1b2-r01-task-decomposer-000000000000/result.json")
+    refused(lambda: diagnose("decomp-nsc088-clone-20260924a", mutate=other_path), "is not this round's")
+
+
+def test_the_invocation_id_matches_the_engine() -> None:
+    for round_number, role, correction in ((1, "task_decomposer", False), (1, "task_decomposer", True),
+                                           (2, "decomposition_reviewer", False)):
+        assert expected_invocation_id("NSC-088", "run-x", round_number, role, correction=correction) == (
+            _round_invocation_id("NSC-088", "run-x", round_number, role, correction=correction))
+
+
+def test_a_revised_request_for_human_authority_is_contract_not_budget() -> None:
+    def revised_needs_human(result: dict) -> None:
+        result["decision"] = "needs_human"
+    assert route("decomp-nsc088-clone-20260924c", mutate=revised_needs_human) == (
+        "CONTRACT", "revision_requests_human_decision")
+
+
 def test_a_structured_quota_failure_is_setup() -> None:
     def quota(value: dict) -> None:
         value["failure_classification"] = "quota_exhausted"
@@ -153,6 +184,7 @@ def test_the_terminal_stage_is_the_last_round_reached() -> None:
         correction = deepcopy(author)
         correction.update(correction_of_round=1, status="correction_candidate_valid", rejection_reasons=[])
         result["rounds"] = [rejected, correction, reviewer]
+        result["decision"] = "decomposed"
         result["author_corrections_used"] = 1
         result["rejection_reasons"] = [f"round 1: {UNRESOLVED}", BUDGET_TEXT]
     assert route("decomp-nsc088-clone-20260924c", mutate=corrected_then_budget) == (
@@ -193,6 +225,11 @@ def test_malformed_or_inconsistent_evidence_is_not_diagnosed_confidently() -> No
         "scalar finding_history": lambda r: r.update(finding_history=7),
         "boolean calls": lambda r: r.update(calls_used=True),
         "rounds disagree with accounting": lambda r: r.update(calls_used=1),
+        "list run_status": lambda r: r.update(run_status=["needs_human"]),
+        "object run_status": lambda r: r.update(run_status={"x": 1}),
+        "duplicate round 1": lambda r: r["rounds"][1].update(round_number=1),
+        "round 99": lambda r: r["rounds"][0].update(round_number=99),
+        "reviewer in round 1": lambda r: r["rounds"][0].update(role="decomposition_reviewer"),
     }
     for name, mutate in cases.items():
         got = route("decomp-nsc088-clone-20260924c", mutate=mutate)
@@ -232,6 +269,9 @@ TESTS = (
     test_an_engine_success_is_only_a_success_if_the_host_accepted_it,
     test_a_setup_runtime_result_is_read_hashed_and_must_agree,
     test_model_text_in_a_provider_error_never_routes_to_setup,
+    test_the_runtime_result_must_be_this_rounds_own,
+    test_the_invocation_id_matches_the_engine,
+    test_a_revised_request_for_human_authority_is_contract_not_budget,
     test_a_structured_quota_failure_is_setup,
     test_the_terminal_stage_is_the_last_round_reached,
     test_a_correction_refused_for_capacity_is_setup_with_the_author_error_kept,

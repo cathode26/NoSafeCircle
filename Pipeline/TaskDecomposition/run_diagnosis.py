@@ -35,7 +35,7 @@ import re
 from typing import Any, Mapping
 
 DIAGNOSIS_SCHEMA_VERSION = "decomposition-diagnosis/v1"
-CLASSIFIER_VERSION = "2"
+CLASSIFIER_VERSION = "3"
 RUN_RESULT_NAME = "decomposition_run_result.json"
 RUN_RESULT_SCHEMA_VERSION = "1.0"
 RUN_STATUSES = frozenset({"review_ready", "rejected", "needs_human", "agent_failed"})
@@ -67,8 +67,8 @@ _RUNTIME_ENVELOPES = (
     ("unrecognized_model", re.compile(
         r"Claude Code exited with status \d+: \[claude-code:unrecognized_model\] \{[^{}\n]*\}")),
 )
-_RUNTIME_RESULT_PATH = re.compile(
-    r"rounds/\d{2}(?:-correction)?/agent_runtime/[A-Za-z0-9][A-Za-z0-9._-]{0,127}/result\.json")
+_AUTHOR_ROLE = "task_decomposer"
+_REVIEWER_ROLE = "decomposition_reviewer"
 _ROUND_PREFIX = re.compile(r"^round \d+(?: correction)?: ")
 
 
@@ -154,6 +154,36 @@ def _int(value: Any) -> bool:
     return type(value) is int
 
 
+def expected_invocation_id(task_id: str, run_id: str, round_number: int, role: str,
+                           *, correction: bool) -> str:
+    """The engine's deterministic invocation id (round_robin_decomposition._round_invocation_id)."""
+
+    scope = f"{round_number}-correction" if correction else f"{round_number}"
+    suffix = hashlib.sha256(f"{run_id}:{scope}:{role}".encode("utf-8")).hexdigest()[:12]
+    marker = "c" if correction else ""
+    return f"{task_id.lower()}-d1b2-r{round_number:02d}{marker}-{role.replace('_', '-')}-{suffix}"
+
+
+def _rounds_problem(rounds: list[dict[str, Any]], calls: int) -> str | None:
+    """The engine's round sequence: author, optional correction of round 1, reviewers."""
+
+    ordinary = [r for r in rounds if r.get("correction_of_round") is None]
+    if [r.get("round_number") for r in ordinary] != list(range(1, calls + 1)):
+        return "rounds are not numbered consecutively from 1"
+    for entry in ordinary:
+        wanted = _AUTHOR_ROLE if entry["round_number"] == 1 else _REVIEWER_ROLE
+        if entry.get("role") != wanted:
+            return f"round {entry['round_number']} has role {entry.get('role')!r}, expected {wanted!r}"
+    corrections = [index for index, r in enumerate(rounds) if r.get("correction_of_round") is not None]
+    if corrections:
+        index = corrections[0]
+        entry = rounds[index]
+        if (index != 1 or entry.get("correction_of_round") != 1 or entry.get("round_number") != 1
+                or entry.get("role") != _AUTHOR_ROLE or rounds[0].get("status") != "rejected"):
+            return "an author correction must directly follow a rejected round 1 and correct it"
+    return None
+
+
 def _structure_problem(result: Mapping[str, Any]) -> str | None:
     """Why the run result cannot be diagnosed confidently, or None."""
 
@@ -161,8 +191,11 @@ def _structure_problem(result: Mapping[str, Any]) -> str | None:
         return f"unsupported run result schema {result.get('schema_version')!r}"
     if result.get("mode") != "round_robin_d1b2":
         return f"unsupported mode {result.get('mode')!r}"
-    if result.get("run_status") not in RUN_STATUSES:
+    if not isinstance(result.get("run_status"), str) or result["run_status"] not in RUN_STATUSES:
         return f"unknown run status {result.get('run_status')!r}"
+    for key in ("task_id", "run_id"):
+        if not isinstance(result.get(key), str) or not result[key]:
+            return f"{key} is not a nonempty string"
     rounds = result.get("rounds")
     if not isinstance(rounds, list) or not rounds or not all(isinstance(r, dict) for r in rounds):
         return "rounds is not a nonempty list of objects"
@@ -188,7 +221,7 @@ def _structure_problem(result: Mapping[str, Any]) -> str | None:
             return "a round lacks an integer round_number or a rejection_reasons list"
         if not all(isinstance(text, str) for text in entry["rejection_reasons"]):
             return "a round's rejection_reasons contains a non-string"
-    return None
+    return _rounds_problem(rounds, calls)
 
 
 def _evidence(field_name: str, quote: str, artifact: str = RUN_RESULT_NAME) -> dict[str, str]:
@@ -208,18 +241,40 @@ def _reviewer_findings(result: Mapping[str, Any]) -> list[str]:
 
 
 def _runtime_setup(snapshot: RunSnapshot, last: Mapping[str, Any]) -> tuple[str, dict[str, str]] | None:
-    """SETUP cause proven by the last round's retained AgentRuntime result."""
+    """SETUP cause proven by the last round's retained AgentRuntime result.
+
+    The result must be exactly the one the engine would have written for this
+    round: its path and run id are recomputed from the run, and its role,
+    provider, model, status and classification must agree with the round.
+    """
 
     relative = last.get("agent_runtime_result_path")
-    if not isinstance(relative, str) or not _RUNTIME_RESULT_PATH.fullmatch(relative):
+    if relative is None:
         return None
+    correction = last.get("correction_of_round") is not None
+    invocation = expected_invocation_id(
+        snapshot.result["task_id"], snapshot.result["run_id"], last["round_number"],
+        str(last.get("role")), correction=correction)
+    directory = f"{last['round_number']:02d}" + ("-correction" if correction else "")
+    expected = f"rounds/{directory}/agent_runtime/{invocation}/result.json"
+    if relative != expected:
+        raise DiagnosisEvidenceError(f"AgentRuntime result path {relative!r} is not this round's {expected!r}")
     runtime = snapshot.read_json(relative, "AgentRuntime result")
-    classification = runtime.get("failure_classification")
-    if classification != last.get("agent_failure_classification"):
-        raise DiagnosisEvidenceError(
-            f"AgentRuntime result classification {classification!r} disagrees with the round "
-            f"summary {last.get('agent_failure_classification')!r}"
-        )
+    bindings = {
+        "schema_version": ("1.0", runtime.get("schema_version")),
+        "run_id": (invocation, runtime.get("run_id")),
+        "role": (last.get("role"), runtime.get("role")),
+        "provider": (last.get("actual_provider"), runtime.get("provider")),
+        "model": (last.get("actual_model"), runtime.get("model")),
+        "status": ("failed", runtime.get("status")),
+        "failure_classification": (last.get("agent_failure_classification"),
+                                   runtime.get("failure_classification")),
+    }
+    for name, (wanted, got) in bindings.items():
+        if got != wanted:
+            raise DiagnosisEvidenceError(
+                f"AgentRuntime result {name} is {got!r}, but the round records {wanted!r}")
+    classification = runtime["failure_classification"]
     message = runtime.get("failure_message")
     if classification == "quota_exhausted":
         return "quota_exhausted", _evidence("failure_classification", classification, relative)
@@ -331,6 +386,9 @@ def classify_run_snapshot(
         return diagnosis("CONTRACT", "reviewer_requested_human_decision",
                          [_evidence("verdict", "needs_human")])
 
+    if last.get("status") == "revised_candidate_valid" and result.get("decision") == "needs_human":
+        return diagnosis("CONTRACT", "revision_requests_human_decision",
+                         [_evidence("decision", "needs_human")])
     for text in run_level:
         if (_BUDGET_STOP in text and last.get("status") == "revised_candidate_valid"
                 and result["calls_used"] == result["max_calls"]):
