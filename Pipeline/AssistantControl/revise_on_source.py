@@ -56,8 +56,8 @@ from Pipeline.AssistantControl.inspect_project import git
 from Pipeline.AssistantControl.reconciliation_binding import (
     HUMAN_REJECTION,
     MATERIALIZATION_FAILURE,
-    ReconciliationBindingError,
     candidate_receipt_problem,
+    crew_provenance_problem,
     canonical_sha256,
     review_entry_index,
 )
@@ -374,18 +374,15 @@ def revise_on_source(
             # exactly the earlier-stage crew candidates this branch exists for.
             # A raw crew candidate proves its own provenance through its
             # registered commit receipt instead.
-            problem = candidate_receipt_problem(record, candidate, task_id)
+            problem = crew_provenance_problem(record, candidate, task_id)
             if problem is not None:
                 raise ReviseOnSourceError(
                     f"candidate is not an authenticated crew result: {problem}")
-            # Bind the rejection by IDENTITY now, at plan time, so a request
-            # that could never produce usable feedback fails before it moves
-            # anything. `review_history` is append-only, so the index is stable;
-            # the hash is what catches a later hand edit.
-            try:
-                review_index = review_entry_index(record, review)
-            except ReconciliationBindingError as exc:
-                raise ReviseOnSourceError(str(exc)) from exc
+            # Freeze the rejection by identity now, at plan time. The frozen
+            # copy is the guarantee; the `review_history` index is corroboration
+            # and is -1 when `human_review` has been corrected in place, which
+            # is legitimate and is recorded rather than refused.
+            review_index = review_entry_index(record, review)
             review_digest = canonical_sha256(dict(review))
         else:
             raise ReviseOnSourceError(
@@ -423,6 +420,36 @@ def revise_on_source(
         if old_source == source_head:
             raise ReviseOnSourceError(
                 "Source has not advanced past the candidate's base; ordinary revise applies")
+
+        # A TASK WHOSE DELIVERY EVIDENCE IS ALREADY COMMITTED IS NOT A TASK TO
+        # RE-DISPATCH, AND NOTHING IN THE RECORD SAYS SO.
+        #
+        # Found the expensive way: NSC-113 planned OK under my own hands while
+        # being taskcontrol CONFORMANT and delivered. Its checkout record still
+        # read `changes_requested` with a rejection on it, because the delivery
+        # went out as a REBUILT commit and nothing wrote back. Every guard above
+        # reads that record, so every one of them said yes. Caught by the
+        # Pipeline Runner checking the real instances against taskcontrol.
+        #
+        # Applying this WOULD have: withdrawn a delivered candidate, moved the
+        # record backwards to `prepared`, and spent a crew on finished work.
+        #
+        # THIS IS A PROXY AND SAYING SO IS THE POINT. It tests for committed
+        # evidence at the INSPECTED commit, not for the derived state, because
+        # AssistantControl imports nothing from TaskGraph and a lock path is the
+        # wrong place to start. It separates the live population exactly today
+        # -- NSC-113 has 3 evidence files at HEAD, NSC-008/009/118 have none --
+        # and WHAT WOULD FALSIFY IT is a task carrying partial evidence that
+        # genuinely still needs a crew pass. If one appears, this refuses it and
+        # the operator will have to say so; a taskcontrol-backed check is the
+        # stronger answer and is deliberately not built here.
+        delivered = git(checkouts.source, "ls-tree", "-r", "--name-only", source_head,
+                        "--", f"Pipeline/TaskGraph/evidence/{task_id}").decode().strip()
+        if delivered:
+            raise ReviseOnSourceError(
+                f"{task_id} already has committed delivery evidence at {source_head}; "
+                "its checkout record may be stale. Check its taskcontrol state before "
+                "withdrawing a candidate whose work may already be delivered")
 
         # The adopted contract is named, never inferred. `revise` refuses when
         # the contract moved precisely so that carrying work across a changed

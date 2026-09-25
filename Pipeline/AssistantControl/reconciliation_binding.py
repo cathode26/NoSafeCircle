@@ -74,23 +74,38 @@ def canonical_sha256(value: Any) -> str:
 
 
 def review_entry_index(record: Mapping[str, Any], review: Mapping[str, Any]) -> int:
-    """Where in ``review_history`` this exact review sits.
+    """Where in ``review_history`` this exact review sits, or -1 if nowhere.
 
     ``review_history`` is append-only -- ``review.py:205`` is its only writer in
-    AssistantControl -- so an index taken now keeps pointing at the same entry
-    for the life of the record. The hash is what catches a hand edit.
+    AssistantControl -- so an index found now keeps pointing at the same entry
+    for the life of the record, and its hash catches a later hand edit.
+
+    -1 IS A REAL AND LEGITIMATE ANSWER, and refusing it would strand a record
+    whose rejection was corrected in the proper way. NSC-009 is the live case:
+    ``review_history[0]`` holds Vincent's original 2488-character rejection
+    verbatim, and ``human_review`` holds that text PLUS an appended block saying
+    "CORRECTION APPENDED 2026-09-24 08:23Z BY THE FLEET, NOT BY VINCENT". The
+    append-before-assign ordering in ``review.py`` preserved the original
+    exactly as designed; the two are supposed to differ.
+
+    The authoritative text is ``human_review`` -- it is the current statement of
+    what is wrong, and it labels which part is not Vincent's. So the withdrawal
+    freezes THAT, and the history index is corroboration that is recorded when
+    it exists and reported as absent when it does not. The guarantee the
+    Pipeline Runner asked for does not depend on the index: it comes from
+    freezing the bytes, which is what stops a later correction changing what a
+    running crew was told.
     """
 
     history = record.get("review_history")
     if not isinstance(history, list):
-        raise ReconciliationBindingError("record has no review history to bind")
+        return -1
     wanted = canonical_sha256(dict(review))
     for index in range(len(history) - 1, -1, -1):
         entry = history[index]
         if isinstance(entry, Mapping) and canonical_sha256(dict(entry)) == wanted:
             return index
-    raise ReconciliationBindingError(
-        "the rejection is not present in review_history; it cannot be bound by identity")
+    return -1
 
 
 def candidate_receipt_problem(record: Mapping[str, Any], candidate: Any,
@@ -132,6 +147,48 @@ def candidate_receipt_problem(record: Mapping[str, Any], candidate: Any,
         if not value or receipt.get(key) != value:
             return f"candidate receipt identity differs on {key}"
     return None
+
+
+def crew_provenance_problem(record: Mapping[str, Any], candidate: Any,
+                            task_id: str) -> str | None:
+    """Why this candidate carries no crew authority to carry forward, or None.
+
+    THERE ARE TWO REPRESENTATIONS AND ONLY TWO, MEASURED ACROSS EVERY LIVE
+    RECORD RATHER THAN REASONED ABOUT (22 of them, 2026-09-25):
+
+        no `kind`, receipt present, flag absent .............. 15   RAW crew
+        `unity_materialized`            flag True, no receipt .. 3   TRANSFORMED
+        `unity_materialization_failed`  flag True, no receipt .. 1   TRANSFORMED
+        `source_synchronized`           flag True, no receipt .. 1   TRANSFORMED
+        `assistant_restored`(_art)      flag absent, no receipt . 2   NEITHER
+
+    A raw crew candidate proves itself with its registered commit receipt. A
+    transformed one CANNOT -- the transformation mints a new commit, so there is
+    no receipt for it -- and proves itself with the flag materialization writes
+    alongside the kind. This is Astra's own split: "authenticate raw candidates
+    using their receipt and recorded scope; use the existing wrapper proofs when
+    accepting transformed candidates."
+
+    `assistant_restored` carries NEITHER proof and is refused by both halves,
+    which is the case Astra named explicitly: a review gate can reject an
+    assistant-restored candidate that has no crew review at all, and a rejection
+    is not itself provenance.
+
+    THE HALF THAT WAS MISSING COST NOTHING TO FIND AND COULD NOT HAVE BEEN FOUND
+    IN A FIXTURE. NSC-009 is `unity_materialized` with the flag and no receipt;
+    the raw-receipt-only version of this function refused it, and the fixtures
+    all build raw candidates so every test passed.
+    """
+
+    if not isinstance(candidate, Mapping):
+        return "record carries no candidate"
+    kind = candidate.get("kind")
+    if isinstance(kind, str) and kind:
+        if candidate.get("source_candidate_crew_review") is True:
+            return None
+        return (f"{kind!r} candidate does not carry crew-review authority; "
+                "there is no crew work to carry forward")
+    return candidate_receipt_problem(record, candidate, task_id)
 
 
 def human_rejection_binding(record: Mapping[str, Any]) -> Mapping[str, Any] | None:
@@ -177,18 +234,29 @@ def human_rejection_binding(record: Mapping[str, Any]) -> Mapping[str, Any] | No
 
     index = entry.get("review_entry_index")
     digest = entry.get("review_entry_sha256")
+    if type(index) is not int or not isinstance(digest, str) or not digest:
+        raise ReconciliationBindingError("withdrawal does not name its review provenance")
+    # THE GUARANTEE LIVES HERE AND NOWHERE ELSE: the bytes a crew is dispatched
+    # with are the bytes that were frozen, whatever has happened to the record
+    # since. Everything below is corroboration.
+    if canonical_sha256(dict(review)) != digest:
+        raise ReconciliationBindingError(
+            "the frozen rejection has been altered since the withdrawal; the feedback "
+            "a crew would be given is not the feedback that was withdrawn")
+    if index < 0:
+        # The rejection was not a verbatim review_history entry when it was
+        # withdrawn -- a corrected human_review, which is legitimate and is
+        # recorded as such rather than papered over.
+        return entry
     entries = record.get("review_history")
-    if (type(index) is not int or not isinstance(digest, str)
-            or not isinstance(entries, list) or not 0 <= index < len(entries)):
-        raise ReconciliationBindingError("withdrawal does not name its review history entry")
+    if not isinstance(entries, list) or not index < len(entries):
+        raise ReconciliationBindingError(
+            "withdrawal names a review history entry the record no longer has")
     live = entries[index]
     if not isinstance(live, Mapping) or canonical_sha256(dict(live)) != digest:
         raise ReconciliationBindingError(
             "the bound review history entry has changed since the withdrawal; the "
             "feedback a crew would be given is not the feedback that was withdrawn")
-    if canonical_sha256(dict(review)) != digest:
-        raise ReconciliationBindingError(
-            "the frozen rejection differs from the review history entry it names")
     return entry
 
 
@@ -200,6 +268,7 @@ __all__ = [
     "WITHDRAWAL_BASES",
     "canonical_sha256",
     "candidate_receipt_problem",
+    "crew_provenance_problem",
     "human_rejection_binding",
     "review_entry_index",
 ]
