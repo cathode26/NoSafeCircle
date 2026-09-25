@@ -195,6 +195,105 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             }
         }
 
+        // VAL-001 asks for COMMITTED-SCENE conformance: open the exact committed
+        // BoneArchive.unity, scope every lookup to that scene, verify the AC-001 footprints and
+        // heights there, and close without saving. The in-memory builder test above cannot serve
+        // this clause - it proves what the builder WOULD produce, not what is committed, and the
+        // two disagreed for weeks without anything noticing.
+        [Test]
+        public void CommittedScene_ContainsEveryApprovedBlockoutAtItsAuthoredFootprint()
+        {
+            Scene scene = EditorSceneManager.OpenScene(BoneArchiveSceneBuilder.ScenePath, OpenSceneMode.Single);
+
+            try
+            {
+                AssertCommittedBlockout(scene, "Shelf A", BoneArchiveLayout.ShelfA,
+                    BoneArchiveLayout.ShelfVisualHeight);
+                AssertCommittedBlockout(scene, "Shelf B", BoneArchiveLayout.ShelfB,
+                    BoneArchiveLayout.ShelfVisualHeight);
+                AssertCommittedBlockout(scene, "Shelf C", BoneArchiveLayout.ShelfC,
+                    BoneArchiveLayout.ShelfVisualHeight);
+                AssertCommittedBlockout(scene, "West Archive Bay W-1", BoneArchiveLayout.WestArchiveBayW1,
+                    BoneArchiveLayout.ShelfVisualHeight);
+                AssertCommittedBlockout(scene, "East Archive Bay E-1", BoneArchiveLayout.EastArchiveBayE1,
+                    BoneArchiveLayout.ShelfVisualHeight);
+                AssertCommittedBlockout(scene, "Collapsed Furniture BA-1",
+                    BoneArchiveLayout.CollapsedFurnitureBA1, BoneArchiveLayout.CollapsedFurnitureHeight);
+
+                // AC-003: present as a visual landmark, and carrying no gameplay collider at all.
+                GameObject reliquary = FindInScene(scene, "Archive ReliquaryVisual");
+                Assert.That(reliquary, Is.Not.Null,
+                    "The committed scene must contain the Archive Reliquary blockout.");
+                Assert.That(FindInScene(scene, "Archive ReliquaryCollision"), Is.Null,
+                    "The Archive Reliquary must remain non-colliding in the committed scene.");
+
+                Bounds reliquaryBounds = reliquary.GetComponent<Renderer>().bounds;
+                Assert.That(reliquaryBounds.min.x,
+                    Is.EqualTo(BoneArchiveLayout.ArchiveReliquary.min.x).Within(0.01f));
+                Assert.That(reliquaryBounds.max.x,
+                    Is.EqualTo(BoneArchiveLayout.ArchiveReliquary.max.x).Within(0.01f));
+                Assert.That(reliquaryBounds.min.z,
+                    Is.EqualTo(BoneArchiveLayout.ArchiveReliquary.min.z).Within(0.01f));
+                Assert.That(reliquaryBounds.max.z,
+                    Is.EqualTo(BoneArchiveLayout.ArchiveReliquary.max.z).Within(0.01f));
+            }
+            finally
+            {
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            }
+        }
+
+        // Same assertions as AssertBlockout, but scoped to the opened committed scene rather than
+        // to whatever GameObject.Find happens to reach.
+        private static void AssertCommittedBlockout(
+            Scene scene, string baseName, Bounds colliderFootprint, float visualHeight)
+        {
+            GameObject visual = FindInScene(scene, baseName + "Visual");
+            GameObject collision = FindInScene(scene, baseName + "Collision");
+            Assert.That(visual, Is.Not.Null, baseName + " must exist in the committed scene.");
+            Assert.That(collision, Is.Not.Null,
+                baseName + " must have a gameplay collider in the committed scene.");
+
+            Bounds rendered = visual.GetComponent<Renderer>().bounds;
+            Assert.That(rendered.min.x, Is.EqualTo(colliderFootprint.min.x).Within(0.01f),
+                baseName + " committed visual min X.");
+            Assert.That(rendered.max.x, Is.EqualTo(colliderFootprint.max.x).Within(0.01f),
+                baseName + " committed visual max X.");
+            Assert.That(rendered.min.z, Is.EqualTo(colliderFootprint.min.z).Within(0.01f),
+                baseName + " committed visual min Z.");
+            Assert.That(rendered.max.z, Is.EqualTo(colliderFootprint.max.z).Within(0.01f),
+                baseName + " committed visual max Z.");
+            Assert.That(rendered.min.y, Is.EqualTo(0f).Within(0.01f),
+                baseName + " committed visual must rest on the floor.");
+            Assert.That(rendered.max.y, Is.EqualTo(visualHeight).Within(0.01f),
+                baseName + " committed visual must span Y [0," + visualHeight + "].");
+
+            Bounds collider = collision.GetComponent<BoxCollider>().bounds;
+            Assert.That(collider.min.x, Is.EqualTo(colliderFootprint.min.x).Within(0.01f));
+            Assert.That(collider.max.x, Is.EqualTo(colliderFootprint.max.x).Within(0.01f));
+            Assert.That(collider.min.z, Is.EqualTo(colliderFootprint.min.z).Within(0.01f));
+            Assert.That(collider.max.z, Is.EqualTo(colliderFootprint.max.z).Within(0.01f));
+            Assert.That(collider.size.y, Is.EqualTo(colliderFootprint.size.y).Within(0.01f),
+                baseName + " committed gameplay collider height.");
+        }
+
+        // Scoped to the given scene, so nothing in another loaded scene can satisfy a lookup.
+        private static GameObject FindInScene(Scene scene, string name)
+        {
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                foreach (Transform candidate in root.GetComponentsInChildren<Transform>(true))
+                {
+                    if (candidate.gameObject.name == name)
+                    {
+                        return candidate.gameObject;
+                    }
+                }
+            }
+
+            return null;
+        }
+
         // AC-001: asserts a layout constant against the contract's own X/Z range and height,
         // stated as the contract states them rather than as a precomputed centre and size, so a
         // reader can check this line against the contract without doing arithmetic.
