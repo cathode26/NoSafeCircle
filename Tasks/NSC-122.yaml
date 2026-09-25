@@ -16,7 +16,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "decomposition_reason": "This is an independently bounded cleanup of DemoRunFlow's obsolete death flow. It does not own restart orchestration, victory behavior, or the reset-participant wiring, so separating it avoids combining legacy-flow removal with the shared restart integration surface.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -26,7 +26,9 @@
   ],
   "downstream_integration_obligations": [],
   "exclusive_resources": [
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs"
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/DemoRunFlowDeathRetirementPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/DemoRunFlowDeathRetirementPlayModeTests.cs.meta"
   ],
   "execution_reason": "One Unity programmer removes DemoRunFlow's legacy death subscription, state, screen text, and manual scene reload while preserving its contact-damage and HUD behavior.",
   "execution_scope": "single_agent",
@@ -46,14 +48,25 @@
   ],
   "id": "NSC-122",
   "kind": "implementation",
-  "notes": "NSC-032 owns the existing FloorRunRestartController and zero-health subscription. NSC-119 and NSC-086 are the preceding DemoRunFlow editors. This child edits only DemoRunFlow.cs. It must preserve ApplyEnemyContactDamage, DrawEnemyHealthBars, and DrawPlayerStatus, and must not add another restart path, reload the scene, edit the restart controller, or change victory behavior. The child should confirm the NSC-086 victory branch is already retired before removing the shared end-screen method and end-state early return.",
+  "notes": "NSC-032 owns the existing FloorRunRestartController and zero-health subscription. NSC-119 and NSC-086 are the preceding DemoRunFlow editors. This child edits only DemoRunFlow.cs. It must preserve ApplyEnemyContactDamage, DrawEnemyHealthBars, and DrawPlayerStatus, and must not add another restart path, reload the scene, edit the restart controller, or change victory behavior. The child should confirm the NSC-086 victory branch is already retired before removing the shared end-screen method and end-state early return. This child owns DemoRunFlowDeathRetirementPlayModeTests.cs and authors it: the regression coverage VAL-001 requires has no home today, and without an owned test path no execution scope plan can be built for this task at all. Write the Play Mode regression coverage there rather than in another task's fixture; NSC-086 owns the FinalDoorVictory fixtures and NSC-119 owns the Fireball committed-scene fixture.",
   "parent": "NSC-033",
   "provenance": {
     "graph_delta_plan_id": "GDP-932fd6596e9fe623e80e1f12fe8088c3b419f7ac859804b99f34e20b7179744a",
     "origin": "progressive_decomposition",
     "parent_contract_revision": 14,
     "parent_contract_sha256": "89751262e23d914bef6a34c45eaa1064b05f752e17d824af00bcea83c044d0df",
-    "parent_task_id": "NSC-033"
+    "parent_task_id": "NSC-033",
+    "contract_followups": [
+      {
+        "date": "2026-09-25",
+        "reason": "NSC-122 owned no test path, so no execution scope plan could be built and the task could never be crew-dispatched; it now owns the Play Mode fixture VAL-001's regression check needs. No acceptance criterion or gate changed.",
+        "source_head": "943549b5deffaf77023985481c384f479c4ce61f",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "ebf7fc4de22f2ce0415e9d788d60d1e28cf23dea47c1c144881484583e736f73",
+        "revised_contract_sha256": "a0d5312dcbd7a27471d6957b6f3bc99a7418fb03b829ed00042e06e6aa39955e",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   },
   "reconciliation_key": "demo-run-flow-death-retirement",
   "repository_evidence_at_bootstrap": [],
