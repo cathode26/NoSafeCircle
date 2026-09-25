@@ -354,6 +354,14 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
         // transparent sorting stays consistent with everything else in the scene. Must run after
         // BuildGameplayNavigation has baked, or the agent has no surface to path on.
         //
+        // 2026-09-25: the two Bone Archive spawns moved because NSC-045's widened blockout landed.
+        // They were authored against the PRE-WIDENING room and both fell inside new geometry: the
+        // melee at X 2.0 reached ShelfC, which moved from X[3.5,5.0] to X[2.5,4.0], and the wraith
+        // at (9,13) sat INSIDE East Archive Bay E-1 at X[7.0,11.75] Z[5.5,13.5], which did not
+        // exist at all. Melee is now centred in the BA-1-to-ShelfC lane, 1.75 from the D1-D2
+        // midpoint (3,10) and inside AC-005's 4-unit rule, and the wraith moved north of E-1,
+        // still east of the D1-D2 line and now 9.8 units from the melee against AC-005's 6.
+        //
         // AC-005 (contract revision 8): repositioned to the 2026-09-15 approved room bounds -
         // BoneArchive X[-12,12] Z[0,20] D1(0,0)/D2(6,20); ChapelOfAsh X[-18,18] Z[20,54]
         // D2(6,20)/D3(-8,54); LowerVault X[-20,20] Z[54,76] D3(-8,54)/D4(4,76); FinalRoom
@@ -364,7 +372,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
         // is deliberately left empty; the wizard spawns there instead.
         private static readonly Vector3[] EnemySpawnPositions =
         {
-            new Vector3(2f, 0f, 10f),   // BoneArchive: 1 unit from the D1-D2 midpoint (3,10)
+            new Vector3(1.25f, 0f, 10f),// BoneArchive: 1.75 from the D1-D2 midpoint (3,10), centred in the BA-1-to-ShelfC lane
             new Vector3(-2f, 0f, 36f),  // ChapelOfAsh: ~1.4 units from the D2-D3 midpoint (-1,37)
             new Vector3(-2f, 0f, 66f),  // LowerVault: 1 unit from the D3-D4 midpoint (-2,65)
             new Vector3(-2f, 0f, 86f),  // FinalRoom west flank of FR-1, ~5.7 from midpoint (2,90)
@@ -384,7 +392,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
         // sight line to at least one of that room's two door approach points.
         private static readonly Vector3[] LanternWraithSpawnPositions =
         {
-            new Vector3(9f, 0f, 13f),   // BoneArchive, opposite side from melee (2,10); sees D2
+            new Vector3(9f, 0f, 16f),   // BoneArchive, opposite side from melee (1.25,10), north of E-1; sees D2
             new Vector3(0f, 0f, 45f),   // ChapelOfAsh, opposite side from melee (-2,36); sees D3
             new Vector3(4f, 0f, 73f),   // LowerVault, opposite side from melee (-2,66); sees D4
             new Vector3(10f, 0f, 80f),  // FinalRoom, within 12 units of D4 (4,76); sees D4
