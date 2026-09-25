@@ -10,9 +10,16 @@ import json
 from pathlib import Path
 from typing import Any, Mapping
 
-from Pipeline.AssistantControl.admission import _revision_baseline
+from Pipeline.AssistantControl.admission import (
+    _revise_on_source_baseline,
+    _revision_baseline,
+)
 from Pipeline.AssistantControl.checkouts import Checkouts
 from Pipeline.AssistantControl.inspect_project import git
+from Pipeline.AssistantControl.reconciliation_binding import (
+    ReconciliationBindingError,
+    human_rejection_binding,
+)
 
 
 class RevisionFeedbackError(ValueError):
@@ -138,17 +145,97 @@ def _prepare_fresh_feedback(checkouts, record, reservation, baseline, review):
     return {"revision_feedback_file": path}
 
 
+def _prepare_reconciliation_feedback(checkouts, record, reservation):
+    """Stage the rejection a ``revise-on-source`` withdrawal froze for this crew.
+
+    THE HOLE THIS FILLS, and it is the finding that would have broken a guard-only
+    fix. A human-rejected candidate whose Source has moved has exactly one route
+    forward -- ``revise-on-source`` -- and afterwards the record carries NO
+    ordinary ``revision``: that structure binds a rejected commit that IS the
+    execution baseline, and a reconciliation makes those two different commits by
+    construction. So ``prepare_revision_feedback`` used to return {} here, and the
+    crew dispatched onto the reconciled baseline would be told nothing at all
+    about why the previous attempt was rejected. It would have been sent to repeat
+    the work that was rejected, at full provider cost, with the record showing
+    nothing wrong.
+
+    The withdrawal froze the exact rejection into its history entry precisely so
+    this function has something authenticated to stage. An empty return here now
+    means only "this record was never reconciled"; every other failure raises.
+    """
+    try:
+        entry = human_rejection_binding(record)
+    except ReconciliationBindingError as exc:
+        raise RevisionFeedbackError(str(exc)) from exc
+    if entry is None:
+        return {}
+    task_id = record.get("task_id")
+    if not isinstance(task_id, str) or not isinstance(reservation, Mapping):
+        raise RevisionFeedbackError("reconciled record or reservation identity is invalid")
+    try:
+        source_head = git(checkouts.source, "rev-parse", "HEAD").decode().strip()
+        baseline = _revise_on_source_baseline(checkouts, record, source_head)
+    except Exception as exc:
+        raise RevisionFeedbackError(
+            "reconciliation baseline is not currently authenticated") from exc
+    if not baseline or baseline != entry.get("reconciled_commit"):
+        raise RevisionFeedbackError(
+            "the record's baseline is not the commit this withdrawal produced")
+    if (reservation.get("task_id") != task_id
+            or reservation.get("source_head") != baseline
+            or not all(reservation.get(key) for key in ("run_id", "lease_id", "plan_id"))):
+        raise RevisionFeedbackError(
+            "reconciliation reservation differs from the reconciled baseline")
+
+    review = entry["rejected_review"]
+    data = review["message"].encode("utf-8")
+    if len(data) > 64 * 1024:
+        raise RevisionFeedbackError("rejection.message exceeds the bounded feedback size")
+    metadata = {
+        "schema_version": "assistant-reconciliation-feedback/v1",
+        "task_id": task_id,
+        "withdrawal_basis": entry.get("withdrawal_basis"),
+        # Four identities, kept apart on purpose: the crew is being told why C
+        # was rejected while it works on M. Collapsing them is how a rejection
+        # gets rewritten as though it had been aimed at the merge.
+        "rejected_candidate": entry.get("rejected_candidate"),
+        "inspected_source_commit": entry.get("inspected_source_commit"),
+        "reconciled_commit": baseline,
+        "review_entry_index": entry.get("review_entry_index"),
+        "review_entry_sha256": entry.get("review_entry_sha256"),
+        **{key: reservation[key] for key in ("run_id", "lease_id", "plan_id")},
+        "feedback_sha256": hashlib.sha256(data).hexdigest(),
+    }
+    encoded = (json.dumps(metadata, sort_keys=True, indent=2) + "\n").encode("utf-8")
+    key = hashlib.sha256(encoded).hexdigest()
+    checkout = _owned(checkouts.root, Path(record["checkout"]), field="task checkout")
+    directory = _owned(
+        checkout, checkout / "Pipeline" / "ExecutionCrew" / "outputs" /
+        "assistant-feedback" / key, field="reconciliation feedback directory", strict=False)
+    path = directory / "feedback.txt"
+    _write_immutable(path, data, field="reconciliation revision feedback")
+    _write_immutable(directory / "metadata.json", encoded,
+                     field="reconciliation feedback metadata")
+    _write_immutable(checkouts.records / "revision-feedback" / f"{key}.json", encoded,
+                     field="reconciliation feedback record")
+    return {"revision_feedback_file": path}
+
+
 def prepare_revision_feedback(
     checkouts: Checkouts, record: Mapping[str, Any], reservation: Mapping[str, Any],
     config: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Return explicit fresh-feedback or retry kwargs for a verified revision.
 
-    A non-revision record returns ``{}`` without importing ExecutionCrew.
+    A record with neither an ordinary revision nor a reconciliation withdrawal
+    returns ``{}`` without importing ExecutionCrew.
     """
     revision = record.get("revision")
     if not isinstance(revision, Mapping):
-        return {}
+        # NOT simply "no feedback". A reconciled record carries its rejection in
+        # a withdrawal binding instead, and returning {} for one of those is the
+        # silent failure this branch exists to stop.
+        return _prepare_reconciliation_feedback(checkouts, record, reservation)
     task_id = record.get("task_id")
     if not isinstance(task_id, str) or not isinstance(reservation, Mapping):
         raise RevisionFeedbackError("revision record or reservation identity is invalid")
