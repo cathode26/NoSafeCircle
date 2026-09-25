@@ -1,0 +1,1031 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "6dd2fd9b95960ddae2c38a18bd6e0a415558545c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_e_attack_00.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "6d0e0580f19495e017d22aacb0cd61506ffc58b3",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_e_attack_00.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "481683366082c2d31479455ff350973f5c3dc9e3",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_e_attack_01.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "fa19eba486d4615d7ec4ea13279df5474b12d0fc",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_e_attack_01.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "3df99e51be1e7f1c82c6640c09fba7802efffec7",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_e_attack_02.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "501e87a27f690fb236f2640ba748f8fc4609f2fe",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_e_attack_02.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "50fc6c8999e3ea1ec155360ef784b100493a702e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_e_attack_03.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "978a59302aa4e230cc5aa6d5ddf6c787a6bfe777",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_e_attack_03.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "d888cbb26cebdfc24a36c71f357a4878b85bc2ca",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_e_attack_04.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "31c5231487b38293f3e7ec55b45bc0b53eb94982",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_e_attack_04.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "4dffd0b47ab33ad66076347a51dc0aad0f7287e1",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_e_attack_05.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "b86dd8934a127157495cbe894b0f0db82b669d6c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_e_attack_05.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "b1c22aec2c8579c03eee30d91a4a113e51394812",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_n_attack_00.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "b6e756559fcef299f8b385c282bf33c84790148a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_n_attack_00.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "b8c23d3bcdb0609ca09d31026eaeef08e253483b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_n_attack_01.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "00e74b9026632ee04c44efb83f4fa46b7e3ceda8",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_n_attack_01.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "378090d77bd5dcc3843de27a0cced3e6a03e2daa",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_n_attack_02.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "5b18fd576d09422105b629c87a38d7d7dfc11a9f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_n_attack_02.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "3159c8381020a6e736c8bd71f0ffcd1765e0b711",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_n_attack_03.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "c48502ea0861d759f9d66b8700205ca38385ef21",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_n_attack_03.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "16b0d3249605bd099308bce983a5e5a78c013f02",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_n_attack_04.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "6469199f800c7bf656a30071100bccd34fe5d840",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_n_attack_04.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "8c163548f34a31e3f0af00bcb3a54981314cc798",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_n_attack_05.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "2dbdc5dd909015465e0ee1461600d3254d06181f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_n_attack_05.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "f3e8c1ae9e1341b685b4df580815db4aa81551c4",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_ne_attack_00.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "ecbaa5b666c66ae03db1745ebeed17e153b5286b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_ne_attack_00.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "9dd3e7f30435a69a2909356e724d5ce62ecdce2a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_ne_attack_01.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "1ced6450b999b91b295005f7b497a57303e10238",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_ne_attack_01.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "034fcadcffa7df6ebd9c100628c935880583ba64",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_ne_attack_02.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "daf6cec539a1607dc04d863fc4b574f62ef3dc48",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_ne_attack_02.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "a1ea9b7ad8978e5123f8ea6e938b1976903cf1a8",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_ne_attack_03.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "e62c00e54053f3cb752e20c637c653008f3463ea",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_ne_attack_03.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "f9967eb95f601ba481c71847e84b24d22ff505b2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_ne_attack_04.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "28e04feda6c5554de7d07b39f2517ef5b5140e7c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_ne_attack_04.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "66b4d8b56b2c5b45335fb06e05f184ee04ede130",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_ne_attack_05.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "b453ef8a028c61ca7179adb6bbea20a52d956d86",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_ne_attack_05.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "fc38fa741187dc406a9a059f6f5e40bac094e4ed",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_nw_attack_00.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "d543e128760edea6e746e48ce82838eca8794cc8",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_nw_attack_00.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "79e37f77dc795f4fa6abadaaf2f4501668705b2b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_nw_attack_01.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "f9646eed8f345c6f2f9713a13229e257715fe36f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_nw_attack_01.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "ae653a1dc3445b0aadd59e62cb2634b4afc620cb",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_nw_attack_02.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "93484488395081c05e65b3c0622940c30fbc51a9",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_nw_attack_02.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "0ea22ba3986f912b5e017943000381aa6156e73f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_nw_attack_03.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "a28862c3c304ef9d1fec420f3180c988a19e87d0",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_nw_attack_03.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "fec0bc02f44dbf8f7d8fcb67ad8e8f3e065ecc7a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_nw_attack_04.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "508166a4998ca417c951da0e80fbbbcaf892df80",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_nw_attack_04.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "ffcc0f49b6c16743a314110f18eb05e276c47645",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_nw_attack_05.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "32033491c55100bd08ac22d90832b23eebb385d4",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_nw_attack_05.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "ae3ca8b47015f37dfa8c1503faa82091666d8ec9",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_s_attack_00.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "e22985ab715e4929174d3f6ae5e039e4df81b9c3",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_s_attack_00.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "1a2fe3777d830c418eadf063a252f988f01dc241",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_s_attack_01.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "f196bc009c970fe6d5c24542b3e4e6dba2ee3c15",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_s_attack_01.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "e8feb00c1c42bff7809a8aa16f38eceec51580d3",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_s_attack_02.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "09a97d9e8c8de0d66ebd61cf2d276cfd37a2e5de",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_s_attack_02.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "dffbb9b5a94a149cea5613c480bb3d20ab8166ac",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_s_attack_03.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "022036d3c0b07b98c97792b248355609a385ebe6",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_s_attack_03.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "40b3323a633b1c0db7accee742d9d47b7825833b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_s_attack_04.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "8ee431fbb11fcc90dca8ff31e34e5f96b71e7c2c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_s_attack_04.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "1e02a402692c019591053726e42c519473fc427a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_s_attack_05.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "538d0684438cb25b235ad93c8468378621a43418",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_s_attack_05.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "32a82203fef90d3a40ce997d217e11eed5b1127b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_se_attack_00.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "c8812a095cd2a0b3f89f935e405e5dc005172c4b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_se_attack_00.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "5edc3f4bc7e09c9e77bf0213dbc7e79900481847",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_se_attack_01.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "4e0448e595b5935c454869e7bc54c7bb7dae18d0",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_se_attack_01.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "8f3aa7010aacc23cdc33414c77354d42cb888371",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_se_attack_02.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "a806b428c473b6b2dc3b01a40d26dd7c9030f9f4",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_se_attack_02.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "778f2da0208d77914730fc3b8ef14a2bad1c47ed",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_se_attack_03.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "4439e5f2a7363d4fa8a249529e4b6979e7adce0a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_se_attack_03.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "6fa4f6e10796fbca0fdbce2645eabc5fa15ca93a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_se_attack_04.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "c0ebf072a595cab099ff64b1964a42e794fec1f6",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_se_attack_04.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "df64cab9381f159251efe027086f12993ebb640e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_se_attack_05.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "fc9313a259ccd332f27f072a7e6a3239c11bf063",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_se_attack_05.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "205b5f2f47a375b513dde6ac240552b701b353b0",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_sw_attack_00.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "651decb5a6003c2c5551de083ab3373304b99d76",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_sw_attack_00.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "a0f76e20ddde23f619a6ec5304274cb1c9a554b2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_sw_attack_01.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "3a183e7ee90a5b08aa93fc9db77fa6916abb446a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_sw_attack_01.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "d11c5955062296459915737a80c8d6898927c001",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_sw_attack_02.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "c1fa28e2da9a61db9b2357f662c9bbb0025355ad",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_sw_attack_02.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "f6b81043d083755a9b53af0bf855cc8d27ec8d1f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_sw_attack_03.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "48e04159a940016601d68e735d894120c2e9e012",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_sw_attack_03.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "e57c5a8e057c8f18efdb8c0cc831c052aab23385",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_sw_attack_04.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "c37ec06685daeb6d733a715c61592fa0abad1ea6",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_sw_attack_04.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "05cd2f3a2bf6631bb5e1929880ed45ba62188ae9",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_sw_attack_05.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "0b68eab780081e6f4ef3980e4213c4f0d5ccb8d1",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_sw_attack_05.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "56a9ceeac5a1b9311574a3f7570525a811e4f276",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_w_attack_00.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "199738a94ef64e0ba600536d19fa58b5950ae374",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_w_attack_00.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "cb94276e7be0c8f199b59a05700ccc0f8a657adf",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_w_attack_01.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "31beab02dadacd9473913fa173d9fc0f731a72c7",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_w_attack_01.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "1bf4195c60c0c7b861f83546c7769b08528ab5aa",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_w_attack_02.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "6263c43ebf3560d6b939a7fe145916957c4134a3",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_w_attack_02.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "d991b53e6691b312cff3aab1242b96ec1aab42a2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_w_attack_03.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "c81f29ab5a2d259ae9458f9a3112c06d4cc3dc2e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_w_attack_03.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "3e88caa236ad8f755030aa63df536e6ca7ea0ea3",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_w_attack_04.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "4e9c8fc0e0ce7367dd6768ac33001ed165447546",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_w_attack_04.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "2b0e9c37f6b0de22b622c25c813a04e771ea5f3e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_w_attack_05.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "eb774e200ac66f90143a17c186700b16326fc2f2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_w_attack_05.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "7fb277a2859e4725725a3f16648a194ea5d7cea4",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_e_attack_00.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "a04a7d1b95caf498727f38d05d4fa349cb88b5a4",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_e_attack_00.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "65d80d84f81e391e597a2aaa022f1c5801f74792",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_e_attack_01.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "50bae5be4c8d16818470f7a9c0d28ba7d10409cc",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_e_attack_01.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "2e255c604fe4a0860da0ad7911b3d7f063f01e64",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_e_attack_02.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "3d3705fbb708832d488cce55020e9f75d365838b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_e_attack_02.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "60cc10632257972b4bd2b9626fa449b2b1b273a2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_e_attack_03.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "c191a52680615322028273e5019dcbbf38dc333d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_e_attack_03.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "edd8de9fac05e17dc872ade8d97340d0a608670e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_e_attack_04.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "a0e56780e716aaf352c1fc71b53e429beda2824a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_e_attack_04.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "a65a881abe4d35e21b5f3b560d2e93124de0537c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_e_attack_05.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "763ea7700ca6975875dda77c79d4af65758b2cc0",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_e_attack_05.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "719e19850dd855bdf6bb2a65ddd8c3466aac1d1c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_n_attack_00.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "6d398a2bfa9571c1e699817038eb2127559c0cdc",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_n_attack_00.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "333fd54d45797ff89155582057f94a3d07813c1a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_n_attack_01.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "5f359e4d54e86372be5e45ad45f34bec6fb4ad8a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_n_attack_01.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "9352a9d0933d38c774fb12f0abbe72704804bbe3",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_n_attack_02.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "84245f022ab16a667bc7e3adc832cf1bc14b3b6f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_n_attack_02.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "8d7d7abb8227e21b4c24d10f037f423af2cf1085",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_n_attack_03.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "8b3e3476a58751e3fad02d70d27074ec6f2059a1",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_n_attack_03.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "2aaccaafff21e3c944a9e5f2ea87b97b7656d886",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_n_attack_04.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "b33305f7d382b82a83e6afb4d86a882b681b5be7",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_n_attack_04.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "d30ee0a0019384df480abe9a5ccc4db98db8c026",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_n_attack_05.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "9f854b35bbb9e9e71ea28407c26659b77c8fb146",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_n_attack_05.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "bd18c659ffd363d634e4919982d17a8b6bea82ca",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_ne_attack_00.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "5a7af5293a54f3498147af352a650757474781bd",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_ne_attack_00.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "d4c62c92113b1ad77bde0d88dd7d0047d4ec1d43",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_ne_attack_01.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "8927bc919dca943ebb2c59568a2d14fb179693c6",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_ne_attack_01.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "5974c96ad23508e9aee3d17bed10ab86a1d5540d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_ne_attack_02.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "7df11cddd76b3c78cb26a8f544a162bc2f34665b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_ne_attack_02.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "c4d824cecfd8c8b914c0883f2e5e221974c9db39",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_ne_attack_03.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "fbdc87f6053ac0ea00da53c19cc8eca411ad794b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_ne_attack_03.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "92dea3d86e50aa13db6094b62e23320a71190532",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_ne_attack_04.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "b87ed8bac593088c3c10067397ac11766b0b43f3",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_ne_attack_04.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "6270c178b4396462b10ddd0038373f38f0f25175",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_ne_attack_05.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "05f65d37d1b6be8b103f6457f021cf29e7c59c8f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_ne_attack_05.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "36c2c79e013f17055737153776198fa2d536319c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_nw_attack_00.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "9d6400cce1b1dbccc5b9104a6bb6409351c02971",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_nw_attack_00.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "7f4c97f53609563d37d1472634836ec61e3231ae",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_nw_attack_01.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "c36c164cb15dc4400936b14fd01a82fe645cdf6e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_nw_attack_01.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "f5f49597d38d8e0e0634ed45bea1e5e80d4795e8",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_nw_attack_02.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "6ac8f496f42bdeead47612d1a2e2d367d0df0229",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_nw_attack_02.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "4b12950802d8d2b3889625e633ba204f324fb634",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_nw_attack_03.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "d691c237871886ef27e4d68d9396b06a0b238880",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_nw_attack_03.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "a191cf0e0c141016ba314b5d94d6c05a5c9796a2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_nw_attack_04.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "6d674b01fec98116147f6a781001716edfdc8ca9",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_nw_attack_04.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "9fdb022c8ee03fa1a00d6eba3baa774d83a86cd3",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_nw_attack_05.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "8faf310d57970f25d5b8e1fa666de91c7c3a5ce2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_nw_attack_05.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "f975ac14e2e4f6d73fb3aa474ab12844d1829c3d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_s_attack_00.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "71147cda97560eda2294b0c8771b9b5f319e3eb2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_s_attack_00.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "494f06b972069d5063dd26b14499a995476b9744",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_s_attack_01.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "139f28dd3158a5d85072437094eb3527884f4026",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_s_attack_01.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "39873a1d616a1cc0d3ac2ff0c6291b9a7cab50c8",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_s_attack_02.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "8eddaa80377060605dcbe4162f7a2ee1a24d8858",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_s_attack_02.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "b7fbd91780bac3a2dc0e07fd9ecfda0d34207c2b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_s_attack_03.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "12b55e4fd8bbac250eebb371dba4cdf64da4fe7f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_s_attack_03.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "79b99db76ecf238a2431838562372d6204fa761d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_s_attack_04.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "bd3c22031f7b284b8924e712b6f0b58cb55457c3",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_s_attack_04.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "a8852af4238e3ff914b01ea0c5126cf7d2f23a1b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_s_attack_05.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "6c60a83f40650f48801f2e327fa7972dedfbf84f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_s_attack_05.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "db9ddaa395cfd8d757052c2e827a175c1be6d364",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_se_attack_00.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "35e6c236bf3efe54701878c50502a2cd3e5d5cc8",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_se_attack_00.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "1e9b66a311b66e5238d8f1015d9f2e4d6b81db6f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_se_attack_01.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "1f10a034f99d4a8c5544762b3e1561154b531d33",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_se_attack_01.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "bb1a2748ce98505e894881534b53aedeaf7e6519",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_se_attack_02.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "8d323b8634570946f6a77ecfcf1d906578c0e350",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_se_attack_02.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "8ca58c7444dc46202f167156d3631c00db7942cb",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_se_attack_03.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "70d01adf3471a1486ef8189539edf7b1aae90e8c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_se_attack_03.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "186353f7c3bdb3f442a00e2b9b1adc94db1e4c8f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_se_attack_04.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "c7371dd275d634b33f1229e328408598975a1afa",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_se_attack_04.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "4592635e17362f09dbf102987592a933893cadb3",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_se_attack_05.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "792dae7bcb4a45b3479d2b589e77c842d3f6fbf2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_se_attack_05.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "ddbd27dbf8175648c4c0f62e23fc4b84c038d87e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_sw_attack_00.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "c11e0e40ae1a839dba51bb7835b758ef92126234",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_sw_attack_00.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "7777ce2a582e122b0ee46afa1d62c3111cfac85e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_sw_attack_01.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "c408577d8cf3596805889b9b30de1e55116b92af",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_sw_attack_01.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "986d05d2216dc2a128d0bf83eca2ade758c89d16",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_sw_attack_02.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "c0652e727bca4aa40a82a567c5a0f5554f3d4f51",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_sw_attack_02.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "16a5592954a0fd318de16d34b1eae1ae3b869f27",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_sw_attack_03.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "173f71ee6ea7ad23c393acce9df92dadf027edc9",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_sw_attack_03.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "1d14af9e3ed5eb4b405b08ede6d47cffe034860b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_sw_attack_04.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "1a0a76c816c7c937e7fcf80081409214871a0def",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_sw_attack_04.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "664e45ad4ce420cabd5aa2358571d1f416f430be",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_sw_attack_05.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "27366d470208088fe634ef7ff68f1535fc74ffc4",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_sw_attack_05.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "c775da07f70805cb74359eb39ddc48abc2dd53e3",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_w_attack_00.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "b4827e6451240d57c659cc91e308923efa62aa5a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_w_attack_00.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "de69b48797683fe81da6ea3f86d9500b1aafd687",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_w_attack_01.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "e7689ff07a12cf5ba8afabbb0bfff83bb311019e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_w_attack_01.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "77d3f51fd4ac69c3f6a44b4c5122f5a26e89d575",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_w_attack_02.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "63e9313c6c645f923ca5e91804aadd3f1ac7a0f0",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_w_attack_02.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "5ed5fe499c6267ba6d38e8c9f5972436756ef381",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_w_attack_03.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "8fc3018e8fefbb9b4e6cdeed7ce38386d7314eb9",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_w_attack_03.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "b0102f4ddc6fb8ae2175eaf5a6882df9a1708c7c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_w_attack_04.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "2ae339b2318fa4d0231ec23856f03f2295afa258",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_w_attack_04.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "59469dff7aeb9978a2c9ce692448f070c54cd6bc",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_w_attack_05.png",
+      "role": "enemy_attack_source_art_directory"
+    },
+    {
+      "blob_sha": "9618c3c4b53758b5cbf031f02dc68d6c4d63a4cf",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_w_attack_05.png.meta",
+      "role": "unity_import_identity_for_owned_directory"
+    },
+    {
+      "blob_sha": "cf5362067c30671f2a37d1e066251b0dd5de1329",
+      "path": "Docs/Art/Enemies/PIXELLAB_ATTACK_GENERATION.md",
+      "role": "pixellab_generation_provenance_record"
+    }
+  ],
+  "delivery": {
+    "base_commit": "8daa6b9c6e15459c914b15541c832d040896d3a1",
+    "candidate_commit": "de2a2527bbf88684807edd9a670397ca679963bc",
+    "integrated_commit": "58d88cdc29c8fa39579eece13427880005495299",
+    "integrated_tree": "abe7e1375a3d816718edf65911e58bd99ce86fca"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "9ad1a87e88455737bb5ad75066ceddcacc2af983",
+          "path": "Pipeline/TaskGraph/evidence/NSC-104/artifacts/NSC104GateVerification.json-58d88cdc29c8.json"
+        },
+        {
+          "blob_sha": "cf5362067c30671f2a37d1e066251b0dd5de1329",
+          "path": "Pipeline/TaskGraph/evidence/NSC-104/artifacts/NSC104PixellabAttackGeneration.md-58d88cdc29c8.md"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "MEASURED at commit 58d88cdc29c8fa39579eece13427880005495299, not asserted. The provenance doc Docs/Art/Enemies/PIXELLAB_ATTACK_GENERATION.md is present in the commit, and its recorded calls reconcile with the committed frames IN BOTH DIRECTIONS: 96 attack PNGs and 96 .meta files are committed under Art/Enemies/Source/Attack; all 96 committed PNG names appear in the document, and every frame name the document lists is committed. Zero committed frames without a recorded call and zero recorded calls without committed frames. The check carried a positive probe (a known-committed name resolves in the doc) and a negative probe (a fabricated name does not), so an empty result could not be a broken query. The rejected first ranged run is recorded in the document so the generation totals reconcile: 62 generations were consumed against AC-003's stated 16, read from the tool with the queue empty (1392 -> 1454), not estimated.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "9ad1a87e88455737bb5ad75066ceddcacc2af983",
+          "path": "Pipeline/TaskGraph/evidence/NSC-104/artifacts/NSC104GateVerification.json-58d88cdc29c8.json"
+        },
+        {
+          "blob_sha": "cf5362067c30671f2a37d1e066251b0dd5de1329",
+          "path": "Pipeline/TaskGraph/evidence/NSC-104/artifacts/NSC104PixellabAttackGeneration.md-58d88cdc29c8.md"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "MEASURED: every UUID in the provenance document was extracted and classified. Five UUIDs appear. Two are the bound character_ids 3db4582d-8b48-4486-be1a-19d1a8c6b9d2 and 361131dd-8c48-4b99-8b81-c79bd30078dc. The other three (a83bd29c-..., f9d811d2-..., 631b2359-...) are GROUP ids - the melee template group, the ranged skeleton-v3 group, and the rejected first ranged group - not characters. No third character_id is named, so the calls come from those two characters and no others. MATERIAL FINDING RECORDED RATHER THAN SUPPRESSED: these two bound characters are NOT the ones NSC-093's committed WALK art was generated from. PIXELLAB_WALK_GENERATION.md names eight character ids and neither of these is among them, and the difference is visible - the enemies change appearance when they attack. Obeying AC-001, which binds this task to these two ids and from no others, is what produces that mismatch. It is a contract question raised with GER, not a defect in this delivery, and WHICH SET IS WRONG WAS NOT ESTABLISHED.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "Both gates are mechanically verifiable from the commit and were verified that way. VINCENT HAS NOT REVIEWED THIS ART. He granted PixelLab use without permission being needed, which is not a review of the result, and no claim of his approval is made here. NOT ESTABLISHED: no Unity run - import settings are asserted from the .meta text rather than from a load - and nothing about in-Unity animation wiring, which this task does not deliver.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-104-58d88cdc29c8",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-25T04:03:24Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-104.yaml",
+    "revision": 1,
+    "sha256": "1f710391d57dd7c0bc78670a17efe258226cf0f618f88fcd225eb1f606d97232"
+  },
+  "task_id": "NSC-104",
+  "validated_state": {
+    "commit": "58d88cdc29c8fa39579eece13427880005495299",
+    "tree": "abe7e1375a3d816718edf65911e58bd99ce86fca"
+  }
+}

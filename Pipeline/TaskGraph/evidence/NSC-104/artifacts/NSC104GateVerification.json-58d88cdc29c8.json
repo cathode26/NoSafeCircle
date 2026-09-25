@@ -1,0 +1,36 @@
+{
+  "measured_at_commit": "58d88cdc29c8fa39579eece13427880005495299",
+  "gate_VAL_001": {
+    "provenance_doc_present": true,
+    "committed_attack_pngs": 96,
+    "committed_attack_metas": 96,
+    "pngs_named_in_doc": 96,
+    "committed_pngs_absent_from_doc": [],
+    "doc_names_not_committed": [],
+    "reconciles_both_directions": true
+  },
+  "gate_VAL_002": {
+    "bound_character_ids": [
+      "361131dd-8c48-4b99-8b81-c79bd30078dc",
+      "3db4582d-8b48-4486-be1a-19d1a8c6b9d2"
+    ],
+    "all_uuids_found_in_doc": [
+      "361131dd-8c48-4b99-8b81-c79bd30078dc",
+      "3db4582d-8b48-4486-be1a-19d1a8c6b9d2",
+      "631b2359-243c-4789-aedd-5bfd99959dbd",
+      "a83bd29c-55f0-4bc7-adf1-98b8e076e08c",
+      "f9d811d2-eb19-4aba-93d7-302d8ec79ba3"
+    ],
+    "uuids_that_are_not_bound_character_ids": [
+      "631b2359-243c-4789-aedd-5bfd99959dbd",
+      "a83bd29c-55f0-4bc7-adf1-98b8e076e08c",
+      "f9d811d2-eb19-4aba-93d7-302d8ec79ba3"
+    ],
+    "note": "group_ids are also UUIDs and are expected here; this field lists every UUID in the document that is not one of the two bound character_ids, so a reader can confirm by eye that each is a group_id and not a third character."
+  },
+  "not_established": [
+    "No Unity run. Import settings are asserted from the .meta text, not from a load.",
+    "Nothing about in-Unity animation wiring; NSC-104 delivers source art only.",
+    "Vincent has not reviewed this art."
+  ]
+}

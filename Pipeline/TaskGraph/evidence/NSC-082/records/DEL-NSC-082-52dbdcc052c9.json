@@ -1,0 +1,121 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "9040b08078d0671cd27a52b894f440ca311174c5",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/LowerVaultDressing.prefab",
+      "role": "room_dressing_prefab"
+    },
+    {
+      "blob_sha": "6434aba7cc7f0c4313e2c149a9ae3f3d8ffcbdbf",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/LowerVaultDressingCatalog.json",
+      "role": "room_dressing_placement_catalog"
+    },
+    {
+      "blob_sha": "402babe830104f8741dd6fded7bf13b74dd5cc66",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/Environment/LowerVaultDressingPrefabBuilder.cs",
+      "role": "room_dressing_prefab_builder"
+    },
+    {
+      "blob_sha": "905ffad0b63f23c108974d4d6db2c0c232780ef5",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Environment/LowerVaultDressingPrefabTests.cs",
+      "role": "room_dressing_focused_editmode_test"
+    },
+    {
+      "blob_sha": "a7baa2336d7ed17fd79ffafb5e2c01e50e2815d2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/LowerVaultDressing.prefab.meta",
+      "role": "unity_import_identity_for_owned_asset"
+    },
+    {
+      "blob_sha": "27c4da61cc2249b89849900e90c13df3ebd47cbe",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/LowerVaultDressingCatalog.json.meta",
+      "role": "unity_import_identity_for_owned_asset"
+    },
+    {
+      "blob_sha": "b92bc49be1ad59737c2f0dc04cc5da18f07e3db1",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/Environment/LowerVaultDressingPrefabBuilder.cs.meta",
+      "role": "unity_import_identity_for_owned_asset"
+    },
+    {
+      "blob_sha": "22e4dff7bf29225b1fdb81c6bcdf01868491701c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Environment/LowerVaultDressingPrefabTests.cs.meta",
+      "role": "unity_import_identity_for_owned_asset"
+    },
+    {
+      "blob_sha": "1feb59e5219c6be2575a4e37fef78d8e71f862db",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing.meta",
+      "role": "unity_import_identity_for_owned_asset"
+    },
+    {
+      "blob_sha": "7496edb2df1550d1746bd79c0d93dc650aa55a3d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/Environment.meta",
+      "role": "unity_import_identity_for_owned_asset"
+    },
+    {
+      "blob_sha": "32ccfec47f2fc1d4797fd0dce6a48c7de0093df3",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Environment.meta",
+      "role": "unity_import_identity_for_owned_asset"
+    }
+  ],
+  "delivery": {
+    "base_commit": "8ceea22ba438e4b43abff00ae3289471b66ae17d",
+    "candidate_commit": "91bb9cb913a9702445bb9a9894a5569177cae449",
+    "integrated_commit": "52dbdcc052c95bada029129a73fe938a1d4836a1",
+    "integrated_tree": "ec76849a7bcb9fa08f266b0366d955ece1d43de6"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "8e805a6238168c1b2cefdfdef8d301b10ce57324",
+          "path": "Pipeline/TaskGraph/evidence/NSC-082/artifacts/RoomDressingEditModeResults.xml-52dbdcc052c9.xml"
+        },
+        {
+          "blob_sha": "02827f29bdfaad64d5cc900a93f049c30382d144",
+          "path": "Pipeline/TaskGraph/evidence/NSC-082/artifacts/RoomDressingEditModeUnity.log-52dbdcc052c9.log"
+        },
+        {
+          "blob_sha": "8ca9fe015606910a4d2e9d8bc3ac72678e7c864a",
+          "path": "Pipeline/TaskGraph/evidence/NSC-082/artifacts/RoomDressingBoundValidationManifest.json-52dbdcc052c9.json"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Unity 6000.1.8f1 EditMode run from a clean checkout at commit b6cb952f25d68190fa1efd25fa2efd10f6c193ce, filter NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing. Result total=20 passed=15 failed=0 skipped=5. The git tree was e11772fe933dd8a9cb57ccad4b84cc30561eae1a both BEFORE and AFTER the run, so Unity did not mutate the repository. NOT A VACUOUS PASS: the filter is one namespace and all five committed dressing fixtures declare it, so it matched them; a comma-separated filter would have run zero tests and still exited 0. DISCLOSED LIMITATION: the 5 skipped tests are the per-room CaptureDressed-style capture tests, which are marked Ignored in the committed fixtures. CaptureDressedLowerVault did NOT execute and this record does not claim it did; the other assertions in this room's fixture did run and passed. The run was made at main b6cb952f2; this record's validated_commit differs from it only by the delivery-record commits chained ahead of it, which touch nothing under Assets/.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "f49b42bff8b5e01d16e05046e71f552589e3c1ef",
+          "path": "Pipeline/TaskGraph/evidence/NSC-082/artifacts/ArtDirectorVal002Certification.md-52dbdcc052c9.md"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "Certified by the Art Director, which is who this gate assigns the certification to, and judged on the gameplay-density panel specifically rather than a contact sheet. Certification record: C:/nscrev/reports/handoffs/ART-20260924-val002-CERTIFIED.md, covering items 1-5 for all five rooms and re-judged twice as fixes landed. PROVENANCE, stated so it is not misattributed: the decision that the Art Director certifies this gate came from the Documentation Agent on Vincent's delegation, 2026-09-23 07:10Z. VINCENT'S OWN WORD ON THIS GATE DOES NOT EXIST AND IS NOT CLAIMED HERE. Under the gate's own wording only item (a) is mechanically verifiable; (b), (c) and (d) are the Art Director's judgement, which is what the gate is for. This artifact is an AGENT certification, not a human review, which is why it is typed 'other'.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "Both completion gates are assistant-verifiable: VAL-001 is a Unity EditMode run and VAL-002 is certified by the Art Director under this contract's own wording. VINCENT HAS NOT REVIEWED THIS ROOM'S DRESSING and no claim of his approval is made here. Matches the NSC-064 precedent for art tasks whose gates are assistant-verified.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-082-52dbdcc052c9",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-25T04:01:16Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-082.yaml",
+    "revision": 16,
+    "sha256": "b5ed7c077ea4153387911e7bef08dd1ce78903802ad32374b874eb6ae2f08600"
+  },
+  "task_id": "NSC-082",
+  "validated_state": {
+    "commit": "52dbdcc052c95bada029129a73fe938a1d4836a1",
+    "tree": "ec76849a7bcb9fa08f266b0366d955ece1d43de6"
+  }
+}
