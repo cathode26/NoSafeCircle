@@ -1,0 +1,94 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "c3a56b155f77835fcc939007d3410f412f471917",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/FireballProjectile.cs",
+      "role": "implementation"
+    },
+    {
+      "blob_sha": "422661edf057637641797493bc86e2e3cab2b5a3",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/FireballProjectile.cs.meta",
+      "role": "Unity import metadata for the implementation"
+    },
+    {
+      "blob_sha": "14e28463b27e866efe73a95325079752a0ee2551",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/FireballProjectilePlayModeTests.cs",
+      "role": "test: PlayMode fixture FireballProjectilePlayModeTests"
+    },
+    {
+      "blob_sha": "fe2834089bb4b3f0d1f2bf9fe469a6803e2ecc23",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/FireballProjectilePlayModeTests.cs.meta",
+      "role": "Unity import metadata for the test"
+    }
+  ],
+  "delivery": {
+    "base_commit": "ef2170cddf0c566f91dcdb421008bc9e0d79f602",
+    "candidate_commit": "fbc0c414b029a80f2c1b1bbfe5ef7fc807e77ccb",
+    "integrated_commit": "c0e9f39bbd9f12ccc34cef7f1863ba34e98cfbb7",
+    "integrated_tree": "e3c3a1c20d4e958abd7ccefa92e89ee2c1881a58"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "283de5824a6ca12df24262695eab9899d9941dcf",
+          "path": "Pipeline/TaskGraph/evidence/NSC-117/artifacts/NSC-117-PlayMode-Results.xml-c0e9f39bbd9f.xml"
+        },
+        {
+          "blob_sha": "4752eeb7725b89f1469f2166c6662e85c457c9a0",
+          "path": "Pipeline/TaskGraph/evidence/NSC-117/artifacts/NSC-117-PlayMode-Unity.log-c0e9f39bbd9f.log"
+        },
+        {
+          "blob_sha": "44bd76d8eb19a3d9d7017c80699d69d48fdc6db0",
+          "path": "Pipeline/TaskGraph/evidence/NSC-117/artifacts/NSC-117-PlayMode-validation-manifest.json-c0e9f39bbd9f.json"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Full PlayMode suite at cacc7f8074773381859dfde31c2f5370d44d9431: total 305, passed 300, failed 0, skipped 5, zero test-cases with result=Failed, and Git tree == post-run tree 6414250bd81741c24e265548b2787dd96a8d1a83 so the run did not mutate the repository. The gate's own fixture ran BY NAME and passed: FireballProjectilePlayModeTests, 13 total, 13 passed, 0 failed. The fixture covers both gates: VAL-001's straight gameplay-plane flight at the supplied speed with bounded Tick steps and lifetime expiry, and VAL-002's collision cases against wizard CharacterController, EnemyHealth targets, wall or cover Collider, and sealed, locked, open and broken DoorInteractable states. CHAINED RECORD: the Unity run was at cacc7f8074773381859dfde31c2f5370d44d9431 and this record validates at c0e9f39bbd9f12ccc34cef7f1863ba34e98cfbb7. The only commits between them are delivery-evidence commits under Pipeline/TaskGraph/evidence/, which Unity neither compiles nor loads, so they cannot change a test result. This is the shape nsc-delivery-evidence-guide.md section 6b prescribes and that precedent bbf26c77 used for six serial records sharing one run.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "283de5824a6ca12df24262695eab9899d9941dcf",
+          "path": "Pipeline/TaskGraph/evidence/NSC-117/artifacts/NSC-117-PlayMode-Results.xml-c0e9f39bbd9f.xml"
+        },
+        {
+          "blob_sha": "4752eeb7725b89f1469f2166c6662e85c457c9a0",
+          "path": "Pipeline/TaskGraph/evidence/NSC-117/artifacts/NSC-117-PlayMode-Unity.log-c0e9f39bbd9f.log"
+        },
+        {
+          "blob_sha": "44bd76d8eb19a3d9d7017c80699d69d48fdc6db0",
+          "path": "Pipeline/TaskGraph/evidence/NSC-117/artifacts/NSC-117-PlayMode-validation-manifest.json-c0e9f39bbd9f.json"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "Full PlayMode suite at cacc7f8074773381859dfde31c2f5370d44d9431: total 305, passed 300, failed 0, skipped 5, zero test-cases with result=Failed, and Git tree == post-run tree 6414250bd81741c24e265548b2787dd96a8d1a83 so the run did not mutate the repository. The gate's own fixture ran BY NAME and passed: FireballProjectilePlayModeTests, 13 total, 13 passed, 0 failed. The fixture covers both gates: VAL-001's straight gameplay-plane flight at the supplied speed with bounded Tick steps and lifetime expiry, and VAL-002's collision cases against wizard CharacterController, EnemyHealth targets, wall or cover Collider, and sealed, locked, open and broken DoorInteractable states. CHAINED RECORD: the Unity run was at cacc7f8074773381859dfde31c2f5370d44d9431 and this record validates at c0e9f39bbd9f12ccc34cef7f1863ba34e98cfbb7. The only commits between them are delivery-evidence commits under Pipeline/TaskGraph/evidence/, which Unity neither compiles nor loads, so they cannot change a test result. This is the shape nsc-delivery-evidence-guide.md section 6b prescribes and that precedent bbf26c77 used for six serial records sharing one run.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "NSC-117's completion gates are automated Play Mode gates and the contract names no human gate, so no human approval is claimed - the shape used by NSC-050, NSC-109 and NSC-120. Recorded by the Game Agent (Integration Steward) on 2026-09-25. base_commit ef2170cddf0c566f91dcdb421008bc9e0d79f602 is the parent of the single candidate commit fbc0c414b029a80f2c1b1bbfe5ef7fc807e77ccb, which I merged earlier today after validating it on BOTH platforms. WORTH STATING because it nearly went the other way: an EditMode run at the same tree returned 304/292/0/12 and that was COMPILE-ONLY EVIDENCE for this task, not a pass - this fixture is PlayMode, lives in Tests/ rather than Tests/Editor/, and appears ZERO times in the EditMode XML. Only the PlayMode run above exercised it.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-117-c0e9f39bbd9f",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-25T11:54:29Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-117.yaml",
+    "revision": 1,
+    "sha256": "74d60fa6b967b6ae32e5bee1e2e974e5962de01e93ba616340ab74d337075221"
+  },
+  "task_id": "NSC-117",
+  "validated_state": {
+    "commit": "c0e9f39bbd9f12ccc34cef7f1863ba34e98cfbb7",
+    "tree": "e3c3a1c20d4e958abd7ccefa92e89ee2c1881a58"
+  }
+}
