@@ -11,7 +11,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from Pipeline.AssistantControl.checkouts import Checkouts, write_record
-from Pipeline.AssistantControl.decomposition import _blocking_findings, _verify_review, apply
+from Pipeline.AssistantControl.decomposition import _blocking_findings, _verify_review, apply, run
 from Pipeline.TaskDecomposition.round_robin_decomposition import candidate_sha256
 from Pipeline.TaskDecomposition.tests.test_support import create_repository, decomposed_result
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
@@ -341,6 +341,26 @@ class RetainedReviewConcurrencyTests(unittest.TestCase):
             {path.name: path.read_bytes() for path in artifact_root.iterdir()},
         )
 
+
+    def test_a_review_run_with_a_different_author_checklist_is_refused(self):
+        root = self.temporary_root()
+        source = root / "source"
+        source.mkdir()
+        create_repository(source)
+        fixture = self.reviewed_fixture(root, source)
+        record = dict(fixture.record, author_checklist="parent-contract-v1")
+        with self.assertRaisesRegex(ValueError, "author checklist is None, expected 'parent-contract-v1'"):
+            _verify_review(fixture.manager, record)
+
+    def test_an_unknown_author_checklist_is_refused_before_anything_starts(self):
+        root = self.temporary_root()
+        (root / "source").mkdir()
+        create_repository(root / "source")
+        manager = Checkouts(root / "source", root / "checkouts")
+        with self.assertRaisesRegex(ValueError, "Unknown decomposition author checklist"):
+            run(manager, "NSC-004", "nsc-004-run", execution_authorized=True,
+                author_checklist="parent-contract-v9")
+        self.assertFalse(manager.records.exists() and any(manager.records.iterdir()))
 
     AGENT_IDENTITY = {
         "NSC_AGENT_GIT_NAME": "No Safe Circle TaskReviewAgent",

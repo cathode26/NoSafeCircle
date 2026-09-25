@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, Iterable
 
+from .author_checklist import render_author_checklist
 from .context_builder import ContextPackage
 
 
@@ -17,6 +18,7 @@ def _bullets(values: Iterable[str], *, empty: str) -> str:
 
 def build_decomposer_prompt(context: ContextPackage) -> str:
     payload = context.to_dict()
+    checklist = render_author_checklist(context, audience="author")
     semantic_identity = payload["selected_task"]["d1a_semantic_parent_identity"]
     task_execution_identity = payload["selected_task"]["task_execution_identity"]
     semantic_text = json.dumps(
@@ -178,7 +180,7 @@ Choose exactly one D1A decision:
 Return only the structured result required by the supplied output schema. Do not wrap it in
 commentary or markdown.
 
-BEGIN DETERMINISTIC COMMITTED CONTEXT
+{checklist}BEGIN DETERMINISTIC COMMITTED CONTEXT
 {context.canonical_json()}
 END DETERMINISTIC COMMITTED CONTEXT
 """

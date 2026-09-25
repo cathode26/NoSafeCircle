@@ -43,6 +43,7 @@ from Pipeline.TaskExecution.contracts import (
     TaskExecutionRequest,
 )
 from Pipeline.TaskExecution.task_runner import TaskExecutionRunner
+from TaskDecomposition.author_checklist import with_author_checklist
 from TaskDecomposition.context_builder import (
     ContextPackage,
     DecompositionPreflightError,
@@ -364,7 +365,15 @@ def _run_request(
         ],
         "context_sha256": context.semantic_sha256,
         "authority": "review_only_not_applied",
+        **_checklist_field(payload),
     }
+
+
+def _checklist_field(payload: Mapping[str, Any]) -> dict[str, str]:
+    """The checklist version for records, present only when the run opted in."""
+
+    checklist = payload.get("author_checklist")
+    return {} if checklist is None else {"author_checklist": checklist["version"]}
 
 
 # A prompt larger than the model's context window is refused by the provider
@@ -720,6 +729,7 @@ def run_round_robin_decomposition(
     _require_physical_read_only_source: bool = True,
     lease_bundle: DecompositionLeaseBundle | None = None,
     scheduler_repository_identity: str | None = None,
+    author_checklist: str | None = None,
 ) -> dict[str, Any]:
     """Run one bounded alternating-author/reviewer decomposition circuit."""
 
@@ -758,6 +768,8 @@ def run_round_robin_decomposition(
     changed_during_context = source_revalidation_reasons(source_identity)
     if changed_during_context:
         raise DecompositionPreflightError("; ".join(changed_during_context))
+    if author_checklist is not None:
+        context = with_author_checklist(context, author_checklist)
     generator_prompt = build_decomposer_prompt(context)
     generator_budget = decomposer_budgets()
     reviewer_budget = reviewer_budgets()
@@ -1488,6 +1500,7 @@ def run_round_robin_decomposition(
             "d1a_semantic_parent_identity"
         ],
         "context_sha256": context.semantic_sha256,
+        **_checklist_field(context_payload),
         "run_status": run_status,
         "decision": candidate.result.decision if candidate is not None else None,
         "latest_candidate": candidate.summary() if candidate is not None else None,

@@ -40,6 +40,7 @@ for module_root in (ROOT, ROOT / "Pipeline", TASK_GRAPH_ROOT):
     if str(module_root) not in sys.path:
         sys.path.insert(0, str(module_root))
 
+from TaskDecomposition.author_checklist import CHECKLIST_VERSIONS  # noqa: E402
 from TaskDecomposition.contracts import DecompositionResult  # noqa: E402
 from TaskDecomposition.live_decomposition import (  # noqa: E402
     provider_configuration,
@@ -417,6 +418,13 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
             raise ValueError(
                 f"Decomposition review {field} is {run_result.get(field)!r}, expected {wanted!r}"
             )
+    # The checklist is part of what the reviewed run was asked; a run that
+    # used a different one, or none, is not the run this record launched.
+    if run_result.get("author_checklist") != record.get("author_checklist"):
+        raise ValueError(
+            "Decomposition review author checklist is "
+            f"{run_result.get('author_checklist')!r}, expected {record.get('author_checklist')!r}"
+        )
     if pooled:
         sessions = run_result.get("pooled_sessions")
         if not isinstance(sessions, Mapping) or sorted(sessions) != sorted(reserved_leases):
@@ -577,6 +585,7 @@ def run(
     execution_authorized: bool = False,
     container_name: str | None = None,
     container_labels: Mapping[str, str] | None = None,
+    author_checklist: str | None = None,
 ) -> dict[str, Any]:
     """Run one two-call decomposition proposal: an author and an independent reviewer.
 
@@ -601,6 +610,8 @@ def run(
         raise ValueError("Decomposition run id contains unsupported characters")
     if container_name is not None and not _CONTAINER_NAME.fullmatch(container_name):
         raise ValueError("Decomposition container name contains unsupported characters")
+    if author_checklist is not None and author_checklist not in CHECKLIST_VERSIONS:
+        raise ValueError(f"Unknown decomposition author checklist {author_checklist!r}")
     labels = dict(container_labels or {})
     for key, value in labels.items():
         if not _LABEL_KEY.fullmatch(str(key)) or not _LABEL_VALUE.fullmatch(str(value)):
@@ -659,6 +670,7 @@ def run(
             "status": "running",
             "started_at_utc": _now(),
             "preflight_source_commit": preflight.get("source_commit"),
+            **({} if author_checklist is None else {"author_checklist": author_checklist}),
         }
         write_record(path, record)
 
@@ -722,6 +734,7 @@ def run(
             run_id=run_id,
             pool_assignment=pool_assignment,
             provider_environment=unpooled_environment,
+            author_checklist=author_checklist,
         ))
         if container_name is not None:
             position = command.index("run") + 1

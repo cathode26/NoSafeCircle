@@ -39,6 +39,24 @@ class DecompositionTransportTests(unittest.TestCase):
         self.assertEqual("NSC-025", command[command.index("--task-id") + 1])
         self.assertEqual("nsc-025-run", command[command.index("--run-id") + 1])
 
+    def test_the_author_checklist_is_emitted_only_when_requested(self):
+        plain = build_compose_command(
+            task_id="NSC-025", project="assistant-nsc", providers="claude,codex",
+            max_calls=2, run_id="nsc-025-run",
+        )
+        self.assertNotIn("--author-checklist", plain)
+        with_checklist = build_compose_command(
+            task_id="NSC-025", project="assistant-nsc", providers="claude,codex",
+            max_calls=2, run_id="nsc-025-run", author_checklist="parent-contract-v1",
+        )
+        self.assertEqual(plain + ("--author-checklist", "parent-contract-v1"), with_checklist)
+        for bad in ("--rm", "a b", ""):
+            with self.subTest(bad=bad), self.assertRaisesRegex(ValueError, "version name"):
+                build_compose_command(
+                    task_id="NSC-025", project="assistant-nsc", providers="claude,codex",
+                    max_calls=2, run_id="nsc-025-run", author_checklist=bad,
+                )
+
     def test_cross_provider_command_refuses_a_pool_assignment(self):
         """Two distinct providers are independent by provider identity, so they
         never consume a role-session reservation.
