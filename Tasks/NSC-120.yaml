@@ -1,0 +1,75 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-109 AC-001 revision 3 scopes itself to the seven one-unit assets and hands these three here; measured at main 2026-09-25",
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ArchitecturalWallAccentPlacement.cs and its .meta. It places the three committed wall accent sprites that the one-world-unit wall grid cannot paint as ordinary segments: wall_corner.png, wall_door_jamb.png and wall_end_cap.png under Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls. MEASURED AT PPU 64 ON MAIN 2026-09-25, WHICH IS WHY THEY NEED PLACEMENT RATHER THAN BINDING: wall_corner is 128x160 = 2.000 world units wide, wall_door_jamb is 128x176 = 2.000 wide, and wall_end_cap is 80x160 = 1.250 wide and 80 is not a multiple of 64. The committed wall-segment check requires every painted wall sprite to be exactly 1.0 unit wide, so binding any of these as a wall Tile reintroduces the failure NSC-109 removed. Placement is therefore by ROLE at a position derived from room geometry - a corner sprite at each outside corner of a room's wall run, a jamb at each door opening, an end cap where a wall run terminates without meeting another - and not by painting a Tilemap cell."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Art Director owns the .meta import settings of art it delivers (CLAUDE.md); Art Director 2026-09-25: a size-only fix misses the pivot",
+      "requirement": "This task DOES NOT EDIT ANY ART OR ANY ART .meta AND OWNS NONE OF THEM. The three sprites currently import with a non-zero vertical pivot - wall_corner y 0.1, wall_door_jamb y 0.147727, wall_end_cap y 0.1125 - while every wall sprite bound today imports at y 0 exactly. Placement must therefore read each sprite's ACTUAL pivot and bounds at placement time and derive its ground-contact position from them, rather than assuming a bottom-centre pivot. If the Art Director later corrects these metas to y 0, this placement must keep producing the same ground contact with no change here; that invariance is what AC-003 proves."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "CLAUDE.md: assert the durable relation, not the value it has today",
+      "requirement": "Each placed accent's rendered ground contact - the world Y of its Renderer bounds minimum - equals the floor plane of the wall run it belongs to, within 0.01 units, and its horizontal footprint lies inside that run's own X or Z extent. These are asserted as RELATIONS derived from the sprite's own pivot and bounds and from room geometry, never against a literal that happens to equal today's pivot, because a literal keeps passing when the constant moves. Accents are visual only: none of them adds, removes or resizes any GameplayGeometry collider, and none is painted into a wall Tilemap."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "CLAUDE.md: a green test can pass on a stub; and a filter naming a class that does not exist matches zero tests and passes vacuously",
+      "requirement": "Edit Mode coverage in Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/ArchitecturalWallAccentPlacementTests.cs builds a room through its committed builder, places the accents, and asserts AC-003's relations for each of the three roles with at least one corner, one jamb and one end cap actually present - a run that placed zero accents FAILS rather than passing vacuously, and the test asserts the placed count is greater than zero per role. It proves the pivot invariance in AC-002 by placing once with each sprite's committed pivot and once with a pivot of zero supplied to the same derivation, and requiring identical ground contact within 0.01 units. It also asserts that no GameplayGeometry collider count or bounds changed across placement, so a visual accent can never alter navigation. No human review is claimed by this gate and none may be recorded against it."
+    }
+  ],
+  "confidence": "medium",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "One bounded responsibility - place three accent sprites by role - with a measurable outcome",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-064",
+    "NSC-109"
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "CLAUDE.md: the .meta import settings of art it delivers belong to the Art Director; NSC-064 delivered these sprites",
+      "requirement": "The Art Director owns any correction to the three sprites' import settings, including the non-zero vertical pivots recorded in AC-002. NSC-120 neither owns nor edits those metas and must not be blocked waiting for them: AC-002 requires the placement to read the pivot it actually finds, so it is correct before and after any such correction."
+    }
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ArchitecturalWallAccentPlacement.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ArchitecturalWallAccentPlacement.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/ArchitecturalWallAccentPlacementTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/ArchitecturalWallAccentPlacementTests.cs.meta"
+  ],
+  "execution_reason": "One agent writes a placement helper and its Edit Mode coverage; no art, no scene ownership",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD Environment Presentation and Authoring Direction (Docs/GDD/No_Safe_Circle_GDD.md); Docs/Art/Environment/DUNGEON_ART_DIRECTION.md",
+      "requirement": "The GDD requires the rooms to read as authored dungeon architecture rather than procedural blockout. NSC-064 delivered eleven architectural source assets; after NSC-109 binds the seven that are one world unit wide, these three remain applied by nothing. MEASURED 2026-09-25: NSC-109 was the only contract in the graph that mentioned them, so without this task they are delivered art with no owner - the same shape as the eleven tilesets that rendered every room while having zero references anywhere."
+    }
+  ],
+  "id": "NSC-120",
+  "kind": "implementation",
+  "notes": "AUTHORED BY GER 2026-09-25 while ruling on NSC-109 AC-001, raised by the Game Agent. AC-001 named eleven committed assets; seven can be bound by the current one-unit wall machinery and four cannot. THE FOURTH, wall_pilaster.png, IS DELIBERATELY NOT HERE AND IS NOT ORPHANED: at 64x176 it is 1.000 unit wide and so is not a placement problem, but it is 2.750 high against the committed wall-segment assertion of 2.500 and imports at pivot y 0.068182 against a required 0. That is an art-geometry question for the Art Director, not placement logic, and inventing a placement role for it here would have been scope I could not justify. IT IS RECORDED IN NSC-109 REVISION 3 SO IT CANNOT BE LOST. The Game Agent's own measurement said pilaster 'PASSES; only its height differs'; that read the width assertion alone, and the committed check is a triple - width 1.0, height 2.5 and pivot y 0 - so it fails two of three. NOT ESTABLISHED: no Unity was run for this contract, the placement algorithm is described by outcome rather than chosen, and whether corners want one sprite or a mirrored pair is left to the implementer. confidence is MEDIUM for those reasons.",
+  "parent": "NSC-022",
+  "provenance": {
+    "graph_delta_plan_id": null,
+    "origin": "ger_agent_contract_request",
+    "parent_contract_revision": null,
+    "parent_contract_sha256": null,
+    "parent_task_id": null
+  },
+  "reconciliation_key": "architectural-wall-accent-placement",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Corner, Jamb and End-Cap Architectural Wall Accent Placement",
+  "type": "world_presentation"
+}
