@@ -86,7 +86,7 @@
   ],
   "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 10,
+  "contract_revision": 11,
   "decomposition_reason": "D1B.2 produces separately owned children for: (1) shared production encounter data and the committed-content validator, dispatchable now since it needs no room geometry; (1B) an owner-authorized prerequisite child, also dispatchable now, that adds a room-batch admission-cancellation API and a capacity-freed retry of ProcessPendingAdmissions to Assets/NoSafeCircle/DoorPrototype/Scripts/EncounterAdmissionController.cs, with focused Play Mode tests; this is the only child permitted to edit that file, and only for this API, since NSC-028 otherwise owns the file's existing request-order admission and fifteen-enemy cap, which this API extends without changing; (2) Ruined Entry, (3) Bone Archive, (4) Chapel of Ash, (5) Lower Vault, and (6) Final Room encounter authoring, each held until that room's rebuilt Assets/Scenes/Rooms/*.unity scene and RoomSceneCatalog actually hold its 2026-09-15 approved bounds, not merely until that room's task contract is committed, since VAL-001/VAL-004 load content through the production catalog path (Ruined Entry's built scene already matches; the other four do not yet); (7) canonical-scene ActiveEnemyRegistry, EncounterAdmissionController, trigger, prefab, and authored-region materialization, which depends on child (1B) for room-batch cancellation and retry, and also replaces DoorPrototypeGlobalSceneBuilder.BuildChaseEnemies's task-less fixed roster of 5 MeleeEnemy and 4 Ranged Enemy GameObjects with encounter-admitted enemies reusing NSC-077's delivered enemy animation (NSC-077 INT-001); (8) DoorSequenceBuilder durability-table authoring and scene materialization; and (9) production Play Mode and human validation after NSC-015, NSC-055, and NSC-017 are delivered, which also depends on child (1B) for the VAL-003/VAL-004 cancellation proof. Integrated floor restart remains an NSC-033/NSC-092 obligation, not an NSC-030 child.",
   "decomposition_state": "needs_future_decomposition",
   "depends_on": [
@@ -102,7 +102,8 @@
     "NSC-072",
     "NSC-017",
     "NSC-089",
-    "NSC-088"
+    "NSC-111",
+    "NSC-112"
   ],
   "downstream_integration_obligations": [
     {
@@ -179,77 +180,77 @@
   "parent": "NSC-027",
   "provenance": {
     "bootstrap_status_observation": "open",
+    "contract_followups": [
+      {
+        "base_contract_sha256": "c10d1859720af275fe9186ad9e18d66e1bbd518c69653f050037f47def847ea7",
+        "date": "2026-09-17",
+        "previous_contract_revision": 3,
+        "reason": "Owner decision revision 4 (design): GER Orchestrator decisions 13-20 under Vincent's 2026-09-15 delegation (C:\\nscrev\\ger-contract-revisions-20260916\\encounters\\NSC-030_DECISIONS.md) applied to GER packet 20260914-065035-NSC-030's round-03 contract with round-04 fixes R-03 to R-10. Feature node; D1B.2 decomposition follows.",
+        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)",
+        "revised_contract_sha256": "b1ad6f2ea5143decba14f2f5f38ad55b63b09400caf0aa458429a3e25f1b195b",
+        "source_head": "25fdc505df5682e910dac3e239b4d08eb3caa4f7"
+      },
+      {
+        "base_contract_sha256": "89ad66c58c3501e3143b9f943bc4137c35d5867ebe41175d6899e01721ffd3e7",
+        "date": "2026-09-17",
+        "previous_contract_revision": 4,
+        "reason": "Follow-up revision 5 from the rev 4 Codex check (revise): prerequisite child 1B owns a room-batch admission-cancellation API in EncounterAdmissionController; reset proof uses the authored initial position ResetPursuit captures; every enemy position checked; Chapel line-of-sight heights and mask; Lower Vault trigger order; natural traversal; fixed-squad recomposition obligation (INT-006).",
+        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)",
+        "revised_contract_sha256": "e0400e58e4daa41e3601d532a0b33f8b4499d0580ce0f97aed2d3b19648042b5",
+        "source_head": "294e5d3fa454c643858f3ab960ee6a8eaad1054f"
+      },
+      {
+        "base_contract_sha256": "9b6f2d0433593cc0c3e3853a54b01064172961ae9f78aba1838564088b2136c2",
+        "date": "2026-09-17",
+        "previous_contract_revision": 5,
+        "reason": "Follow-up revision 6 from the rev 5 Codex check (revise), owner decisions D21-D23: the production encounter activation component keeps a read-only ActivatedEnemies record and its reset deactivates every configured enemy; NSC-033's reset order resets health and pursuit only for enemies activated during the failed run, then the activation reset, registry reset and admission reset; VAL-006 proves the mixed admitted/pending/cancelled restart case.",
+        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)",
+        "revised_contract_sha256": "67e98a89a2082bca20d94a9d528b9e93a4331408d7bd0de4e5539781fba240aa",
+        "source_head": "f5217bca1e87e72de536c8051f4d434aa18ccb36"
+      },
+      {
+        "base_contract_sha256": "71dfb4c42880a83ac368c92afeb3dbb4e5908d10b3cac4397d02a19341d34865",
+        "date": "2026-09-17",
+        "previous_contract_revision": 6,
+        "reason": "Follow-up revision 7 from the rev 6 Codex check (revise), owner decisions D24-D25: VAL-006 uses two rooms (room X partly admitted with its remainder cancelled by its exit-door lock, room Y fully pending) because one room makes exactly one RequestAdmission call and gets one AdmissionBatch; ActivatedEnemies records every enemy that ever appears in the component's own batch AdmittedEnemies, including enemies admitted later by ProcessPendingAdmissions, and keeps defeated enemies until reset; VAL-006 proves a later admission is recorded once and reset.",
+        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)",
+        "revised_contract_sha256": "c4fac80ce73aad153f86654928db011a3dd7d44ff2c213d5048cc5c93970707e",
+        "source_head": "643016721b862e93ac18e644df87c900f13df330"
+      },
+      {
+        "base_contract_sha256": "232f10d58a837c5be98cfd3686957004448496eb619cd660fe6d32edab124ca9",
+        "date": "2026-09-17",
+        "previous_contract_revision": 7,
+        "reason": "Follow-up revision 8 from the rev 7 Codex check (revise) and the NSC-009 rev 4 check, owner decisions D26a-D26d and D27: VAL-006 drops the cascading second admission (room X's defeated enemy proves record persistence; room Y ends with exactly one activated enemy), states that RequestAdmission registers admitted enemies while EnemyHealth.Initialize only wires the registry, and treats capacity fillers as test scaffolding destroyed before the registry reset; AC-009's EncounterAdmissionController.cs prohibition names the activation component and its child, preserving child 1B's sole edit rights; VAL-007 enumerates the Force Wave checks that discharge NSC-009 INT-004.",
+        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)",
+        "revised_contract_sha256": "3e52e45bd6401e20b5c98996188d883866428e0818d5d0388b46f33ef44971f5",
+        "source_head": "15d3043906cfd4f087ecc664e989251a7d18dd0c"
+      },
+      {
+        "base_contract_sha256": "d48212d5ef884a94b73830d13ee73865a6fa9cf37af371f08552921d7da34e49",
+        "date": "2026-09-17",
+        "previous_contract_revision": 8,
+        "reason": "Follow-up revision 9 recording NSC-088 revision 4's obligations (GER Orchestrator decision, 2026-09-17): AC-005 has the canonical-scene materialization child verify encounter-admitted Lantern Wraith instances carry EnemyTargetKnowledge, EnemyPursuitMovement, RangedEnemyKeepDistanceMovement and RangedEnemyAttack so they chase and fire at a redirected CurrentTarget (NSC-088 INT-004/INT-005); VAL-007 adds the room-by-room Spectral Decoy review (NSC-088 INT-006); depends_on adds NSC-088 because VAL-007 reviews the full spell kit, to be narrowed to the review and materialization children by decomposition.",
+        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)",
+        "revised_contract_sha256": "d426ac4297efcc174d282939c2d91a02530933341e95daac8a1c7070ab3116b0",
+        "source_head": "688bd05d065bb685584594f9b8d0608320d28b75"
+      },
+      {
+        "base_contract_sha256": "d42595b5ec4ccefcff4c1738813ab6e629d6805384bbd8567ec3e06549bb76bb",
+        "date": "2026-09-17",
+        "previous_contract_revision": 9,
+        "reason": "Follow-up revision 10 from the rev 9 check (RESTART_VICTORY_DECOY_DECISIONS.md C1-C4): AC-005 limits NSC-030 to scene-instance conformance of encounter-admitted Lantern Wraiths (exact component counts on the committed scene) plus a committed-scene redirected-target Play Mode check, leaving prefab-level redirect behavior to NSC-055; VAL-007 adds an automated Chapel of Ash cover assertion (blocked projectile, retained redirect) and keeps route quality and cooldown dominance in Vincent's review; notes record the NSC-015 split 1 decoy-safe attack dependency.",
+        "review": "post-commit Codex closure review (tiered rule; closure discipline per Astra advice, 2026-09-17)",
+        "revised_contract_sha256": "e57b21563dedbbb525934b58bb652103643393d7f4716343408a0cfbcf86638b",
+        "source_head": "c440baf24d3e9b9e93b70ea75e701d5cf4e1d360"
+      }
+    ],
     "migration_id": "task-contract-schema-v2-20260822-r2",
     "origin": "verified_reconciliation_bootstrap",
     "owner_decisions": "GER Orchestrator (Claude) owner decisions 13-20, NSC-030_DECISIONS.md, 2026-09-16. Decisions D21-D23, NSC-030_REV6_DECISIONS.md, 2026-09-17. Decisions D24-D25, NSC-030_REV6_DECISIONS.md, 2026-09-17. Decisions D26a-D26d, NSC-030_REV6_DECISIONS.md, 2026-09-17; decision D27, GER Orchestrator, 2026-09-17, from the NSC-009 revision 4 Codex check.",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
     "source_schema_version": "1.0",
-    "verification_run_id": "20260821T195959Z-43dba5de",
-    "contract_followups": [
-      {
-        "date": "2026-09-17",
-        "reason": "Owner decision revision 4 (design): GER Orchestrator decisions 13-20 under Vincent's 2026-09-15 delegation (C:\\nscrev\\ger-contract-revisions-20260916\\encounters\\NSC-030_DECISIONS.md) applied to GER packet 20260914-065035-NSC-030's round-03 contract with round-04 fixes R-03 to R-10. Feature node; D1B.2 decomposition follows.",
-        "source_head": "25fdc505df5682e910dac3e239b4d08eb3caa4f7",
-        "previous_contract_revision": 3,
-        "base_contract_sha256": "c10d1859720af275fe9186ad9e18d66e1bbd518c69653f050037f47def847ea7",
-        "revised_contract_sha256": "b1ad6f2ea5143decba14f2f5f38ad55b63b09400caf0aa458429a3e25f1b195b",
-        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
-      },
-      {
-        "date": "2026-09-17",
-        "reason": "Follow-up revision 5 from the rev 4 Codex check (revise): prerequisite child 1B owns a room-batch admission-cancellation API in EncounterAdmissionController; reset proof uses the authored initial position ResetPursuit captures; every enemy position checked; Chapel line-of-sight heights and mask; Lower Vault trigger order; natural traversal; fixed-squad recomposition obligation (INT-006).",
-        "source_head": "294e5d3fa454c643858f3ab960ee6a8eaad1054f",
-        "previous_contract_revision": 4,
-        "base_contract_sha256": "89ad66c58c3501e3143b9f943bc4137c35d5867ebe41175d6899e01721ffd3e7",
-        "revised_contract_sha256": "e0400e58e4daa41e3601d532a0b33f8b4499d0580ce0f97aed2d3b19648042b5",
-        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
-      },
-      {
-        "date": "2026-09-17",
-        "reason": "Follow-up revision 6 from the rev 5 Codex check (revise), owner decisions D21-D23: the production encounter activation component keeps a read-only ActivatedEnemies record and its reset deactivates every configured enemy; NSC-033's reset order resets health and pursuit only for enemies activated during the failed run, then the activation reset, registry reset and admission reset; VAL-006 proves the mixed admitted/pending/cancelled restart case.",
-        "source_head": "f5217bca1e87e72de536c8051f4d434aa18ccb36",
-        "previous_contract_revision": 5,
-        "base_contract_sha256": "9b6f2d0433593cc0c3e3853a54b01064172961ae9f78aba1838564088b2136c2",
-        "revised_contract_sha256": "67e98a89a2082bca20d94a9d528b9e93a4331408d7bd0de4e5539781fba240aa",
-        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
-      },
-      {
-        "date": "2026-09-17",
-        "reason": "Follow-up revision 7 from the rev 6 Codex check (revise), owner decisions D24-D25: VAL-006 uses two rooms (room X partly admitted with its remainder cancelled by its exit-door lock, room Y fully pending) because one room makes exactly one RequestAdmission call and gets one AdmissionBatch; ActivatedEnemies records every enemy that ever appears in the component's own batch AdmittedEnemies, including enemies admitted later by ProcessPendingAdmissions, and keeps defeated enemies until reset; VAL-006 proves a later admission is recorded once and reset.",
-        "source_head": "643016721b862e93ac18e644df87c900f13df330",
-        "previous_contract_revision": 6,
-        "base_contract_sha256": "71dfb4c42880a83ac368c92afeb3dbb4e5908d10b3cac4397d02a19341d34865",
-        "revised_contract_sha256": "c4fac80ce73aad153f86654928db011a3dd7d44ff2c213d5048cc5c93970707e",
-        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
-      },
-      {
-        "date": "2026-09-17",
-        "reason": "Follow-up revision 8 from the rev 7 Codex check (revise) and the NSC-009 rev 4 check, owner decisions D26a-D26d and D27: VAL-006 drops the cascading second admission (room X's defeated enemy proves record persistence; room Y ends with exactly one activated enemy), states that RequestAdmission registers admitted enemies while EnemyHealth.Initialize only wires the registry, and treats capacity fillers as test scaffolding destroyed before the registry reset; AC-009's EncounterAdmissionController.cs prohibition names the activation component and its child, preserving child 1B's sole edit rights; VAL-007 enumerates the Force Wave checks that discharge NSC-009 INT-004.",
-        "source_head": "15d3043906cfd4f087ecc664e989251a7d18dd0c",
-        "previous_contract_revision": 7,
-        "base_contract_sha256": "232f10d58a837c5be98cfd3686957004448496eb619cd660fe6d32edab124ca9",
-        "revised_contract_sha256": "3e52e45bd6401e20b5c98996188d883866428e0818d5d0388b46f33ef44971f5",
-        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
-      },
-      {
-        "date": "2026-09-17",
-        "reason": "Follow-up revision 9 recording NSC-088 revision 4's obligations (GER Orchestrator decision, 2026-09-17): AC-005 has the canonical-scene materialization child verify encounter-admitted Lantern Wraith instances carry EnemyTargetKnowledge, EnemyPursuitMovement, RangedEnemyKeepDistanceMovement and RangedEnemyAttack so they chase and fire at a redirected CurrentTarget (NSC-088 INT-004/INT-005); VAL-007 adds the room-by-room Spectral Decoy review (NSC-088 INT-006); depends_on adds NSC-088 because VAL-007 reviews the full spell kit, to be narrowed to the review and materialization children by decomposition.",
-        "source_head": "688bd05d065bb685584594f9b8d0608320d28b75",
-        "previous_contract_revision": 8,
-        "base_contract_sha256": "d48212d5ef884a94b73830d13ee73865a6fa9cf37af371f08552921d7da34e49",
-        "revised_contract_sha256": "d426ac4297efcc174d282939c2d91a02530933341e95daac8a1c7070ab3116b0",
-        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
-      },
-      {
-        "date": "2026-09-17",
-        "reason": "Follow-up revision 10 from the rev 9 check (RESTART_VICTORY_DECOY_DECISIONS.md C1-C4): AC-005 limits NSC-030 to scene-instance conformance of encounter-admitted Lantern Wraiths (exact component counts on the committed scene) plus a committed-scene redirected-target Play Mode check, leaving prefab-level redirect behavior to NSC-055; VAL-007 adds an automated Chapel of Ash cover assertion (blocked projectile, retained redirect) and keeps route quality and cooldown dominance in Vincent's review; notes record the NSC-015 split 1 decoy-safe attack dependency.",
-        "source_head": "c440baf24d3e9b9e93b70ea75e701d5cf4e1d360",
-        "previous_contract_revision": 9,
-        "base_contract_sha256": "d42595b5ec4ccefcff4c1738813ab6e629d6805384bbd8567ec3e06549bb76bb",
-        "revised_contract_sha256": "e57b21563dedbbb525934b58bb652103643393d7f4716343408a0cfbcf86638b",
-        "review": "post-commit Codex closure review (tiered rule; closure discipline per Astra advice, 2026-09-17)"
-      }
-    ]
+    "verification_run_id": "20260821T195959Z-43dba5de"
   },
   "reconciliation_key": "dungeon-encounter-content-authoring",
   "repository_evidence_at_bootstrap": [],

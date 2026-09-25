@@ -1,0 +1,103 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-088 AC-001; Docs/GDD/No_Safe_Circle_GDD.md:528-535,601,610-611,656; NSC-091 (owner of EnemyTargetKnowledge)",
+      "requirement": "Modify Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyTargetKnowledge.cs. Create Assets/NoSafeCircle/DoorPrototype/Tests/SpectralDecoyEnemyTargetKnowledgePlayModeTests.cs and its .meta. EnemyTargetKnowledge gains three public members that it controls: TryRedirectToSpectralDecoy(Transform), EndSpectralDecoyRedirect(Transform), and a read-only IsRedirectedToSpectralDecoy. This child is the only one that edits EnemyTargetKnowledge.cs. It does not edit EnemyPursuitMovement.cs, EnemyLockedDoorAttack.cs, RangedEnemyKeepDistanceMovement.cs, RangedEnemyAttack.cs, RangedEnemyProjectile.cs, EnemyHealth.cs or PlayerHealth.cs. It adds no spell code. External callers never write CurrentTarget, LastKnownPosition, pursuit or search state, or the leash directly."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-088 AC-002; Docs/GDD/No_Safe_Circle_GDD.md:528-535",
+      "requirement": "TryRedirectToSpectralDecoy returns true only when every one of these holds: the Transform is non-null; the component is active and enabled; any EnemyHealth on the same GameObject is not defeated; State is Pursuing; CurrentTarget is the initialized wizard Transform; and the enemy is not already redirected. There is no separate decoy attraction radius. An enemy outside DetectionDistance but still inside LoseTargetDistance is eligible. An enemy that is Idle, SearchingLastKnownPosition, Wandering, defeated, disabled, already redirected, or targeting something other than the wizard does not switch. On success, the component records the wizard position at that moment, keeps State as Pursuing, and assigns CurrentTarget to the exact decoy Transform."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "NSC-088 AC-003; EnemyTargetKnowledge.UpdateTargetKnowledge, IsBeyondPursuitLeash and requiresLineOfSight",
+      "requirement": "While the enemy is redirected, UpdateTargetKnowledge skips only the normal check of wizard distance against LoseTargetDistance. The existing maximum-pursuit-distance-from-start leash stays active. If the leash is exceeded, the enemy ends the redirect and clears its saved decoy data. It restores the wizard as its retained target when the wizard is available, records its start position as LastKnownPosition, and enters SearchingLastKnownPosition, exactly as the current leash branch does. The requiresLineOfSight option still applies only to fresh acquisition. It is never consulted to keep a redirect or to restore pursuit when the decoy ends. ResetTargetKnowledge() also clears the redirect flag, the decoy reference and the saved wizard position."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "NSC-088 AC-004; Docs/GDD/No_Safe_Circle_GDD.md:528-535",
+      "requirement": "EndSpectralDecoyRedirect does nothing unless the Transform passed in is this enemy's exact current decoy target. When it does act, it clears all redirect bookkeeping. If the wizard exists and is at or inside LoseTargetDistance, measured with the component's normal distance calculation, CurrentTarget returns to the wizard and State stays Pursuing, with no line-of-sight check. If the wizard is beyond LoseTargetDistance, the method sets LastKnownPosition to the wizard position saved when the redirect began and enters SearchingLastKnownPosition. If the wizard is unavailable, it restores the wizard target where one still exists and does the same. Ending a redirect never clears target knowledge by itself."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "NSC-088 VAL-002 (enemy-side cases); NSC-088 AC-001 through AC-003",
+      "requirement": "SpectralDecoyEnemyTargetKnowledgePlayModeTests first acquires the wizard through EnemyTargetKnowledge.UpdateTargetKnowledge, then uses a test-owned decoy Transform with no SpectralDecoy. The fixture verifies: (1) active, non-defeated enemies that are Pursuing that exact wizard redirect, including one outside DetectionDistance but inside LoseTargetDistance. (2) Idle, searching, wandering, defeated (EnemyHealth.IsDefeated true), disabled, already-redirected and non-wizard-targeting enemies do not switch. (3) With the scene-style leash set through SetMaximumPursuitDistanceFromStart, moving a redirected enemy beyond it clears the redirect record, keeps the wizard as CurrentTarget, and searches the start position, and a later EndSpectralDecoyRedirect call does not overwrite that search. (4) With SetRequiresLineOfSight enabled, line of sight gates fresh acquisition but does not clear an active redirect. (5) EndSpectralDecoyRedirect called with a Transform that is not the exact current decoy changes no target-knowledge state."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "NSC-088 VAL-003 (target-knowledge return cases); NSC-088 AC-003 and AC-004",
+      "requirement": "In the same fixture, end one redirect with the wizard exactly at LoseTargetDistance. Verify CurrentTarget returns to the wizard immediately and State stays Pursuing, with no line-of-sight check. End another redirect with the wizard just beyond LoseTargetDistance. Verify State becomes SearchingLastKnownPosition with LastKnownPosition equal to the wizard position saved at the switch. Destroy the wizard before a redirect ends. Verify EndSpectralDecoyRedirect throws no exception and enters SearchingLastKnownPosition at the saved position. Verify ResetTargetKnowledge() during a redirect clears IsRedirectedToSpectralDecoy, the decoy reference and the saved position. Movement, Ranged attack and projectile integration of these cases belongs to the spell child."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "NSC-088 VAL-007 (enemy-side run); Docs/Engineering/UNITY_TESTING_POLICY.md",
+      "requirement": "The Unity-capable controller runs the focused Play Mode filter NoSafeCircle.DoorPrototype.Tests.SpectralDecoyEnemyTargetKnowledgePlayModeTests. It also runs these regression-only filters: NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests;NoSafeCircle.DoorPrototype.Tests.EnemyPursuitPlayModeTests;NoSafeCircle.DoorPrototype.Tests.EnemyPursuitDoorCrossingPlayModeTests;NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests;NoSafeCircle.DoorPrototype.Tests.RangedEnemyKeepDistanceMovementPlayModeTests;NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests. Regression-only results are not acceptance proof. The same focused fixture must also pass in a run of the full PlayMode suite. The evidence records both runs with their totals and exit codes and says which run was filtered. If the two disagree, the unfiltered result governs and this gate fails. The evidence also records the exact commit and tree, the Unity executable and version, and clean tracked and untracked state before and after. If Unity is unavailable, stop at NEEDS_MATERIALIZATION."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "NSC-088 decomposition_reason requires the enemy-owned target-state API to land first and to be the only edit to EnemyTargetKnowledge.cs. It is the Enemy Pursuit side of the mandatory ownership split in GDD Section 4.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-091",
+    "NSC-012"
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-088 INT-001; NSC-033",
+      "requirement": "NSC-033's restart orchestrator calls EnemyTargetKnowledge.ResetTargetKnowledge() through the existing enemy reset path. Whether it runs before or after SpectralDecoy.ResetSpectralDecoy(), the enemy keeps no decoy CurrentTarget, redirect flag or saved switch position. The orchestrator never writes EnemyTargetKnowledge fields."
+    },
+    {
+      "obligation_id": "INT-002",
+      "reference": "NSC-088 INT-004; NSC-055; NSC-053; NSC-054",
+      "requirement": "After the production Ranged Enemy (Lantern Wraith) prefab is delivered, NSC-055's prefab-conformance and behavior checks verify exactly one each of EnemyTargetKnowledge, EnemyPursuitMovement, RangedEnemyKeepDistanceMovement and RangedEnemyAttack. They must be wired so an enemy redirected through TryRedirectToSpectralDecoy chases the new CurrentTarget and fires at it. NSC-055 stays the prefab owner and does not reimplement eligibility or return state."
+    },
+    {
+      "obligation_id": "INT-003",
+      "reference": "NSC-088 INT-005; NSC-030 AC-005; NSC-055 AC-006 and VAL-005; NSC-084",
+      "requirement": "NSC-030's canonical-scene materialization child replaces DoorPrototypeGlobalSceneBuilder's fixed squad of legacy caster enemies with encounter-admitted production Ranged Enemy prefab instances. It proves exact component counts on the Lantern Wraith instances in the committed scene. It also runs a committed-scene Play Mode check: a placed Lantern Wraith redirected with EnemyTargetKnowledge.TryRedirectToSpectralDecoy to a test decoy Transform approaches the decoy and fires at it. Until that replacement lands, the NSC-077 Lantern Wraith on the legacy caster ignores the decoy. NSC-084 receives no runtime obligation."
+    }
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyTargetKnowledge.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/SpectralDecoyEnemyTargetKnowledgePlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/SpectralDecoyEnemyTargetKnowledgePlayModeTests.cs.meta"
+  ],
+  "execution_reason": "One Enemy Pursuit agent extends a single existing MonoBehaviour, EnemyTargetKnowledge, with three public methods, one read-only flag, and changes to its leash and reset handling. It proves them in one focused Play Mode fixture that uses a test Transform as the decoy. No spell, scene, builder, input or UI file is involved.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:528-535",
+      "requirement": "A Spectral Decoy may temporarily redirect an enemy from the wizard. When it ends, affected enemies return to the normal detection, pursuit and search rules."
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:599-611,656",
+      "requirement": "Enemy Pursuit owns target, pursuit and search state. Wizard Combat triggers effects only through methods the enemy side exposes."
+    }
+  ],
+  "id": "NSC-111",
+  "kind": "implementation",
+  "notes": "Parent coverage: NSC-088 AC-001 through AC-004, part of VAL-002 and VAL-003, the enemy-side run of VAL-007, and INT-001, INT-004 and INT-005. Owners: NSC-091 owns EnemyTargetKnowledge.cs, and its leash and line-of-sight options already exist on main. NSC-012 owns EnemyHealth, whose IsDefeated flag AC-002 reads; it is added as an existing-task dependency because it owns that component, not because of a resource lock. The EnemyTargetKnowledge.cs.meta file is not in the parent resource list and is not claimed here. This child must not wait on the spell child.",
+  "parent": "NSC-088",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-e85af2604ab692a4996d354d824c2c5c462f8fb50e1e89edb82196db1df27441",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 10,
+    "parent_contract_sha256": "e9060b52230445505b7d7d64dca7a8a69d5d061bab67a2e86da494c9aaa9f0f2",
+    "parent_task_id": "NSC-088"
+  },
+  "reconciliation_key": "spectral-decoy-enemy-target-redirect",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "EnemyTargetKnowledge Spectral Decoy Redirect, End-Redirect Return, and Reset Methods with Play Mode Tests",
+  "type": "enemy_ai_state"
+}

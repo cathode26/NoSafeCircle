@@ -116,9 +116,14 @@
   ],
   "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 10,
-  "decomposition_reason": "Execution requires two ordered ownership bundles, both created by D1B.2 as direct children of NSC-088 so that NSC-088's decomposition_children and requirement hash cover AC-001 through AC-015. The first child is Enemy Pursuit-owned work: it solely modifies EnemyTargetKnowledge.cs, adds the redirect/end/reset behavior, defines leash and LoseTargetDistance return semantics, and owns SpectralDecoyEnemyTargetKnowledgePlayModeTests. The second child is Wizard Combat work that depends on the first child and owns SpectralDecoy, the phantom, UI, input, controller and builder wiring, the mandatory paired builder/scene lock on Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs (the public Build()/BuildInMemoryForTests() facade that materializes Assets/Scenes/DoorPrototype.unity per GDD line 632) together with unity-scene:Assets/Scenes/DoorPrototype.unity, and integrated tests. The enemy-pursuit-owned child claims neither the facade nor the scene. No child IDs are allocated by this contract, and NSC-014 is not modified. The Wizard Combat child also depends on NSC-009 (ForceWaveCooldownUI, used by the cooldown UI non-overlap check) and NSC-077 (the Lantern Wraith LanternWisp projectile, used by the phantom-versus-wisp review); the enemy-redirect child needs neither.",
-  "decomposition_state": "concrete",
+  "contract_revision": 11,
+  "decomposition_children": [
+    "NSC-111",
+    "NSC-112"
+  ],
+  "decomposition_reason": "This decomposition adds reviewed child contracts: NSC-111 (spectral-decoy-enemy-target-redirect), NSC-112 (spectral-decoy-cast-phantom-cooldown-ui). The complete active direct-child set is: NSC-111 (spectral-decoy-enemy-target-redirect), NSC-112 (spectral-decoy-cast-phantom-cooldown-ui). Aggregate conformance is derived from that complete child set; any required assembly or integration must be an explicit child contract.",
+  "decomposition_requirement_sha256": "0a7c5d3153042524583fcb51db43db534e40e14be5bc97f97c6f63528d908d09",
+  "decomposition_state": "decomposed",
   "depends_on": [
     "NSC-003",
     "NSC-005",
@@ -163,29 +168,9 @@
       "requirement": "NSC-030 VAL-007 adds the room-level Spectral Decoy play review with the full production encounter set: compare mid-room escape versus saving the cooldown for each door, verify route splitting in Ruined Entry, Bone Archive, Chapel, Lower Vault, and Final Room, verify Chapel cover stops projectiles without clearing knowledge, and assess whether the selected cooldown prevents a dominant repeatable safe route. NSC-071 and NSC-072 retain their existing lane and projectile-cover validation only. NSC-030 revision 10 VAL-007 splits this: an automated committed-scene assertion proves the Chapel of Ash cover stops a projectile while the redirect is retained, and Vincent's review judges route splitting, mid-room versus door use, and cooldown dominance."
     }
   ],
-  "exclusive_resources": [
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyTargetKnowledge.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/SpectralDecoyEnemyTargetKnowledgePlayModeTests.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/SpectralDecoyEnemyTargetKnowledgePlayModeTests.cs.meta",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/SpectralDecoy.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/SpectralDecoy.cs.meta",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/SpectralDecoyPhantom.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/SpectralDecoyPhantom.cs.meta",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/SpectralDecoyCooldownUI.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/SpectralDecoyCooldownUI.cs.meta",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/SpectralDecoyPlayModeTests.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/SpectralDecoyPlayModeTests.cs.meta",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/SpectralDecoySceneBuilderTests.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/SpectralDecoySceneBuilderTests.cs.meta",
-    "repo-file:Assets/InputSystem_Actions.inputactions",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenController.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardGameEntryController.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity"
-  ],
-  "execution_reason": "The approved behavior is design-complete, but one execution lease cannot cross the mandatory Wizard Combat versus Enemy Pursuit ownership boundary. The enemy split must land an owner-controlled target-state API first. The dependent spell split can then implement casting, travel, feedback, input, builder wiring, and integrated tests without directly owning enemy pursuit/search state.",
-  "execution_scope": "needs_execution_decomposition",
+  "exclusive_resources": [],
+  "execution_reason": "Non-executable aggregate feature. All implementation responsibilities are represented by active direct child contracts: NSC-111 (spectral-decoy-enemy-target-redirect), NSC-112 (spectral-decoy-cast-phantom-cooldown-ui). No later implementation pass on NSC-088 exists.",
+  "execution_scope": "not_applicable",
   "gdd_evidence": [
     {
       "reference": "Docs/GDD/No_Safe_Circle_GDD.md:528-535",
@@ -213,94 +198,94 @@
     }
   ],
   "id": "NSC-088",
-  "kind": "implementation",
+  "kind": "feature",
   "notes": "PROPOSAL selected design: F sends one non-colliding NavMesh phantom toward one shared pointer waypoint. Every active, non-defeated enemy already pursuing the wizard may redirect, including stretched pursuers outside DetectionDistance; searching, wandering, idle, or defeated enemies do not. Redirected enemies skip only wizard lose-distance evaluation: the existing scene leash still ends the redirect and searches the enemy start position. Normal expiry restores wizard pursuit at or inside LoseTargetDistance and otherwise searches the wizard position saved at the switch. Starting tuning is 30 mana, 4.0-second lifetime, and 24-second cooldown; the cooldown is intended to limit reuse, and a well-timed cast may buy a complete door-opening opportunity after enemy travel time. The phantom has no Collider or PlayerHealth, so it neither blocks projectiles nor safely absorbs them. Current DoorPrototype scene Melee enemies have LOS acquisition and a short leash; current legacy Lantern Wraith casters have no EnemyTargetKnowledge and ignore the decoy until NSC-030 installs production Ranged Enemy prefabs. DemoRunFlow proximity contact damage also remains independent of CurrentTarget. Existing foundations are PlayerMovement.PointerWorldTarget, PlayerMana.Spend, EnemyTargetKnowledge, EnemyPursuitMovement, RangedEnemyKeepDistanceMovement, RangedEnemyAttack, RangedEnemyProjectile, TitleScreenController, WizardGameEntryController, and DoorPrototypeGlobalSceneBuilder; no Spectral Decoy implementation already exists. The decomposition must assign EnemyTargetKnowledge.cs and SpectralDecoyEnemyTargetKnowledgePlayModeTests exclusively to the enemy-pursuit-owned split. The dependent spell split receives every other listed resource. The graph apply must add the resulting owning work IDs and reconciliation keys to each applicable RESOURCE_GROUPS.yaml entry. No external game source was consulted. 2026-09-17 rev5 (GER Orchestrator decisions F1-F8, applying the Codex revision-4 contract check verbatim, no design change): added the DoorPrototypeSceneBuilder.cs Build()/BuildInMemoryForTests() facade to exclusive_resources and to the Wizard Combat child's decomposition claim per GDD line 632's paired builder/scene lock; tightened VAL-001 through VAL-006 with a mid-travel route-closure case, cross-scene discovery, leash/expiry/mismatched-Transform return-invariant cases, an unassigned-optional-reference EnterWorld case, an exhaustive InputSystem_Actions.inputactions binding proof, and a phantom-versus-lantern-wisp plus SpectralDecoyCooldownUI non-overlap review; added the cooldown UI's HUD non-overlap requirement to AC-013 and its automated proof to VAL-005. Revision 6 (2026-09-17): depends_on adds NSC-009 and NSC-077 (closure review of revision 5), and INT-005/INT-006 record NSC-030 revision 10's proof split. ART PROHIBITION LIFTED, 2026-09-23, VINCENT'S OWN DECISION IN THE GER AGENT'S SESSION. He said Spectral Decoy is being added and asked that whatever blocks it be changed, naming the Art Director's objection as the thing to remedy. That objection was the Art Director declining to author Spectral Decoy art because this contract forbade importing any - it cited AC-007, which is 1,164 characters of NavMesh pathing and says nothing about art; the real clause was AC-009 and the substance of the objection was correct. AC-009 now PERMITS authored art without REQUIRING it, so the code is never blocked on the art, and the legibility requirement the prohibition was protecting is stated directly instead of implied by a restriction. The sprites, if made, belong to a separate art task and are deliberately absent from this contract's exclusive_resources. RECORDED SO A LATER READER CANNOT MISREAD IT: this is a design change made on his direct word, not an agent widening a contract, and it was taken BEFORE this task's decomposition is applied on purpose - NSC-088 is needs_execution_decomposition with zero children and a concrete plan, and its decomposition_requirement_sha256 covers its requirements, so revising after a decomposition would leave two children carrying a withdrawn prohibition and the parent reporting aggregate_requirements_changed. PLAYMODE ORDER-DEPENDENCE CLOSED PROSPECTIVELY, 2026-09-23. The Pipeline Runner measured and reproduced an order-dependence in the PlayMode suite: one fixture running before another makes three of the latter's tests fail, reproduced down to an eleven-test run. ITS CONSEQUENCE IS AIMED AT THE EVIDENCE SYSTEM RATHER THAN AT ANY ONE TEST - a scoped green can pass precisely because the filter excluded the polluter, which is the check-that-answers-from-a-copy shape applied to delivery records. MEASURED ON THE CONTRACT AXIS, WHICH IS THE HALF NOBODY HAD DONE: sixteen filter-gates across thirteen contracts; ONLY NSC-047's VAL-003 required a broader-suite run, and only of the Edit Mode suite; five gates touch PlayMode and four of those had no broader-suite clause. ALL FOUR WERE UNDELIVERED WITH NO SELECTED RECORD, SO NO EXISTING DELIVERY RECORD WAS EXPOSED THROUGH A CONTRACT GATE AND THE RISK WAS PROSPECTIVE - which is exactly when closing it costs nothing to re-verify. THE FIRST SWEEP OF THIS WAS MY OWN AND IT WAS WRONG: it tested for the phrase \"complete suite\" and NSC-047 says \"complete Edit Mode suite\", so it reported zero broader-suite clauses where there was one. Caught by opening the gate text rather than trusting the pattern, which is the only reason the NSC-047 conclusion below is not also wrong. NSC-047 IS NOT EDITED: its gate evidence is an Edit Mode fixture and the measured pollution is PlayMode-to-PlayMode, so it is insulated twice, and VAL-003 is a completion gate - editing it would un-deliver the only conformant room for a clause it does not need. THE ADDED CLAUSE COSTS ONE FULL PLAYMODE RUN PER DELIVERY on these four tasks; Unity time is the scarce resource in this fleet and that cost lands on the Game Agent, which has been told rather than left to discover it. ORDER-DEPENDENCE REPAIRED AT SOURCE WITHIN THE HOUR; THE OBLIGATION KEPT AND ITS PREMISE CORRECTED, 2026-09-23. The Game Agent fixed the leak at 1989950fa - verified here as an ancestor of main, with the cleanup scene present in the offending fixture - taking the full unfiltered PlayMode suite from eight failures to one, and bisected rather than reasoned: 258 to 14 to 11 tests all reproduced the same three failures, and excluding only the three scene-loading tests took that group to 8/8. IT ASKED WHETHER THE DOUBLING I ADDED AN HOUR EARLIER WAS NOW UNNECESSARY AND LEFT THE CALL WITH ME, WHILE ARGUING AGAINST ITS OWN FIX by naming the two unowned test files that no gate can catch. THE CLAUSE I WROTE ASSERTED A DURABLE PROPERTY AND JUSTIFIED IT WITH A DATED FACT, AND THE FACT WENT STALE IN ABOUT AN HOUR - which is my own recorded rule that a gate encoding a fact goes stale silently, firing on my own text. So the factual sentence is now stated as history with the repair named, and the requirement stands on three grounds that do not depend on the fixed defect: filtering can always hide a polluter; the scene-restore house pattern is followed by seven of eight fixtures and enforced on none, so a ninth can reintroduce it; and two of the test files involved are owned by no contract at all. THE COST IS UNCHANGED at one full PlayMode run per delivery on this task, and it is now a run that passes rather than one that would have failed. CLAUSE MADE STATE-INDEPENDENT, 2026-09-23 - THIRD REVISION OF IT IN ONE SESSION AND DELIBERATELY THE LAST. It bound itself to a world-state twice: revision one asserted the PlayMode suite \"has been measured order-dependent\", which was false within the hour once the Game Agent repaired it; revision two asserted the scene-restore pattern was \"ENFORCED ON NONE\", which the same agent was in the act of falsifying by writing a convention guard. THE REMEDY FOR A CLAUSE THAT KEEPS GOING STALE IS NOT A THIRD CORRECTION OF THE SAME KIND, IT IS TO STOP ASSERTING STATES. Both remaining present-tense world-facts are now a DATED OBSERVATION plus a DURABLE CONDITIONAL, so the requirement holds whatever the enforcement and ownership states turn out to be, and a future change to either no longer requires editing this gate. THE GAME AGENT DID NOT ASK FOR THIS and said explicitly it was not arguing the hedge away; it supplied the material for the new second ground by naming what its own guard cannot reach - a fixture polluting by other means, a helper loading a scene on a fixture's behalf, and files no contract owns - and it broke its guard on purpose against the pre-fix commit before trusting it, asserting a minimum population inside the guard because its first probe reported zero single-loaders from a broken subprocess call rather than a clean codebase. That is the haystack check this file's own rules ask for, carried inside the guard instead of remembered.",
   "parent": "NSC-006",
   "provenance": {
-    "created_by_human_request": true,
-    "design_approval": "spectral_decoy_approved_2026-09-17; exact_spell_mechanics_delegated_to_ger_orchestrator",
-    "design_direction": "travelling phantom can draw enemies down another corridor",
-    "origin": "human_requested_stretch_goal_task",
     "contract_followups": [
       {
-        "date": "2026-09-17",
-        "reason": "Task Design GER revision 4 resolves the independent evaluation, selects the single-waypoint spell rules, adds completion gates, and records the mandatory enemy-target-state versus Wizard Combat execution split.",
-        "source_head": "32c6223d3e0e8c6a311958a4fddce92840b1d907",
-        "previous_contract_revision": 3,
         "base_contract_sha256": "be6cffc80564c86146b3d0e9c39aae5175f45877a7aeac9a5c0a2bbd2e37d706",
+        "date": "2026-09-17",
+        "previous_contract_revision": 3,
+        "reason": "Task Design GER revision 4 resolves the independent evaluation, selects the single-waypoint spell rules, adds completion gates, and records the mandatory enemy-target-state versus Wizard Combat execution split.",
+        "review": "Task Design GER: independent Claude evaluation, one bounded Codex refinement, and a fresh Claude re-audit recommending commit_contract_then_decompose with owner edits E1-E6",
+        "revised_contract_sha256": "recorded by the GER Orchestrator commit tool's follow-up record",
         "round_output_sha256": {
           "01-codex-generate": "f5b1b9e38c48b42cfb598fca1f1a3525d883e373dd072f47b6ab2f7231518c17",
           "02-claude-evaluate": "3ede1fb5559ea7d5a56f3aab5785361445f47251b0cf5d81e944290c0a558eea",
           "03-codex-refine": "c62f20292badc1667717930a34222f9fbf019c32f81f76aac8f09a5991880b8a",
           "04-claude-reaudit": "8308abce79d6d1f1f9c807c2a636dc7985fc7fcd599b47b660984b5d268fadba"
         },
-        "review": "Task Design GER: independent Claude evaluation, one bounded Codex refinement, and a fresh Claude re-audit recommending commit_contract_then_decompose with owner edits E1-E6",
-        "revised_contract_sha256": "recorded by the GER Orchestrator commit tool's follow-up record"
+        "source_head": "32c6223d3e0e8c6a311958a4fddce92840b1d907"
       },
       {
-        "date": "2026-09-17",
-        "reason": "GER cycle revision 4 (packet 20260917-003348-NSC-088 at 32c6223d3; rounds complete, re-audit commit_contract_then_decompose) with the re-audit's owner edits E1-E6 applied verbatim. Spectral Decoy design decided by the GER Orchestrator under Vincent's delegation ('Yes you can decide everything yourself on spells'): F key; a travelling phantom on a complete NavMesh path to one cursor waypoint that holds there until its lifetime ends; every pursuing, non-defeated enemy switches to it (melee chase it, Lantern Wraiths approach and shoot at it; shots pass through and can still hit a wizard behind it); 30 mana, 4-second lifetime, 24-second cooldown starting values; wizard distance loss paused while redirected with the leash kept; on expiry enemies resume pursuit inside LoseTargetDistance or search the wizard's saved position beyond it; sealed and locked doors reject the route. Two ordered decomposition children: enemy target redirect (EnemyTargetKnowledge) then the Wizard Combat spell.",
-        "source_head": "42dccd0d19187e286da55925a44ede7395a2edaf",
-        "previous_contract_revision": 3,
         "base_contract_sha256": "77549818a1c6e24b6704b4596e203ffe1e2c45d11b037442d7cec99506a7cebe",
+        "date": "2026-09-17",
+        "previous_contract_revision": 3,
+        "reason": "GER cycle revision 4 (packet 20260917-003348-NSC-088 at 32c6223d3; rounds complete, re-audit commit_contract_then_decompose) with the re-audit's owner edits E1-E6 applied verbatim. Spectral Decoy design decided by the GER Orchestrator under Vincent's delegation ('Yes you can decide everything yourself on spells'): F key; a travelling phantom on a complete NavMesh path to one cursor waypoint that holds there until its lifetime ends; every pursuing, non-defeated enemy switches to it (melee chase it, Lantern Wraiths approach and shoot at it; shots pass through and can still hit a wizard behind it); 30 mana, 4-second lifetime, 24-second cooldown starting values; wizard distance loss paused while redirected with the leash kept; on expiry enemies resume pursuit inside LoseTargetDistance or search the wizard's saved position beyond it; sealed and locked doors reject the route. Two ordered decomposition children: enemy target redirect (EnemyTargetKnowledge) then the Wizard Combat spell.",
+        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)",
         "revised_contract_sha256": "39dd68029bbfb258ad8ea32847dfc724ee1f9ab6bf948da72ef1f367c564720e",
-        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
+        "source_head": "42dccd0d19187e286da55925a44ede7395a2edaf"
       },
       {
-        "date": "2026-09-17",
-        "reason": "Follow-up revision 5 from the rev 4 Codex check (revise), GER Orchestrator decisions F1-F8 (NSC-088_REV5_DECISIONS.md): claims the DoorPrototypeSceneBuilder.cs facade with the scene (Wizard Combat child), adds a route-closes-mid-travel phantom case, cross-scene cast-time discovery, focused return invariants (leash exit, no-LOS resume, unavailable wizard, mismatched decoy), the unassigned optional-reference EnterWorld case, the <Keyboard>/f binding proof on the project asset, a phantom-versus-wisp readability check, and SpectralDecoyCooldownUI HUD non-overlap. Spell design values and the two-child split are unchanged.",
-        "source_head": "71509ea72a7ce98b99aeec3d8b053f4752c624e1",
-        "previous_contract_revision": 4,
         "base_contract_sha256": "1b004741fefcab49bfdfc3fd7a5d0408aa329d7b312146ef4b58ce955653ffa5",
-        "revised_contract_sha256": "44e73a7864848f8e77d1eb3a1f850589178d9a9f2cd0448bd9c2cfb43c98a7d2",
-        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
-      },
-      {
         "date": "2026-09-17",
-        "reason": "Follow-up revision 6 from the revision 5 closure review (all 7 ledger items resolved; one new blocking finding): depends_on adds NSC-009 and NSC-077 because the cooldown UI non-overlap gate needs ForceWaveCooldownUI and the phantom-versus-wisp review needs the Lantern Wraith LanternWisp; the Wizard Combat child carries those dependencies; INT-005 and INT-006 record NSC-030 revision 10's proof split with NSC-055 revision 5.",
-        "source_head": "18cfdf47de503bb7b217057579c02516ae88a596",
-        "previous_contract_revision": 5,
+        "previous_contract_revision": 4,
+        "reason": "Follow-up revision 5 from the rev 4 Codex check (revise), GER Orchestrator decisions F1-F8 (NSC-088_REV5_DECISIONS.md): claims the DoorPrototypeSceneBuilder.cs facade with the scene (Wizard Combat child), adds a route-closes-mid-travel phantom case, cross-scene cast-time discovery, focused return invariants (leash exit, no-LOS resume, unavailable wizard, mismatched decoy), the unassigned optional-reference EnterWorld case, the <Keyboard>/f binding proof on the project asset, a phantom-versus-wisp readability check, and SpectralDecoyCooldownUI HUD non-overlap. Spell design values and the two-child split are unchanged.",
+        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)",
+        "revised_contract_sha256": "44e73a7864848f8e77d1eb3a1f850589178d9a9f2cd0448bd9c2cfb43c98a7d2",
+        "source_head": "71509ea72a7ce98b99aeec3d8b053f4752c624e1"
+      },
+      {
         "base_contract_sha256": "b531b159f6a528eb97f90cda81e9caa118574344264cd3db8ac6a6810841d31d",
+        "date": "2026-09-17",
+        "previous_contract_revision": 5,
+        "reason": "Follow-up revision 6 from the revision 5 closure review (all 7 ledger items resolved; one new blocking finding): depends_on adds NSC-009 and NSC-077 because the cooldown UI non-overlap gate needs ForceWaveCooldownUI and the phantom-versus-wisp review needs the Lantern Wraith LanternWisp; the Wizard Combat child carries those dependencies; INT-005 and INT-006 record NSC-030 revision 10's proof split with NSC-055 revision 5.",
+        "review": "post-commit Codex closure review (tiered rule; closure discipline per Astra advice, 2026-09-17)",
         "revised_contract_sha256": "57cf801ff4ab1006b570d7ec89866c97e3883ba973a29c55bbaa8fd71eeea5c3",
-        "review": "post-commit Codex closure review (tiered rule; closure discipline per Astra advice, 2026-09-17)"
+        "source_head": "18cfdf47de503bb7b217057579c02516ae88a596"
       },
       {
-        "date": "2026-09-23",
-        "reason": "Vincent's own decision in this session 2026-09-23: Spectral Decoy is being added and the Art Director's objection to authoring its art is to be remedied. AC-009's 'it imports no art and creates no authored prefab' is withdrawn and becomes a permission, not a requirement, so the code is never blocked on the art; the legibility requirement it was protecting is now stated directly. Sprites, if made, belong to a separate art task and are deliberately not claimed here. Landed BEFORE decomposition is applied on purpose.",
-        "source_head": "29653307ea30516ee66291644d9dda1eeac37923",
-        "previous_contract_revision": 6,
         "base_contract_sha256": "35eb19bd3b53804d0e1c8399f6677466a264e84f06916fb1c8016aa681134576",
+        "date": "2026-09-23",
+        "previous_contract_revision": 6,
+        "reason": "Vincent's own decision in this session 2026-09-23: Spectral Decoy is being added and the Art Director's objection to authoring its art is to be remedied. AC-009's 'it imports no art and creates no authored prefab' is withdrawn and becomes a permission, not a requirement, so the code is never blocked on the art; the legibility requirement it was protecting is now stated directly. Sprites, if made, belong to a separate art task and are deliberately not claimed here. Landed BEFORE decomposition is applied on purpose.",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)",
         "revised_contract_sha256": "e907b13a167fb5fa3d32bfd5fe293abd885de9ecac897d6c86ed97adb4dd4c4a",
-        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+        "source_head": "29653307ea30516ee66291644d9dda1eeac37923"
       },
       {
-        "date": "2026-09-23",
-        "reason": "A filtered green is not evidence of order-independence: require the named PlayMode fixtures to also pass in a full PlayMode run, with both results recorded and the unfiltered one governing. Prospective - all four undelivered with no record.",
-        "source_head": "b419e7cc67a6ed05276987c0868b7bd86867a004",
-        "previous_contract_revision": 7,
         "base_contract_sha256": "1f059a9196b4e33a5d3bc2030c3afb4530f161f62d0bcb30945021bfa626f735",
+        "date": "2026-09-23",
+        "previous_contract_revision": 7,
+        "reason": "A filtered green is not evidence of order-independence: require the named PlayMode fixtures to also pass in a full PlayMode run, with both results recorded and the unfiltered one governing. Prospective - all four undelivered with no record.",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)",
         "revised_contract_sha256": "4927fafeaa9b6113ce2d4b025a1ba418e1f6fd282c2b4bf8060b78fcaec28e27",
-        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+        "source_head": "b419e7cc67a6ed05276987c0868b7bd86867a004"
       },
       {
-        "date": "2026-09-23",
-        "reason": "The order-dependence was repaired at source at 1989950fa. Keep the unfiltered-run obligation, restate its premise as history, and record the three reasons it stands independently of the fixed defect.",
-        "source_head": "1f5735205b3256ce5c094d82ec6c519b75c62c33",
-        "previous_contract_revision": 8,
         "base_contract_sha256": "d78e5e9ff87e7bd72d49ee616c1d9a25eb877af91dc857fb80122e4f3fadab03",
+        "date": "2026-09-23",
+        "previous_contract_revision": 8,
+        "reason": "The order-dependence was repaired at source at 1989950fa. Keep the unfiltered-run obligation, restate its premise as history, and record the three reasons it stands independently of the fixed defect.",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)",
         "revised_contract_sha256": "59f3f87531b557efcfa886c8dae47d2524091113a66d4d266e743e2de67f3ed7",
-        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+        "source_head": "1f5735205b3256ce5c094d82ec6c519b75c62c33"
       },
       {
-        "date": "2026-09-23",
-        "reason": "Make the unfiltered-run clause state-independent: both remaining present-tense world-facts become a dated observation plus a durable conditional, so a change to the enforcement or ownership state no longer requires editing this gate.",
-        "source_head": "ad0e9fcc36bc04e87ff4f2550a2e286daa1872f6",
-        "previous_contract_revision": 9,
         "base_contract_sha256": "413577f1952c4a4328b34f97a95e72648526f8f0c3f058ccd6216830a1e3eb37",
+        "date": "2026-09-23",
+        "previous_contract_revision": 9,
+        "reason": "Make the unfiltered-run clause state-independent: both remaining present-tense world-facts become a dated observation plus a durable conditional, so a change to the enforcement or ownership state no longer requires editing this gate.",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)",
         "revised_contract_sha256": "79f79f86042a736c90065c5f023882c12c5c1f0c151b0cf48c96da2edb87d5e5",
-        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+        "source_head": "ad0e9fcc36bc04e87ff4f2550a2e286daa1872f6"
       }
-    ]
+    ],
+    "created_by_human_request": true,
+    "design_approval": "spectral_decoy_approved_2026-09-17; exact_spell_mechanics_delegated_to_ger_orchestrator",
+    "design_direction": "travelling phantom can draw enemies down another corridor",
+    "origin": "human_requested_stretch_goal_task"
   },
   "reconciliation_key": "spectral-decoy-spell",
   "repository_evidence_at_bootstrap": [],

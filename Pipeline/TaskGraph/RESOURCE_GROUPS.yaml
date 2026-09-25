@@ -63,7 +63,7 @@
         "fireball",
         "frost-field",
         "force-wave",
-        "spectral-decoy-spell"
+        "spectral-decoy-cast-phantom-cooldown-ui"
       ],
       "resource_key": "repo-file:Assets/InputSystem_Actions.inputactions",
       "work_ids": [
@@ -71,7 +71,7 @@
         "NSC-007",
         "NSC-008",
         "NSC-009",
-        "NSC-088"
+        "NSC-112"
       ]
     },
     {
@@ -101,10 +101,10 @@
         "wizard-animation-audit-repair",
         "victory-trigger-overlay-integration",
         "navmesh-agent-configuration-foundation",
-        "spectral-decoy-spell",
         "doorway-opening-seal-and-door-art-binding",
         "world-sprite-sorting-layer-adoption",
-        "apply-authored-architectural-tilesets-to-room-builders"
+        "apply-authored-architectural-tilesets-to-room-builders",
+        "spectral-decoy-cast-phantom-cooldown-ui"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
       "work_ids": [
@@ -133,10 +133,10 @@
         "NSC-070",
         "NSC-086",
         "NSC-089",
-        "NSC-088",
         "NSC-097",
         "NSC-100",
-        "NSC-109"
+        "NSC-109",
+        "NSC-112"
       ]
     },
     {
@@ -189,11 +189,11 @@
         "stationary-enemy-sprite-integration",
         "victory-trigger-overlay-integration",
         "navmesh-agent-configuration-foundation",
-        "spectral-decoy-spell",
         "wizard-128-source-integration-switch",
         "doorway-opening-seal-and-door-art-binding",
         "fireball-second-mint",
-        "title-screen-transparent-layout-build"
+        "title-screen-transparent-layout-build",
+        "spectral-decoy-cast-phantom-cooldown-ui"
       ],
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
       "work_ids": [
@@ -224,11 +224,11 @@
         "NSC-077",
         "NSC-086",
         "NSC-089",
-        "NSC-088",
         "NSC-096",
         "NSC-097",
         "NSC-098",
-        "NSC-108"
+        "NSC-108",
+        "NSC-112"
       ]
     },
     {
@@ -478,11 +478,11 @@
         "fireball",
         "frost-field",
         "force-wave",
-        "spectral-decoy-spell",
         "wizard-128-source-integration-switch",
         "melee-enemy",
         "fireball-second-mint",
-        "title-screen-transparent-layout-build"
+        "title-screen-transparent-layout-build",
+        "spectral-decoy-cast-phantom-cooldown-ui"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
       "work_ids": [
@@ -494,11 +494,11 @@
         "NSC-007",
         "NSC-008",
         "NSC-009",
-        "NSC-088",
         "NSC-096",
         "NSC-015",
         "NSC-098",
-        "NSC-108"
+        "NSC-108",
+        "NSC-112"
       ]
     },
     {
@@ -1050,12 +1050,12 @@
     {
       "reconciliation_keys": [
         "enemy-target-knowledge-state",
-        "spectral-decoy-spell"
+        "spectral-decoy-enemy-target-redirect"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyTargetKnowledge.cs",
       "work_ids": [
         "NSC-091",
-        "NSC-088"
+        "NSC-111"
       ]
     },
     {
@@ -1145,16 +1145,16 @@
         "fireball",
         "frost-field",
         "force-wave",
-        "spectral-decoy-spell",
-        "title-screen-start-game-transition"
+        "title-screen-start-game-transition",
+        "spectral-decoy-cast-phantom-cooldown-ui"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenController.cs",
       "work_ids": [
         "NSC-007",
         "NSC-008",
         "NSC-009",
-        "NSC-088",
-        "NSC-106"
+        "NSC-106",
+        "NSC-112"
       ]
     },
     {
@@ -1163,7 +1163,7 @@
         "selected-wizard-world-placement",
         "frost-field",
         "force-wave",
-        "spectral-decoy-spell"
+        "spectral-decoy-cast-phantom-cooldown-ui"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardGameEntryController.cs",
       "work_ids": [
@@ -1171,7 +1171,7 @@
         "NSC-068",
         "NSC-008",
         "NSC-009",
-        "NSC-088"
+        "NSC-112"
       ]
     },
     {
