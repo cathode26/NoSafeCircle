@@ -12,6 +12,7 @@ from Pipeline.AssistantControl.admission import _read_registry, _source_registry
 from Pipeline.AssistantControl.worker_state import is_finished_launch, is_finished_worker
 from Pipeline.AssistantControl.checkouts import Checkouts, write_record
 from Pipeline.AssistantControl.inspect_project import git
+from Pipeline.AssistantControl.reconciliation_binding import sits_on_reconciliation
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
 from Pipeline.TaskReviewAgent.contracts import validate_task_id
 from Pipeline.TaskReviewAgent.execution_session_pool import _exclusive_file_lock
@@ -133,6 +134,27 @@ def refresh_prepared(checkouts: Checkouts, task_id: str, expected_source_commit:
             try:
                 git(checkouts.source, "merge-base", "--is-ancestor", old, expected_source_commit)
             except RuntimeError as exc:
+                # A RECONCILED RECORD REACHES HERE BY CONSTRUCTION, AND THE
+                # GENERIC MESSAGE SENDS THE OPERATOR THE WRONG WAY.
+                # `revise-on-source` publishes a MERGE of the rejected candidate
+                # and Source as the prepared baseline, and Source has never
+                # contained that merge -- so this refusal is not "your checkout
+                # is stale", it is "this command does not apply here at all".
+                # Reported from production by the Pipeline Runner, who put seam 1
+                # to work 20 minutes after it merged and lost three commands to
+                # the gap: every message was accurate and none of them said what
+                # to do instead.
+                reconciliation = sits_on_reconciliation(record)
+                if reconciliation is not None:
+                    raise PreparedRefreshError(
+                        f"{task_id} sits on a revise-on-source reconciliation "
+                        f"({reconciliation.get('reconciled_commit', '')[:12]}), which is a MERGE "
+                        "that Source does not contain: refresh-prepared does not apply and must "
+                        "not be run. The carried work is ALREADY IN THE CHECKOUT, so build the "
+                        "scope plan from the CHECKOUT tree -- those paths are existing_ "
+                        "implementation and test paths, never new_ ones, and an automatic plan "
+                        "read from Source will call them new and be refused."
+                    ) from exc
                 raise PreparedRefreshError("expected Source is not a descendant of prepared HEAD") from exc
             if journal_path.is_file():
                 pending = _read(journal_path)
