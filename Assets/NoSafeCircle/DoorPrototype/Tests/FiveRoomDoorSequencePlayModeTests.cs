@@ -14,6 +14,10 @@ namespace NoSafeCircle.DoorPrototype.Tests
     // NSC-049 AC-002/VAL-002: runtime checks for the ordered, interaction-owned D1-D5 instances.
     public sealed class FiveRoomDoorSequencePlayModeTests
     {
+        // Bounds the wait for the door's arm's-reach trigger to fire after a teleport. One fixed
+        // step is enough in practice; this only stops a fixture defect from hanging the run.
+        private const int MaxTriggerSettleFixedSteps = 10;
+
         [UnityTest]
         public IEnumerator CanonicalScene_HasOrderedDoors_AndD5IsTheOnlyFinalDoor()
         {
@@ -83,6 +87,12 @@ namespace NoSafeCircle.DoorPrototype.Tests
             var movement = player.GetComponent<PlayerMovement>();
             var interactionController = player.GetComponent<PlayerInteractionController>();
 
+            // PlayerMovement.Update already calls Tick, so leaving the component enabled would
+            // advance movement on rendered frames as well as on this fixture's explicit
+            // Tick(0.02f) calls. Disabling it makes those explicit calls the only clock that
+            // moves the wizard, which is what the per-phase assertions below assume.
+            movement.enabled = false;
+
             var doorRootNames = new[] { "DoorRoot", "D2", "D3", "D4", "D5" };
 
             foreach (var doorRootName in doorRootNames)
@@ -116,7 +126,18 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 // Selected: TryBeginDoorApproach makes this door the pending door, but arrival
                 // has not happened yet (movement still has an active destination), so
                 // IsInteracting must not have started.
-                TeleportPlayer(player, door.InteractionPosition);
+                //
+                // THE WIZARD MUST BE INSIDE THIS DOOR'S ARM'S-REACH TRIGGER FIRST, AND THAT
+                // TRIGGER IS DISPATCHED BY THE PHYSICS STEP RATHER THAN BY A RENDERED FRAME.
+                // DoorInteractable.OnTriggerEnter is the only thing that calls NotifyDoorInRange,
+                // which is the only thing that sets PlayerInteractionController.CurrentDoor - and
+                // TryStartPendingDoorInteraction returns early while PendingDoor != CurrentDoor.
+                // A teleport followed only by Tick calls never runs a physics step, so CurrentDoor
+                // stayed null for every one of D1-D5 and the opening timer could never start. That
+                // was a fixture defect rather than missing feedback: the production path reaches
+                // this state by walking the wizard into the trigger, which steps physics on the way.
+                yield return TeleportIntoDoorRange(player, interactionController, door);
+
                 Assert.IsTrue(interactionController.TryBeginDoorApproach(door.SelectionPoint),
                     $"{door.DoorId}: test setup must actually select the door.");
                 feedback.Tick(0.02f);
@@ -331,8 +352,20 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 Assert.LessOrEqual(position.z, room.MaxZ - 1.5f,
                     $"AC-006: {position} must lie at least 1.5 units inside {room.Name}'s north wall.");
 
+                // The 0.1 maxDistance is the contract's own number (AC-006 and VAL-008 both state
+                // it), so it is asserted exactly as written. The wide probe before it exists only
+                // to say HOW FAR the nearest walkable point actually is when this fails - a bare
+                // "sampled false" cannot tell a missing bake apart from a surface a few
+                // centimetres above the authored spawn height.
+                var nearestFound = NavMesh.SamplePosition(position, out var nearest, 5f, NavMesh.AllAreas);
+                var nearestDetail = nearestFound
+                    ? $" Nearest walkable point is {nearest.position}, {Vector3.Distance(position, nearest.position):F4} away " +
+                      $"(dY {nearest.position.y - position.y:F4})."
+                    : " No walkable point within 5 units, so this is a bake gap rather than a height offset.";
+
                 Assert.IsTrue(NavMesh.SamplePosition(position, out _, 0.1f, NavMesh.AllAreas),
-                    $"AC-006: {position} must sample the baked gameplay NavMesh within 0.1 units.");
+                    $"AC-006: {position} in {roomName} must sample the baked gameplay NavMesh within 0.1 units." +
+                    nearestDetail);
 
                 var checkPoint = position + Vector3.up;
                 Assert.IsFalse(Physics.CheckSphere(checkPoint, 0.5f, Physics.AllLayers, QueryTriggerInteraction.Ignore),
@@ -397,6 +430,29 @@ namespace NoSafeCircle.DoorPrototype.Tests
             controller.enabled = false;
             player.transform.position = position;
             controller.enabled = true;
+        }
+
+        // A physics step, not a rendered frame, is what dispatches the door's arm's-reach trigger
+        // and so what sets PlayerInteractionController.CurrentDoor. Teleporting is a discrete
+        // position change, so the overlap is only recomputed on the next FixedUpdate; this waits
+        // for the door to actually report the wizard in range and fails naming CurrentDoor if it
+        // never does, rather than letting a later feedback assertion inherit the blame.
+        private static IEnumerator TeleportIntoDoorRange(
+            GameObject player, PlayerInteractionController interactionController, DoorInteractable door)
+        {
+            TeleportPlayer(player, door.InteractionPosition);
+            Physics.SyncTransforms();
+
+            for (var step = 0; step < MaxTriggerSettleFixedSteps && interactionController.CurrentDoor != door; step++)
+            {
+                yield return new WaitForFixedUpdate();
+            }
+
+            Assert.AreSame(door, interactionController.CurrentDoor,
+                $"{door.DoorId}: test setup must put the wizard inside this door's arm's-reach trigger at " +
+                $"its InteractionPosition {door.InteractionPosition}. PlayerInteractionController.CurrentDoor " +
+                "is what TryStartPendingDoorInteraction gates the opening timer on, and it is set only by " +
+                "DoorInteractable.OnTriggerEnter.");
         }
 
         // Walks the committed scene from its title screen into gameplay exactly as a player does:
