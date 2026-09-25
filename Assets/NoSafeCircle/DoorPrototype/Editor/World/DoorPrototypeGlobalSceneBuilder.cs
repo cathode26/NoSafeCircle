@@ -1261,11 +1261,15 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             var healthBarObject = new GameObject("HealthFill");
             healthBarObject.transform.SetParent(canvasObject.transform, false);
             var healthBarRect = healthBarObject.AddComponent<RectTransform>();
-            // Keep health in its own center-screen vertical lane above the interaction
-            // prompt. This leaves clear separation from the prompt, progress bar, and mana bar.
-            healthBarRect.anchorMin = new Vector2(0.5f, 0.25f);
-            healthBarRect.anchorMax = new Vector2(0.5f, 0.25f);
-            healthBarRect.sizeDelta = new Vector2(300f, 20f);
+            // Was a 300x20 bar anchored (0.50, 0.25) - centre screen, a quarter up - which put a
+            // player stat in the middle of the play space where the wizard and the fireball have
+            // to stay legible, and read to Vincent as a bar floating detached from the HUD.
+            // Now the second row of the single top-left column, directly under its own label.
+            healthBarRect.anchorMin = new Vector2(0f, 1f);
+            healthBarRect.anchorMax = new Vector2(0f, 1f);
+            healthBarRect.pivot = new Vector2(0f, 1f);
+            healthBarRect.anchoredPosition = new Vector2(HudLeftMargin, -HudHealthBarTop);
+            healthBarRect.sizeDelta = new Vector2(HudBarWidth, HudBarHeight);
             var healthBarBackgroundImage = healthBarObject.AddComponent<Image>();
             healthBarBackgroundImage.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Background.psd");
             healthBarBackgroundImage.type = Image.Type.Sliced;
@@ -1300,9 +1304,15 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             var manaBarObject = new GameObject("ManaFill");
             manaBarObject.transform.SetParent(canvasObject.transform, false);
             var manaBarRect = manaBarObject.AddComponent<RectTransform>();
-            manaBarRect.anchorMin = new Vector2(0.5f, 0.06f);
-            manaBarRect.anchorMax = new Vector2(0.5f, 0.06f);
-            manaBarRect.sizeDelta = new Vector2(300f, 20f);
+            // Was anchored (0.50, 0.06) - centre screen, near the bottom edge - for the same
+            // reason the health bar was centre screen, and with the same result. Third row of
+            // the single top-left column now, matching the health bar's width and height so the
+            // two read as one control rather than two unrelated strips.
+            manaBarRect.anchorMin = new Vector2(0f, 1f);
+            manaBarRect.anchorMax = new Vector2(0f, 1f);
+            manaBarRect.pivot = new Vector2(0f, 1f);
+            manaBarRect.anchoredPosition = new Vector2(HudLeftMargin, -HudManaBarTop);
+            manaBarRect.sizeDelta = new Vector2(HudBarWidth, HudBarHeight);
             var manaBarBackgroundImage = manaBarObject.AddComponent<Image>();
             manaBarBackgroundImage.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Background.psd");
             manaBarBackgroundImage.type = Image.Type.Sliced;
@@ -1357,9 +1367,37 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             UnityEventTools.AddPersistentListener(manaButton.onClick, debugManaControl.TriggerDebugSpend);
         }
 
-        /// Compact, always-visible controls panel. Kept as a sibling of, not merged
-        /// into, the interaction prompt and progress-fill objects, and positioned in
-        /// the top-left so it never overlaps them or the bottom-left debug button.
+        // ONE top-left HUD column, the Art Director's arrangement of 2026-09-25 after Vincent
+        // reported text drawn on top of text and bars floating mid-screen.
+        //
+        // WHAT WAS ACTUALLY WRONG: there were THREE layers drawing at once and no panel that
+        // owned the corner. This ControlsHud sat at y 16..146; DemoRunFlow's IMGUI labels sit at
+        // y 16..100 in a bigger, bolder face; and the health and mana bars were deliberately
+        // centre-screen at anchors (0.50,0.25) and (0.50,0.06). "Detached from the HUD panel"
+        // had no panel to be detached from.
+        //
+        // DemoRunFlow.cs is declared by NSC-086, NSC-119 and NSC-122 and NOT by NSC-049, so its
+        // block is immovable from here and its own internal 4px overlap is routed to those tasks.
+        // Everything below therefore starts BELOW that block rather than competing with it.
+        //
+        // The rows are derived as height + gap, never written as literal y values. DemoRunFlow's
+        // overlap is precisely what literal y values cause: 32px-high rects placed on a 28px
+        // pitch, so every adjacent pair collides by 4. Deriving each row from the previous one
+        // makes that class of defect unrepresentable instead of fixing this instance of it.
+        private const float HudLeftMargin = 16f;
+        private const float HudRowGap = 8f;
+        private const float HudBarWidth = 220f;
+        private const float HudBarHeight = 14f;
+
+        // The band DemoRunFlow's IMGUI owns: Health y16 h32, Mana y44 h32, Legend y72 h28.
+        private const float DemoRunFlowTextBottom = 100f;
+
+        private const float HudHealthBarTop = DemoRunFlowTextBottom + HudRowGap;
+        private const float HudManaBarTop = HudHealthBarTop + HudBarHeight + HudRowGap;
+        private const float HudControlsTop = HudManaBarTop + HudBarHeight + HudRowGap;
+
+        /// Compact, always-visible controls panel, in the single top-left HUD column below the
+        /// health and mana bars. It used to start at y16 and overlap DemoRunFlow's labels outright.
         private static void BuildControlsHud(Transform canvasTransform)
         {
             var hudRoot = new GameObject("ControlsHud");
@@ -1368,7 +1406,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             hudRect.anchorMin = new Vector2(0f, 1f);
             hudRect.anchorMax = new Vector2(0f, 1f);
             hudRect.pivot = new Vector2(0f, 1f);
-            hudRect.anchoredPosition = new Vector2(16f, -16f);
+            hudRect.anchoredPosition = new Vector2(HudLeftMargin, -HudControlsTop);
             hudRect.sizeDelta = new Vector2(300f, 130f);
 
             var hudBackground = hudRoot.AddComponent<Image>();
