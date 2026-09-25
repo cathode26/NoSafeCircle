@@ -214,7 +214,7 @@
         "z": 6.0
       },
       "rotation_euler_z": 0.0,
-      "sorting_order": -118,
+      "sorting_order": -128,
       "intent": "on the shelf top: this is the prop that says the shelves are full, and paper is the material this room is made of"
     },
     {
@@ -227,7 +227,7 @@
         "z": 11.5
       },
       "rotation_euler_z": 0.0,
-      "sorting_order": -172,
+      "sorting_order": -182,
       "intent": "on the shelf top: this is the prop that says the shelves are full, and paper is the material this room is made of"
     },
     {
@@ -240,7 +240,7 @@
         "z": 10.2
       },
       "rotation_euler_z": 0.0,
-      "sorting_order": -160,
+      "sorting_order": -170,
       "intent": "THE one comedy detail: a skull still wearing its reading glasses, mid-run on the west bank. Found by a player who looks along the shelves, and deliberately not beside the lectern"
     },
     {
@@ -253,7 +253,7 @@
         "z": 15.141
       },
       "rotation_euler_z": 0.0,
-      "sorting_order": -209,
+      "sorting_order": -219,
       "intent": "ShelfA bank, segment 8 of 8; still tidy. Drawn widths overlap by 0.192 so the run never reads as separate bookcases"
     },
     {
@@ -266,7 +266,7 @@
         "z": 6.324
       },
       "rotation_euler_z": 0.0,
-      "sorting_order": -121,
+      "sorting_order": -131,
       "intent": "ShelfA bank, segment 2 of 8; still tidy. Drawn widths overlap by 0.192 so the run never reads as separate bookcases"
     },
     {
@@ -279,7 +279,7 @@
         "z": 7.788
       },
       "rotation_euler_z": 0.0,
-      "sorting_order": -135,
+      "sorting_order": -145,
       "intent": "ShelfA bank, segment 3 of 8; still tidy. Drawn widths overlap by 0.192 so the run never reads as separate bookcases"
     },
     {
@@ -292,7 +292,7 @@
         "z": 9.252
       },
       "rotation_euler_z": 0.0,
-      "sorting_order": -150,
+      "sorting_order": -160,
       "intent": "ShelfA bank, segment 4 of 8; still tidy. Drawn widths overlap by 0.192 so the run never reads as separate bookcases"
     },
     {
@@ -305,7 +305,7 @@
         "z": 10.717
       },
       "rotation_euler_z": 0.0,
-      "sorting_order": -165,
+      "sorting_order": -175,
       "intent": "ShelfA bank, segment 5 of 8; still tidy. Drawn widths overlap by 0.192 so the run never reads as separate bookcases"
     },
     {
@@ -318,7 +318,7 @@
         "z": 12.181
       },
       "rotation_euler_z": 0.0,
-      "sorting_order": -179,
+      "sorting_order": -189,
       "intent": "ShelfA bank, segment 6 of 8; still tidy. Drawn widths overlap by 0.192 so the run never reads as separate bookcases"
     },
     {
@@ -331,7 +331,7 @@
         "z": 13.645
       },
       "rotation_euler_z": 0.0,
-      "sorting_order": -194,
+      "sorting_order": -204,
       "intent": "ShelfA bank, segment 7 of 8; still tidy. Drawn widths overlap by 0.192 so the run never reads as separate bookcases"
     },
     {
@@ -344,7 +344,7 @@
         "z": 4.844
       },
       "rotation_euler_z": 0.0,
-      "sorting_order": -106,
+      "sorting_order": -116,
       "intent": "ShelfA bank, segment 1 of 8; still tidy. Drawn widths overlap by 0.192 so the run never reads as separate bookcases"
     },
     {
@@ -357,7 +357,7 @@
         "z": 5.5
       },
       "rotation_euler_z": 0.0,
-      "sorting_order": -62,
+      "sorting_order": -72,
       "intent": "on the shelf top: this is the prop that says the shelves are full, and paper is the material this room is made of"
     },
     {
@@ -370,7 +370,7 @@
         "z": 12.2
       },
       "rotation_euler_z": 0.0,
-      "sorting_order": -130,
+      "sorting_order": -140,
       "intent": "on the shelf top: this is the prop that says the shelves are full, and paper is the material this room is made of"
     },
     {
@@ -383,7 +383,7 @@
         "z": 13.141
       },
       "rotation_euler_z": -4.0,
-      "sorting_order": -139,
+      "sorting_order": -149,
       "intent": "ShelfB bank, segment 7 of 7; leaning. Drawn widths overlap by 0.115 so the run never reads as separate bookcases"
     },
     {
@@ -396,7 +396,7 @@
         "z": 5.401
       },
       "rotation_euler_z": -4.0,
-      "sorting_order": -62,
+      "sorting_order": -72,
       "intent": "ShelfB bank, segment 2 of 7; leaning. Drawn widths overlap by 0.115 so the run never reads as separate bookcases"
     },
     {
@@ -409,7 +409,7 @@
         "z": 6.943
       },
       "rotation_euler_z": -4.0,
-      "sorting_order": -77,
+      "sorting_order": -87,
       "intent": "ShelfB bank, segment 3 of 7; leaning. Drawn widths overlap by 0.115 so the run never reads as separate bookcases"
     },
     {
@@ -422,7 +422,7 @@
         "z": 8.484
       },
       "rotation_euler_z": -4.0,
-      "sorting_order": -92,
+      "sorting_order": -102,
       "intent": "ShelfB bank, segment 4 of 7; leaning. Drawn widths overlap by 0.115 so the run never reads as separate bookcases"
     },
     {
@@ -435,7 +435,7 @@
         "z": 10.026
       },
       "rotation_euler_z": -4.0,
-      "sorting_order": -108,
+      "sorting_order": -118,
       "intent": "ShelfB bank, segment 5 of 7; leaning. Drawn widths overlap by 0.115 so the run never reads as separate bookcases"
     },
     {
@@ -448,7 +448,7 @@
         "z": 11.568
       },
       "rotation_euler_z": -4.0,
-      "sorting_order": -123,
+      "sorting_order": -133,
       "intent": "ShelfB bank, segment 6 of 7; leaning. Drawn widths overlap by 0.115 so the run never reads as separate bookcases"
     },
     {
@@ -461,7 +461,7 @@
         "z": 3.844
       },
       "rotation_euler_z": -4.0,
-      "sorting_order": -46,
+      "sorting_order": -56,
       "intent": "ShelfB bank, segment 1 of 7; leaning. Drawn widths overlap by 0.115 so the run never reads as separate bookcases"
     },
     {
@@ -474,7 +474,7 @@
         "z": 8.0
       },
       "rotation_euler_z": 0.0,
-      "sorting_order": -38,
+      "sorting_order": -48,
       "intent": "on the shelf top: this is the prop that says the shelves are full, and paper is the material this room is made of"
     },
     {
@@ -487,7 +487,7 @@
         "z": 14.8
       },
       "rotation_euler_z": 0.0,
-      "sorting_order": -106,
+      "sorting_order": -116,
       "intent": "on the shelf top: this is the prop that says the shelves are full, and paper is the material this room is made of"
     },
     {
@@ -500,7 +500,7 @@
         "z": 16.141
       },
       "rotation_euler_z": 0.0,
-      "sorting_order": -119,
+      "sorting_order": -129,
       "intent": "ShelfC bank, segment 7 of 7; collapsed section. Drawn widths overlap by 0.115 so the run never reads as separate bookcases"
     },
     {
@@ -513,7 +513,7 @@
         "z": 8.401
       },
       "rotation_euler_z": 0.0,
-      "sorting_order": -42,
+      "sorting_order": -52,
       "intent": "ShelfC bank, segment 2 of 7; collapsed section. Drawn widths overlap by 0.115 so the run never reads as separate bookcases"
     },
     {
@@ -526,7 +526,7 @@
         "z": 9.943
       },
       "rotation_euler_z": 0.0,
-      "sorting_order": -57,
+      "sorting_order": -67,
       "intent": "ShelfC bank, segment 3 of 7; collapsed section. Drawn widths overlap by 0.115 so the run never reads as separate bookcases"
     },
     {
@@ -539,7 +539,7 @@
         "z": 11.484
       },
       "rotation_euler_z": -21.0,
-      "sorting_order": -72,
+      "sorting_order": -82,
       "intent": "ShelfC bank, segment 4 of 7: THE COLLAPSED SECTION. Rotated rather than omitted - a missing segment would be a gap, which the brief forbids, while a leaning one is the story"
     },
     {
@@ -552,7 +552,7 @@
         "z": 13.026
       },
       "rotation_euler_z": 0.0,
-      "sorting_order": -88,
+      "sorting_order": -98,
       "intent": "ShelfC bank, segment 5 of 7; collapsed section. Drawn widths overlap by 0.115 so the run never reads as separate bookcases"
     },
     {
@@ -565,7 +565,7 @@
         "z": 14.568
       },
       "rotation_euler_z": 0.0,
-      "sorting_order": -103,
+      "sorting_order": -113,
       "intent": "ShelfC bank, segment 6 of 7; collapsed section. Drawn widths overlap by 0.115 so the run never reads as separate bookcases"
     },
     {
@@ -578,7 +578,7 @@
         "z": 6.844
       },
       "rotation_euler_z": 0.0,
-      "sorting_order": -26,
+      "sorting_order": -36,
       "intent": "ShelfC bank, segment 1 of 7; collapsed section. Drawn widths overlap by 0.115 so the run never reads as separate bookcases"
     },
     {
