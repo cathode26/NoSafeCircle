@@ -1,0 +1,65 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-033 AC-006; NSC-086 AC-006; NSC-119 AC-005; Floor-run restart ownership",
+      "requirement": "Remove DemoRunFlow's PlayerHealth.Died subscription and unsubscription, lost field, HandlePlayerDied method, \"YOU DIED\" text, death-screen branch, manual R-to-restart input, and SceneManager scene reload. Because NSC-086 is an existing dependency, also remove the obsolete shared end-screen method and end-state early return after confirming its victory branch has already been retired. Preserve ApplyEnemyContactDamage, DrawEnemyHealthBars, and DrawPlayerStatus."
+    }
+  ],
+  "basis": "The parent contract's death-path retirement is a concrete code change owned by DemoRunFlow.cs, with preceding edits supplied by NSC-119 and NSC-086 and restart ownership retained by NSC-032.",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "NSC-033 VAL-003; NSC-086 VAL-001; NSC-119 VAL-002",
+      "requirement": "Source and reflection checks find no DemoRunFlow lost field, HandlePlayerDied method, \"YOU DIED\" text, manual restart input, or scene-reload call. A Play Mode regression check confirms DemoRunFlow still applies pre-victory enemy contact damage and continues drawing its enemy-health and player-status HUD."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "This is an independently bounded cleanup of DemoRunFlow's obsolete death flow. It does not own restart orchestration, victory behavior, or the reset-participant wiring, so separating it avoids combining legacy-flow removal with the shared restart integration surface.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-032",
+    "NSC-086",
+    "NSC-119"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs"
+  ],
+  "execution_reason": "One Unity programmer removes DemoRunFlow's legacy death subscription, state, screen text, and manual scene reload while preserving its contact-damage and HUD behavior.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "Floor-run restart ownership",
+      "requirement": "Zero health restarts the entire floor through the shared Floor Run/Restart Orchestrator rather than through a manual scene reload path."
+    },
+    {
+      "reference": "Win and Loss Conditions; NSC-086 victory ownership",
+      "requirement": "Victory and loss are owned by their shared runtime capabilities; DemoRunFlow must not retain a competing death or victory end-state presentation path."
+    },
+    {
+      "reference": "GDD §4 Development Agent Ownership Invariants",
+      "requirement": "The restart orchestrator consumes owner-controlled reset interfaces, while unrelated gameplay and HUD owners retain their own behavior."
+    }
+  ],
+  "id": "NSC-122",
+  "kind": "implementation",
+  "notes": "NSC-032 owns the existing FloorRunRestartController and zero-health subscription. NSC-119 and NSC-086 are the preceding DemoRunFlow editors. This child edits only DemoRunFlow.cs. It must preserve ApplyEnemyContactDamage, DrawEnemyHealthBars, and DrawPlayerStatus, and must not add another restart path, reload the scene, edit the restart controller, or change victory behavior. The child should confirm the NSC-086 victory branch is already retired before removing the shared end-screen method and end-state early return.",
+  "parent": "NSC-033",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-932fd6596e9fe623e80e1f12fe8088c3b419f7ac859804b99f34e20b7179744a",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 14,
+    "parent_contract_sha256": "89751262e23d914bef6a34c45eaa1064b05f752e17d824af00bcea83c044d0df",
+    "parent_task_id": "NSC-033"
+  },
+  "reconciliation_key": "demo-run-flow-death-retirement",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "DemoRunFlow Death Screen and Manual Restart Removal",
+  "type": "run_lifecycle"
+}

@@ -1,0 +1,135 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-033 AC-001; Floor-run restart ownership",
+      "requirement": "Extend the existing FloorRunRestartController and DoorPrototypeSceneBuilder wiring so a zero-health restart calls the public reset methods for PlayerHealth, PlayerMana, PlayerMovement, PlayerInteractionController, every active DoorInteractable, DoorInteractionFeedback, Fireball, FrostField, ForceWave, SpectralDecoy, and every implemented enemy, registry, and encounter participant. Keep reset behavior inside each owning component and do not replace the existing PlayerHealth.Died-driven orchestration contract."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-033 AC-002; Floor-run restart ownership",
+      "requirement": "The built FloorRunRestartController has references or production discovery paths for every implemented run-persistent owner named by the parent contract. Committed-scene conformance fails when an implemented owner is missing from restart participation; an absent owner method is reported against its owning task rather than replaced with direct state mutation."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "NSC-033 AC-003; Floor-run restart ownership",
+      "requirement": "For each persistent enemy activated during the failed run, call the enemy-owned reset methods that restore health, target knowledge, pursuit, attack, status effects, displacement, defeat response, NavMesh movement, and authored spawn position. FloorRunRestartController must not write an enemy Transform, NavMeshAgent, target state, health, attack timer, or status-effect field directly."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "NSC-033 AC-004; downstream integration obligations from NSC-007, NSC-008, NSC-009, NSC-015, NSC-017, NSC-020, NSC-030, NSC-041, NSC-053, NSC-054, NSC-055, and NSC-088",
+      "requirement": "Wire FloorRunRestartController to call Fireball.ResetFireball, FrostField.ResetFrostField, ForceWave.ResetForceWave, SpectralDecoy.ResetSpectralDecoy, MeleeEnemyAttack.ResetAttack, MeleeEnemyDefeatResponse.ResetDefeatResponse, EnemyPursuitMovement.ResetPursuit, EnemyLockedDoorAttack.ResetAttack, EnemyHealth.ResetHealth, RangedEnemyKeepDistanceMovement.ResetKeepDistanceMovement, EnemyStatusEffectMovement.ResetStatusEffects, RangedEnemyAttack.ResetAttack, LanternWraithDefeatResponse.ResetDefeatResponse, each production encounter activation component's public reset method, ActiveEnemyRegistry.ResetRegistry, EncounterAdmissionController.ResetAdmissionState, DoorInteractable.ResetDoor, PlayerInteractionController.ResetInteraction, and DoorInteractionFeedback.ResetFeedback."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "NSC-033 AC-005; NSC-030 AC-009 and INT-001; NSC-007 INT-002; NSC-088 INT-001",
+      "requirement": "Apply the required restart order: reset Fireball, FrostField, ForceWave, and SpectralDecoy before PlayerMovement.ResetMovement; reset SpectralDecoy before enemy pursuit; call enemy-owned reset methods only for GameObjects recorded in production encounter activation components' ActivatedEnemies collections; then reset each encounter activation component, ActiveEnemyRegistry, and EncounterAdmissionController in that order. Pending or cancelled enemies that were never activated receive no enemy reset call and keep their authored transforms."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "NSC-033 AC-007; NSC-086 INT-001; Win and Loss Conditions",
+      "requirement": "Before starting a restart pass, read the production scene's FinalDoorVictoryTrigger.HasWon property when that component exists. If HasWon is true, ignore PlayerHealth's zero-health transition without calling any reset method or changing the victory trigger, You Escaped overlay, doors, player, enemies, spells, registry, or encounter state. Preserve the existing restart behavior in fixtures where no FinalDoorVictoryTrigger exists."
+    }
+  ],
+  "basis": "The parent contract and its downstream integration obligations fully specify the public reset participants, call order, activated-enemy scoping, scene-builder ownership, and post-victory guard. The work is an ordered integration pass over the shared restart controller and canonical scene wiring.",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "NSC-033 VAL-001; Floor-run restart ownership; NSC-041 integration obligation",
+      "requirement": "Play Mode validation drives PlayerHealth to zero with changed player resources and position, an active door interaction, changed door state, and active door hover, selection, approach, opening, and breach feedback. Verify exactly one restart pass returns every implemented owner to its initial state through its public reset method, including MeleeEnemyAttack.ResetAttack, MeleeEnemyDefeatResponse.ResetDefeatResponse, DoorInteractable.ResetDoor, PlayerInteractionController.ResetInteraction, and DoorInteractionFeedback.ResetFeedback."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "NSC-033 VAL-002; NSC-007 INT-002; NSC-009 INT-001; NSC-030 VAL-006; NSC-055 INT-003; NSC-088 INT-001",
+      "requirement": "Play Mode validation covers the ordered reset cases: an active Fireball charge releases its movement restriction before PlayerMovement resets and can charge normally on the next run; an active Force Wave pulse and cooldown clear; an active Spectral Decoy and its enemy redirects clear before pursuit resets; a defeated Lantern Wraith regains pursuit, keep-distance movement, attack, and NavMesh movement; and activated enemies return to their authored regions without retained target, search, attack, status, or displacement state. Using NSC-030's two-room admitted, pending, and cancelled setup, verify only ActivatedEnemies receive enemy reset calls, every configured encounter enemy is inactive afterward, and pending or cancelled enemies retain their authored transforms."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "NSC-033 VAL-003; NSC-086 AC-006 and VAL-001; NSC-119 VAL-002",
+      "requirement": "After demo-run-flow-death-retirement, a production-scene Play Mode check drives PlayerHealth to zero and verifies FloorRunRestartController restarts the floor automatically without player input. The check also verifies DemoRunFlow has no legacy death state or text and that its contact damage, enemy-health HUD, and player-status HUD still operate in the following run."
+    },
+    {
+      "gate_id": "VAL-004",
+      "reference": "NSC-033 VAL-004; NSC-086 INT-001; Win and Loss Conditions",
+      "requirement": "A production-scene Play Mode check first proves zero health restarts the floor while FinalDoorVictoryTrigger.HasWon is false. It then crosses D5, records the player, enemy, door, spell, registry, and encounter state, drives PlayerHealth to zero twice including further enemy contact damage, and verifies no reset method runs, HasWon remains true, the You Escaped overlay remains active, and all recorded runtime state remains unchanged."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "This child owns the parent’s shared integration surface: FloorRunRestartController, DoorPrototypeSceneBuilder.cs, and DoorPrototype.unity. It must sequence all delivered owner reset APIs, materialize the canonical scene, and validate restart and victory behavior together; separating those resources would create competing writers and leave the required scene wiring incomplete.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-003",
+    "NSC-004",
+    "NSC-005",
+    "NSC-008",
+    "NSC-009",
+    "NSC-011",
+    "NSC-012",
+    "NSC-013",
+    "NSC-015",
+    "NSC-017",
+    "NSC-019",
+    "NSC-020",
+    "NSC-028",
+    "NSC-030",
+    "NSC-032",
+    "NSC-041",
+    "NSC-050",
+    "NSC-053",
+    "NSC-054",
+    "NSC-055",
+    "NSC-086",
+    "NSC-092",
+    "NSC-111",
+    "NSC-112",
+    "NSC-118",
+    "NSC-119",
+    "NSC-122"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "logical:floor-run-restart-orchestrator",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+  ],
+  "execution_reason": "One Unity programmer extends FloorRunRestartController, wires every delivered reset participant through DoorPrototypeSceneBuilder, materializes DoorPrototype.unity, and validates zero-health restart ordering plus the post-victory restart guard.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "Floor-run restart ownership",
+      "requirement": "The shared Floor Run/Restart Orchestrator consumes Player Health's zero-health transition and invokes owner-controlled reset entry points for all run-persistent systems without mutating their internals."
+    },
+    {
+      "reference": "Floor-run restart ownership; Enemy Detection, Pursuit, and Target Loss",
+      "requirement": "Persistent enemies return to their authored encounter/spawn regions and initial AI state with no retained target, search, attack, status-effect, or displacement state."
+    },
+    {
+      "reference": "Spell-local state ownership",
+      "requirement": "Fireball, Frost Field, Force Wave, and Spectral Decoy expose reset entry points for owned state that may remain active at restart."
+    },
+    {
+      "reference": "Win and Loss Conditions; Victory/input-shutdown ownership",
+      "requirement": "After final-door victory, the won state and You Escaped overlay remain active and normal gameplay is suspended; a later zero-health transition must not restart the floor."
+    }
+  ],
+  "id": "NSC-123",
+  "kind": "implementation",
+  "notes": "NSC-032 owns FloorRunRestartController. Player reset owners are NSC-003, NSC-004, NSC-005, and NSC-019. Door reset and feedback owners are NSC-020, NSC-050, and NSC-041. Spell reset owners are NSC-118/NSC-119, NSC-008, NSC-009, and NSC-112; NSC-111 owns the enemy target-redirection state used by SpectralDecoy.ResetSpectralDecoy. Enemy reset owners are NSC-012, NSC-092, NSC-013, NSC-015, NSC-017, NSC-053, NSC-054, and NSC-055. Registry and admission owners are NSC-011, NSC-028, and NSC-030. NSC-086 owns FinalDoorVictoryTrigger.HasWon. This child is the sole owner of FloorRunRestartController changes, DoorPrototypeSceneBuilder wiring, restart validation scope, and DoorPrototype.unity materialization. It calls public reset methods only and does not edit owner-domain scripts or internal state. The Windows Unity controller materializes the scene with No Safe Circle/Build Door Prototype Scene; tests open committed assets read-only and must leave tracked and untracked repository state unchanged. The child must not broaden scope into owner-domain implementation when a required reset method is absent; it should preserve the contract and report that upstream owner gap through the delivery evidence.",
+  "parent": "NSC-033",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-932fd6596e9fe623e80e1f12fe8088c3b419f7ac859804b99f34e20b7179744a",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 14,
+    "parent_contract_sha256": "89751262e23d914bef6a34c45eaa1064b05f752e17d824af00bcea83c044d0df",
+    "parent_task_id": "NSC-033"
+  },
+  "reconciliation_key": "floor-restart-full-closure-integration",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "FloorRunRestartController Full Reset Wiring and Production Scene Validation",
+  "type": "run_lifecycle"
+}
