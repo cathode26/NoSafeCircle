@@ -28,6 +28,7 @@ returns the verified chain or raises ReviewChainError with a code:
     D3_FINDING_RESOLUTION      the reviews' findings and resolutions do not replay
     D3_TIMEOUT                 a round ran with a timeout other than the recorded one
     D3_FINAL_ARTIFACTS         the approved candidate is not the run's result
+    D3_BOOKKEEPING             a designer/bookkeeper run does not prove its sheet and bookkeeping
 
 The spec is C:/nscrev/reports/handoffs/three-call-budget-SPEC-20260924.md,
 section 3.A.
@@ -39,7 +40,8 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from Pipeline.AgentRuntime.contracts import AGENT_INVOCATION_REQUEST_SCHEMA_VERSION
-from TaskDecomposition.review_contracts import DecompositionReviewResult
+from TaskDecomposition.bookkeeping_evidence import BookkeepingEvidenceError, verify_bookkeeping
+from TaskDecomposition.review_contracts import DecompositionReviewResult, ReviewFinding
 from TaskDecomposition.review_policy import validate_decomposition_review
 from TaskDecomposition.run_diagnosis import (
     DiagnosisEvidenceError,
@@ -202,6 +204,7 @@ def _candidate_summary(value: Any, *, label: str) -> Mapping[str, Any]:
 def verify_three_call_chain(
     *, run_dir: Path, run_result: Mapping[str, Any], providers: tuple[str, str],
     candidate_digest: CandidateDigest, timeouts: Mapping[str, float] | None = None,
+    parent_contract: Mapping[str, Any] | None = None, open_end: bool = False,
 ) -> dict[str, Any]:
     """Return the verified chain of a budget-3 run, or raise ReviewChainError.
 
@@ -247,17 +250,74 @@ def verify_three_call_chain(
              f"round 1 candidate names author {latest.get('author_provider')!r} version {latest.get('version')!r}")
     _published_candidate(
         evidence, "01-correction" if corrections else "01", latest, candidate_digest, label="round 1 candidate")
-    _require(_digest(candidate_digest, author_output, "D3_PROVIDER_IDENTITY", "round 1 runtime output")
-             == (latest["sha256"], latest["graph_delta_plan_id"]), "D3_PROVIDER_IDENTITY",
-             "round 1's runtime output is not the published candidate")
+    bookkeeping = None
+    if "designer_bookkeeper" in run_result:
+        # Round 1's own output is the design; the candidate is the last
+        # bookkeeping attempt's, bound to that design.
+        _require(parent_contract is not None, "D3_BOOKKEEPING",
+                 "a designer/bookkeeper run needs the parent contract to check its sheet")
+        try:
+            bookkeeping = verify_bookkeeping(
+                run_dir=run_dir, run_result=run_result, author_entry=author, first_provider=first,
+                parent_contract=parent_contract, candidate_digest=candidate_digest,
+                designer_timeout=None if timeouts is None else timeouts[AUTHOR_ROLE])
+        except BookkeepingEvidenceError as exc:
+            raise ReviewChainError("D3_BOOKKEEPING", str(exc)) from exc
+    else:
+        _require(_digest(candidate_digest, author_output, "D3_PROVIDER_IDENTITY", "round 1 runtime output")
+                 == (latest["sha256"], latest["graph_delta_plan_id"]), "D3_PROVIDER_IDENTITY",
+                 "round 1's runtime output is not the published candidate")
 
-    unresolved: dict[str, Any] = {}
-    seen_ids: set[str] = set()
+    latest, unresolved, seen_ids, approver = _verify_review_rounds(
+        evidence, run_result, entries=ordinary[1:], history=history, first_number=2,
+        providers=providers, latest=latest, unresolved={}, seen_ids=set(),
+        candidate_digest=candidate_digest, timeouts=timeouts, final_must_pass=not open_end)
+    if open_end:
+        _require(run_result.get("run_status") == "needs_human" and run_result.get("latest_candidate") == latest,
+                 "D3_FINAL_ARTIFACTS", "an open-ended run must stop needs_human on its latest revision")
+        return {
+            "latest_candidate": dict(latest),
+            "unresolved_findings": {key: value.to_dict() for key, value in unresolved.items()},
+            "seen_finding_ids": sorted(seen_ids),
+            "last_round": calls,
+            "evidence_sha256": {**evidence.hashes, **({} if bookkeeping is None else bookkeeping["evidence_sha256"])},
+        }
+
+    _require(latest.get("decision") == "decomposed", "D3_FINAL_ARTIFACTS",
+             f"the approved candidate is {latest.get('decision')!r}, not a decomposition")
+    _require(run_result.get("latest_candidate") == latest, "D3_FINAL_ARTIFACTS",
+             "latest_candidate is not the candidate the chain approved")
+    _require(run_result.get("independent_approver_provider") == approver, "D3_FINAL_ARTIFACTS",
+             f"independent_approver_provider is {run_result.get('independent_approver_provider')!r}, "
+             f"the chain's approver is {approver!r}")
+    return {
+        "approved_candidate": dict(latest),
+        "approver_provider": approver,
+        "calls_used": calls,
+        "author_corrections_used": corrections,
+        "models": [entry.get("actual_model") for entry in rounds],
+        "evidence_sha256": {**evidence.hashes, **({} if bookkeeping is None else bookkeeping["evidence_sha256"])},
+        "bookkeeping": None if bookkeeping is None else {
+            key: value for key, value in bookkeeping.items() if key != "evidence_sha256"},
+    }
+
+def _verify_review_rounds(
+    evidence: "_Evidence", run_result: Mapping[str, Any], *, entries: list, history: list, first_number: int,
+    providers: tuple[str, str], latest: Mapping[str, Any], unresolved: dict[str, Any], seen_ids: set[str],
+    candidate_digest: CandidateDigest, timeouts: Mapping[str, float] | None, final_must_pass: bool,
+) -> tuple[Mapping[str, Any], dict[str, Any], set[str], str | None]:
+    """Verify consecutive reviewer rounds starting at `first_number`.
+
+    With `final_must_pass` the last round must be the independent PASS;
+    otherwise every round must be a valid revision (an open-ended run).
+    """
+
     approver = None
-    for number in range(2, calls + 1):
+    last_number = first_number + len(entries) - 1
+    for number in range(first_number, last_number + 1):
         provider = providers[(number - 1) % 2]
-        final = number == calls
-        entry = ordinary[number - 1]
+        final = final_must_pass and number == last_number
+        entry = entries[number - first_number]
         # Self-approval is checked before the rotation, so a record that
         # swaps the final reviewer is refused for the rule it actually breaks.
         if final and isinstance(entry, Mapping):
@@ -297,7 +357,7 @@ def verify_three_call_chain(
         except Exception as exc:  # the policy's own refusal, whatever its type
             raise ReviewChainError("D3_FINDING_RESOLUTION", f"{relative}: {exc}") from exc
         seen_ids.update(finding.finding_id for finding in review.findings)
-        recorded = history[number - 2]
+        recorded = history[number - first_number]
         retained_entry = evidence.json(f"rounds/{number:02d}/review_history_entry.json", "D3_FINDING_RESOLUTION")
         expected_entry = {
             "round_number": number, "reviewer_provider": provider, "verdict": review.verdict,
@@ -308,7 +368,7 @@ def verify_three_call_chain(
         for field, value in expected_entry.items():
             _require(isinstance(recorded, Mapping) and recorded.get(field) == value
                      and retained_entry.get(field) == value, "D3_FINDING_RESOLUTION",
-                     f"finding_history[{number - 2}] {field} does not match {relative}")
+                     f"finding_history[{number - first_number}] {field} does not match {relative}")
         _require(entry.get("verdict") == review.verdict, "D3_FINDING_RESOLUTION",
                  f"round {number} verdict {entry.get('verdict')!r} differs from {relative}")
 
@@ -330,11 +390,62 @@ def verify_three_call_chain(
                      == (revised["sha256"], revised["graph_delta_plan_id"]), "D3_REVISION",
                      f"{relative}'s replacement is not the published round {number} candidate")
             latest = revised
+    return latest, unresolved, seen_ids, approver
 
+
+CONTINUATION_MODE = "round_robin_d1b2_continuation"
+
+
+def verify_continuation_chain(
+    *, run_dir: Path, run_result: Mapping[str, Any], prior: Mapping[str, Any], prior_run_result_sha256: str,
+    providers: tuple[str, str], candidate_digest: CandidateDigest,
+    timeouts: Mapping[str, float] | None = None, open_end: bool = False,
+) -> dict[str, Any]:
+    """Verify a continuation run on top of its verified prior run.
+
+    `prior` is what verify_three_call_chain(open_end=True) or this function
+    (open_end=True) returned for the run it continued: the latest candidate,
+    the open findings and every finding ID already used.
+    """
+
+    first, second = providers
+    _require(first != second and {first, second} <= set(PROVIDER_IDENTIFIERS), "D3_ROUND",
+             f"a continuation needs two distinct providers, not {providers!r}")
+    continued = run_result.get("continued_from")
+    rounds = run_result.get("rounds")
+    history = run_result.get("finding_history")
+    calls = run_result.get("calls_used")
+    _require(run_result.get("mode") == CONTINUATION_MODE and isinstance(continued, Mapping)
+             and continued.get("run_result_sha256") == prior_run_result_sha256
+             and continued.get("seed_candidate") == prior["latest_candidate"]
+             and continued.get("seed_round") == prior["last_round"],
+             "D3_CANDIDATE_LINK", "the continuation does not continue exactly the verified prior run")
+    _require(_exact_int(calls) and calls >= 1 and isinstance(rounds, list) and len(rounds) == calls
+             and isinstance(history, list) and len(history) == calls
+             and run_result.get("author_corrections_used") == 0,
+             "D3_ACCOUNTING", f"calls_used={calls!r} with {len(rounds) if isinstance(rounds, list) else rounds!r} rounds")
+    evidence = _Evidence(run_dir)
+    unresolved = {key: ReviewFinding.from_dict(value, f"prior finding {key}")
+                  for key, value in prior["unresolved_findings"].items()}
+    latest, unresolved, seen, approver = _verify_review_rounds(
+        evidence, run_result, entries=list(rounds), history=history, first_number=prior["last_round"] + 1,
+        providers=providers, latest=prior["latest_candidate"], unresolved=unresolved,
+        seen_ids=set(prior["seen_finding_ids"]), candidate_digest=candidate_digest, timeouts=timeouts,
+        final_must_pass=not open_end)
+    _require(run_result.get("latest_candidate") == latest, "D3_FINAL_ARTIFACTS",
+             "latest_candidate is not the candidate the chain ends on")
+    if open_end:
+        _require(run_result.get("run_status") == "needs_human", "D3_FINAL_ARTIFACTS",
+                 "an open-ended continuation must stop needs_human on its latest revision")
+        return {
+            "latest_candidate": dict(latest),
+            "unresolved_findings": {key: value.to_dict() for key, value in unresolved.items()},
+            "seen_finding_ids": sorted(seen),
+            "last_round": prior["last_round"] + calls,
+            "evidence_sha256": dict(evidence.hashes),
+        }
     _require(latest.get("decision") == "decomposed", "D3_FINAL_ARTIFACTS",
              f"the approved candidate is {latest.get('decision')!r}, not a decomposition")
-    _require(run_result.get("latest_candidate") == latest, "D3_FINAL_ARTIFACTS",
-             "latest_candidate is not the candidate the chain approved")
     _require(run_result.get("independent_approver_provider") == approver, "D3_FINAL_ARTIFACTS",
              f"independent_approver_provider is {run_result.get('independent_approver_provider')!r}, "
              f"the chain's approver is {approver!r}")
@@ -342,7 +453,6 @@ def verify_three_call_chain(
         "approved_candidate": dict(latest),
         "approver_provider": approver,
         "calls_used": calls,
-        "author_corrections_used": corrections,
         "models": [entry.get("actual_model") for entry in rounds],
         "evidence_sha256": dict(evidence.hashes),
     }

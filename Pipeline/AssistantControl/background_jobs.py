@@ -572,6 +572,8 @@ def launch(
         # The ticket dispatch does not carry it yet; refusing is better than
         # silently running the proposal without the checklist that was asked for.
         raise BackgroundJobError("background decomposition does not support author_checklist yet")
+    if kind == "decompose" and "bookkeeper_model" in identity:
+        raise BackgroundJobError("background decomposition does not support bookkeeper_model yet")
     manager.records.mkdir(parents=True, exist_ok=True)
     lock_path = manager.records / "checkouts.lock"
     with contextlib.ExitStack() as transaction:

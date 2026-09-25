@@ -87,6 +87,10 @@ _RUN_ID_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,62}[a-z0-9])?$")
 # from the round number.
 ProviderFactory = Callable[..., tuple[str, RuntimeConfiguration, Mapping[str, Any]]]
 DECOMPOSITION_SESSION_ROLES = ("task_decomposer", "decomposition_reviewer")
+# The opt-in bookkeeper writes the result schema from the designer's ownership
+# sheet. It is never pooled: it always runs in a fresh, unleased conversation.
+BOOKKEEPER_ROLE = "decomposition_bookkeeper"
+_BUNDLE_ROLES = DECOMPOSITION_SESSION_ROLES + (BOOKKEEPER_ROLE,)
 
 
 def _json(value: Any) -> str:
@@ -327,7 +331,7 @@ def _real_provider_bundle(
     session_ledger: ProviderSessionLedger | None = None,
     codex_resume_sandbox_argument: tuple[str, ...] | None = None,
 ) -> tuple[str, RuntimeConfiguration, Mapping[str, Any]]:
-    if role not in DECOMPOSITION_SESSION_ROLES:
+    if role not in _BUNDLE_ROLES:
         raise DecompositionPreflightError(f"unsupported decomposition role: {role!r}")
     key, configuration = provider_configuration(provider_name)
     if provider_name == "claude":
@@ -350,6 +354,25 @@ def _real_provider_bundle(
     return key, configuration, {provider.provider_identifier: provider}
 
 
+def with_bundle_model(
+    bundle: tuple[str, RuntimeConfiguration, Mapping[str, Any]], model: str,
+) -> tuple[str, RuntimeConfiguration, Mapping[str, Any]]:
+    """The same provider route, pinned to `model` at every tier."""
+
+    problem = _model_value_problem(model)
+    if problem:
+        raise DecompositionPreflightError(f"bookkeeper model {problem}: {model!r}")
+    key, configuration, registry = bundle
+    entry = configuration.to_dict()["provider_configurations"][key]
+    try:
+        pinned = RuntimeConfiguration({
+            key: {**entry, "models": {tier: model for tier in ("low_cost", "standard", "high_reasoning")}},
+        })
+    except ContractValidationError as exc:
+        raise DecompositionPreflightError(f"invalid bookkeeper model configuration: {exc}") from exc
+    return key, pinned, registry
+
+
 def _validated_provider_bundle(
     provider_name: str,
     source_root: Path,
@@ -361,12 +384,14 @@ def _validated_provider_bundle(
     codex_resume_sandbox_argument: tuple[str, ...] | None = None,
 ) -> tuple[str, RuntimeConfiguration, Mapping[str, Any]]:
     expected_key = f"{provider_name}-decomposition"
-    if role not in DECOMPOSITION_SESSION_ROLES:
+    if role not in _BUNDLE_ROLES:
         raise DecompositionPreflightError(f"unsupported decomposition role: {role!r}")
     if (session is None) != (session_ledger is None):
         raise DecompositionPreflightError(
             "a pooled provider bundle requires both the session binding and its ledger"
         )
+    if role == BOOKKEEPER_ROLE and session is not None:
+        raise DecompositionPreflightError("the decomposition bookkeeper never runs in a pooled session")
     if session is not None and session.role != role:
         raise DecompositionPreflightError(
             f"session binding role {session.role!r} differs from the round role {role!r}"

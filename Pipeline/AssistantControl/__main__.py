@@ -296,11 +296,19 @@ def main(argv=None) -> int:
     decompose.add_argument("--compose-project", default="nosafecircle")
     decompose.add_argument("--authorize-provider-spend", action="store_true")
     decompose.add_argument(
-        "--max-calls", type=int, choices=(2, 3), default=2,
+        "--max-calls", type=int, choices=(1, 2, 3, 4), default=2,
         help="Review-call budget; 3 (two distinct providers only) lets an independent PASS approve a reviewer revision")
     decompose.add_argument(
         "--author-checklist", choices=("parent-contract-v1",),
         help="Opt-in author checklist for the author, correction and reviewer; omit for unchanged prompts")
+    decompose.add_argument(
+        "--continue-from", metavar="RUN_ID",
+        help=("Continue a retained run of this task that stopped right after a revision: --max-calls "
+              "(1..4) more independent review rounds on its latest candidate instead of a new design"))
+    decompose.add_argument(
+        "--bookkeeper-model",
+        help=("Opt-in designer/bookkeeper split: the author writes an ownership sheet and a call on the "
+              "author's provider at this model writes the result from it; two distinct providers only"))
     inspect_decomposition = commands.add_parser("inspect-decomposition", help="Recheck the exact retained decomposition review")
     inspect_decomposition.add_argument("task")
     readiness = commands.add_parser(
@@ -800,6 +808,8 @@ def main(argv=None) -> int:
                         execution_authorized=args.authorize_provider_spend,
                         author_checklist=args.author_checklist,
                         max_calls=args.max_calls,
+                        bookkeeper_model=args.bookkeeper_model,
+                        continue_from=args.continue_from,
                     )
                 elif args.command == "inspect-decomposition":
                     result = decomposition.inspect(manager, args.task)
