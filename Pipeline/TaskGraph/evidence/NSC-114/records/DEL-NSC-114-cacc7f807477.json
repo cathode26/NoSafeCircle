@@ -1,0 +1,75 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "1b3cd332641dfa40e1e9e6f2628a8581bca1532e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/EnemyAwarenessIndicator.cs",
+      "role": "implementation"
+    },
+    {
+      "blob_sha": "5290dfc939762bbe6ba69b3809f41efb0d475c9c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/EnemyAwarenessIndicator.cs.meta",
+      "role": "Unity import metadata for the implementation"
+    },
+    {
+      "blob_sha": "1df4a8374c572d1f270fb2a6041cf8e5b8010ea8",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/EnemyAwarenessIndicatorPlayModeTests.cs",
+      "role": "test: PlayMode fixture EnemyAwarenessIndicatorPlayModeTests"
+    },
+    {
+      "blob_sha": "376cff9edff03b4235ccddccd2a1dcba4c569a56",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/EnemyAwarenessIndicatorPlayModeTests.cs.meta",
+      "role": "Unity import metadata for the test"
+    }
+  ],
+  "delivery": {
+    "base_commit": "7c411d9e2fd034fe82fbbc279b326c9929ebcb82",
+    "candidate_commit": "f01008b4a9a708300aa23a4bede40ea3f681eb03",
+    "integrated_commit": "cacc7f8074773381859dfde31c2f5370d44d9431",
+    "integrated_tree": "6414250bd81741c24e265548b2787dd96a8d1a83"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "283de5824a6ca12df24262695eab9899d9941dcf",
+          "path": "Pipeline/TaskGraph/evidence/NSC-114/artifacts/NSC-114-PlayMode-Results.xml-cacc7f807477.xml"
+        },
+        {
+          "blob_sha": "4752eeb7725b89f1469f2166c6662e85c457c9a0",
+          "path": "Pipeline/TaskGraph/evidence/NSC-114/artifacts/NSC-114-PlayMode-Unity.log-cacc7f807477.log"
+        },
+        {
+          "blob_sha": "44bd76d8eb19a3d9d7017c80699d69d48fdc6db0",
+          "path": "Pipeline/TaskGraph/evidence/NSC-114/artifacts/NSC-114-PlayMode-validation-manifest.json-cacc7f807477.json"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Full PlayMode suite at cacc7f8074773381859dfde31c2f5370d44d9431: total 305, passed 300, failed 0, skipped 5, zero test-cases with result=Failed, and Git tree == post-run tree 6414250bd81741c24e265548b2787dd96a8d1a83 so the run did not mutate the repository. The gate's own fixture ran BY NAME and passed: EnemyAwarenessIndicatorPlayModeTests, 4 total, 4 passed, 0 failed. VAL-001 requires the enemy be driven through NSC-091's real detection path rather than by setting a field through reflection; the fixture drives detection and asserts the indicator reflects each undetected-to-detected and detected-to-undetected transition.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "NSC-114's completion gates are automated Play Mode gates and the contract names no human gate, so no human approval is claimed - the shape used by NSC-050, NSC-109 and NSC-120. Recorded by the Game Agent (Integration Steward) on 2026-09-25. base_commit 7c411d9e2fd034fe82fbbc279b326c9929ebcb82 is the parent of the single candidate commit f01008b4a9a708300aa23a4bede40ea3f681eb03, which I merged earlier today after validating it on BOTH platforms. WORTH STATING because it nearly went the other way: an EditMode run at the same tree returned 304/292/0/12 and that was COMPILE-ONLY EVIDENCE for this task, not a pass - this fixture is PlayMode, lives in Tests/ rather than Tests/Editor/, and appears ZERO times in the EditMode XML. Only the PlayMode run above exercised it.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-114-cacc7f807477",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-25T11:54:05Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-114.yaml",
+    "revision": 1,
+    "sha256": "1b458ecc6d66c5251c3136ec9211690eb0d747ca63b58e56c440f4c16459d719"
+  },
+  "task_id": "NSC-114",
+  "validated_state": {
+    "commit": "cacc7f8074773381859dfde31c2f5370d44d9431",
+    "tree": "6414250bd81741c24e265548b2787dd96a8d1a83"
+  }
+}
