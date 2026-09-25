@@ -36,7 +36,7 @@
   ],
   "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 3,
+  "contract_revision": 4,
   "decomposition_reason": "One bounded responsibility with a measurable outcome; no sub-behaviour needs independent scheduling.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -44,7 +44,13 @@
     "NSC-091",
     "NSC-092"
   ],
-  "downstream_integration_obligations": [],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-121 Enemies Shelter Behind Another Enemy or Nearby Cover When a Fireball Charges, authored 2026-09-25 from Vincent's decision; agent-state/vincent-decision-NSC-116-shield-cover.md",
+      "requirement": "NSC-121 adds a SIBLING response to the same charge threshold this task defines: an enemy with a valid shelter in range takes cover instead of fleeing. IT IS A SEPARATE CONTRACT BECAUSE IT CANNOT LIVE UNDER THIS TASK'S GATE - VAL-001 here asserts that the enemy's distance from the wizard strictly increases while fleeing, and a sheltering enemy moves laterally or toward the wizard, so folding it in would have forced that assertion to be weakened. NSC-121 reads this task's charge threshold rather than defining a second one, and NSC-121 AC-004 binds it to change NOTHING this task asserts when no shelter is in range. TWO THINGS THIS TASK'S IMPLEMENTER MUST DO SO THAT INVARIANT IS TESTABLE: expose the charge threshold so NSC-121 can read it rather than duplicate it, and author VAL-001's scenarios with NO valid shelter present - no second live enemy and no GameplayGeometry collider above NSC-121's minimum cover height between the enemy and the wizard - so that this gate keeps proving fleeing once sheltering exists. AND THE GDD TENSION IN AC-005 IS ARGUED AGAINST, NOT RESOLVED, BY NSC-121 AC-006: sheltering keeps the enemy near the wizard and in the fight, so it sits closer to the GDD's 'charging becomes unsafe once they close the distance' than fleeing does. That is an argument and the tension is still open here."
+    }
+  ],
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/EnemyChargeFleeBehaviour.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/EnemyChargeFleeBehaviour.cs.meta",
@@ -77,6 +83,15 @@
         "previous_contract_revision": 2,
         "base_contract_sha256": "fea02931a6105d93e7b47f899d9b7f8b928e1ac6087d7eac6784e2d47923de9a",
         "revised_contract_sha256": "a20a122eea2088af65c6b29f398148fbe2650a6f8f1050171d0add791d798a1a",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-25",
+        "reason": "Rev 4 adds INT-001 naming NSC-121, the sibling shelter behaviour authored tonight from Vincent's decision that shield/cover is in scope. NSC-121 is a separate contract because VAL-001 here asserts the enemy's distance from the wizard strictly increases while fleeing, and a sheltering enemy moves laterally or toward the wizard - folding it in would have forced that assertion to be weakened. The obligation binds this task's implementer to two things that make NSC-121 AC-004's invariant testable: expose the charge threshold so NSC-121 reads it rather than duplicating it, and author VAL-001's scenarios with no valid shelter present so this gate keeps proving fleeing once sheltering exists. Nothing else changed - acceptance criteria, gates, resources, depends_on and notes are all byte-identical, and AC-001's verbatim quote of Vincent is untouched. taskcontrol state NSC-116 was not_delivered with no selected_record, so nothing is un-delivered.",
+        "source_head": "15d3b3e93d2dcd85cb54b038cdd6fe370e92a574",
+        "previous_contract_revision": 3,
+        "base_contract_sha256": "b02d7d61a4ee4e1be7931840a3e85e97b62ad98cb52be14f38fe7bf27452c190",
+        "revised_contract_sha256": "a63bb89c0317ff3a2c9df6a636e05798356cf39855b74018ad9adb753eb838a3",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
