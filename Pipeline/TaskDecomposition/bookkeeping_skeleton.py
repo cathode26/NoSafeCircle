@@ -102,20 +102,24 @@ def _as_map(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
 
-def _preserved_notes(design_notes: str, model_notes: Any) -> str:
-    """The model's notes, always carrying the designer's notes word for word."""
+def _preserved_notes(design_notes: str, model_notes: Any, *, legacy: bool = False) -> str:
+    """The model's notes, always carrying the designer's notes word for word.
+
+    ``legacy`` reproduces the pre-v2 behaviour exactly, so evidence recorded
+    before the whitespace fix still replays to the candidate it recorded.
+    """
 
     written = model_notes.strip() if isinstance(model_notes, str) else ""
     if design_notes in written:
         return written
     # Design notes that begin or end with whitespace are lost by the strip;
     # recognise them in the unstripped text rather than duplicating them.
-    if isinstance(model_notes, str) and design_notes in model_notes:
+    if not legacy and isinstance(model_notes, str) and design_notes in model_notes:
         return model_notes
     return f"{design_notes}\n\n{written}" if written else design_notes
 
 
-def impose_skeleton(skeleton: Mapping[str, Any], output: Any) -> dict[str, Any]:
+def impose_skeleton(skeleton: Mapping[str, Any], output: Any, *, legacy_notes: bool = False) -> dict[str, Any]:
     """The model's answer with every structural field replaced by the skeleton's.
 
     Prose is matched to the skeleton by stable keys (child local_key, entry
@@ -139,7 +143,7 @@ def impose_skeleton(skeleton: Mapping[str, Any], output: Any) -> dict[str, Any]:
         for field in _STRUCTURAL_CHILD_FIELDS:
             if field not in ENTRY_TYPES:
                 child[field] = deepcopy(planned[field])
-        child["notes"] = _preserved_notes(planned["notes"], model_child.get("notes"))
+        child["notes"] = _preserved_notes(planned["notes"], model_child.get("notes"), legacy=legacy_notes)
         for entry_type in ENTRY_TYPES:
             id_field = _ID_FIELDS[entry_type][0]
             model_entries = {entry.get(id_field): entry for entry in _as_list(model_child.get(entry_type))

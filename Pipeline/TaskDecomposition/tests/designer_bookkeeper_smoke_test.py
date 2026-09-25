@@ -829,12 +829,29 @@ def test_rejected_attempt_cannot_be_relabelled_successful() -> None:
         refused(lambda: run.verify(changed), "failed deterministic replay")
 
 
+def test_legacy_replay_keeps_the_old_whitespace_notes_behaviour() -> None:
+    from TaskDecomposition.tests.test_support import task
+    parent = task("NSC-010", "selected-parent", "implementation", "NSC-002",
+                  "needs_execution_decomposition", "concrete", dependencies=("NSC-003",),
+                  resources=("repo-file:Assets/Shared.cs", "unity-scene:Assets/Synthetic.unity"))
+    sheet = sheet_from_result(decomposed_result(parent))
+    sheet["children"][0]["design_notes"] = " Keep prefab inactive. "
+    skeleton = result_skeleton(sheet)
+    key = sheet["children"][0]["local_key"]
+    output = {"children": [{"local_key": key, "notes": " Keep prefab inactive. "}]}
+    current = impose_skeleton(skeleton, output)["children"][0]["notes"]
+    legacy = impose_skeleton(skeleton, output, legacy_notes=True)["children"][0]["notes"]
+    assert current == " Keep prefab inactive. ", current
+    assert legacy == " Keep prefab inactive. \n\nKeep prefab inactive.", legacy
+
+
 TESTS = (
     test_bookkeeper_continuation_protocol_requires_a_fresh_run,
     test_non_bookkeeper_bytes_match_legacy_goldens,
     test_revision_context_includes_citations_from_review_feedback,
     test_sheet_review_schema_and_policy_refuse_invalid_reviews,
     test_the_bookkeeper_gets_only_the_cited_gdd_lines,
+    test_legacy_replay_keeps_the_old_whitespace_notes_behaviour,
     test_rejected_attempt_cannot_be_relabelled_successful,
     test_revision_sheet_is_compiled_before_next_review,
     test_revision_bookkeeper_uses_fixed_provider_and_model,
