@@ -1,0 +1,75 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "fc1eb59eef918e0bd5378308db1087961822ca1e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ArchitecturalWallAccentPlacement.cs",
+      "role": "implementation: architectural wall accent placement (corner, jamb, end cap)"
+    },
+    {
+      "blob_sha": "13049b50c2f5dc589655412f1938afcf04e07a94",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ArchitecturalWallAccentPlacement.cs.meta",
+      "role": "Unity import metadata for the placement implementation"
+    },
+    {
+      "blob_sha": "604ea53677a74ffe29b81a805c5122f3711424f4",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/ArchitecturalWallAccentPlacementTests.cs",
+      "role": "test: VAL-001 EditMode fixture ArchitecturalWallAccentPlacementTests"
+    },
+    {
+      "blob_sha": "5afa6ccbd7c21ca8dae8d607b83e70e626f60a95",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/ArchitecturalWallAccentPlacementTests.cs.meta",
+      "role": "Unity import metadata for the placement test"
+    }
+  ],
+  "delivery": {
+    "base_commit": "e88a04024ade7a8596f1ce9a18aca6732f344919",
+    "candidate_commit": "3177243a522aca70e0bea6cd8759e439d7fc6cc8",
+    "integrated_commit": "ea5ec3af4f968b6edcd748030843cbc41e01aa18",
+    "integrated_tree": "4633e9d8ae644e17eedfaa7d20e3425ddcefb7e1"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "3fc7ba265bb134ce15f5283d06309c46e30215aa",
+          "path": "Pipeline/TaskGraph/evidence/NSC-120/artifacts/NSC-120-EditMode-Results.xml-ea5ec3af4f96.xml"
+        },
+        {
+          "blob_sha": "bd302a410e8a94004ba4fee9ced39753e71d4d0a",
+          "path": "Pipeline/TaskGraph/evidence/NSC-120/artifacts/NSC-120-EditMode-Unity.log-ea5ec3af4f96.log"
+        },
+        {
+          "blob_sha": "e1c848bf9c9f6472980f4b20e89901f7578afe11",
+          "path": "Pipeline/TaskGraph/evidence/NSC-120/artifacts/NSC-120-EditMode-validation-manifest.json-ea5ec3af4f96.json"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "EditMode run at the validated commit ea5ec3af4f968b6edcd748030843cbc41e01aa18: total 312, passed 300, failed 0, skipped 12, zero test-cases with result=Failed, and Git tree == post-run tree 4633e9d8ae644e17eedfaa7d20e3425ddcefb7e1 so the run did not mutate the repository. The gate's own fixture, ArchitecturalWallAccentPlacementTests, ran BY NAME and passed 2 of 2. I read the fixture rather than trusting the count, because two methods is thin for a three-role system: they carry roughly fifteen substantive assertions. VAL-001's explicit anti-vacuity requirement - that a run placing zero accents must FAIL rather than pass vacuously - is met by three separate Assert.Greater checks on the placed count, one each for Corner, Jamb and EndCap. AC-003's relations are asserted as relations and not against literals: rendered ground contact equals the floor plane within 0.01 world units, the horizontal footprint lies at or inside the wall run's own extent, and gameplay collider centres and sizes are compared before and after placement and are unchanged. AC-002's requirement that placement derive ground contact from each sprite's ACTUAL pivot rather than assuming a bottom-centre pivot is proved by ComputeGroundContactAnchorY_ProducesIdenticalGroundContactForActualAndZeroVerticalPivot, which shows the actual-pivot and zero-pivot derivations agree - a durable relation that survives the pivot constants moving.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "NSC-120 has one completion gate, VAL-001, and it is an automated Edit Mode gate; the contract names no human gate, so no human approval is claimed. This follows NSC-050's and NSC-109's precedent. Recorded by the Game Agent (Integration Steward) on 2026-09-25 at commit ea5ec3af4f968b6edcd748030843cbc41e01aa18, main's tip, where Unity actually ran. base_commit e88a04024ade7a8596f1ce9a18aca6732f344919 is the parent of the single candidate commit 3177243a522aca70e0bea6cd8759e439d7fc6cc8, which I merged earlier today. NOT CLAIMED: nobody has LOOKED at a placed corner, jamb or end cap. No capture was taken with accents in a room, so how they read at gameplay-camera scale is unevidenced and is not asserted here. The three accent sprites were regraded onto the new stone palette earlier today, so what this places is the regraded art.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-120-ea5ec3af4f96",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-25T11:50:36Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-120.yaml",
+    "revision": 1,
+    "sha256": "57cec7dda341c27340228a38cf2bfe097b15816aade53326d28f441cab88e1e7"
+  },
+  "task_id": "NSC-120",
+  "validated_state": {
+    "commit": "ea5ec3af4f968b6edcd748030843cbc41e01aa18",
+    "tree": "4633e9d8ae644e17eedfaa7d20e3425ddcefb7e1"
+  }
+}
