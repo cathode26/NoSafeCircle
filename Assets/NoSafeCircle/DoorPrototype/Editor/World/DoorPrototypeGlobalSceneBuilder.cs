@@ -73,6 +73,12 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
         };
 
         // Placeholder color only (GDD: placeholder character sprites are acceptable).
+        // The world size the PLACEHOLDER silhouette is stretched to. It is 1 x 2 because
+        // CreateWizardSilhouettePixels draws on a SQUARE texture, so the humanoid proportion
+        // has to come from the transform. Named here because the real-sprite path below has
+        // to undo exactly this and must not carry a second copy of the number.
+        private static readonly Vector2 PlaceholderWizardWorldSize = new Vector2(1f, 2f);
+
         private static readonly Color32 WizardSpriteFillColor = new Color32(88, 64, 145, 255);
         private static readonly Color32 WizardSpriteBorderColor = new Color32(40, 28, 66, 255);
         private static readonly Color32 EnemySpriteFillColor = new Color32(168, 46, 46, 255);
@@ -277,7 +283,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 player.transform,
                 Vector3.zero,
                 Quaternion.identity,
-                new Vector2(1f, 2f),
+                PlaceholderWizardWorldSize,
                 CreateWizardSilhouettePixels(
                     DoorPrototypeSceneBuilder.WorldSpriteTextureSize,
                     DoorPrototypeSceneBuilder.WorldSpriteTextureSize,
@@ -304,6 +310,20 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             if (wizardAssets.defaultIdle != null)
             {
                 player.transform.Find("Visual").GetComponent<SpriteRenderer>().sprite = wizardAssets.defaultIdle;
+
+                // Vincent, 2026-09-25: "it has its scale wrong... a scale on the y but not on the x".
+                // PlaceholderWizardWorldSize is a correction for the placeholder's SQUARE texture,
+                // and the real PixelLab frames are square too - 180x180 at PPU 180 is exactly
+                // 1 x 1 world units, with the drawn figure padded inside it (58x146 for
+                // masculine-light, 65x153 for feminine-dark). So the 1:2 was being applied to
+                // artwork that already carries its own proportion, stretching it vertically.
+                // Scale UNIFORMLY to the same world height the placeholder targeted: the aspect is
+                // corrected and the wizard's rendered height does not change, so nothing that was
+                // tuned against his height moves. Derived from the sprite rather than written as a
+                // literal so a pixels-per-unit change cannot silently reintroduce the stretch.
+                float wizardScale =
+                    PlaceholderWizardWorldSize.y / wizardAssets.defaultIdle.bounds.size.y;
+                playerVisual.transform.localScale = new Vector3(wizardScale, wizardScale, 1f);
             }
 
             health = player.AddComponent<PlayerHealth>();

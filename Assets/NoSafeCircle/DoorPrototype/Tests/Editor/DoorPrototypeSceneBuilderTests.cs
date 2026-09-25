@@ -1422,6 +1422,45 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 "Player Visual must no longer use a legacy PrimitiveType.Capsule mesh visual.");
         }
 
+        // Vincent, 2026-09-25: "it has its scale wrong... a scale on the y but not on the x".
+        // The wizard's Visual carried localScale (1, 2, 1), which is correct ONLY for the
+        // placeholder silhouette - CreateWizardSilhouettePixels draws on a square texture, so
+        // the humanoid proportion has to come from the transform. The real PixelLab frames are
+        // square too (180x180 at 180 pixels per unit is exactly 1 x 1 world units, with the
+        // drawn figure padded inside), so the same 1:2 stretched art that already carried its
+        // own proportion.
+        //
+        // This asserts the RELATION rather than today's number: any uniform scale passes and
+        // any one-axis scale fails, so a future pixels-per-unit or art-size change cannot make
+        // it stale. It is known to be able to fail without a mutation run, because the value it
+        // replaced - (1, 2, 1) - violates it by construction.
+        [Test]
+        public void Build_PlayerVisual_ScalesTheWizardUniformlySoTheArtIsNotStretched()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            var playerSpriteObject = GameObject.Find("Player/Visual");
+            Assert.IsNotNull(playerSpriteObject, "Expected a 'Visual' child under Player.");
+
+            var renderer = playerSpriteObject.GetComponent<SpriteRenderer>();
+            Assert.IsNotNull(renderer, "Expected a SpriteRenderer on the Player's Visual child.");
+            Assert.IsNotNull(renderer.sprite, "Expected the wizard sprite to be assigned.");
+
+            Vector3 scale = playerSpriteObject.transform.localScale;
+            Assert.That(scale.x, Is.EqualTo(scale.y).Within(0.0001f),
+                $"The wizard's Visual must be scaled uniformly; a one-axis scale stretches the " +
+                $"artwork. Was ({scale.x}, {scale.y}, {scale.z}).");
+            Assert.Greater(scale.x, 0f, "The wizard's Visual must have a positive scale.");
+
+            // The rendered figure must stay taller than it is wide, which is what a viewer
+            // actually checks. Read from the sprite the builder chose rather than restating its
+            // dimensions here, so re-authored art is measured rather than assumed.
+            float renderedWidth = renderer.sprite.bounds.size.x * scale.x;
+            float renderedHeight = renderer.sprite.bounds.size.y * scale.y;
+            Assert.Greater(renderedHeight, renderedWidth,
+                $"A standing wizard must render taller than wide. Was {renderedWidth} x {renderedHeight}.");
+        }
+
         // NSC-039 AC-001 / VAL-001 (human-review correction, items 1 and 6): every
         // independently sorted world-space SpriteRenderer must share one sorting layer/order
         // convention. Ground-flush background Tilemap layers (the floor and the flat
