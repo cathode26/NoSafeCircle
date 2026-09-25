@@ -1266,15 +1266,42 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 door.DoorId + " must accept a ground-click approach at its own SelectionPoint; "
                 + "that is the production path this gate opens the door through.");
 
-            float doorClockSeconds = 0f;
-            for (int frame = 0;
-                 frame < MaxOpenFrames && !door.IsOpen && doorClockSeconds < door.Duration + 2f;
-                 frame++)
+            // BOUND BY FRAMES, NOT BY A CLOCK. The wizard walks on the fixed simulation step this
+            // fixture supplies, while the door timer runs on Time.deltaTime from its own Update -
+            // two different clocks. An earlier version bounded this loop by accumulated
+            // Time.deltaTime against Duration, which expired while the wizard was still walking
+            // and reported "the door did not open" for a journey that had not finished.
+            int frames = 0;
+            for (; frames < MaxOpenFrames && !door.IsOpen; frames++)
             {
                 movement.Tick(SimulationStepSeconds);
                 yield return null;
-                doorClockSeconds += Time.deltaTime;
             }
+
+            // Asserted HERE rather than only in the caller so a failure names which half of the
+            // production path stalled: the approach (the wizard never arrived, so the timer never
+            // started) or the opening timer itself.
+            float playerLocalZ =
+                door.transform.InverseTransformPoint(movement.transform.position).z;
+            float interactionLocalZ =
+                door.transform.InverseTransformPoint(door.InteractionPosition).z;
+
+            Assert.IsTrue(door.IsOpen,
+                door.DoorId + " must open through the production approach-and-timer path. After "
+                + frames + " frames: progress=" + door.Progress.ToString("F3")
+                + " duration=" + door.Duration.ToString("F3")
+                + " doorInteracting=" + door.IsInteracting
+                + " playerInRange=" + door.IsPlayerInRange
+                + " controllerInteracting=" + interaction.IsInteracting
+                + " pendingDoor=" + (interaction.PendingDoor != null
+                    ? interaction.PendingDoor.DoorId.ToString() : "<null>")
+                + " currentDoor=" + (interaction.CurrentDoor != null
+                    ? interaction.CurrentDoor.DoorId.ToString() : "<null>")
+                + " hasActiveDestination=" + movement.HasActiveDestination
+                + " movementRestricted=" + movement.IsMovementRestricted
+                + " gameplayEnabled=" + movement.IsGameplayEnabled
+                + " playerDoorLocalZ=" + playerLocalZ.ToString("F3")
+                + " interactionDoorLocalZ=" + interactionLocalZ.ToString("F3"));
         }
     }
 #endif
