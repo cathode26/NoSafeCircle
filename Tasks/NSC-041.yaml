@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-041",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Door Visual Affordance, Hover, and Selection Feedback",
   "reconciliation_key": "door-visual-affordance-feedback",
@@ -19,7 +19,9 @@
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractionFeedback.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+    "unity-scene:Assets/Scenes/DoorPrototype.unity",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/DoorInteractionFeedbackPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/DoorInteractionFeedbackPlayModeTests.cs.meta"
   ],
   "acceptance_criteria": [
     {
@@ -81,7 +83,7 @@
   "basis": "direct_gdd",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "Human runtime validation after NSC-019 implementation found the current prototype door visually indistinguishable from a white wall and lacking hover/accepted-command feedback. NSC-041 owns that readability/affordance problem; it must not redesign NSC-019 movement, timing, cancellation, or input ownership.",
+  "notes": "Human runtime validation after NSC-019 implementation found the current prototype door visually indistinguishable from a white wall and lacking hover/accepted-command feedback. NSC-041 owns that readability/affordance problem; it must not redesign NSC-019 movement, timing, cancellation, or input ownership. This task owns DoorInteractionFeedback.cs but owned no path under Tests/, so no execution scope plan could be built for it and it could never be crew-dispatched. It now owns DoorInteractionFeedbackPlayModeTests.cs, the committed fixture covering the code it owns, which no other task claims or resolves. VAL-001 remains a human validation gate and is unaffected.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [
     {
@@ -99,6 +101,17 @@
     "origin": "human_scope_correction",
     "source_task_id": "NSC-019",
     "source_task_revision_before_move": 2,
-    "reason": "Human runtime validation separated interaction correctness from missing visual affordance/readability and approved moving the latter into a dedicated follow-up task."
+    "reason": "Human runtime validation separated interaction correctness from missing visual affordance/readability and approved moving the latter into a dedicated follow-up task.",
+    "contract_followups": [
+      {
+        "date": "2026-09-25",
+        "reason": "NSC-041 owned DoorInteractionFeedback.cs but no path under Tests/, so no execution scope plan could be built and the task could never be crew-dispatched. It now owns the committed fixture covering its own code, which no other task claims or resolves, and the policy entry binds that verified filter. VAL-001 remains a human validation gate. No acceptance criterion or gate changed.",
+        "source_head": "03777c8b66157634eb7804739606054a1f880ec6",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "c157a65c25be3de5622790679ee5dcebaedc74f0159dd38fbfbfb3f0656425e7",
+        "revised_contract_sha256": "d2cf79e30f9fdeafb464559ddc74873e4d52f77ea9f9e44efe9ff1833b731c03",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   }
 }
