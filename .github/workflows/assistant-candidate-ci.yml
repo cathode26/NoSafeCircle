@@ -86,6 +86,7 @@ jobs:
         run: |
           $tests = @(
             "Pipeline/TaskDecomposition/tests/decomposition_contracts_smoke_test.py",
+            "Pipeline/TaskDecomposition/tests/designer_bookkeeper_smoke_test.py",
             "Pipeline/TaskDecomposition/tests/live_decomposition_smoke_test.py",
             "Pipeline/TaskDecomposition/tests/round_robin_decomposition_smoke_test.py",
             "Pipeline/TaskDecomposition/tests/prompt_capacity_smoke_test.py",
