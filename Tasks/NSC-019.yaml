@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-019",
-  "contract_revision": 4,
+  "contract_revision": 5,
   "contract_disposition": "active",
   "title": "Cursor-Targeted Door Opening (Click-to-Approach, Arm's-Reach Auto-Timer, Interruption)",
   "reconciliation_key": "door-open-interaction",
@@ -20,7 +20,9 @@
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerInteractionController.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerMovement.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+    "unity-scene:Assets/Scenes/DoorPrototype.unity",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/PlayerMovementPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/PlayerMovementPlayModeTests.cs.meta"
   ],
   "acceptance_criteria": [
     {
@@ -100,7 +102,7 @@
   "basis": "direct_gdd",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "NSC-003 now provides the Player/PointerPosition and Player/MoveToCursor actions plus the shared world-space pointer target. NSC-019 consumes that existing input path through Player Movement and does not add a distinct door-select binding unless implementation evidence proves one is required. Human-facing door identification, hover/selection affordance, and first-time-player readability were moved to NSC-041 after human runtime validation showed that the placeholder white-wall door made click targeting ambiguous even though NSC-019 interaction behavior was covered by automated tests.",
+  "notes": "NSC-003 now provides the Player/PointerPosition and Player/MoveToCursor actions plus the shared world-space pointer target. NSC-019 consumes that existing input path through Player Movement and does not add a distinct door-select binding unless implementation evidence proves one is required. Human-facing door identification, hover/selection affordance, and first-time-player readability were moved to NSC-041 after human runtime validation showed that the placeholder white-wall door made click targeting ambiguous even though NSC-019 interaction behavior was covered by automated tests. This task owns PlayerMovement.cs and PlayerInteractionController.cs but owned no path under Tests/, so no execution scope plan could be built for it and it could never be crew-dispatched. It now owns PlayerMovementPlayModeTests.cs, the committed fixture covering the code it owns, which no other task claims or resolves.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [
     {
@@ -140,6 +142,17 @@
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
     "verification_run_id": "20260821T195959Z-43dba5de",
     "bootstrap_status_observation": "open",
-    "migration_id": "task-contract-schema-v2-20260822-r2"
+    "migration_id": "task-contract-schema-v2-20260822-r2",
+    "contract_followups": [
+      {
+        "date": "2026-09-25",
+        "reason": "NSC-019 owned PlayerMovement.cs and PlayerInteractionController.cs but no path under Tests/, so no execution scope plan could be built and the task could never be crew-dispatched. It now owns the committed fixture covering its own code, which no other task claims or resolves, and the policy entry binds that verified filter so the candidate gets real validation. No acceptance criterion or gate changed.",
+        "source_head": "f72bc83c6289c212140893df3cf7c2180a1bc973",
+        "previous_contract_revision": 4,
+        "base_contract_sha256": "cb247207d425c973e5a5b8e4cb9906251e2782c786d2a11bd00c35fae7544c0f",
+        "revised_contract_sha256": "79d2049d61ca36af0abc8506c9d7475dbb2021bedfd99038a117429bf20a9e59",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   }
 }

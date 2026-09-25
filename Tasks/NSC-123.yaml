@@ -56,7 +56,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "decomposition_reason": "This child owns the parent’s shared integration surface: FloorRunRestartController, DoorPrototypeSceneBuilder.cs, and DoorPrototype.unity. It must sequence all delivered owner reset APIs, materialize the canonical scene, and validate restart and victory behavior together; separating those resources would create competing writers and leave the required scene wiring incomplete.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -93,7 +93,9 @@
   "exclusive_resources": [
     "logical:floor-run-restart-orchestrator",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+    "unity-scene:Assets/Scenes/DoorPrototype.unity",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FloorRunRestartClosurePlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FloorRunRestartClosurePlayModeTests.cs.meta"
   ],
   "execution_reason": "One Unity programmer extends FloorRunRestartController, wires every delivered reset participant through DoorPrototypeSceneBuilder, materializes DoorPrototype.unity, and validates zero-health restart ordering plus the post-victory restart guard.",
   "execution_scope": "single_agent",
@@ -117,14 +119,25 @@
   ],
   "id": "NSC-123",
   "kind": "implementation",
-  "notes": "NSC-032 owns FloorRunRestartController. Player reset owners are NSC-003, NSC-004, NSC-005, and NSC-019. Door reset and feedback owners are NSC-020, NSC-050, and NSC-041. Spell reset owners are NSC-118/NSC-119, NSC-008, NSC-009, and NSC-112; NSC-111 owns the enemy target-redirection state used by SpectralDecoy.ResetSpectralDecoy. Enemy reset owners are NSC-012, NSC-092, NSC-013, NSC-015, NSC-017, NSC-053, NSC-054, and NSC-055. Registry and admission owners are NSC-011, NSC-028, and NSC-030. NSC-086 owns FinalDoorVictoryTrigger.HasWon. This child is the sole owner of FloorRunRestartController changes, DoorPrototypeSceneBuilder wiring, restart validation scope, and DoorPrototype.unity materialization. It calls public reset methods only and does not edit owner-domain scripts or internal state. The Windows Unity controller materializes the scene with No Safe Circle/Build Door Prototype Scene; tests open committed assets read-only and must leave tracked and untracked repository state unchanged. The child must not broaden scope into owner-domain implementation when a required reset method is absent; it should preserve the contract and report that upstream owner gap through the delivery evidence.",
+  "notes": "NSC-032 owns FloorRunRestartController. Player reset owners are NSC-003, NSC-004, NSC-005, and NSC-019. Door reset and feedback owners are NSC-020, NSC-050, and NSC-041. Spell reset owners are NSC-118/NSC-119, NSC-008, NSC-009, and NSC-112; NSC-111 owns the enemy target-redirection state used by SpectralDecoy.ResetSpectralDecoy. Enemy reset owners are NSC-012, NSC-092, NSC-013, NSC-015, NSC-017, NSC-053, NSC-054, and NSC-055. Registry and admission owners are NSC-011, NSC-028, and NSC-030. NSC-086 owns FinalDoorVictoryTrigger.HasWon. This child is the sole owner of FloorRunRestartController changes, DoorPrototypeSceneBuilder wiring, restart validation scope, and DoorPrototype.unity materialization. It calls public reset methods only and does not edit owner-domain scripts or internal state. The Windows Unity controller materializes the scene with No Safe Circle/Build Door Prototype Scene; tests open committed assets read-only and must leave tracked and untracked repository state unchanged. The child must not broaden scope into owner-domain implementation when a required reset method is absent; it should preserve the contract and report that upstream owner gap through the delivery evidence. This child owns FloorRunRestartClosurePlayModeTests.cs and authors it, covering VAL-001 through VAL-004. NSC-032 keeps FloorRunRestartPlayModeTests.cs, which its own validation policy already resolves as that task's test path, so the closure coverage gets a separate fixture rather than a second writer on the bootstrap one. Without an owned test path no execution scope plan can be built for this task at all.",
   "parent": "NSC-033",
   "provenance": {
     "graph_delta_plan_id": "GDP-932fd6596e9fe623e80e1f12fe8088c3b419f7ac859804b99f34e20b7179744a",
     "origin": "progressive_decomposition",
     "parent_contract_revision": 14,
     "parent_contract_sha256": "89751262e23d914bef6a34c45eaa1064b05f752e17d824af00bcea83c044d0df",
-    "parent_task_id": "NSC-033"
+    "parent_task_id": "NSC-033",
+    "contract_followups": [
+      {
+        "date": "2026-09-25",
+        "reason": "NSC-123 owned no test path, so no execution scope plan could be built and the task could never be crew-dispatched; it now owns a closure fixture of its own rather than a second writer on NSC-032's bootstrap one. No acceptance criterion or gate changed.",
+        "source_head": "33fb2e72bb1ac4941c3b507a6d7197e63862032d",
+        "previous_contract_revision": 2,
+        "base_contract_sha256": "d65071cf869746a80511a8b46119feb6f0abf00ec9a9de089f50718e00d77bb8",
+        "revised_contract_sha256": "66feb1f7d0d222bc49458ec7766aa19023a133752b7c569063f0040c9edd4b3a",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   },
   "reconciliation_key": "floor-restart-full-closure-integration",
   "repository_evidence_at_bootstrap": [],
