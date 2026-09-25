@@ -8,9 +8,11 @@ from TaskDecomposition.review_contracts import (
     FINDING_CATEGORIES,
     FINDING_RESOLUTION_STATUSES,
     FINDING_SEVERITIES,
+    OWNERSHIP_SHEET_REVIEW_SCHEMA_VERSION,
     REVIEW_RESULT_SCHEMA_VERSION,
     REVIEW_VERDICTS,
 )
+from TaskDecomposition.ownership_sheet import OWNERSHIP_SHEET_SCHEMA
 from TaskDecomposition.schemas import DECOMPOSITION_RESULT_SCHEMA
 
 
@@ -91,3 +93,19 @@ DECOMPOSITION_REVIEW_SCHEMA = {
     ],
     "additionalProperties": False,
 }
+
+
+
+_nullable_sheet = deepcopy(OWNERSHIP_SHEET_SCHEMA)
+_nullable_sheet["type"] = ["object", "null"]
+
+OWNERSHIP_SHEET_REVIEW_SCHEMA = deepcopy(DECOMPOSITION_REVIEW_SCHEMA)
+_sheet_properties = OWNERSHIP_SHEET_REVIEW_SCHEMA["properties"]
+_sheet_properties["schema_version"]["enum"] = [OWNERSHIP_SHEET_REVIEW_SCHEMA_VERSION]
+_sheet_properties["reviewed_sheet_sha256"] = {"type": "string"}
+_sheet_properties["revised_sheet"] = _nullable_sheet
+del _sheet_properties["revised_decomposition"]
+OWNERSHIP_SHEET_REVIEW_SCHEMA["required"] = [
+    "schema_version", "reviewed_candidate_sha256", "reviewed_sheet_sha256",
+    "verdict", "summary", "findings", "prior_finding_resolutions", "revised_sheet",
+]

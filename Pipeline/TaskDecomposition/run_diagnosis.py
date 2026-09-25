@@ -35,7 +35,7 @@ import re
 from typing import Any, Mapping
 
 DIAGNOSIS_SCHEMA_VERSION = "decomposition-diagnosis/v1"
-CLASSIFIER_VERSION = "3"
+CLASSIFIER_VERSION = "4"
 RUN_RESULT_NAME = "decomposition_run_result.json"
 RUN_RESULT_SCHEMA_VERSION = "1.0"
 RUN_STATUSES = frozenset({"review_ready", "rejected", "needs_human", "agent_failed"})
@@ -69,6 +69,7 @@ _RUNTIME_ENVELOPES = (
 )
 _AUTHOR_ROLE = "task_decomposer"
 _REVIEWER_ROLE = "decomposition_reviewer"
+_BOOKKEEPER_ROLE = "decomposition_bookkeeper"
 _ROUND_PREFIX = re.compile(r"^round \d+(?: correction)?: ")
 
 
@@ -225,7 +226,133 @@ def _structure_problem(result: Mapping[str, Any]) -> str | None:
             return "a round lacks an integer round_number or a rejection_reasons list"
         if not all(isinstance(text, str) for text in entry["rejection_reasons"]):
             return "a round's rejection_reasons contains a non-string"
-    return _rounds_problem(rounds, calls)
+    problem = _rounds_problem(rounds, calls)
+    if problem is not None:
+        return problem
+    bookkeeping = result.get("designer_bookkeeper")
+    if isinstance(bookkeeping, Mapping) and bookkeeping.get("schema_version") == "2.0":
+        return _bookkeeping_structure_problem(result, bookkeeping)
+    return None
+
+
+def _bookkeeping_structure_problem(result: Mapping[str, Any], record: Mapping[str, Any]) -> str | None:
+    compilations = record.get("compilations")
+    if not isinstance(compilations, list) or not all(isinstance(c, Mapping) for c in compilations):
+        return "bookkeeping compilations is not a list of objects"
+    numbers = [entry.get("round_number") for entry in compilations]
+    if (not all(_int(number) and 1 <= number <= result["calls_used"] for number in numbers)
+            or numbers != sorted(set(numbers))):
+        return "bookkeeping compilations are not consecutive candidate-producing rounds"
+    calls = 0
+    accepted_rounds = []
+    for compilation in compilations:
+        attempts = compilation.get("attempts")
+        if not isinstance(attempts, list) or not 1 <= len(attempts) <= 2:
+            return "a compilation must record one or two bookkeeping attempts"
+        for index, attempt in enumerate(attempts, 1):
+            if (not isinstance(attempt, Mapping) or not _int(attempt.get("attempt"))
+                    or attempt["attempt"] != index):
+                return "bookkeeping attempt numbers are not consecutive"
+        calls += len(attempts)
+        status = compilation.get("status")
+        if status not in ("candidate_accepted", "compilation_failed", "identical_candidate"):
+            return "a compilation records an unknown status"
+        compiled = compilation.get("compiled_candidate")
+        if status == "candidate_accepted":
+            accepted_rounds.append(compilation["round_number"])
+            if (not isinstance(compiled, Mapping) or not compiled.get("sha256")
+                    or compiled != compilation.get("accepted_candidate")):
+                return "an accepted compilation records no matching compiled candidate"
+        elif compilation.get("accepted_candidate") is not None:
+            return "a refused compilation records an accepted candidate"
+        if status == "compilation_failed" and compiled is not None:
+            return "failed bookkeeping records a compiled candidate"
+        if status == "identical_candidate":
+            before = compilation.get("candidate_before")
+            if (not isinstance(compiled, Mapping) or not isinstance(before, Mapping)
+                    or not isinstance(before.get("sha256"), str) or not before["sha256"]
+                    or compiled.get("sha256") != before["sha256"] or before != result.get("latest_candidate")
+                    or compilation is not compilations[-1]
+                    or compilation["round_number"] != result["rounds"][-1]["round_number"]
+                    or result.get("run_status") != "rejected"):
+                return "identical bookkeeping is not the terminal compilation of the latest candidate"
+    producing = [entry["round_number"] for entry in result["rounds"]
+                 if entry.get("status") in ("candidate_valid", "correction_candidate_valid", "revised_candidate_valid")]
+    if accepted_rounds != producing:
+        return "accepted compilations do not match candidate-producing rounds"
+    if not _int(record.get("bookkeeping_calls_used")) or record["bookkeeping_calls_used"] != calls:
+        return "bookkeeping call accounting differs from its attempts"
+    latest = record.get("latest_sheet")
+    accepted = [entry for entry in compilations if entry.get("status") == "candidate_accepted"]
+    if accepted:
+        last = accepted[-1]
+        expected = {
+            "run_id": result["run_id"], "round_number": last["round_number"],
+            "sheet_path": last.get("sheet_path"), "sheet_sha256": last.get("sheet_sha256"),
+            "candidate_sha256": (last.get("accepted_candidate") or {}).get("sha256"),
+        }
+        if latest != expected or last.get("accepted_candidate") != result.get("latest_candidate"):
+            return "latest accepted sheet and candidate disagree with the compilations"
+    elif latest is not None:
+        return "bookkeeping records a latest sheet without an accepted compilation"
+    failed = [entry for entry in compilations if entry.get("status") == "compilation_failed"]
+    if bool(failed) != (record.get("terminal_stage") is not None):
+        return "failed bookkeeping lacks its exact terminal stage"
+    if failed and (len(failed) != 1 or failed[0] is not compilations[-1]
+                   or failed[0]["round_number"] != result["rounds"][-1]["round_number"]):
+        return "failed bookkeeping is not the last recorded stage"
+    return None
+
+
+def _terminal_bookkeeping(snapshot: RunSnapshot, last: Mapping[str, Any]) -> Mapping[str, Any]:
+    record = snapshot.result.get("designer_bookkeeper")
+    if not isinstance(record, Mapping) or record.get("schema_version") != "2.0":
+        return last
+    stage = record.get("terminal_stage")
+    if stage is None:
+        return last
+    compilation = record["compilations"][-1]
+    attempt = compilation["attempts"][-1]
+    number, index = compilation["round_number"], attempt["attempt"]
+    invocation = expected_invocation_id(
+        snapshot.result["task_id"], snapshot.result["run_id"], number, _BOOKKEEPER_ROLE,
+        correction=False, bookkeeping_attempt=index)
+    directory = f"{number:02d}-bookkeeper-{index}"
+    relative = f"rounds/{directory}/agent_runtime/{invocation}/result.json"
+    expected = {"round_number": number, "bookkeeping_attempt": index,
+                "invocation_id": invocation, "agent_runtime_result_path": relative}
+    if stage != expected:
+        raise DiagnosisEvidenceError("terminal bookkeeping stage is not the last attempt")
+    retained = snapshot.read_json(f"rounds/{directory}/bookkeeping_attempt.json", "terminal bookkeeping attempt")
+    if (retained != attempt or attempt.get("directory") != directory
+            or attempt.get("invocation_id") != invocation or attempt.get("agent_runtime_result_path") != relative
+            or attempt.get("requested_provider") != record.get("bookkeeper_provider")
+            or attempt.get("candidate_after") is not None or attempt.get("status") != "rejected"
+            or not isinstance(attempt.get("problems"), list) or not attempt["problems"]):
+        raise DiagnosisEvidenceError("terminal bookkeeping attempt contradicts its compilation")
+    request = snapshot.read_json("decomposition_request.json", "decomposition request")
+    pins = {"designer_bookkeeper_version": "2.0", "ownership_sheet_review_version": "1.1",
+            "bookkeeper_provider": record.get("bookkeeper_provider"), "bookkeeper_model": record.get("bookkeeper_model")}
+    if (any(request.get(key) != value for key, value in pins.items())
+            or request.get("provider_order") != snapshot.result.get("provider_order")
+            or record.get("bookkeeper_provider") != snapshot.result["provider_order"][0]
+            or request.get("run_id") != snapshot.result["run_id"]):
+        raise DiagnosisEvidenceError("terminal bookkeeping settings disagree with the retained request")
+    if attempt.get("actual_model") is not None and attempt["actual_model"] != record.get("bookkeeper_model"):
+        raise DiagnosisEvidenceError("terminal bookkeeping model differs from the pinned model")
+    if attempt.get("actual_provider") is not None:
+        provider = {"claude": "claude-code", "codex": "openai-codex"}.get(record.get("bookkeeper_provider"))
+        if attempt["actual_provider"] != provider:
+            raise DiagnosisEvidenceError("terminal bookkeeping provider differs from the pinned provider")
+        invocation_request = snapshot.read_json(
+            f"rounds/{directory}/agent_runtime/{invocation}/request.json", "terminal bookkeeping request")
+        if (invocation_request.get("run_id") != invocation or invocation_request.get("role") != _BOOKKEEPER_ROLE
+                or (invocation_request.get("budgets") or {}).get("timeout_seconds") != request.get("author_timeout_seconds")
+                or invocation_request.get("allowed_capabilities") != ["repository_read", "repository_search"]
+                or invocation_request.get("write_boundaries") != {"allowed_paths": [], "denied_paths": []}):
+            raise DiagnosisEvidenceError("terminal bookkeeping request disagrees with the pinned read-only invocation")
+    return {**attempt, "round_number": number, "bookkeeping_attempt": index, "role": _BOOKKEEPER_ROLE,
+            "rejection_reasons": attempt["problems"], "correction_of_round": None}
 
 
 def _evidence(field_name: str, quote: str, artifact: str = RUN_RESULT_NAME) -> dict[str, str]:
@@ -258,8 +385,10 @@ def _runtime_setup(snapshot: RunSnapshot, last: Mapping[str, Any]) -> tuple[str,
     correction = last.get("correction_of_round") is not None
     invocation = expected_invocation_id(
         snapshot.result["task_id"], snapshot.result["run_id"], last["round_number"],
-        str(last.get("role")), correction=correction)
+        str(last.get("role")), correction=correction, bookkeeping_attempt=last.get("bookkeeping_attempt"))
     directory = f"{last['round_number']:02d}" + ("-correction" if correction else "")
+    if last.get("bookkeeping_attempt") is not None:
+        directory += f"-bookkeeper-{last['bookkeeping_attempt']}"
     expected = f"rounds/{directory}/agent_runtime/{invocation}/result.json"
     if relative != expected:
         raise DiagnosisEvidenceError(f"AgentRuntime result path {relative!r} is not this round's {expected!r}")
@@ -278,6 +407,10 @@ def _runtime_setup(snapshot: RunSnapshot, last: Mapping[str, Any]) -> tuple[str,
         if got != wanted:
             raise DiagnosisEvidenceError(
                 f"AgentRuntime result {name} is {got!r}, but the round records {wanted!r}")
+    if last.get("bookkeeping_attempt") is not None and (
+            runtime.get("claimed_changed_paths") != [] or runtime.get("claims_execution_occurred") is not False
+            or runtime.get("claimed_test_commands") != []):
+        raise DiagnosisEvidenceError("terminal bookkeeping runtime does not prove read-only execution")
     classification = runtime["failure_classification"]
     message = runtime.get("failure_message")
     if classification == "quota_exhausted":
@@ -342,7 +475,10 @@ def classify_run_snapshot(
     if problem is not None:
         return diagnosis("STOP", "malformed_evidence", [_evidence("run result", problem)])
 
-    last = rounds[-1]
+    try:
+        last = _terminal_bookkeeping(snapshot, rounds[-1])
+    except DiagnosisEvidenceError as exc:
+        return diagnosis("STOP", "malformed_evidence", [_evidence("terminal bookkeeping", str(exc))])
     run_level = [text for text in result["rejection_reasons"] if not _ROUND_PREFIX.match(text)]
     terminal = list(last["rejection_reasons"]) + run_level
 
@@ -365,13 +501,22 @@ def classify_run_snapshot(
         if any(signature in text for signature in _SOURCE_FRESHNESS):
             return diagnosis("STOP", "source_changed_during_run", [_evidence("rejection_reasons", text)])
 
+    if last.get("role") == _BOOKKEEPER_ROLE and any("read-only Decomposer rejected" in text for text in terminal):
+        return diagnosis("STOP", "bookkeeper_attempted_write", [_evidence("problems", text) for text in terminal])
+
     if last.get("agent_status") != "succeeded":
         for text in last["rejection_reasons"]:
-            if text.startswith(_CAPACITY_REFUSAL):
+            if (text.startswith(_CAPACITY_REFUSAL) or (last.get("role") == _BOOKKEEPER_ROLE
+                    and text.startswith("bookkeeper invocation failed: PromptCapacityError: provider_started=false: "))):
                 code, evidence = "capacity_refused_before_call", _evidence("rejection_reasons", text)
                 break
         else:
-            setup = _runtime_setup(snapshot, last)
+            try:
+                setup = _runtime_setup(snapshot, last)
+            except DiagnosisEvidenceError as exc:
+                if last.get("role") != _BOOKKEEPER_ROLE:
+                    raise
+                return diagnosis("STOP", "malformed_evidence", [_evidence("terminal bookkeeping", str(exc))])
             if setup is None:
                 return diagnosis("STOP", "unrecognised_provider_failure",
                                  [_evidence("rejection_reasons", text) for text in last["rejection_reasons"]])
@@ -382,6 +527,27 @@ def classify_run_snapshot(
                 secondary.append({"route": "AUTHOR", "reason_code": "initial_candidate_invalid",
                                   "evidence": [_evidence("rejection_reasons", initial[0])]})
         return diagnosis("SETUP", code, [evidence])
+
+    if last.get("role") == _BOOKKEEPER_ROLE:
+        try:
+            runtime = snapshot.read_json(last["agent_runtime_result_path"], "terminal bookkeeping result")
+            if (runtime.get("run_id") != last["invocation_id"] or runtime.get("status") != "succeeded"
+                    or runtime.get("role") != _BOOKKEEPER_ROLE or runtime.get("provider") != last.get("actual_provider")
+                    or runtime.get("model") != last.get("actual_model")
+                    or runtime.get("failure_classification") != "none"
+                    or runtime.get("claimed_changed_paths") != [] or runtime.get("claims_execution_occurred") is not False
+                    or runtime.get("claimed_test_commands") != []):
+                raise DiagnosisEvidenceError("terminal bookkeeping runtime disagrees with its attempt")
+        except DiagnosisEvidenceError as exc:
+            return diagnosis("STOP", "malformed_evidence", [_evidence("terminal bookkeeping", str(exc))])
+        return diagnosis("AUTHOR", "bookkeeping_validation_failed",
+                         [_evidence("problems", text) for text in last["rejection_reasons"]])
+    bookkeeping = result.get("designer_bookkeeper")
+    if isinstance(bookkeeping, Mapping) and bookkeeping.get("schema_version") == "2.0":
+        compilations = bookkeeping["compilations"]
+        if compilations and compilations[-1].get("status") == "identical_candidate":
+            return diagnosis("AUTHOR", "identical_candidate",
+                             [_evidence("designer_bookkeeper.compilations", "identical_candidate")])
 
     for text in terminal:
         if _UNRESOLVED_QUESTIONS in text and text.startswith(tuple(p for p, _ in _AUTHOR_VALIDATION)):

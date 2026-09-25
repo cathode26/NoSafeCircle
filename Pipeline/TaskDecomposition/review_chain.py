@@ -40,9 +40,16 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from Pipeline.AgentRuntime.contracts import AGENT_INVOCATION_REQUEST_SCHEMA_VERSION
-from TaskDecomposition.bookkeeping_evidence import BookkeepingEvidenceError, verify_bookkeeping
-from TaskDecomposition.review_contracts import DecompositionReviewResult, ReviewFinding
-from TaskDecomposition.review_policy import validate_decomposition_review
+from TaskDecomposition.bookkeeping_evidence import (
+    BookkeepingEvidenceError, _read_only, sheet_review_protocol, verify_bookkeeping,
+)
+from TaskDecomposition.context_builder import ContextPackage
+from TaskDecomposition.contracts import DecompositionResult
+from TaskDecomposition.review_prompts import build_ownership_sheet_reviewer_prompt
+from TaskDecomposition.review_schemas import OWNERSHIP_SHEET_REVIEW_SCHEMA
+from TaskDecomposition.ownership_sheet import OWNERSHIP_SHEET_SCHEMA
+from TaskDecomposition.review_contracts import DecompositionReviewResult, OwnershipSheetReviewResult, ReviewFinding
+from TaskDecomposition.review_policy import validate_decomposition_review, validate_ownership_sheet_review
 from TaskDecomposition.run_diagnosis import (
     DiagnosisEvidenceError,
     confined,
@@ -115,7 +122,8 @@ def _check_round(entry: Any, *, number: int, role: str, provider: str, status: s
 
 
 def _authenticate_execution(evidence: _Evidence, run_result: Mapping[str, Any], entry: Mapping[str, Any], *,
-                            timeouts: Mapping[str, float] | None) -> Any:
+                            timeouts: Mapping[str, float] | None, expected_prompt: str | None = None,
+                            expected_schema: Mapping[str, Any] | None = None) -> Any:
     """Bind a round to its retained AgentRuntime request and result; return its output."""
 
     number, role = entry["round_number"], entry["role"]
@@ -147,6 +155,25 @@ def _authenticate_execution(evidence: _Evidence, run_result: Mapping[str, Any], 
         _require(budgets.get("timeout_seconds") == timeouts[role], "D3_TIMEOUT",
                  f"round {number} {role} ran with timeout {budgets.get('timeout_seconds')!r}, "
                  f"the run recorded {timeouts[role]!r}")
+    if expected_schema is not None:
+        _require(result.get("failure_classification") == "none"
+                 and entry.get("agent_failure_classification") == "none"
+                 and isinstance(entry.get("actual_model"), str) and bool(entry["actual_model"]),
+                 "D3_PROVIDER_IDENTITY", f"round {number} model/failure evidence is inconsistent")
+        context = evidence.json("context.json", "D3_PROVIDER_IDENTITY")
+        _require(request.get("context_paths") == context.get("context_paths"), "D3_PROVIDER_IDENTITY",
+                 f"round {number} request has different context paths")
+        _require(request.get("output_schema") == expected_schema, "D3_PROVIDER_IDENTITY",
+                 f"round {number} selected a different output schema")
+        retained = evidence.json(f"rounds/{directory}/round_result.json", "D3_PROVIDER_IDENTITY")
+        _require(retained == entry, "D3_PROVIDER_IDENTITY", f"round {number} retained record differs")
+        try:
+            _read_only(request, result, f"round {number}")
+        except BookkeepingEvidenceError as exc:
+            raise ReviewChainError("D3_PROVIDER_IDENTITY", str(exc)) from exc
+    if expected_prompt is not None:
+        _require(request.get("prompt") == expected_prompt, "D3_CANDIDATE_LINK",
+                 f"round {number} prompt does not contain the exact current candidate, sheet and review context")
     return result.get("structured_output")
 
 
@@ -182,11 +209,12 @@ def _digest(digest: CandidateDigest, raw: Any, code: str, label: str) -> tuple[s
         raise ReviewChainError(code, f"{label} does not validate: {exc}") from exc
 
 
-def _parsed_review(value: Any, label: str) -> dict[str, Any]:
+def _parsed_review(value: Any, label: str, *, sheet_mode: bool = False) -> dict[str, Any]:
     """A review in the form the schema parser gives it (e.g. trimmed text)."""
 
     try:
-        return DecompositionReviewResult.from_dict(value).to_dict()
+        parser = OwnershipSheetReviewResult if sheet_mode else DecompositionReviewResult
+        return parser.from_dict(value).to_dict()
     except Exception as exc:  # the contract's own refusal, whatever its type
         raise ReviewChainError("D3_PROVIDER_IDENTITY", f"{label} is not a valid review: {exc}") from exc
 
@@ -213,6 +241,20 @@ def verify_three_call_chain(
     role to the timeout the host recorded for this run, when it recorded one.
     """
 
+    try:
+        sheet_mode = sheet_review_protocol(run_dir, run_result)
+    except BookkeepingEvidenceError as exc:
+        raise ReviewChainError("D3_BOOKKEEPING", str(exc)) from exc
+    if sheet_mode:
+        try:
+            return _verify_sheet_chain(
+                run_dir=run_dir, run_result=run_result, providers=providers,
+                candidate_digest=candidate_digest, timeouts=timeouts, parent_contract=parent_contract,
+                open_end=open_end)
+        except ReviewChainError:
+            raise
+        except Exception as exc:
+            raise ReviewChainError("D3_BOOKKEEPING", f"invalid sheet-review evidence: {exc}") from exc
     first, second = providers
     _require(first != second and {first, second} <= set(PROVIDER_IDENTIFIERS), "D3_ROUND",
              f"a three-call chain needs two distinct providers, not {providers!r}")
@@ -280,6 +322,8 @@ def verify_three_call_chain(
             "unresolved_findings": {key: value.to_dict() for key, value in unresolved.items()},
             "seen_finding_ids": sorted(seen_ids),
             "last_round": calls,
+            **({} if bookkeeping is None else {"bookkeeping": {
+                key: value for key, value in bookkeeping.items() if key != "evidence_sha256"}}),
             "evidence_sha256": {**evidence.hashes, **({} if bookkeeping is None else bookkeeping["evidence_sha256"])},
         }
 
@@ -408,6 +452,9 @@ def verify_continuation_chain(
     the open findings and every finding ID already used.
     """
 
+    _require("designer_bookkeeper" not in run_result and "latest_sheet" not in prior
+             and "bookkeeping" not in prior, "D3_BOOKKEEPING",
+             "bookkeeper-run continuation is unsupported; a fresh run is required")
     first, second = providers
     _require(first != second and {first, second} <= set(PROVIDER_IDENTIFIERS), "D3_ROUND",
              f"a continuation needs two distinct providers, not {providers!r}")
@@ -456,3 +503,149 @@ def verify_continuation_chain(
         "models": [entry.get("actual_model") for entry in rounds],
         "evidence_sha256": dict(evidence.hashes),
     }
+
+
+class _RetainedGraph:
+    def __init__(self, payload: dict[str, Any]) -> None:
+        self.payload = payload
+
+    def to_dict(self) -> dict[str, Any]:
+        return self.payload
+
+
+def _verify_sheet_chain(
+    *, run_dir: Path, run_result: Mapping[str, Any], providers: tuple[str, str],
+    candidate_digest: CandidateDigest, timeouts: Mapping[str, float] | None,
+    parent_contract: Mapping[str, Any] | None, open_end: bool,
+) -> dict[str, Any]:
+    first, second = providers
+    _require(first != second and {first, second} <= set(PROVIDER_IDENTIFIERS), "D3_ROUND",
+             f"a sheet review chain needs two distinct providers, not {providers!r}")
+    calls, corrections = run_result.get("calls_used"), run_result.get("author_corrections_used")
+    maximum = run_result.get("max_calls")
+    rounds, history = run_result.get("rounds"), run_result.get("finding_history")
+    _require(_exact_int(maximum) and maximum >= 2 and _exact_int(calls) and 2 <= calls <= maximum
+             and _exact_int(corrections) and corrections in (0, 1)
+             and isinstance(rounds, list) and len(rounds) == calls + corrections
+             and isinstance(history, list) and len(history) == calls - 1,
+             "D3_ACCOUNTING", "the sheet-review calls, corrections, rounds and history disagree")
+    _require(parent_contract is not None, "D3_BOOKKEEPING", "sheet review requires the exact parent contract")
+    evidence = _Evidence(run_dir)
+    request = evidence.json("decomposition_request.json", "D3_BOOKKEEPING")
+    _require(request.get("provider_order") == list(providers) and request.get("max_calls") == maximum,
+             "D3_BOOKKEEPING", "the retained request has a different provider order or call budget")
+    pinned_timeouts = {AUTHOR_ROLE: request.get("author_timeout_seconds"),
+                       REVIEWER_ROLE: request.get("reviewer_timeout_seconds")}
+    _require(all(isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0
+                 for value in pinned_timeouts.values()), "D3_TIMEOUT", "v2 request has no valid timeout profile")
+    if timeouts is not None:
+        _require(all(timeouts.get(role) == value for role, value in pinned_timeouts.items()),
+                 "D3_TIMEOUT", "the retained request timeout profile differs from the host")
+    timeouts = pinned_timeouts
+    ordinary = list(rounds)
+    if corrections:
+        initial = ordinary.pop(0)
+        _check_round(initial, number=1, role=AUTHOR_ROLE, provider=first, status="rejected", correction_of_round=None)
+        _require(initial.get("candidate_after") is None and bool(initial.get("rejection_reasons")),
+                 "D3_ROUND", "the corrected designer round does not retain its rejection")
+        _authenticate_execution(evidence, run_result, initial, timeouts=timeouts,
+                                expected_schema=OWNERSHIP_SHEET_SCHEMA)
+    author = _check_round(ordinary[0], number=1, role=AUTHOR_ROLE, provider=first,
+                          status="correction_candidate_valid" if corrections else "candidate_valid",
+                          correction_of_round=1 if corrections else None)
+    _authenticate_execution(evidence, run_result, author, timeouts=timeouts, expected_schema=OWNERSHIP_SHEET_SCHEMA)
+    try:
+        bookkeeping = verify_bookkeeping(
+            run_dir=run_dir, run_result=run_result, author_entry=author, first_provider=first,
+            parent_contract=parent_contract, candidate_digest=candidate_digest,
+            designer_timeout=timeouts[AUTHOR_ROLE])
+    except Exception as exc:
+        raise ReviewChainError("D3_BOOKKEEPING", str(exc)) from exc
+    evidence.hashes.update(bookkeeping["evidence_sha256"])
+    compilations = {item["round_number"]: item for item in run_result["designer_bookkeeper"]["compilations"]}
+    latest = _candidate_summary(author.get("candidate_after"), label="initial compiled candidate")
+    latest_directory = "01-correction" if corrections else "01"
+    current_sheet = evidence.json(compilations[1]["sheet_path"], "D3_BOOKKEEPING")
+    current_sheet_hash = compilations[1]["sheet_sha256"]
+    context = ContextPackage.from_payload(evidence.json("context.json", "D3_BOOKKEEPING"))
+    unresolved: dict[str, Any] = {}
+    seen: set[str] = set()
+    approver = None
+    for number, entry in enumerate(ordinary[1:], start=2):
+        provider = providers[(number - 1) % 2]
+        final = not open_end and number == calls
+        _require(isinstance(entry, Mapping) and entry.get("requested_provider") != latest["author_provider"]
+                 and entry.get("actual_provider") != PROVIDER_IDENTIFIERS[latest["author_provider"]],
+                 "D3_SELF_APPROVAL", f"round {number} reviewer is the latest candidate author")
+        raw_review = evidence.json(f"rounds/{number:02d}/review.json", "D3_FINDING_RESOLUTION")
+        if final:
+            _require(entry.get("candidate_after") is None and raw_review.get("verdict") == "pass"
+                     and raw_review.get("revised_sheet") is None and number not in compilations,
+                     "D3_PASS_MUTATES_CANDIDATE", f"round {number} PASS changed the candidate or sheet")
+        entry = _check_round(entry, number=number, role=REVIEWER_ROLE, provider=provider,
+                             status="independent_pass" if final else "revised_candidate_valid", correction_of_round=None)
+        _require(entry.get("candidate_before") == latest, "D3_CANDIDATE_LINK",
+                 f"round {number} did not review the current candidate")
+        candidate = _published_candidate(evidence, latest_directory, latest, candidate_digest,
+                                         label=f"round {number} input candidate")
+        graph = _RetainedGraph(evidence.json(f"rounds/{latest_directory}/candidate_graph_delta.json", "D3_CANDIDATE"))
+        prompt = build_ownership_sheet_reviewer_prompt(
+            context=context, candidate=DecompositionResult.from_dict(candidate), candidate_sha256=latest["sha256"],
+            candidate_author_provider=latest["author_provider"], reviewer_provider=provider, round_number=number,
+            graph_delta=graph, review_history=history[:number - 2],
+            unresolved_findings=(unresolved[key] for key in sorted(unresolved)),
+            sheet=current_sheet, sheet_sha256=current_sheet_hash)
+        output = _authenticate_execution(evidence, run_result, entry, timeouts=timeouts,
+                                          expected_prompt=prompt, expected_schema=OWNERSHIP_SHEET_REVIEW_SCHEMA)
+        _require(_parsed_review(output, f"round {number} runtime output", sheet_mode=True)
+                 == _parsed_review(raw_review, f"round {number} review", sheet_mode=True),
+                 "D3_PROVIDER_IDENTITY", f"round {number} output differs from its retained review")
+        try:
+            review, unresolved = validate_ownership_sheet_review(
+                raw_review, expected_candidate_sha256=latest["sha256"], expected_sheet_sha256=current_sheet_hash,
+                round_number=number, prior_unresolved_findings=unresolved, all_prior_finding_ids=frozenset(seen))
+        except Exception as exc:
+            raise ReviewChainError("D3_FINDING_RESOLUTION", f"round {number}: {exc}") from exc
+        seen.update(finding.finding_id for finding in review.findings)
+        _require(entry.get("unresolved_finding_ids") == sorted(unresolved), "D3_FINDING_RESOLUTION",
+                 f"round {number} unresolved finding IDs differ from policy replay")
+        retained = evidence.json(f"rounds/{number:02d}/review_history_entry.json", "D3_FINDING_RESOLUTION")
+        expected = {"round_number": number, "reviewer_provider": provider, "verdict": review.verdict,
+                    "reviewed_candidate_sha256": latest["sha256"], "reviewed_sheet_sha256": current_sheet_hash,
+                    "findings": raw_review["findings"], "prior_finding_resolutions": raw_review["prior_finding_resolutions"]}
+        _require(retained == history[number - 2] and all(retained.get(key) == value for key, value in expected.items()),
+                 "D3_FINDING_RESOLUTION", f"round {number} finding history differs from its review")
+        _require(entry.get("verdict") == review.verdict, "D3_FINDING_RESOLUTION",
+                 f"round {number} verdict differs from its review")
+        if final:
+            _require(not unresolved, "D3_FINDING_RESOLUTION", "the final PASS leaves blocking findings")
+            approver = provider
+        else:
+            _require(review.verdict == "revise" and number in compilations, "D3_REVISION",
+                     f"round {number} is not a compiled revision")
+            revised = _candidate_summary(entry.get("candidate_after"), label=f"round {number} revision")
+            _require(revised == compilations[number]["accepted_candidate"]
+                     and revised["sha256"] != latest["sha256"] and revised["version"] == latest["version"] + 1
+                     and revised["author_provider"] == provider, "D3_REVISION",
+                     f"round {number} candidate/version/author differs from its compilation")
+            latest = revised
+            latest_directory = f"{number:02d}"
+            current_sheet = evidence.json(compilations[number]["sheet_path"], "D3_BOOKKEEPING")
+            current_sheet_hash = compilations[number]["sheet_sha256"]
+    _require(run_result.get("latest_candidate") == latest, "D3_FINAL_ARTIFACTS",
+             "latest_candidate differs from the chain's latest compiled candidate")
+    _require(run_result.get("unresolved_findings") == [unresolved[key].to_dict() for key in sorted(unresolved)],
+             "D3_FINDING_RESOLUTION", "the run's unresolved findings differ from policy replay")
+    if open_end:
+        _require(run_result.get("run_status") == "needs_human", "D3_FINAL_ARTIFACTS",
+                 "an open-ended sheet-review run must stop needs_human")
+        return {"latest_candidate": dict(latest), "latest_sheet": bookkeeping["latest_sheet"],
+                "unresolved_findings": {key: value.to_dict() for key, value in unresolved.items()},
+                "seen_finding_ids": sorted(seen), "last_round": calls, "evidence_sha256": evidence.hashes}
+    _require(run_result.get("run_status") == "review_ready" and latest["decision"] == "decomposed"
+             and run_result.get("independent_approver_provider") == approver,
+             "D3_FINAL_ARTIFACTS", "the run does not end in independent PASS of the latest compiled candidate")
+    return {"approved_candidate": dict(latest), "approver_provider": approver, "calls_used": calls,
+            "author_corrections_used": corrections, "models": [entry.get("actual_model") for entry in rounds],
+            "evidence_sha256": evidence.hashes,
+            "bookkeeping": {key: value for key, value in bookkeeping.items() if key != "evidence_sha256"}}

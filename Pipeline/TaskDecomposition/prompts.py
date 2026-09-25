@@ -16,7 +16,9 @@ def _bullets(values: Iterable[str], *, empty: str) -> str:
     return "\n".join(f"  - {item}" for item in items)
 
 
-def build_decomposer_prompt(context: ContextPackage) -> str:
+def build_decomposer_prompt(context: ContextPackage, *, embedded: ContextPackage | None = None) -> str:
+    """The author prompt. ``embedded`` replaces the committed context block only;
+    the parent identity and the checklist always come from ``context``."""
     payload = context.to_dict()
     checklist = render_author_checklist(context, audience="author")
     semantic_identity = payload["selected_task"]["d1a_semantic_parent_identity"]
@@ -181,7 +183,7 @@ Return only the structured result required by the supplied output schema. Do not
 commentary or markdown.
 
 {checklist}BEGIN DETERMINISTIC COMMITTED CONTEXT
-{context.canonical_json()}
+{(context if embedded is None else embedded).canonical_json()}
 END DETERMINISTIC COMMITTED CONTEXT
 """
 

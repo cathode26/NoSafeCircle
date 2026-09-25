@@ -49,7 +49,12 @@ from Pipeline.AgentRuntime.contracts import AGENT_INVOCATION_REQUEST_SCHEMA_VERS
 from TaskDecomposition.context_builder import ContextPackage, DecompositionPreflightError  # noqa: E402
 from TaskDecomposition.bookkeeping_evidence import BookkeepingEvidenceError, verify_bookkeeping  # noqa: E402
 from TaskDecomposition.live_decomposition import _model_value_problem  # noqa: E402
-from TaskDecomposition.continuation import CONTINUATION_MODE, continuable_problem, source_descends  # noqa: E402
+from TaskDecomposition.continuation import (  # noqa: E402
+    BOOKKEEPER_CONTINUATION_PROBLEM,
+    CONTINUATION_MODE,
+    continuable_problem,
+    source_descends,
+)
 from TaskDecomposition.review_chain import (  # noqa: E402
     ReviewChainError,
     verify_continuation_chain,
@@ -597,7 +602,7 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
     rounds = run_result.get("rounds")
     history = run_result.get("finding_history")
     corrections = run_result.get("author_corrections_used")
-    if budget == 3:
+    if budget == 3 or record.get("designer_bookkeeper_version") == "2.0":
         return _verify_three_call_review(
             manager, record, run_result, decomposition, plan, task, digest,
             head=head, tree=tree, source_advancement=source_advancement,
@@ -731,12 +736,14 @@ TIMEOUT_ENVIRONMENT = {
     "decomposition_reviewer": ("NSC_DECOMPOSITION_REVIEWER_TIMEOUT_SECONDS", 1200),
 }
 THREE_CALL_OUTER_TIMEOUT_SECONDS = 6000
-# Each bookkeeping attempt runs at the author's timeout, and there are at most two.
+# Each candidate compilation permits two attempts at the author timeout.
 BOOKKEEPER_ATTEMPTS = 2
 THREE_CALL_OVERHEAD_SECONDS = 720
 
 
-def three_call_timeout_profile(environment: Mapping[str, str]) -> dict[str, int]:
+def three_call_timeout_profile(
+    environment: Mapping[str, str], *, bookkeeper: bool = False,
+) -> dict[str, int]:
     """The author/reviewer timeouts a budget-3 run will be given, or refuse.
 
     The host chooses them (its override or the engine default), passes them
@@ -757,7 +764,7 @@ def three_call_timeout_profile(environment: Mapping[str, str]) -> dict[str, int]
             raise ValueError(f"{name} must be positive, not {value}")
         profile[role] = value
     needed = 2 * profile["task_decomposer"] + 2 * profile["decomposition_reviewer"] + THREE_CALL_OVERHEAD_SECONDS
-    if needed > THREE_CALL_OUTER_TIMEOUT_SECONDS:
+    if needed > THREE_CALL_OUTER_TIMEOUT_SECONDS and not bookkeeper:
         raise ValueError(
             f"Three-call decomposition timeouts need {needed} s, over the "
             f"{THREE_CALL_OUTER_TIMEOUT_SECONDS} s outer bound (2A + 2R + {THREE_CALL_OVERHEAD_SECONDS})")
@@ -786,7 +793,12 @@ def _prepare_continuation(
 
     prior_path = output_root / continue_from / "decomposition_run_result.json"
     prior, _ = _load_object(prior_path, "Continued decomposition run result")
-    problem = continuable_problem(prior)
+    prior_request_path = prior_path.with_name("decomposition_request.json")
+    prior_request = (_load_object(prior_request_path, "Continued decomposition request")[0]
+                     if prior_request_path.exists() else None)
+    problem = continuable_problem(prior, request=prior_request)
+    if problem == BOOKKEEPER_CONTINUATION_PROBLEM:
+        raise ValueError(f"Decomposition run {continue_from} cannot be continued: {problem}")
     if prior.get("task_id") != task_id:
         problem = f"it is a run of {prior.get('task_id')!r}"
     elif list(prior.get("provider_order") or []) != list(provider_order):
@@ -798,6 +810,11 @@ def _prepare_continuation(
     path = _record_path(manager, task_id)
     if path.exists():
         current = _read_record(manager, task_id)
+        if any(key in current for key in ("bookkeeper_model", "bookkeeper_provider",
+                                          "designer_bookkeeper_version", "ownership_sheet_review_version")):
+            raise ValueError(
+                f"Decomposition run {continue_from} cannot be continued: "
+                f"{BOOKKEEPER_CONTINUATION_PROBLEM}")
         if current.get("run_id") != continue_from or current.get("status") != "failed":
             raise ValueError(
                 f"Decomposition record for {current.get('run_id')} ({current.get('status')}) is not the "
@@ -938,14 +955,14 @@ def _verify_continuation_review(
 def bookkeeper_outer_timeout(max_calls: int, profile: Mapping[str, int] | None) -> int:
     """The host bound for a designer/bookkeeper run: every call it may make, plus overhead.
 
-    Designer and its one correction, both bookkeeping attempts (each at the
-    author's timeout), and every reviewer round the budget allows.
+    Designer and its correction, two compilation attempts per candidate-producing
+    round, and every reviewer round the budget allows.
     """
 
     author = profile["task_decomposer"] if profile is not None else TIMEOUT_ENVIRONMENT["task_decomposer"][1]
     reviewer = (profile["decomposition_reviewer"] if profile is not None
                 else TIMEOUT_ENVIRONMENT["decomposition_reviewer"][1])
-    return (2 + BOOKKEEPER_ATTEMPTS) * author + (max_calls - 1) * reviewer + THREE_CALL_OVERHEAD_SECONDS
+    return (2 + BOOKKEEPER_ATTEMPTS * max_calls) * author + (max_calls - 1) * reviewer + THREE_CALL_OVERHEAD_SECONDS
 
 
 def _verify_three_call_run_binding(record: dict[str, Any], run_result: dict[str, Any]) -> dict[str, str]:
@@ -976,7 +993,7 @@ def _verify_three_call_run_binding(record: dict[str, Any], run_result: dict[str,
         "request run_id": (request.get("run_id"), record["run_id"]),
         "request selected_task_id": (request.get("selected_task_id"), record["task_id"]),
         "request provider_order": (request.get("provider_order"), record["providers"]),
-        "request max_calls": (request.get("max_calls"), 3),
+        "request max_calls": (request.get("max_calls"), record.get("max_calls", 2)),
         "request context_sha256": (request.get("context_sha256"), run_result.get("context_sha256")),
         "context hash": (context.semantic_sha256, run_result.get("context_sha256")),
         "request source_identity": (request.get("source_identity"), run_result.get("source_identity")),
@@ -990,6 +1007,15 @@ def _verify_three_call_run_binding(record: dict[str, Any], run_result: dict[str,
         "context parent identity": (selected.get("d1a_semantic_parent_identity"),
                                     run_result.get("d1a_semantic_parent_identity")),
     }
+    if record.get("designer_bookkeeper_version") == "2.0":
+        for name in ("designer_bookkeeper_version", "ownership_sheet_review_version",
+                     "bookkeeper_provider", "bookkeeper_model"):
+            bindings[f"request {name}"] = (request.get(name), record.get(name))
+        profile = record["timeout_profile"]
+        bindings["request author timeout"] = (
+            request.get("author_timeout_seconds"), profile["task_decomposer"])
+        bindings["request reviewer timeout"] = (
+            request.get("reviewer_timeout_seconds"), profile["decomposition_reviewer"])
     for name, (got, wanted) in bindings.items():
         if got != wanted or (name == "request max_calls" and type(got) is not int):
             raise ValueError(f"Three-call run evidence disagrees: {name} is {got!r}, expected {wanted!r}")
@@ -999,7 +1025,8 @@ def _verify_three_call_run_binding(record: dict[str, Any], run_result: dict[str,
 def _require_pinned_proof(record: dict[str, Any], review: dict[str, Any]) -> None:
     """A budget-3 or continuation review's proof bytes must still be the ones recorded."""
 
-    if record.get("max_calls") != 3 and record.get("continue_from") is None:
+    if (record.get("max_calls") != 3 and record.get("continue_from") is None
+            and record.get("designer_bookkeeper_version") != "2.0"):
         return
     recorded = (record.get("review") or {}).get("artifact_sha256")
     if not isinstance(recorded, Mapping) or not recorded:
@@ -1049,12 +1076,20 @@ def _verify_bookkeeping_binding(record: dict[str, Any], run_result: dict[str, An
 
     recorded = record.get("bookkeeper_model")
     evidence = run_result.get("designer_bookkeeper")
-    if recorded is None and "designer_bookkeeper" not in run_result:
+    pinned = "designer_bookkeeper_version" in record or "ownership_sheet_review_version" in record
+    if recorded is None and "designer_bookkeeper" not in run_result and not pinned:
         return
     if recorded is None or not isinstance(evidence, Mapping) or evidence.get("bookkeeper_model") != recorded:
         raise ValueError(
             f"Decomposition bookkeeper model is {evidence.get('bookkeeper_model') if isinstance(evidence, Mapping) else evidence!r}, "
             f"the record launched {recorded!r}")
+    if pinned or evidence.get("schema_version") == "2.0":
+        if (record.get("designer_bookkeeper_version") != "2.0"
+                or record.get("ownership_sheet_review_version") != "1.1"
+                or evidence.get("schema_version") != "2.0"
+                or record.get("bookkeeper_provider") != record["providers"][0]
+                or evidence.get("bookkeeper_provider") != record.get("bookkeeper_provider")):
+            raise ValueError("Decomposition bookkeeping protocol or fixed provider disagrees with its launch record")
 
 
 def _verify_three_call_review(
@@ -1118,7 +1153,7 @@ def _verify_three_call_review(
         },
         "reviewer_provider": chain["approver_provider"],
         "models": chain["models"],
-        "call_budget": 3,
+        "call_budget": record.get("max_calls", 2),
         "timeout_profile": dict(profile),
         "calls_used": chain["calls_used"],
         "author_corrections_used": chain["author_corrections_used"],
@@ -1205,7 +1240,9 @@ def run(
         requested = tuple(item.strip() for item in providers.split(",") if item.strip())
         if len(requested) != 2 or len(set(requested)) != 2:
             raise ValueError("A three-call decomposition budget requires two distinct providers")
-        timeout_profile = three_call_timeout_profile(os.environ)
+        timeout_profile = three_call_timeout_profile(os.environ, bookkeeper=bookkeeper_model is not None)
+    elif bookkeeper_model is not None:
+        timeout_profile = three_call_timeout_profile(os.environ, bookkeeper=True)
     labels = dict(container_labels or {})
     for key, value in labels.items():
         if not _LABEL_KEY.fullmatch(str(key)) or not _LABEL_VALUE.fullmatch(str(value)):
@@ -1268,7 +1305,9 @@ def run(
             "preflight_source_commit": preflight.get("source_commit"),
             **({} if author_checklist is None else {"author_checklist": author_checklist}),
             **({} if timeout_profile is None else {"timeout_profile": timeout_profile}),
-            **({} if bookkeeper_model is None else {"bookkeeper_model": bookkeeper_model}),
+            **({} if bookkeeper_model is None else {
+                "bookkeeper_model": bookkeeper_model, "bookkeeper_provider": provider_order[0],
+                "designer_bookkeeper_version": "2.0", "ownership_sheet_review_version": "1.1"}),
             **({} if continue_from is None else {"continue_from": continue_from}),
         }
         write_record(path, record)

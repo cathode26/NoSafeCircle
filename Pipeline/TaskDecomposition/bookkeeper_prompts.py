@@ -1,8 +1,8 @@
 """Prompts for the opt-in designer/bookkeeper split of the D1B.2 author round.
 
 The designer receives the ordinary author prompt and writes only an ownership
-sheet. The bookkeeper receives the same prompt plus the frozen sheet and
-writes the complete decomposition result that states it. A bookkeeper retry
+sheet. The bookkeeper receives the same instructions over a reduced committed context
+(``bookkeeper_context``), plus the frozen sheet, and writes the complete decomposition result that states it. A bookkeeper retry
 receives only the sheet, its rejected result and the exact problems found.
 """
 from __future__ import annotations
@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from typing import Any, Iterable, Mapping
 
+from .bookkeeper_context import compact_bookkeeper_context
 from .context_builder import ContextPackage
 from .bookkeeping_skeleton import result_skeleton
 from .prompts import build_decomposer_prompt
@@ -100,7 +101,8 @@ was sound. This is the only correction.
 
 
 def build_bookkeeper_prompt(context: ContextPackage, sheet: Mapping[str, Any]) -> str:
-    return (build_decomposer_prompt(context) + _BOOKKEEPER_MODE + _sheet_json(sheet)
+    embedded = compact_bookkeeper_context(context, sheet)
+    return (build_decomposer_prompt(context, embedded=embedded) + _BOOKKEEPER_MODE + _sheet_json(sheet)
             + "\n```\n\n### Result skeleton\n```json\n" + _sheet_json(result_skeleton(sheet)) + "\n```\n")
 
 
@@ -124,6 +126,78 @@ dependencies in your previous result are already right; change nothing else.
 ```
 
 ### Your previous result
+```json
+{json.dumps(rejected, indent=1, ensure_ascii=False, sort_keys=True)}
+```
+"""
+
+
+def build_bookkeeper_revision_prompt(
+    context: ContextPackage,
+    sheet: Mapping[str, Any],
+    *,
+    previous_candidate: Mapping[str, Any],
+    review: Mapping[str, Any],
+    unresolved_findings: Iterable[Mapping[str, Any]],
+) -> str:
+    unresolved = list(unresolved_findings)
+    embedded = compact_bookkeeper_context(
+        context, sheet, citation_sources=(previous_candidate, review, unresolved),
+    )
+    return (build_decomposer_prompt(context, embedded=embedded) + _BOOKKEEPER_MODE + _sheet_json(sheet)
+            + "\n```\n\n### Result skeleton\n```json\n" + _sheet_json(result_skeleton(sheet)) + "\n```\n"
+            + f"""
+## REVISION: compile the reviewer's sheet and repair the compiled prose
+
+The reviewer is the design author. Follow the revised sheet exactly and apply the authenticated
+review's prose corrections, including references, evidence, reasons and additional notes. Use the
+prior unresolved finding details to interpret `still_blocking` resolutions. Preserve prior prose
+where sound; do not preserve a defect merely because the sheet did not change.
+
+### Previous full candidate
+```json
+{_sheet_json(previous_candidate)}
+```
+
+### Authenticated reviewer output
+```json
+{_sheet_json(review)}
+```
+
+### Prior unresolved blocking findings
+```json
+{json.dumps(unresolved, indent=1, ensure_ascii=False, sort_keys=True)}
+```
+""")
+
+
+def build_bookkeeper_revision_retry_prompt(
+    context: ContextPackage,
+    sheet: Mapping[str, Any],
+    rejected: Any,
+    problems: Iterable[str],
+    *,
+    previous_candidate: Mapping[str, Any],
+    review: Mapping[str, Any],
+    unresolved_findings: Iterable[Mapping[str, Any]],
+) -> str:
+    revision = build_bookkeeper_revision_prompt(
+        context, sheet, previous_candidate=previous_candidate, review=review,
+        unresolved_findings=unresolved_findings,
+    )
+    listed = "\n".join(f"- {problem}" for problem in problems)
+    return revision + f"""
+## REVISION RETRY: correct the rejected compiled result
+
+Keep all revision instructions above. Deterministic checks refused the result below:
+
+{listed}
+
+Return the corrected complete decomposition result. Repair the prose fields while retaining the
+reviewer's corrections. Code restores all structural fields from the revised ownership sheet.
+This is the only bookkeeping retry for this revision.
+
+### Rejected imposed result
 ```json
 {json.dumps(rejected, indent=1, ensure_ascii=False, sort_keys=True)}
 ```
