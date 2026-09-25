@@ -620,6 +620,8 @@ class ThreeCallBudgetTests(unittest.TestCase):
             "providers": ["claude", "codex"], "max_calls": budget,
             "output_root": str(output_root), "artifact_root": str(output_root / run_id),
             "status": "review_ready",
+            **({"timeout_profile": {"task_decomposer": 1440, "decomposition_reviewer": 1200}}
+               if budget == 3 else {}),
         }
         return manager, record, output_root / run_id
 
@@ -660,14 +662,68 @@ class ThreeCallBudgetTests(unittest.TestCase):
                     execution_authorized=True, max_calls=budget)
         self.assertFalse(manager.records.exists() and any(manager.records.iterdir()))
 
+    def test_a_budget_three_record_needs_a_valid_timeout_profile(self):
+        manager, record, _ = self.produce(revise=True)
+        for profile in (None, {"task_decomposer": 1440}, {"task_decomposer": 1440, "decomposition_reviewer": 0}):
+            with self.subTest(profile=profile), self.assertRaisesRegex(ValueError, "no valid timeout profile"):
+                changed = dict(record)
+                changed.pop("timeout_profile")
+                if profile is not None:
+                    changed["timeout_profile"] = profile
+                _verify_review(manager, changed)
+        with self.assertRaisesRegex(ValueError, "D3_TIMEOUT"):
+            _verify_review(manager, dict(record, timeout_profile={
+                "task_decomposer": 1440, "decomposition_reviewer": 900}))
+
+    def test_a_run_request_for_another_budget_or_run_is_refused(self):
+        for field, value, name in (("max_calls", 2, "request max_calls"), ("run_id", "x", "request run_id")):
+            with self.subTest(field=field):
+                manager, record, run_dir = self.produce(revise=True)
+                path = run_dir / "decomposition_request.json"
+                request = json.loads(path.read_text(encoding="utf-8"))
+                request[field] = value
+                path.write_text(json.dumps(request), encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, f"evidence disagrees: {name}"):
+                    _verify_review(manager, record)
+
+    def test_a_stopped_budget_three_run_reports_its_status(self):
+        manager, record, run_dir = self.produce(revise=True)
+        path = run_dir / "decomposition_run_result.json"
+        result = json.loads(path.read_text(encoding="utf-8"))
+        result["run_status"] = "needs_human"
+        path.write_text(json.dumps(result), encoding="utf-8")
+        (run_dir / "decomposition_result.json").unlink()
+        with self.assertRaisesRegex(ValueError, "ended 'needs_human'; it has no applicable result"):
+            _verify_review(manager, record)
+
+    def test_the_timeout_preflight_bounds_the_whole_chain(self):
+        from Pipeline.AssistantControl.decomposition import three_call_timeout_profile
+        self.assertEqual({"task_decomposer": 1440, "decomposition_reviewer": 1200},
+                         three_call_timeout_profile({}))
+        with self.assertRaisesRegex(ValueError, "over the 6000 s outer bound"):
+            three_call_timeout_profile({"NSC_TASK_DECOMPOSER_TIMEOUT_SECONDS": "1500"})
+        for bad in ("0", "-5", "ten"):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                three_call_timeout_profile({"NSC_DECOMPOSITION_REVIEWER_TIMEOUT_SECONDS": bad})
+
+    def test_changed_proof_bytes_are_refused_at_inspection_too(self):
+        from Pipeline.AssistantControl.decomposition import inspect
+        manager, record, run_dir = self.produce(revise=True)
+        record["review"] = _verify_review(manager, record)
+        write_record(manager.records / "NSC-010.decomposition.json", record)
+        self.assertEqual(record["review"]["artifact_sha256"], inspect(manager, "NSC-010")["review"]["artifact_sha256"])
+        (run_dir / "rounds" / "03" / "review_history_entry.json").write_text(
+            (run_dir / "rounds" / "03" / "review_history_entry.json").read_text(encoding="utf-8") + " ",
+            encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "proof bytes changed"):
+            inspect(manager, "NSC-010")
+
     def test_proof_bytes_changed_after_review_are_refused_at_apply(self):
         manager, record, run_dir = self.produce(revise=True)
         record["review"] = _verify_review(manager, record)
         write_record(manager.records / "NSC-010.decomposition.json", record)
-        review_path = run_dir / "rounds" / "03" / "review.json"
-        review = json.loads(review_path.read_text(encoding="utf-8"))
-        review["summary"] = review["summary"] + " (edited after the review was recorded)"
-        review_path.write_text(json.dumps(review), encoding="utf-8")
+        entry_path = run_dir / "rounds" / "03" / "review_history_entry.json"
+        entry_path.write_text(entry_path.read_text(encoding="utf-8") + " ", encoding="utf-8")
         with patch.dict(os.environ, {
             "NSC_AGENT_GIT_NAME": "No Safe Circle TaskReviewAgent",
             "NSC_AGENT_GIT_EMAIL": "task-review-agent@nosafecircle.invalid",

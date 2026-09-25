@@ -38,6 +38,7 @@ def build_compose_command(
     run_id: str, pool_assignment: Mapping[str, Any] | None = None,
     provider_environment: Mapping[str, Any] | None = None,
     author_checklist: str | None = None,
+    timeout_environment: Mapping[str, int] | None = None,
 ) -> tuple[str, ...]:
     """Build the only decomposition transport AssistantControl supports.
 
@@ -106,6 +107,15 @@ def build_compose_command(
         # disagreed with the reservation would make the container fail closed,
         # which is why this lives here and applies only when unpooled.
         command.extend(_model_environment_arguments(provider_environment))
+    # Only the budget-3 profile binds explicit role timeouts, and only these two.
+    if timeout_environment is not None:
+        if max_calls != 3 or set(timeout_environment) != set(TIMEOUT_ENVIRONMENT_NAMES):
+            raise ValueError("Explicit decomposition timeouts belong only to the three-call profile")
+        for name in sorted(timeout_environment):
+            value = timeout_environment[name]
+            if type(value) is not int or value <= 0:
+                raise ValueError(f"Decomposition timeout {name} must be a positive integer")
+            command.extend(("--env", f"{name}={value}"))
     command.extend((
         "round-robin-decompose", "python3",
         "Pipeline/TaskDecomposition/run_round_robin_decomposition.py",
@@ -128,4 +138,10 @@ def build_compose_command(
     return tuple(command)
 
 
-__all__ = ["MODEL_ENVIRONMENT_NAMES", "POOL_LEASE_MOUNT", "build_compose_command"]
+TIMEOUT_ENVIRONMENT_NAMES = (
+    "NSC_DECOMPOSITION_REVIEWER_TIMEOUT_SECONDS",
+    "NSC_TASK_DECOMPOSER_TIMEOUT_SECONDS",
+)
+
+
+__all__ = ["MODEL_ENVIRONMENT_NAMES", "POOL_LEASE_MOUNT", "TIMEOUT_ENVIRONMENT_NAMES", "build_compose_command"]

@@ -75,6 +75,24 @@ class DecompositionTransportTests(unittest.TestCase):
                     max_calls=budget, run_id="nsc-025-run",
                 )
 
+    def test_explicit_timeouts_belong_only_to_the_three_call_profile(self):
+        timeouts = {"NSC_TASK_DECOMPOSER_TIMEOUT_SECONDS": 1440,
+                    "NSC_DECOMPOSITION_REVIEWER_TIMEOUT_SECONDS": 1200}
+        command = build_compose_command(
+            task_id="NSC-025", project="assistant-nsc", providers="claude,codex",
+            max_calls=3, run_id="nsc-025-run", timeout_environment=timeouts,
+        )
+        self.assertIn("NSC_TASK_DECOMPOSER_TIMEOUT_SECONDS=1440", command)
+        self.assertIn("NSC_DECOMPOSITION_REVIEWER_TIMEOUT_SECONDS=1200", command)
+        for budget, value in ((2, timeouts), (3, {"NSC_TASK_DECOMPOSER_TIMEOUT_SECONDS": 1440}),
+                              (3, {**timeouts, "NSC_TASK_DECOMPOSER_TIMEOUT_SECONDS": 0}),
+                              (3, {**timeouts, "PATH": 1})):
+            with self.subTest(budget=budget, value=value), self.assertRaises(ValueError):
+                build_compose_command(
+                    task_id="NSC-025", project="assistant-nsc", providers="claude,codex",
+                    max_calls=budget, run_id="nsc-025-run", timeout_environment=value,
+                )
+
     def test_cross_provider_command_refuses_a_pool_assignment(self):
         """Two distinct providers are independent by provider identity, so they
         never consume a role-session reservation.

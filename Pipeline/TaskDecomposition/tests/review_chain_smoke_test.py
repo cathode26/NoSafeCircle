@@ -34,6 +34,11 @@ from TaskDecomposition.tests.round_robin_decomposition_smoke_test import (  # no
     validated_candidate,
 )
 from TaskDecomposition.tests.test_support import create_repository, decomposed_result  # noqa: E402
+from TaskDecomposition.policy import validate_decomposition_result  # noqa: E402
+from graph_delta import plan_graph_delta  # noqa: E402
+from persistent_work_graph import load_persistent_work_graph  # noqa: E402
+
+TIMEOUTS = {"task_decomposer": 1440.0, "decomposition_reviewer": 1200.0}
 
 IDENTIFIERS = {"claude": "claude-code", "codex": "openai-codex"}
 
@@ -84,9 +89,31 @@ class Scenario:
         self.order = order
 
 
-def verify(scenario: Scenario, run_result: dict | None = None) -> dict:
+def digest_for(source: Path):
+    graph = load_persistent_work_graph(source)
+    parent = graph.tasks_by_id["NSC-010"]
+
+    def digest(raw):
+        result = validate_decomposition_result(
+            dict(raw), parent_task=parent, existing_reconciliation_keys=graph.plan.id_map)
+        return candidate_sha256(result), plan_graph_delta(graph, result.parent_task, result).plan_id
+    return digest
+
+
+def verify(scenario: Scenario, run_result: dict | None = None, *, timeouts=TIMEOUTS) -> dict:
     return verify_three_call_chain(
-        run_dir=scenario.run_dir, run_result=run_result or scenario.result, providers=scenario.order)
+        run_dir=scenario.run_dir, run_result=run_result or scenario.result, providers=scenario.order,
+        candidate_digest=digest_for(scenario.source), timeouts=timeouts)
+
+
+def rewrite(path: Path, change: Callable[[dict], None]) -> None:
+    value = json.loads(path.read_text(encoding="utf-8"))
+    change(value)
+    path.write_text(json.dumps(value), encoding="utf-8")
+
+
+def runtime_file(scenario: Scenario, directory: str, name: str) -> Path:
+    return next((scenario.run_dir / "rounds" / directory / "agent_runtime").glob(f"*/{name}"))
 
 
 def refused(action: Callable[[], Any], code: str) -> None:
@@ -112,8 +139,10 @@ def test_every_admissible_shape_is_accepted_in_both_orders() -> None:
                     approver = order[0] if revise else order[1]
                     assert chain["approver_provider"] == approver, (label, chain)
                     assert chain["approved_candidate"]["author_provider"] != approver, label
-                    assert set(chain["review_sha256"]) == {
-                        f"rounds/{n:02d}/review.json" for n in range(2, chain["calls_used"] + 1)}, label
+                    reviews = {f"rounds/{n:02d}/review.json" for n in range(2, chain["calls_used"] + 1)}
+                    assert reviews <= set(chain["evidence_sha256"]), label
+                    assert any(k.endswith("/result.json") for k in chain["evidence_sha256"]), label
+                    assert any(k.endswith("candidate.json") for k in chain["evidence_sha256"]), label
 
 
 def test_each_broken_rule_is_refused_for_its_own_reason() -> None:
@@ -154,18 +183,89 @@ def test_each_broken_rule_is_refused_for_its_own_reason() -> None:
             result["independent_approver_provider"] = "codex"
         refused(lambda: verify(scenario, mutated(other_approver)), "D3_FINAL_ARTIFACTS")
 
+        refused(lambda: verify(scenario, mutated(lambda r: r.update(max_calls=3.0))), "D3_ACCOUNTING")
+
+        def boolean_round(result: dict) -> None:
+            result["rounds"][0]["round_number"] = True
+        refused(lambda: verify(scenario, mutated(boolean_round)), "D3_ROUND")
+
+        def history_findings(result: dict) -> None:
+            result["finding_history"][0]["findings"][0]["problem"] = "rewritten after the fact"
+        refused(lambda: verify(scenario, mutated(history_findings)), "D3_FINDING_RESOLUTION")
+
+        refused(lambda: verify(scenario, timeouts={**TIMEOUTS, "decomposition_reviewer": 600.0}), "D3_TIMEOUT")
+
+
+def test_the_revision_bytes_and_execution_evidence_are_bound() -> None:
+    cases: list[tuple[str, Callable[[Scenario], None], str]] = []
+
+    def revised_notes_in_review_only(s: Scenario) -> None:
+        def change(review: dict) -> None:
+            review["revised_decomposition"]["children"][0]["notes"] = "Quietly different."
+        rewrite(s.run_dir / "rounds" / "02" / "review.json", change)
+        rewrite(runtime_file(s, "02", "result.json"), lambda r: change(r["structured_output"]))
+    cases.append(("revision payload differs from the published candidate", revised_notes_in_review_only,
+                  "D3_REVISION"))
+
+    def published_candidate_edited(s: Scenario) -> None:
+        rewrite(s.run_dir / "rounds" / "02" / "candidate.json",
+                lambda c: c["children"][0].update(notes="Edited after publication."))
+    cases.append(("published revision bytes edited", published_candidate_edited, "D3_CANDIDATE"))
+
+    def coverage_removed(s: Scenario) -> None:
+        def change(candidate: dict) -> None:
+            candidate["parent_requirement_coverage"] = []
+        rewrite(s.run_dir / "rounds" / "02" / "candidate.json", change)
+    cases.append(("revision no longer covers the parent", coverage_removed, "D3_CANDIDATE"))
+
+    def review_without_runtime(s: Scenario) -> None:
+        rewrite(s.run_dir / "rounds" / "02" / "review.json", lambda r: r.update(summary="Swapped review."))
+    cases.append(("review file is not the runtime output", review_without_runtime, "D3_PROVIDER_IDENTITY"))
+
+    for field, value in (("provider", "claude-code"), ("run_id", "another-invocation"),
+                         ("status", "failed"), ("model", "another-model")):
+        def runtime_field(s: Scenario, field=field, value=value) -> None:
+            rewrite(runtime_file(s, "02", "result.json"), lambda r: r.update({field: value}))
+        cases.append((f"runtime result {field}", runtime_field, "D3_PROVIDER_IDENTITY"))
+
+    def request_role(s: Scenario) -> None:
+        rewrite(runtime_file(s, "03", "request.json"), lambda r: r.update(role="task_decomposer"))
+    cases.append(("runtime request role", request_role, "D3_PROVIDER_IDENTITY"))
+
+    def pass_with_replacement(s: Scenario) -> None:
+        def change(review: dict) -> None:
+            review["revised_decomposition"] = json.loads(
+                (s.run_dir / "rounds" / "02" / "candidate.json").read_text(encoding="utf-8"))
+        rewrite(s.run_dir / "rounds" / "03" / "review.json", change)
+        rewrite(runtime_file(s, "03", "result.json"), lambda r: change(r["structured_output"]))
+    cases.append(("PASS carrying a replacement", pass_with_replacement, "D3_PASS_MUTATES_CANDIDATE"))
+
+    for label, mutate, code in cases:
+        with tempfile.TemporaryDirectory(prefix="nsc-chain-") as text:
+            scenario = Scenario(Path(text), ("claude", "codex"), correct=False, revise=True)
+            verify(scenario)
+            mutate(scenario)
+            try:
+                verify(scenario)
+            except ReviewChainError as exc:
+                assert exc.code == code, f"{label}: expected {code}, got {exc}"
+            else:
+                raise AssertionError(f"{label}: expected {code}")
+
 
 def test_a_final_pass_that_does_not_resolve_earlier_findings_is_refused() -> None:
     for status in (None, "still_blocking"):
         with tempfile.TemporaryDirectory(prefix="nsc-chain-") as text:
             scenario = Scenario(Path(text), ("claude", "codex"), correct=False, revise=True)
-            review_path = scenario.run_dir / "rounds" / "03" / "review.json"
-            review = json.loads(review_path.read_text(encoding="utf-8"))
-            if status is None:
-                review["prior_finding_resolutions"] = []
-            else:
-                review["prior_finding_resolutions"][0]["status"] = status
-            review_path.write_text(json.dumps(review), encoding="utf-8")
+            def change(review: dict, status=status) -> None:
+                if status is None:
+                    review["prior_finding_resolutions"] = []
+                else:
+                    review["prior_finding_resolutions"][0]["status"] = status
+            # The runtime output is changed consistently, so the review policy's
+            # own resolution rule is what refuses it.
+            rewrite(scenario.run_dir / "rounds" / "03" / "review.json", change)
+            rewrite(runtime_file(scenario, "03", "result.json"), lambda r: change(r["structured_output"]))
             refused(lambda: verify(scenario), "D3_FINDING_RESOLUTION")
 
 
@@ -173,12 +273,14 @@ def test_a_two_provider_order_is_required() -> None:
     with tempfile.TemporaryDirectory(prefix="nsc-chain-") as text:
         scenario = Scenario(Path(text), ("claude", "codex"), correct=False, revise=True)
         refused(lambda: verify_three_call_chain(
-            run_dir=scenario.run_dir, run_result=scenario.result, providers=("claude", "claude")), "D3_ROUND")
+            run_dir=scenario.run_dir, run_result=scenario.result, providers=("claude", "claude"),
+            candidate_digest=digest_for(scenario.source), timeouts=TIMEOUTS), "D3_ROUND")
 
 
 TESTS = (
     test_every_admissible_shape_is_accepted_in_both_orders,
     test_each_broken_rule_is_refused_for_its_own_reason,
+    test_the_revision_bytes_and_execution_evidence_are_bound,
     test_a_final_pass_that_does_not_resolve_earlier_findings_is_refused,
     test_a_two_provider_order_is_required,
 )

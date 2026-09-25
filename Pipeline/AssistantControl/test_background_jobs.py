@@ -2953,6 +2953,16 @@ class BackgroundJobMechanismTests(unittest.TestCase):
                 host=self.host,
             )
 
+    def test_a_decompose_ticket_asking_for_a_call_budget_is_refused(self):
+        self.prepare()
+        identity = dict(self.DECOMPOSE_IDENTITY, max_calls=3)
+        with self.assertRaisesRegex(background_jobs.BackgroundJobError, "does not support max_calls"):
+            background_jobs.launch(
+                self.manager, kind="decompose", task_id="NSC-898", identity=identity,
+                config=None, invocation_id="inv-budget", provider_spend_authorized=True,
+                host=self.host,
+            )
+
     def test_two_checkouts_of_the_same_task_never_share_a_container_identity(self):
         """Finding 1: two checkouts (or two clones) running the same task with the
         same identity must derive different job ids and container names, and a stop
