@@ -1,0 +1,106 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "68d15906179e812050478ebbce5b97d177732065",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/FinalRoomDressing.prefab",
+      "role": "room_dressing_prefab"
+    },
+    {
+      "blob_sha": "16b44e88670df430be3f21f90aa298d78dfb3dae",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/FinalRoomDressingCatalog.json",
+      "role": "room_dressing_placement_catalog"
+    },
+    {
+      "blob_sha": "3b1da8f2ed0f62acc050ef6e79fd2e7e94537efe",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/Environment/FinalRoomDressingPrefabBuilder.cs",
+      "role": "room_dressing_prefab_builder"
+    },
+    {
+      "blob_sha": "467599e4de15289511119939046ca08ce8a1c20f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Environment/FinalRoomDressingPrefabTests.cs",
+      "role": "room_dressing_focused_editmode_test"
+    },
+    {
+      "blob_sha": "9d0aec8c4178636ca0e2b2fe758da3f52f31c398",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/FinalRoomDressing.prefab.meta",
+      "role": "unity_import_identity_for_owned_asset"
+    },
+    {
+      "blob_sha": "10837e1442ad81f262b0745219afc993ac088305",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/FinalRoomDressingCatalog.json.meta",
+      "role": "unity_import_identity_for_owned_asset"
+    },
+    {
+      "blob_sha": "0fb876da51dc7a8b537b59ed5491db3479deb994",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/Environment/FinalRoomDressingPrefabBuilder.cs.meta",
+      "role": "unity_import_identity_for_owned_asset"
+    },
+    {
+      "blob_sha": "ffddc745c07f6126ebd0545bf778dacbf4b18514",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Environment/FinalRoomDressingPrefabTests.cs.meta",
+      "role": "unity_import_identity_for_owned_asset"
+    }
+  ],
+  "delivery": {
+    "base_commit": "8ceea22ba438e4b43abff00ae3289471b66ae17d",
+    "candidate_commit": "91bb9cb913a9702445bb9a9894a5569177cae449",
+    "integrated_commit": "71a8f71648240cc8d2209877840d5ea2457e52bf",
+    "integrated_tree": "e71ceed2bdfe0d0babbba01d2a811507321871d2"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "8e805a6238168c1b2cefdfdef8d301b10ce57324",
+          "path": "Pipeline/TaskGraph/evidence/NSC-083/artifacts/RoomDressingEditModeResults.xml-71a8f7164824.xml"
+        },
+        {
+          "blob_sha": "02827f29bdfaad64d5cc900a93f049c30382d144",
+          "path": "Pipeline/TaskGraph/evidence/NSC-083/artifacts/RoomDressingEditModeUnity.log-71a8f7164824.log"
+        },
+        {
+          "blob_sha": "8ca9fe015606910a4d2e9d8bc3ac72678e7c864a",
+          "path": "Pipeline/TaskGraph/evidence/NSC-083/artifacts/RoomDressingBoundValidationManifest.json-71a8f7164824.json"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Unity 6000.1.8f1 EditMode run from a clean checkout at commit b6cb952f25d68190fa1efd25fa2efd10f6c193ce, filter NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing. Result total=20 passed=15 failed=0 skipped=5. The git tree was e11772fe933dd8a9cb57ccad4b84cc30561eae1a both BEFORE and AFTER the run, so Unity did not mutate the repository. NOT A VACUOUS PASS: the filter is one namespace and all five committed dressing fixtures declare it, so it matched them; a comma-separated filter would have run zero tests and still exited 0. DISCLOSED LIMITATION: the 5 skipped tests are the per-room CaptureDressed-style capture tests, which are marked Ignored in the committed fixtures. CaptureDressedFinalRoom did NOT execute and this record does not claim it did; the other assertions in this room's fixture did run and passed. The run was made at main b6cb952f2; this record's validated_commit differs from it only by the delivery-record commits chained ahead of it, which touch nothing under Assets/.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "f49b42bff8b5e01d16e05046e71f552589e3c1ef",
+          "path": "Pipeline/TaskGraph/evidence/NSC-083/artifacts/ArtDirectorVal002Certification.md-71a8f7164824.md"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "Certified by the Art Director, which is who this gate assigns the certification to, and judged on the gameplay-density panel specifically rather than a contact sheet. Certification record: C:/nscrev/reports/handoffs/ART-20260924-val002-CERTIFIED.md, covering items 1-5 for all five rooms and re-judged twice as fixes landed. PROVENANCE, stated so it is not misattributed: the decision that the Art Director certifies this gate came from the Documentation Agent on Vincent's delegation, 2026-09-23 07:10Z. VINCENT'S OWN WORD ON THIS GATE DOES NOT EXIST AND IS NOT CLAIMED HERE. Under the gate's own wording only item (a) is mechanically verifiable; (b), (c) and (d) are the Art Director's judgement, which is what the gate is for. This artifact is an AGENT certification, not a human review, which is why it is typed 'other'.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "Both completion gates are assistant-verifiable: VAL-001 is a Unity EditMode run and VAL-002 is certified by the Art Director under this contract's own wording. VINCENT HAS NOT REVIEWED THIS ROOM'S DRESSING and no claim of his approval is made here. Matches the NSC-064 precedent for art tasks whose gates are assistant-verified.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-083-71a8f7164824",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-25T04:01:20Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-083.yaml",
+    "revision": 13,
+    "sha256": "ce2d6f04a1036d46e7924e1c2862475867cec99e1ff96c18d3a5b79999abb319"
+  },
+  "task_id": "NSC-083",
+  "validated_state": {
+    "commit": "71a8f71648240cc8d2209877840d5ea2457e52bf",
+    "tree": "e71ceed2bdfe0d0babbba01d2a811507321871d2"
+  }
+}

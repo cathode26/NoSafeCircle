@@ -1,0 +1,625 @@
+[Licensing::Module] Trying to connect to existing licensing client channel...
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-VincentLiguori" at "2026-09-25T03:49:31.4296812Z"
+[Licensing::Client] Code 10 while verifying Licensing Client signature (process Id: 22484, path: "C:/Program Files/Unity Hub/UnityLicensingClient_V1/Unity.Licensing.Client.exe")
+[Licensing::Module] LicensingClient has failed validation; ignoring
+[Licensing::Client] Handshaking with LicensingClient:
+  Version:                 1.18.3+d7ffd15
+  Session Id:              bc403213b6604954a9a2c26b6ffaa36d
+  Correlation Id:          e20c6d0b5718b7802afaf241c2f2cd56
+  External correlation Id: 120227379890845281
+  Machine Id:              HxO4LzPDSZi5N+Qj55f7MhdwfeY=
+[Licensing::Module] Successfully connected to LicensingClient on channel: "LicenseClient-VincentLiguori" (connect: 0.00s, validation: 0.01s, handshake: 0.12s)
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-VincentLiguori-notifications" at "2026-09-25T03:49:31.563829Z"
+[Licensing::Module] Error: Access token is unavailable; failed to update
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] Serial number assigned to: "37203-UnityPersXXXX"
+[Licensing::Client] Successfully updated license, isAync: True, time: 0.01
+Built from '6000.1/staging' branch; Version is '6000.1.8f1 (2a5b1522e5ab) revision 2775829'; Using compiler version '194234433'; Build Type 'Release'
+OS: 'Windows 11  (10.0.26200) 64bit Professional' Language: 'en' Physical Memory: 64969 MB
+[Licensing::Client] Successfully resolved entitlement details
+BatchMode: 1, IsHumanControllingUs: 0, StartBugReporterOnCrash: 0, Is64bit: 1, IsPro: 0
+Date: 2026-09-25T03:49:31Z
+
+COMMAND LINE ARGUMENTS:
+C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Unity.exe
+-batchmode
+-projectPath
+C:\nscrev\doormeta
+-runTests
+-testPlatform
+EditMode
+-testFilter
+NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing
+-testResults
+C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-2f4f7d82184a461b9aa4986fa17c68f5\test-results.xml
+-logFile
+C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-2f4f7d82184a461b9aa4986fa17c68f5\unity.log
+Successfully changed project path to: C:\nscrev\doormeta
+C:/nscrev/doormeta
+[UnityMemory] Configuration Parameters - Can be set up in boot.config
+    "memorysetup-allocator-temp-initial-block-size-main=262144"
+    "memorysetup-allocator-temp-initial-block-size-worker=262144"
+    "memorysetup-bucket-allocator-granularity=16"
+    "memorysetup-bucket-allocator-bucket-count=8"
+    "memorysetup-bucket-allocator-block-size=33554432"
+    "memorysetup-bucket-allocator-block-count=8"
+    "memorysetup-main-allocator-block-size=16777216"
+    "memorysetup-thread-allocator-block-size=16777216"
+    "memorysetup-gfx-main-allocator-block-size=16777216"
+    "memorysetup-gfx-thread-allocator-block-size=16777216"
+    "memorysetup-cache-allocator-block-size=4194304"
+    "memorysetup-typetree-allocator-block-size=2097152"
+    "memorysetup-profiler-bucket-allocator-granularity=16"
+    "memorysetup-profiler-bucket-allocator-bucket-count=8"
+    "memorysetup-profiler-bucket-allocator-block-size=33554432"
+    "memorysetup-profiler-bucket-allocator-block-count=8"
+    "memorysetup-profiler-allocator-block-size=16777216"
+    "memorysetup-profiler-editor-allocator-block-size=1048576"
+    "memorysetup-temp-allocator-size-main=16777216"
+    "memorysetup-job-temp-allocator-block-size=2097152"
+    "memorysetup-job-temp-allocator-block-size-background=1048576"
+    "memorysetup-job-temp-allocator-reduction-small-platforms=262144"
+    "memorysetup-temp-allocator-size-background-worker=32768"
+    "memorysetup-temp-allocator-size-job-worker=262144"
+    "memorysetup-temp-allocator-size-preload-manager=33554432"
+    "memorysetup-temp-allocator-size-nav-mesh-worker=65536"
+    "memorysetup-temp-allocator-size-audio-worker=65536"
+    "memorysetup-temp-allocator-size-cloud-worker=32768"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gfx=262144"
+Player connection [52536]  Target information:
+
+Player connection [52536]  * "[IP] 172.28.64.1 [Port] 55505 [Flags] 2 [Guid] 1847382447 [EditorId] 1847382447 [Version] 1048832 [Id] WindowsEditor(7,DESKTOP-6LMNLCK) [Debug] 1 [PackageName] WindowsEditor [ProjectName] Editor"
+
+Player connection [52536]  * "[IP] 192.168.10.144 [Port] 55505 [Flags] 2 [Guid] 1847382447 [EditorId] 1847382447 [Version] 1048832 [Id] WindowsEditor(7,DESKTOP-6LMNLCK) [Debug] 1 [PackageName] WindowsEditor [ProjectName] Editor"
+
+Player connection [52536] Host joined multi-casting on [225.0.0.222:54997]...
+Player connection [52536] Host joined alternative multi-casting on [225.0.0.222:34997]...
+Input System module state changed to: Initialized.
+[Physics::Module] Initialized fallback backend.
+[Physics::Module] Id: 0xdecafbad
+[Package Manager] Connected to IPC stream "Upm-59324" after 0.4 seconds.
+Library Redirect Path: Library/
+[Package Manager] Restoring resolved packages state from cache
+[Licensing::Client] Successfully resolved entitlement details
+[Package Manager] Registered 56 packages:
+  Packages from [https://packages.unity.com]:
+    com.unity.ai.navigation@2.0.14 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.ai.navigation@134dd6a3b97b)
+    com.unity.collab-proxy@2.13.5 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.collab-proxy@120d77864ebc)
+    com.unity.inputsystem@1.14.0 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.inputsystem@7fe8299111a7)
+    com.unity.timeline@1.8.7 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.timeline@c58b4ee65782)
+    com.unity.visualscripting@1.9.7 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.visualscripting@6279e2b7c485)
+    com.unity.ide.visualstudio@2.0.23 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.ide.visualstudio@198cdf337d13)
+    com.unity.ide.rider@3.0.36 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.ide.rider@4d374c7eb6db)
+    com.unity.editorcoroutines@1.0.0 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.editorcoroutines@7d48783e7b8c)
+    com.unity.performance.profile-analyzer@1.2.3 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.performance.profile-analyzer@a68e7bc84997)
+    com.unity.testtools.codecoverage@1.2.6 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.testtools.codecoverage@205a02cbcb39)
+    com.unity.collections@2.6.8 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.collections@84e8eb3fc12e)
+    com.unity.settings-manager@2.1.0 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.settings-manager@41738c275190)
+    com.unity.burst@1.8.29 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.burst@6bb9aca3ef38)
+    com.unity.mathematics@1.3.2 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.mathematics@8017b507cc74)
+    com.unity.nuget.mono-cecil@1.11.6 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.nuget.mono-cecil@ecb9724e46ff)
+    com.unity.test-framework.performance@3.1.0 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.test-framework.performance@92d1d09a72ed)
+  Built-in packages:
+    com.unity.2d.tilemap@1.0.0 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.2d.tilemap@855769f9baae)
+    com.unity.feature.development@1.0.2 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.feature.development@767aadbc6eb7)
+    com.unity.multiplayer.center@1.0.0 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.multiplayer.center@f3fb577b3546)
+    com.unity.ugui@2.0.0 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.ugui@57cef44123c7)
+    com.unity.modules.accessibility@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.accessibility)
+    com.unity.modules.ai@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.ai)
+    com.unity.modules.androidjni@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.androidjni)
+    com.unity.modules.animation@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.animation)
+    com.unity.modules.assetbundle@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.assetbundle)
+    com.unity.modules.audio@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.audio)
+    com.unity.modules.cloth@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.cloth)
+    com.unity.modules.director@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.director)
+    com.unity.modules.imageconversion@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.imageconversion)
+    com.unity.modules.imgui@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.imgui)
+    com.unity.modules.jsonserialize@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.jsonserialize)
+    com.unity.modules.particlesystem@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.particlesystem)
+    com.unity.modules.physics@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.physics)
+    com.unity.modules.physics2d@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.physics2d)
+    com.unity.modules.screencapture@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.screencapture)
+    com.unity.modules.terrain@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.terrain)
+    com.unity.modules.terrainphysics@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.terrainphysics)
+    com.unity.modules.tilemap@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.tilemap)
+    com.unity.modules.ui@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.ui)
+    com.unity.modules.uielements@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.uielements)
+    com.unity.modules.umbra@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.umbra)
+    com.unity.modules.unityanalytics@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unityanalytics)
+    com.unity.modules.unitywebrequest@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequest)
+    com.unity.modules.unitywebrequestassetbundle@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequestassetbundle)
+    com.unity.modules.unitywebrequestaudio@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequestaudio)
+    com.unity.modules.unitywebrequesttexture@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequesttexture)
+    com.unity.modules.unitywebrequestwww@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.unitywebrequestwww)
+    com.unity.modules.vehicles@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.vehicles)
+    com.unity.modules.video@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.video)
+    com.unity.modules.vr@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.vr)
+    com.unity.modules.wind@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.wind)
+    com.unity.modules.xr@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.xr)
+    com.unity.modules.subsystems@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.subsystems)
+    com.unity.modules.hierarchycore@1.0.0 (location: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Resources\PackageManager\BuiltInPackages\com.unity.modules.hierarchycore)
+    com.unity.test-framework@1.5.1 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.test-framework@7056e7f856e9)
+    com.unity.ext.nunit@2.0.5 (location: C:\nscrev\doormeta\Library\PackageCache\com.unity.ext.nunit@031a54704bff)
+[Physics::Module] Selected backend.
+[Physics::Module] Name: PhysX
+[Physics::Module] Id: 0xf2b8ea05
+[Physics::Module] SDK Version: 4.1.2
+[Physics::Module] Integration Version: 1.0.0
+[Physics::Module] Threading Mode: Multi-Threaded
+[Subsystems] No new subsystems found in resolved package list.
+Package Manager log level set to [2]
+[Package Manager] Done registering packages in 0.62 seconds
+Refreshing native plugins compatible for Editor in 19.55 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Initialize engine version: 6000.1.8f1 (2a5b1522e5ab)
+[Subsystems] Discovering subsystems at path C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/Resources/UnitySubsystems
+[Subsystems] Discovering subsystems at path C:/nscrev/doormeta/Assets
+GfxDevice: creating device client; kGfxThreadingModeNonThreaded
+Direct3D:
+    Version:         Direct3D 12 [level 12.1]
+    Renderer:        NVIDIA GeForce RTX 4070 Laptop GPU (ID=0x2820)
+    Vendor:          NVIDIA
+    VRAM:            7948 MB
+    App VRAM Budget: 7180 MB
+    Driver:          32.0.15.9658
+[Licensing::Client] Successfully resolved entitlement details
+Initialize mono
+Mono path[0] = 'C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/Managed'
+Mono path[1] = 'C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/MonoBleedingEdge/lib/mono/unityjit-win32'
+Mono config path = 'C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/MonoBleedingEdge/etc'
+Using monoOptions --debugger-agent=transport=dt_socket,embedding=1,server=y,suspend=n,address=127.0.0.1:56324
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+Using cacheserver namespaces - metadata:defaultmetadata, artifacts:defaultartifacts
+ImportWorker Server TCP listen port: 0
+AcceleratorClientConnectionCallback - disconnected - :0
+Begin MonoManager ReloadAssembly
+Registering precompiled unity dll's ...
+Register platform support module: C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/PlaybackEngines/WebGLSupport/UnityEditor.WebGL.Extensions.dll
+Register platform support module: C:/Program Files/Unity/Hub/Editor/6000.1.8f1/Editor/Data/PlaybackEngines/WindowsStandaloneSupport/UnityEditor.WindowsStandalone.Extensions.dll
+Registered in 0.008413 seconds.
+- Loaded All Assemblies, in  0.667 seconds
+Native extension for WindowsStandalone target not found
+Native extension for WebGL target not found
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  0.391 seconds
+Domain Reload Profiling: 1054ms
+	BeginReloadAssembly (287ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (0ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (4ms)
+	RebuildCommonClasses (89ms)
+	RebuildNativeTypeToScriptingClass (18ms)
+	initialDomainReloadingComplete (83ms)
+	LoadAllAssembliesAndSetupDomain (186ms)
+		LoadAssemblies (274ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (181ms)
+			TypeCache.Refresh (177ms)
+				TypeCache.ScanAssembly (158ms)
+			BuildScriptInfoCaches (0ms)
+			ResolveRequiredComponents (2ms)
+	FinalizeReload (392ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (356ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (80ms)
+			SetLoadedEditorAssemblies (4ms)
+			BeforeProcessingInitializeOnLoad (66ms)
+			ProcessInitializeOnLoadAttributes (139ms)
+			ProcessInitializeOnLoadMethodAttributes (67ms)
+			AfterProcessingInitializeOnLoad (0ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (0ms)
+[Licensing::Client] Successfully resolved entitlement details
+Application.AssetDatabase Initial Refresh Start
+[ScriptCompilation] Requested script compilation because: Assetdatabase observed changes in script compilation related files
+Starting: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\bee_backend.exe --ipc --defer-dag-verification --dagfile="Library/Bee/1900b0aEDbg.dag" --continue-on-failure --profile="Library/Bee/backend1.traceevents" ScriptAssemblies
+WorkingDir: C:/nscrev/doormeta
+DisplayProgressbar: Compiling Scripts
+ExitCode: 4 Duration: 2s200ms
+Rebuilding DAG because FileSignature timestamp changed: Library/Bee/1900b0aEDbg-inputdata.json
+[578/738    0s] ILPP-Configuration Library/ilpp-configuration.nevergeneratedoutput
+[579/738    1s] Csc Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.dll (+2 others)
+*** Tundra requires additional run (2.16 seconds), 2 items updated, 577 evaluated
+Starting: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Tools\netcorerun\netcorerun.exe "C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\Tools\BuildPipeline\ScriptCompilationBuildProgram.exe" "Library/Bee/1900b0aEDbg.dag.json" "Library/Bee/1900b0aEDbg-inputdata.json" "Library\Bee\buildprogram0.traceevents"
+WorkingDir: C:/nscrev/doormeta
+ExitCode: 0 Duration: 0s723ms
+Starting: C:\Program Files\Unity\Hub\Editor\6000.1.8f1\Editor\Data\bee_backend.exe --ipc --defer-dag-verification --dagfile="Library/Bee/1900b0aEDbg.dag" --continue-on-failure --dagfilejson="Library\Bee\1900b0aEDbg.dag.json" --profile="Library/Bee/backend2.traceevents" ScriptAssemblies
+WorkingDir: C:/nscrev/doormeta
+ExitCode: 0 Duration: 3s251ms
+Finished compiling graph: 731 nodes, 11651 flattened edges (9747 ToBuild, 112 ToUse), maximum node priority 758
+[           0s] Delete 11 artifact files that are no longer in use. (like Library\Bee\artifacts\rsp\12244479590358847285.rsp)
+[366/728    0s] WriteText Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.rsp
+[409/728    0s] WriteText Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Editor.rsp
+[410/728    0s] WriteText Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Tests.rsp
+[411/728    0s] WriteText Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Tests.Editor.rsp
+[572/728    0s] ILPP-Configuration Library/ilpp-configuration.nevergeneratedoutput
+[708/728    0s] Csc Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.dll (+2 others)
+[709/728    0s] ILPostProcess Library/Bee/artifacts/1900b0aEDbg.dag/post-processed/NoSafeCircle.DoorPrototype.dll (+pdb)
+Processing assembly Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.dll, with 130 defines and 263 references
+
+processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+
+running Unity.Jobs.CodeGen.JobsILPostProcessor
+
+running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+[710/728    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.dll
+[711/728    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.pdb
+[712/728    0s] Csc Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Tests.dll (+2 others)
+[713/728    0s] Csc Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Editor.dll (+2 others)
+Assets\NoSafeCircle\DoorPrototype\Editor\DoorPrototypeSceneBuilder.cs(11,7): warning CS0105: The using directive for 'NoSafeCircle.DoorPrototype.World' appeared previously in this namespace
+[714/728    0s] ILPostProcess Library/Bee/artifacts/1900b0aEDbg.dag/post-processed/NoSafeCircle.DoorPrototype.Tests.dll (+pdb)
+Processing assembly Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Tests.dll, with 130 defines and 247 references
+
+processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+
+running Unity.Jobs.CodeGen.JobsILPostProcessor
+
+running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+[715/728    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.dll
+[716/728    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.pdb
+[717/728    0s] ILPostProcess Library/Bee/artifacts/1900b0aEDbg.dag/post-processed/NoSafeCircle.DoorPrototype.Editor.dll (+pdb)
+Processing assembly Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Editor.dll, with 128 defines and 270 references
+
+processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+
+running Unity.Jobs.CodeGen.JobsILPostProcessor
+
+running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+[718/728    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Editor.pdb
+[719/728    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Editor.dll
+[720/728    0s] Csc Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Tests.Editor.dll (+2 others)
+[721/728    0s] ILPostProcess Library/Bee/artifacts/1900b0aEDbg.dag/post-processed/NoSafeCircle.DoorPrototype.Tests.Editor.dll (+pdb)
+Processing assembly Library/Bee/artifacts/1900b0aEDbg.dag/NoSafeCircle.DoorPrototype.Tests.Editor.dll, with 128 defines and 257 references
+
+processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+
+running Unity.Jobs.CodeGen.JobsILPostProcessor
+
+running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+[722/728    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.Editor.pdb
+[723/728    0s] CopyFiles Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.Editor.dll
+[724/728    0s] Csc Library/Bee/artifacts/1900b0aEDbg.dag/Assembly-CSharp-firstpass.dll (+2 others)
+[725/728    1s] ILPostProcess Library/Bee/artifacts/1900b0aEDbg.dag/post-processed/Assembly-CSharp-firstpass.dll (+pdb)
+Processing assembly Library/Bee/artifacts/1900b0aEDbg.dag/Assembly-CSharp-firstpass.dll, with 130 defines and 288 references
+
+processors: Unity.Jobs.CodeGen.JobsILPostProcessor, zzzUnity.Burst.CodeGen.BurstILPostProcessor
+
+running Unity.Jobs.CodeGen.JobsILPostProcessor
+
+running zzzUnity.Burst.CodeGen.BurstILPostProcessor
+[726/728    0s] CopyFiles Library/ScriptAssemblies/Assembly-CSharp-firstpass.pdb
+[727/728    0s] CopyFiles Library/ScriptAssemblies/Assembly-CSharp-firstpass.dll
+*** Tundra build success (3.22 seconds), 25 items updated, 728 evaluated
+Assets\NoSafeCircle\DoorPrototype\Editor\DoorPrototypeSceneBuilder.cs(11,7): warning CS0105: The using directive for 'NoSafeCircle.DoorPrototype.World' appeared previously in this namespace
+AssetDatabase: script compilation time: 6.977522s
+Begin MonoManager ReloadAssembly
+- Loaded All Assemblies, in  1.164 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack using Guid(4204a1ce75c14b40ba668f328d2e271c) (DefaultImporter) -> (artifact id: 'afe908dcaac6ae2d6d9357f6a3876bd5') in 0.0472163 seconds
+Refreshing native plugins compatible for Editor in 3.67 ms, found 4 plugins.
+Native extension for WindowsStandalone target not found
+Native extension for WebGL target not found
+Refreshing native plugins compatible for Editor in 2.78 ms, found 4 plugins.
+Mono: successfully reloaded assembly
+- Finished resetting the current domain, in  4.481 seconds
+Domain Reload Profiling: 5641ms
+	BeginReloadAssembly (282ms)
+		ExecutionOrderSort (0ms)
+		DisableScriptedObjects (6ms)
+		BackupInstance (0ms)
+		ReleaseScriptingObjects (0ms)
+		CreateAndSetChildDomain (140ms)
+	RebuildCommonClasses (29ms)
+	RebuildNativeTypeToScriptingClass (9ms)
+	initialDomainReloadingComplete (30ms)
+	LoadAllAssembliesAndSetupDomain (809ms)
+		LoadAssemblies (585ms)
+		RebuildTransferFunctionScriptingTraits (0ms)
+		AnalyzeDomain (319ms)
+			TypeCache.Refresh (268ms)
+				TypeCache.ScanAssembly (256ms)
+			BuildScriptInfoCaches (41ms)
+			ResolveRequiredComponents (5ms)
+	FinalizeReload (4482ms)
+		ReleaseScriptCaches (0ms)
+		RebuildScriptCaches (0ms)
+		SetupLoadedEditorAssemblies (4283ms)
+			LogAssemblyErrors (0ms)
+			InitializePlatformSupportModulesInManaged (31ms)
+			SetLoadedEditorAssemblies (4ms)
+			BeforeProcessingInitializeOnLoad (178ms)
+			ProcessInitializeOnLoadAttributes (4014ms)
+			ProcessInitializeOnLoadMethodAttributes (49ms)
+			AfterProcessingInitializeOnLoad (7ms)
+			EditorAssembliesLoaded (0ms)
+		ExecutionOrderSort2 (0ms)
+		AwakeInstancesAfterBackupRestoration (11ms)
+Start importing Assets/Scenes/DoorPrototype.unity using Guid(92dbd0a3e6c18e245896a66c5120379d) (DefaultImporter) -> (artifact id: '4260bd1d172d57814b4b1e8cfeac1a42') in 0.0036742 seconds
+Start importing Assets/Scenes/Rooms/ChapelOfAsh.unity using Guid(a5c1e7d9b3f24e6a8c0d1f2b4e5a7046) (DefaultImporter) -> (artifact id: '5261ede17685d0c69729c1ad0db9f024') in 0.0016189 seconds
+Start importing Assets/Scenes/Rooms/BoneArchive.unity using Guid(cbda5809cccb1fb087c3f8f1dc2335ec) (DefaultImporter) -> (artifact id: '6708b900775d6ef325d03ae7919a4cb7') in 0.0010633 seconds
+Start importing Assets/Scenes/Rooms/LowerVault.unity using Guid(8cea9d6d57443cb408bbd485389f1d8f) (DefaultImporter) -> (artifact id: '34fcc50b9f0571d09084436533c26353') in 0.0009581 seconds
+Start importing Assets/Scenes/Rooms/RuinedEntry.unity using Guid(ad254be55b06c15e9d314d82aea23854) (DefaultImporter) -> (artifact id: 'a3b5954eabddcd5de3f2364f6fbdff07') in 0.000851 seconds
+Start importing Assets/Scenes/Rooms/FinalRoom.unity using Guid(8ee38ff5f03afd64781a9acd5ad84e83) (DefaultImporter) -> (artifact id: 'c1cff17be625faea8ee37b2a275c2b5d') in 0.0007977 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_w_attack_02.png using Guid(100d81a53460474aafb9998bf41df2dd) (TextureImporter) -> (artifact id: 'ec2574712a118aadbcf8ad8e40d7f33d') in 0.0187022 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_nw_attack_00.png using Guid(5039a4e3135948d795aa4fb014ac09c2) (TextureImporter) -> (artifact id: '983f406ffb294d6fd1d838c0d8bee5f4') in 0.0054181 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_e_attack_00.png using Guid(807581a45b7f4b91b0c3c26508e9c0cf) (TextureImporter) -> (artifact id: 'a4257936277c2eac8ca4b6aa63f84279') in 0.0048839 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_s_attack_03.png using Guid(b003b5f773ab4b8fbacf4a1f7addc564) (TextureImporter) -> (artifact id: 'c65970d28826c208dadd074fa5a43a03') in 0.0060082 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_w_attack_04.png using Guid(c0cb766a3af34faf81cd0c697b7eb40a) (TextureImporter) -> (artifact id: '3d1f48e26504bf5209dfb9873c4eeb18') in 0.004897 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_sw_attack_02.png using Guid(d0916e812d1848b7becdfc0d9c836fe9) (TextureImporter) -> (artifact id: '26093b08b62764079ee593fa23bbfbf7') in 0.0044821 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_nw_attack_02.png using Guid(e0d6c842018a494893184df2b6c7121c) (TextureImporter) -> (artifact id: 'b5dcb0d353b263311c3699c1a73c9143') in 0.0044881 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_s_attack_04.png using Guid(f091373904194172ae7da599053eedfc) (TextureImporter) -> (artifact id: 'd1d167468272e737a619107d50ac9039') in 0.0040032 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_n_attack_00.png using Guid(010d370a432b48879f36b1fd966402a2) (TextureImporter) -> (artifact id: '39495552faba850095c67ee6f1604037') in 0.0054698 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_nw_attack_00.png using Guid(41b11757b3464002bdc57b21e7a80bda) (TextureImporter) -> (artifact id: 'c7ea329a9dec293f9c761ba4b84cc045') in 0.0063082 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_n_attack_05.png using Guid(414c9b9981f34d0d8347915afb3b4955) (TextureImporter) -> (artifact id: 'f78602e4d3a64bf6278b6c6aa8c181ca') in 0.0045631 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_w_attack_03.png using Guid(419f870b3e0e4f48a8561d5195787107) (TextureImporter) -> (artifact id: '3b112a267f5a94841122fa81b1936f8e') in 0.0043676 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_n_attack_03.png using Guid(5103d348a1cd438290d4b12b3e9d197f) (TextureImporter) -> (artifact id: 'b437d143d4aff2eb3c05c863afdc5d92') in 0.0043321 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_se_attack_04.png using Guid(511f45daec50460d9875357ad63c4b52) (TextureImporter) -> (artifact id: 'b6d5903772bf7b0a2a0b1fee6fe178d6') in 0.00567 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_ne_attack_03.png using Guid(814d404f2e2f45a68f365de4a3d1b739) (TextureImporter) -> (artifact id: '593f099ac423d281f4324ace76030a06') in 0.0054654 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_nw_attack_05.png using Guid(e1159d216c7044439f64de060a6d6593) (TextureImporter) -> (artifact id: 'bba7377d237ebbfe4251b1b8b1b34bfd') in 0.0048571 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_nw_attack_03.png using Guid(e13ff126c8d04c27aba4521dabd3599c) (TextureImporter) -> (artifact id: '93283c04aed68bb7940519f592a43f90') in 0.0050134 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_nw_attack_01.png using Guid(225a985f13c449a7b3bab30baca421ff) (TextureImporter) -> (artifact id: '1ec3abee0485ca3dd936b916d159862a') in 0.0057587 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_w_attack_01.png using Guid(3226bbae0c90473fa64d4ebbe40260c2) (TextureImporter) -> (artifact id: '818718b6425e9f0374ae27878ac78ff3') in 0.0046263 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_n_attack_02.png using Guid(828d456f674f4e2a9631869c515f25e7) (TextureImporter) -> (artifact id: 'ecfb6d92825517c4d6c6e2c5e285f687') in 0.0054424 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_sw_attack_03.png using Guid(a296de5d2497444cb4c68cea05c60889) (TextureImporter) -> (artifact id: 'e627abc2a52c5aa4387dc535efc16d62') in 0.0053173 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_e_attack_02.png using Guid(03c26176d36a4860919a46df39fb6e03) (TextureImporter) -> (artifact id: 'e3df595aa610f5271cb709e99a49aa51') in 0.0044431 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_w_attack_05.png using Guid(1327ccd75eee4d3180443232e8f8112d) (TextureImporter) -> (artifact id: '09db3d36133811d14705b51feebf97d2') in 0.006512 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_n_attack_05.png using Guid(234c760cfbf5470fa93681d1f9083e72) (TextureImporter) -> (artifact id: '0d322ed36ace1a0fe474b465e9d24229') in 0.006527 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_e_attack_05.png using Guid(83b13c13f3a04b36a46dd38d65148fd2) (TextureImporter) -> (artifact id: '52656fd18f1dee67884008b42704eb4a') in 0.0063388 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_s_attack_02.png using Guid(b34bf7222dd046839871aba707559b5e) (TextureImporter) -> (artifact id: 'e271be2e8fba3cbe2cab0177cd2da188') in 0.0057292 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_sw_attack_00.png using Guid(c33f4d7571d74e0da613c5fa6d16895b) (TextureImporter) -> (artifact id: 'b5b3dd260df76139523ff45d72290dbb') in 0.0043506 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_s_attack_05.png using Guid(d39762a069af4f328f4e8b88d8d85305) (TextureImporter) -> (artifact id: 'b951fb3468db97a5eb6576eefc838fd1') in 0.0054056 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_ne_attack_05.png using Guid(f397473819864f6bbec804d1a266e385) (TextureImporter) -> (artifact id: '9e63f6b6825a36632618bd3af945ca4b') in 0.0054563 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_e_attack_03.png using Guid(1431ceb83fda4381a22f6b86ce6f7779) (TextureImporter) -> (artifact id: '75ab896dfcac24581c8d61393a3e19b9') in 0.0054289 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_s_attack_02.png using Guid(14c34a36936d4415a991af20f8ac0527) (TextureImporter) -> (artifact id: '5a1cd0c2a3c1697a3206ef4c6a78107d') in 0.005087 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_w_attack_00.png using Guid(4493fc59ffdb4944b963aa2326d7a066) (TextureImporter) -> (artifact id: '2d20e1b82a7e882e56e624929bb18d9d') in 0.0054502 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_s_attack_04.png using Guid(440c4e2939ab4f3f9b30f1f36ab5970b) (TextureImporter) -> (artifact id: '3715c6feead2048879b8d8cb61e3d417') in 0.0055938 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_ne_attack_04.png using Guid(a40958d474364a8fa1d52781865c8d6f) (TextureImporter) -> (artifact id: '53344182c1c67d37058c94701cba4d10') in 0.0054668 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_se_attack_04.png using Guid(15f3b1c9c89b4f648e1032e3827d0670) (TextureImporter) -> (artifact id: 'c7713569559ccf323ce865ba5438938b') in 0.0046692 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_e_attack_02.png using Guid(4506b7d7cef44eeba180c5df0a6accdc) (TextureImporter) -> (artifact id: 'cf06e490bac70733f566a3b265ceef4e') in 0.0056656 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_se_attack_02.png using Guid(653d383a8d8148199041519d7e3bae15) (TextureImporter) -> (artifact id: 'f094b093ada550947f08e061d9c1bbd6') in 0.006505 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_sw_attack_02.png using Guid(75703b65e11b462d8ad6d3146e008545) (TextureImporter) -> (artifact id: '65a044f4f3660b4e2bbcc4127c324b2d') in 0.0051114 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_se_attack_00.png using Guid(7501ed4f83f64282a8f829b59691bf42) (TextureImporter) -> (artifact id: '4f4bc7b270af8b601d2ac0d3e848c379') in 0.0049805 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_e_attack_03.png using Guid(75e7fc9a111c484d9a360b3f3667467c) (TextureImporter) -> (artifact id: 'effbfc09841786d95887084b3553a608') in 0.0043588 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_se_attack_00.png using Guid(8561e95f866f4ae081c937fe092fd1b9) (TextureImporter) -> (artifact id: 'e85ec0fff28850cf14c81dd0e6f6264b') in 0.0042112 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_ne_attack_02.png using Guid(e5c8a0ef65d44a2682a1be4d588d5a6d) (TextureImporter) -> (artifact id: '89b4d5de901659aa3b4d4a4658b73e5a') in 0.0039623 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_n_attack_02.png using Guid(36c1a07c0cf741f6a78ab8a42107208a) (TextureImporter) -> (artifact id: '7dec8ba7908b75966a20026cc1f406e0') in 0.004143 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_w_attack_04.png using Guid(3663248a05a44597ac7983fac3642710) (TextureImporter) -> (artifact id: 'fd9b93ef55511ee8f269df98ac0098ad') in 0.0047579 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_se_attack_05.png using Guid(369c485c9b73403eacd5cdb1e7ea6866) (TextureImporter) -> (artifact id: 'f11828bbf3c8055ab7c6604bdbfcc8fd') in 0.0047817 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_nw_attack_02.png using Guid(a654d876e51149c7856d50929e2c57fe) (TextureImporter) -> (artifact id: '5b4a71e27d3de0505694b8767aa76a9e') in 0.0042305 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_e_attack_05.png using Guid(d61c750a060f4c8cbbcf7d273788ff39) (TextureImporter) -> (artifact id: 'f9f899877a2c46386adb36318c6358d9') in 0.0048402 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_ne_attack_00.png using Guid(574a93c62a1b49faa763c22f521afb1d) (TextureImporter) -> (artifact id: '51883dbc37dbc09e620625c0612f78bb') in 0.0053731 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_se_attack_05.png using Guid(67992ca33e65426184699bd4877b50e1) (TextureImporter) -> (artifact id: '9688daf4636a7c7bbcc878d08948d035') in 0.0044232 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_n_attack_03.png using Guid(87ff66cbae75475bacfd748054eb506e) (TextureImporter) -> (artifact id: '2e1de221d8cd3d5a4154df79c91e5a12') in 0.0044945 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_n_attack_01.png using Guid(b7b0120ab6c548f8baace4097885bd51) (TextureImporter) -> (artifact id: '65eca7354ecfa554a7bf64a00185ccaa') in 0.0044846 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_nw_attack_01.png using Guid(d77dd16c15dd411295e94621005571cb) (TextureImporter) -> (artifact id: '35edc7360407e79f51f278a7db584351') in 0.0041684 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_e_attack_00.png using Guid(f71b42ba1d314c3c81cb260861ba8b88) (TextureImporter) -> (artifact id: '8eb224a0bf4a67e37703ec56f5e2b901') in 0.0046317 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_nw_attack_03.png using Guid(48eb564521344eb1a383dc000ed26cd1) (TextureImporter) -> (artifact id: '66a8b6940e27ecc962b7f8ddaafa49a6') in 0.005454 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_sw_attack_00.png using Guid(58d3b2a3fd08464fb6807747c31c543b) (TextureImporter) -> (artifact id: '32e8b5295c91708e3d7e2f35094bf0fe') in 0.0048318 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_n_attack_01.png using Guid(6889627f5266486db4d7d482079c4a28) (TextureImporter) -> (artifact id: 'ca6577ca11de403263c49408039bb79e') in 0.0053299 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_ne_attack_03.png using Guid(982b4cb1b3bb4624bcedf29d331bfa33) (TextureImporter) -> (artifact id: '02da76bbc629ace27ad74e74969786c0') in 0.0044309 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_s_attack_01.png using Guid(a8e6664d3160457a9b3adf5f07cb1cea) (TextureImporter) -> (artifact id: '8d1145308722b81b00cb3677d609aa69') in 0.0048188 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_se_attack_03.png using Guid(c891d3fe487c422cb2c682361b0e47ad) (TextureImporter) -> (artifact id: 'f541a95b2681e3f10aca6b0b23896011') in 0.0050796 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_sw_attack_01.png using Guid(e8442f13bd674e50a5bfe21a48ed6dbf) (TextureImporter) -> (artifact id: '5b13df970425593b129309c6388bf328') in 0.0054536 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_s_attack_00.png using Guid(09c4c0d7a82847ed99571f5fd01ab19c) (TextureImporter) -> (artifact id: '899cec91cdc2e040496140aa2eb8c84d') in 0.0049375 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_s_attack_00.png using Guid(49974e39f92846a38380c10aff9f8ace) (TextureImporter) -> (artifact id: 'f3a4984a3647145cdae171f6fbf47bae') in 0.0047968 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_ne_attack_00.png using Guid(8926f319252c4a5aa0b213c6005ae52e) (TextureImporter) -> (artifact id: 'e5c76445fb7bdd3b403cd12e95dbddf0') in 0.0052064 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_se_attack_03.png using Guid(99cc0359227c472fbe11bc8157c57cf9) (TextureImporter) -> (artifact id: '913fa3ac07632517ef20026900a89788') in 0.0056843 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_nw_attack_05.png using Guid(d9ad52f372734102a6f9150171a2798d) (TextureImporter) -> (artifact id: 'de1eda629cb0ce39b508e00ca6f90d1b') in 0.0046271 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_ne_attack_05.png using Guid(7afa84b4cd574c1a8c2b370f2fc0525a) (TextureImporter) -> (artifact id: '4a9bce54b3a2a740f06913f3f04af993') in 0.0057088 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_sw_attack_04.png using Guid(9a1ef763115e493da03c73e6e824bc4c) (TextureImporter) -> (artifact id: '025fe6facdf5a26e3ac04aab2821e6e1') in 0.0043189 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_e_attack_04.png using Guid(aab30a4cf8474d408383c4cdf178122b) (TextureImporter) -> (artifact id: '3019d6b76ed386598acd02ce6b7f0092') in 0.0046695 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_sw_attack_01.png using Guid(baf9eac5e45c4983a7263ab67b9e4c56) (TextureImporter) -> (artifact id: '068524a2d56dec4d8054e20e012beea7') in 0.0051337 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_se_attack_01.png using Guid(cada53e6ce9b4aa580ef39df7027581e) (TextureImporter) -> (artifact id: 'e96927bcb8fdd0f684d9745b2c7689b0') in 0.0048861 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_ne_attack_04.png using Guid(cacbeb4a84a44cc3b9f6dc3b803629e7) (TextureImporter) -> (artifact id: 'a9e7c90799dbee8da9ee9115ed43617c') in 0.004352 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_w_attack_00.png using Guid(1b6d5c4a5f3544ee81d495ba99d82764) (TextureImporter) -> (artifact id: '4a75a9495e1344e87b511d1ef7eacdcf') in 0.0045457 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_n_attack_04.png using Guid(3bc02186d8714a4c94f3d4f93627a220) (TextureImporter) -> (artifact id: 'd995cdb2b08843b5c446008c69ba7105') in 0.0051719 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_ne_attack_02.png using Guid(4b9a828543524799be716c98f44c4df3) (TextureImporter) -> (artifact id: 'd1ab1e696375d8082b0e2390dca4ecfc') in 0.0051107 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_nw_attack_04.png using Guid(5b0cebdd3cec4ec683b1bb706208c303) (TextureImporter) -> (artifact id: 'f7123f33f6cd7ba068349dd6286ca8c6') in 0.0044254 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_n_attack_04.png using Guid(8bb96e3152db44839776e922ee2ba16e) (TextureImporter) -> (artifact id: 'e33ab7e83883c3b09a800be9b1ba236d') in 0.0051265 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_e_attack_04.png using Guid(9b98a8b7f88f41f58d296d6b9091546b) (TextureImporter) -> (artifact id: 'afecdfb07205d9334ba31f043358b637') in 0.0044637 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_n_attack_00.png using Guid(cb9501d07ab946f1ab9db3a840af3200) (TextureImporter) -> (artifact id: '16fdd378ed6986243f7aa55b9d044625') in 0.0051522 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_s_attack_03.png using Guid(ebe05467f2e041ddbcb0ca7b8e15e067) (TextureImporter) -> (artifact id: 'c35809ca5ff1d6143205a9f209846eb2') in 0.0047372 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_e_attack_01.png using Guid(1cf392536e6b41b79a42bfcb5344dbf4) (TextureImporter) -> (artifact id: '55f70f036c3b8b133f1e02c4868d6e21') in 0.0061344 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_se_attack_02.png using Guid(8c0558a806724dab8bd108bba907e1a2) (TextureImporter) -> (artifact id: 'fc1cf0758d642d902085ae06f609e8b9') in 0.0046102 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_ne_attack_01.png using Guid(ac49071779d5402e850ccfcad48d92dc) (TextureImporter) -> (artifact id: '7f9c926c268ad5905f50f68b073b1d97') in 0.0040563 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_sw_attack_03.png using Guid(bce04f01020543f596d450184b8df3cb) (TextureImporter) -> (artifact id: '409f7b4166c676b7415dd23b1b7faa8e') in 0.0045805 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_w_attack_03.png using Guid(bc8a25a0b9824c25bb546c4492f1670f) (TextureImporter) -> (artifact id: 'd167b23acac2e40c33d1e98f963246b9') in 0.0048793 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_e_attack_01.png using Guid(1d1796e555c748fd9b1dc48aa9ab628c) (TextureImporter) -> (artifact id: '9690e6675416ab29b3ad166bc45d4ccf') in 0.0041284 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_ne_attack_01.png using Guid(ad33e104753d43eb822b02f488f9ddfb) (TextureImporter) -> (artifact id: 'b5471de6997fa1abb47d6610a4c91393') in 0.0049919 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_w_attack_01.png using Guid(bdf24686abf74cf0b53b42a6947131bb) (TextureImporter) -> (artifact id: 'a115fcb1fb1201489f452d92e5283ba6') in 0.0054058 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_s_attack_01.png using Guid(0ec341b5568849cc95cc7b8d27a22419) (TextureImporter) -> (artifact id: 'faeab94615ea1664f4a0860f09ae6da6') in 0.0043441 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_w_attack_02.png using Guid(5e5025c3eae14479a60bf585846e2c9f) (TextureImporter) -> (artifact id: '5a4d5fb4617262f27899925c60e0452b') in 0.0041205 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_s_attack_05.png using Guid(6ec1fc5d77cd40b3ade9ad6b7d721ef6) (TextureImporter) -> (artifact id: 'fe39afe04fb3d513147ceb2fee3fe48f') in 0.0052637 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_sw_attack_05.png using Guid(6e86a992daf941dbb66f29a3d61ba42c) (TextureImporter) -> (artifact id: 'f6b77ebf18e6a9ee207ac64931eb1f63') in 0.0043754 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_melee_sw_attack_04.png using Guid(6edb7726aa24494c94cd1eafda41da0b) (TextureImporter) -> (artifact id: 'e667369b8073e32c7d301b6483e4d1ad') in 0.0071648 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_se_attack_01.png using Guid(7e0682aee0904ba7bda8a5ab3696c09a) (TextureImporter) -> (artifact id: '5c8570e2cf4ef1a97b1898bc7c735949') in 0.0044995 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_w_attack_05.png using Guid(9ebf5015c2d9428ea79d92db0933d170) (TextureImporter) -> (artifact id: 'fcb2796d8498836cd075db62cd02fce7') in 0.0056482 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_sw_attack_05.png using Guid(2fcd8c4d1c984c92a23b5d129c32df59) (TextureImporter) -> (artifact id: '5a26c69ed8b894337337d27011b39c01') in 0.0046019 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack/enemy_ranged_nw_attack_04.png using Guid(df9da786089b4c91913eea82694a233c) (TextureImporter) -> (artifact id: 'a0616604c2e22d6467fda2fd48728335') in 0.0044368 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ChapelOfAshCutawayWallTile.asset using Guid(e5bc2d8b71ebae14e9167dffb1cc188d) (NativeFormatImporter) -> (artifact id: 'c276988d72094ef87f24f1d86a1786cb') in 0.005397 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/LowerVaultBlockoutProxySprite.asset using Guid(eaac7e0568f1e7446979b1b701890467) (NativeFormatImporter) -> (artifact id: 'f224f6ed154a2310f39830115351133a') in 0.0059272 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ChapelOfAshFarWallTile.asset using Guid(0d600904e35241143825251e1a7466ed) (NativeFormatImporter) -> (artifact id: '11db5dcc929c7214e10ff50de83229e5') in 0.0029549 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/FloorTile.asset using Guid(ef41a67a8bf6c9448b0f1e0732b60b4b) (NativeFormatImporter) -> (artifact id: 'e27b240a099373f47bbb3835ac50093b') in 0.0240897 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/RuinedEntryDressingCatalog.json using Guid(a17f436829c20a542a1d5c516f22e8de) (TextScriptImporter) -> (artifact id: '933c35e260da0ce4565c6beaf593aa2a') in 0.018564 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/FinalRoomDressingCatalog.json using Guid(479561ae1803fac4298e002c092fbcf8) (TextScriptImporter) -> (artifact id: '5342394693d8c567f15eb2a9ec40c5c0') in 0.0018809 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/LowerVaultDressingCatalog.json using Guid(79b2c1ac4f9c6404eafcf25072c56846) (TextScriptImporter) -> (artifact id: 'd34f1fa44a3e6f86b94e254af5292cf5') in 0.0019822 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/ChapelOfAshDressingCatalog.json using Guid(7a9ed0f1aad4502468843e3a8bc11033) (TextScriptImporter) -> (artifact id: '3dade8a0af35459643c61eec8e24f95f') in 0.0017209 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/BoneArchiveDressingCatalog.json using Guid(4e418a5aa43621041be532e713640498) (TextScriptImporter) -> (artifact id: 'f304f8628a0cb607ed6d22a468315ff5') in 0.0028167 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/FinalRoomDressing.prefab using Guid(51f95d47ef670aa4493f1b186b714a52) (PrefabImporter) -> (artifact id: '33415faae28df01908783f1a1ddef148') in 0.0301891 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/ChapelOfAshDressing.prefab using Guid(0290325888316b44799b7d6337fe087d) (PrefabImporter) -> (artifact id: '8411b75bc0d3cbfd966857f7669a3620') in 0.0343908 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/LowerVaultDressing.prefab using Guid(87f6f2b42ee5054429d615e992e0ddf8) (PrefabImporter) -> (artifact id: 'a7183c959f8a445b53ddc7f55ce442c1') in 0.0177149 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/RuinedEntryDressing.prefab using Guid(7c432fee5b4ddcb48aa622ebf44f168f) (PrefabImporter) -> (artifact id: '6ffd254c01aa3c0d7c1aa0a8b97bba89') in 0.0165755 seconds
+Start importing Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing/BoneArchiveDressing.prefab using Guid(fedab16e6b1afbe4dba80dd5795e5423) (PrefabImporter) -> (artifact id: '792580d1117a5c12324ed484202b0a8c') in 0.0201811 seconds
+Refreshing native plugins compatible for Editor in 5.28 ms, found 4 plugins.
+Preloading 0 native plugins for Editor in 0.00 ms.
+Asset Pipeline Refresh (id=11280dca469e48e44889a1559e00ef9a): Total: 15.439 seconds - Initiated by InitialRefreshV2(ForceSynchronousImport)
+	Summary:
+		Imports: total=117 (actual=117, local cache=0, cache server=0)
+		Asset DB Process Time: managed=27 ms, native=6519 ms
+		Asset DB Callback time: managed=623 ms, native=19 ms
+		Scripting: domain reloads=1, domain reload time=1164 ms, compile time=6979 ms, other=104 ms
+		Project Asset Count: scripts=1076, non-scripts=2135
+		Asset File Changes: new=135, changed=166, moved=0, deleted=3
+		Scan Filter Count: 0
+	InvokeCustomDependenciesCallbacks: 0.001ms
+	InvokePackagesCallback: 3.200ms
+	ApplyChangesToAssetFolders: 0.488ms
+	Scan: 834.380ms
+	OnSourceAssetsModified: 2.095ms
+	CategorizeAssetsWithTransientArtifact: 64.396ms
+	ProcessAssetsWithTransientArtifactChanges: 58.700ms
+	UnregisterDeletedAssets: 0.004ms
+	CategorizeAssets: 53.169ms
+	ImportOutOfDateAssets: 5305.740ms (-2484.091ms without children)
+		ImportManagerImport: 809.012ms (16.202ms without children)
+			ImportInProcess: 792.162ms
+			UpdateCategorizedAssets: 0.649ms
+		CompileScripts: 6979.104ms
+		ReloadNativeAssets: 0.001ms
+		UnloadImportedAssets: 0.194ms
+		ReloadImportedAssets: 0.009ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 0.572ms
+		InitializingProgressBar: 0.009ms
+		PostProcessAllAssetNotificationsAddChangedAssets: 0.000ms
+		OnDemandSchedulerStart: 0.930ms
+	PostProcessAllAssets: 631.592ms
+	Hotreload: 9.918ms
+	GatherAllCurrentPrimaryArtifactRevisions: 0.000ms
+	UnloadStreamsBegin: 0.557ms
+	PersistCurrentRevisions: 0.563ms
+	UnloadStreamsEnd: 0.002ms
+	GenerateScriptTypeHashes: 1.613ms
+	Untracked: 8474.206ms
+
+Application.AssetDatabase Initial Refresh End
+Launched and connected shader compiler UnityShaderCompiler.exe after 0.02 seconds
+Scanning for USB devices : 1.530ms
+Initializing Unity extensions:
+[MODES] ModeService[none].Initialize
+[MODES] ModeService[none].LoadModes
+[MODES] Loading mode Default (0) for mode-current-id-NoSafeCircle
+Unloading 3 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 5080 unused Assets / (3.6 MB). Loaded Objects now: 5576.
+Memory consumption went from 142.2 MB to 138.6 MB.
+Total: 8.662000 ms (FindLiveObjects: 0.435300 ms CreateObjectMapping: 0.211600 ms MarkObjects: 5.322200 ms  DeleteObjects: 2.691200 ms)
+
+[Project] Loading completed in 21.822 seconds
+	Project init time: 				19.589 seconds
+		Template init time: 		0.000 seconds
+		Package Manager init time: 		0.420 seconds
+		Asset Database init time: 		1.011 seconds
+		Global illumination init time: 	0.009 seconds
+		Assemblies load time: 			1.103 seconds
+		Unity extensions init time: 	0.006 seconds
+		Asset Database refresh time: 	15.440 seconds
+	Scene opening time: 			1.802 seconds
+##utp:{"type":"ProjectInfo","version":2,"phase":"Immediate","time":1790308193072,"processId":59324,"projectLoad":21.821509300000004,"projectInit":19.5885068,"templateInit":0.0,"packageManagerInit":0.4201911,"assetDatabaseInit":1.0112136,"globalIlluminationInit":0.0091544,"assembliesLoad":1.1033558,"unityExtensionsInit":0.0064218,"assetDatabaseRefresh":15.4396204,"sceneOpening":1.8022242}
+##utp:{"type":"EditorInfo","version":2,"phase":"Immediate","time":1790308193072,"processId":59324,"editorVersion":"6000.1.8f1 (2a5b1522e5ab)","branch":"6000.1/staging","buildType":"Release","platform":"Windows"}
+Asset Pipeline Refresh (id=bf2f451d7a7e0944196de56104ef05a2): Total: 0.043 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+Running tests for ExecutionSettings with details:
+targetPlatform =
+playerHeartbeatTimeout = 600
+filters[0] =
+   Filter with settings:
+   testMode = EditMode
+   targetPlatform =
+   testNames = null
+   groupNames = NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing
+   categoryNames = null
+   assemblyNames = null
+ignoreTests = {}
+featureFlags = null
+
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+UnityEditor.TestTools.TestRunner.CommandLineTest.Executer:InitializeAndExecuteRun (string[]) (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/CommandLineTest/Executer.cs:53)
+UnityEditor.TestTools.TestRunner.CommandLineTest.TestStarter:InitializeAndExecuteRun () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/CommandLineTest/TestStarter.cs:64)
+UnityEditor.EditorApplication:Internal_CallUpdateFunctions ()
+
+(Filename: ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/CommandLineTest/Executer.cs Line: 53)
+
+[UnityConnectServicesConfig] config is NOT valid, switching to default
+Created GICache directory at C:/Users/VincentLiguori/AppData/LocalLow/Unity/Caches/GiCache. Took: 0.021s, timestamps: [21.834 - 21.854]
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 2 unused Assets / (1.3 KB). Loaded Objects now: 5622.
+Memory consumption went from 123.1 MB to 123.1 MB.
+Total: 6.051900 ms (FindLiveObjects: 0.250200 ms CreateObjectMapping: 0.093700 ms MarkObjects: 5.677500 ms  DeleteObjects: 0.029500 ms)
+
+Executing IPrebuildSetup for: Unity.PerformanceTesting.Editor.TestRunBuilder.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+UnityEditor.TestTools.TestRunner.TestRun.Tasks.BuildActionTaskBase`1/<ExecuteMethods>d__8<UnityEngine.TestTools.IPrebuildSetup>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/Tasks/BuildActionTaskBase.cs:51)
+UnityEditor.TestTools.TestRunner.TestRun.Tasks.BuildActionTaskBase`1/<Execute>d__7<UnityEngine.TestTools.IPrebuildSetup>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/Tasks/BuildActionTaskBase.cs:35)
+UnityEditor.TestTools.TestRunner.TestRun.TestJobRunner:ExecuteStep () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/TestJobRunner.cs:173)
+UnityEditor.TestTools.TestRunner.TestRun.TestJobRunner:ExecuteCallback () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/TestJobRunner.cs:108)
+UnityEditor.EditorApplication:Internal_CallUpdateFunctions ()
+
+(Filename: ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/Tasks/BuildActionTaskBase.cs Line: 51)
+
+Saving results to: C:/Users/VincentLiguori/AppData/LocalLow/DefaultCompany/NoSafeCircle\TestResults.xml
+Saving results to: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-2f4f7d82184a461b9aa4986fa17c68f5\test-results.xml
+Executing IPostBuildCleanup for: Unity.PerformanceTesting.Editor.TestRunBuilder.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+UnityEditor.TestTools.TestRunner.TestRun.Tasks.BuildActionTaskBase`1/<ExecuteMethods>d__8<UnityEngine.TestTools.IPostBuildCleanup>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/Tasks/BuildActionTaskBase.cs:51)
+UnityEditor.TestTools.TestRunner.TestRun.Tasks.BuildActionTaskBase`1/<Execute>d__7<UnityEngine.TestTools.IPostBuildCleanup>:MoveNext () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/Tasks/BuildActionTaskBase.cs:35)
+UnityEditor.TestTools.TestRunner.TestRun.TestJobRunner:ExecuteStep () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/TestJobRunner.cs:173)
+UnityEditor.TestTools.TestRunner.TestRun.TestJobRunner:ExecuteCallback () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/TestJobRunner.cs:108)
+UnityEditor.EditorApplication:Internal_CallUpdateFunctions ()
+
+(Filename: ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/TestRun/Tasks/BuildActionTaskBase.cs Line: 51)
+
+Asset Pipeline Refresh (id=110db8ce7dbcef64baa8b5f53b06363f): Total: 0.004 seconds - Initiated by RefreshV2(NoUpdateAssetOptions)
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 91 unused Assets / (63.8 KB). Loaded Objects now: 5623.
+Memory consumption went from 126.5 MB to 126.4 MB.
+Total: 6.879000 ms (FindLiveObjects: 0.226100 ms CreateObjectMapping: 0.081000 ms MarkObjects: 6.239400 ms  DeleteObjects: 0.331300 ms)
+
+DisplayProgressbar: Undo
+Test run completed. Exiting with code 0 (Ok). Run completed.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+UnityEditor.TestTools.TestRunner.CommandLineTest.Executer:ExitApplication (UnityEditor.TestTools.TestRunner.CommandLineTest.Executer/ReturnCodes,string) (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/CommandLineTest/Executer.cs:81)
+UnityEditor.TestTools.TestRunner.CommandLineTest.Executer:ExitIfRunIsCompleted () (at ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/CommandLineTest/Executer.cs:74)
+UnityEditor.EditorApplication:Internal_CallUpdateFunctions ()
+
+(Filename: ./Library/PackageCache/com.unity.test-framework@7056e7f856e9/UnityEditor.TestRunner/CommandLineTest/Executer.cs Line: 81)
+
+[Physics::Module] Cleanup current backned.
+[Physics::Module] Id: 0xf2b8ea05
+Input System module state changed to: ShutdownInProgress.
+Input System polling thread exited.
+Input System module state changed to: Shutdown.
+[Licensing::IpcConnector] LicenseClient-VincentLiguori-notifications channel disconnected successfully.
+[Licensing::IpcConnector] LicenseClient-VincentLiguori channel disconnected successfully.
+AcceleratorClientConnectionCallback - disconnected - :0
+Cleanup mono
+Checking for leaked weakptr:
+  Found no leaked weakptrs.
+[Package Manager] Server process was shutdown
+##utp:{"type":"MemoryLeaks","version":2,"phase":"Immediate","time":1790308195964,"processId":59324,"allocatedMemory":14319592,"memoryLabels":[{"Default":14269},{"Permanent":15412},{"NewDelete":67953},{"Thread":4237960},{"Manager":29658},{"VertexData":8},{"Geometry":816},{"VFX":-104},{"Texture":296},{"Shader":78821},{"Material":24},{"GfxDevice":57248},{"Animation":328},{"Audio":4040},{"FontEngine":256},{"Physics":1241},{"Serialization":880},{"Input":14824},{"JobScheduler":43832},{"TextLib":160},{"Mono":32},{"ScriptingNativeRuntime":155060},{"BaseObject":1659888},{"Resource":1304},{"Renderer":2928},{"Transform":4646},{"File":1016},{"WebCam":616},{"Culling":32},{"Terrain":11394},{"Wind":24},{"STL":40},{"String":9653},{"DynamicArray":99674},{"HashMap":101863},{"Utility":2666358},{"Curl":48},{"PoolAlloc":1960},{"AI":40},{"TypeTree":5005},{"ScriptManager":512},{"RuntimeInitializeOnLoadManager":64},{"SpriteAtlas":112},{"GI":7824},{"Director":8240},{"WebRequest":808},{"VR":46058},{"SceneManager":496},{"Video":208},{"LazyScriptCache":32},{"NativeArray":8},{"Camera":17},{"Secure":1},{"SerializationCache":1576},{"APIUpdating":10320},{"Subsystems":336},{"VirtualTexturing":57888},{"StaticSafetyDebugInfo":278528},{"Analytics":256},{"Hierarchy":272},{"Gui":80},{"EditorUtility":94634},{"VersionControl":4},{"Undo":947},{"AssetDatabase":4476407},{"EditorGi":328},{"UnityConnect":24536},{"Upm":1972},{"DrivenProperties":72},{"LocalIPC":278},{"ProfilerEditor":9738},{"CoreBusinessMetrics":3961},{"Licensing":3512},{"AssetReference":32},{"IPCStream":32}]}
