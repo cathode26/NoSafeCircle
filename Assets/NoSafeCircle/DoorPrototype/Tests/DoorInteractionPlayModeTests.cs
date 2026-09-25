@@ -829,6 +829,18 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
         private const string CommittedSceneName = "DoorPrototype";
 
+        // Fixed simulation step for the public PlayerMovement.Tick seam, and the bounds that
+        // keep every wait in this fixture finite. Uncapped batchmode frames give deltaTime
+        // values small enough that CharacterController discards the move outright, which is why
+        // the step is fixed rather than taken from Time.deltaTime.
+        private const float SimulationStepSeconds = 1f / 60f;
+
+        private const int MaxDriveFrames = 1200;
+
+        private const int MaxOpenFrames = 4000;
+
+        private const int TriggerSettleFixedSteps = 3;
+
         // PlayModeSceneCleanupConventionTests caught this fixture the moment it was written, and
         // the guard was right: loading in LoadSceneMode.Single without restoring leaves the
         // committed five-room scene loaded for every fixture that runs AFTER this one, and the
@@ -971,6 +983,240 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     doors[i].DoorId + " local +Z must point toward the room it leads to (for D5, "
                     + "the escape side), because forward-crossing is recorded on the +Z side and "
                     + "a reversed door would record the approach as a crossing.");
+            }
+        }
+
+        // NSC-020 VAL-001, FINAL CLAUSE. Every other check in this gate runs in a TEMPORARY
+        // fixture. This one is explicit that it runs "against the committed DoorPrototype scene's
+        // production D1 rather than a temporary fixture", under real physics, and that after a
+        // FloorRunRestartController restart the repeated crossing fires "exactly one
+        // CrossedForward event for that run".
+        //
+        // THE RESTART IS NOT DRIVEN BY POKING THE CONTROLLER. Player Health is driven to zero,
+        // PlayerHealth raises Died, and FloorRunRestartController's own OnEnable subscription
+        // performs the owner-controlled restart - ResetHealth, ResetMana, ResetMovement,
+        // ResetInteraction, and ResetDoor on every door in the active-door registry. That is the
+        // production wiring the gate names, so this exercises it instead of simulating it.
+        // FloorRunRestartController exposes no public member at all, which is the point: there is
+        // no other way in, and a test that found one would not be testing the shipped path.
+        //
+        // WHY movement.enabled IS TURNED OFF: PlayerMovement.Update already calls Tick, so a test
+        // that also calls Tick would advance movement twice per rendered frame. Driving the public
+        // Tick seam with a fixed step is the pattern DoorArrivalPhysicsPlayModeTests established,
+        // and it exists because uncapped batchmode frames produce deltaTime values small enough
+        // that CharacterController discards the step entirely. THE DOOR IS DELIBERATELY LEFT
+        // ENABLED: its own Update drives the opening timer, and disabling it would also stop the
+        // trigger callbacks this test depends on.
+        [UnityTest]
+        [Timeout(180000)]
+        public IEnumerator CommittedD1_RealPhysics_SurvivesFloorRunRestartAndFiresOneCrossingPerRun()
+        {
+            yield return LoadCommittedSceneReadOnly();
+
+            DoorInteractable d1 = null;
+            foreach (DoorInteractable candidate in
+                     Object.FindObjectsByType<DoorInteractable>(FindObjectsSortMode.None))
+            {
+                if (candidate.DoorId == World.DoorId.D1) d1 = candidate;
+            }
+            Assert.IsNotNull(d1, "The committed scene must hold the production D1.");
+
+            var movement = Object.FindFirstObjectByType<PlayerMovement>();
+            var playerHealth = Object.FindFirstObjectByType<PlayerHealth>();
+            var interaction = Object.FindFirstObjectByType<PlayerInteractionController>();
+            var capsule = Object.FindFirstObjectByType<CharacterController>();
+            var restartController = Object.FindFirstObjectByType<FloorRunRestartController>();
+            Assert.IsNotNull(movement, "The committed scene must hold PlayerMovement.");
+            Assert.IsNotNull(playerHealth, "The committed scene must hold PlayerHealth.");
+            Assert.IsNotNull(interaction,
+                "The committed scene must hold PlayerInteractionController; the crossing handler "
+                + "identifies the wizard by finding it on the entering collider's parent.");
+            Assert.IsNotNull(capsule, "The committed scene must hold the Player CharacterController.");
+            Assert.IsNotNull(restartController,
+                "The committed scene must hold FloorRunRestartController. This clause is about the "
+                + "restart that component owns, so its absence is a failure of the scene rather "
+                + "than a reason to skip.");
+
+            Transform doorTransform = d1.transform;
+
+            Transform triggerTransform = doorTransform.Find("ForwardCrossingTrigger");
+            Assert.IsNotNull(triggerTransform,
+                "D1 must own a runtime-created ForwardCrossingTrigger child.");
+            var trigger = triggerTransform.GetComponent<BoxCollider>();
+            Assert.IsNotNull(trigger, "D1 crossing trigger must be a BoxCollider.");
+
+            Transform visual = doorTransform.Find("DoorVisual");
+            Assert.IsNotNull(visual, "D1 must own its DoorVisual child.");
+            var blocker = visual.GetComponent<BoxCollider>();
+            Assert.IsNotNull(blocker, "D1 doorway blocker must be a BoxCollider on DoorVisual.");
+
+            float radius = capsule.radius * Mathf.Max(
+                capsule.transform.lossyScale.x, capsule.transform.lossyScale.z);
+            float blockerFace = BlockerForwardFaceInDoorLocalZ(doorTransform, blocker);
+            float nearFace = TriggerNearFaceInDoorLocalZ(doorTransform, trigger);
+
+            // Every position is DERIVED from the blocker and the capsule rather than written as a
+            // literal, so re-authoring the doorway depth, the trigger offset or the capsule radius
+            // keeps these meaningful instead of leaving the test passing on stale numbers.
+            //
+            // thresholdLocalZ is the gate's threshold: the capsule leading edge at the blocker
+            // forward face while the capsule CENTRE is still at door-local Z below zero. The
+            // sealed blocker is solid, so real physics will usually stop the wizard short of this
+            // point - which is the behaviour under test, not an obstacle to it, and is why
+            // arrival is never asserted here.
+            float thresholdLocalZ = Mathf.Min(blockerFace - radius, -0.05f);
+            float approachLocalZ = thresholdLocalZ - 2f;
+            float throughLocalZ = nearFace + radius + 1f;
+
+            movement.enabled = false;
+
+            int crossings = 0;
+            System.Action countCrossing = () => crossings++;
+            d1.CrossedForward += countCrossing;
+
+            try
+            {
+                yield return DriveToDoorLocalZ(movement, doorTransform, approachLocalZ);
+
+                // Step to the threshold and retreat: no crossing, no lock.
+                yield return DriveToDoorLocalZ(movement, doorTransform, thresholdLocalZ);
+                Assert.IsFalse(d1.HasCrossedForward,
+                    "Reaching the sealed D1 threshold with the capsule centre still on the "
+                    + "approach side must not record a forward crossing.");
+                Assert.IsFalse(d1.IsLocked, "Reaching the sealed D1 threshold must not lock D1.");
+                Assert.AreEqual(0, crossings,
+                    "No CrossedForward event may fire at the threshold of a sealed D1.");
+
+                yield return DriveToDoorLocalZ(movement, doorTransform, approachLocalZ);
+                Assert.IsFalse(d1.HasCrossedForward,
+                    "Retreating to the approach side must not record a forward crossing.");
+                Assert.IsFalse(d1.IsLocked, "Retreating to the approach side must not lock D1.");
+
+                // Open D1 through the production ground-click approach path.
+                yield return OpenDoorThroughApproach(movement, interaction, d1);
+                Assert.IsTrue(d1.IsOpen,
+                    "D1 must open through the production approach-and-timer path before the "
+                    + "crossing can be attempted.");
+
+                // Walk fully through under real physics.
+                float beforeLocalZ = doorTransform.InverseTransformPoint(
+                    capsule.transform.position).z;
+                yield return DriveToDoorLocalZ(movement, doorTransform, throughLocalZ);
+
+                Assert.IsTrue(d1.HasCrossedForward,
+                    "Walking the wizard fully through an open D1 under real physics must record "
+                    + "the forward crossing.");
+                Assert.AreEqual(1, crossings,
+                    "Crossing D1 once must raise CrossedForward exactly once.");
+                Assert.IsTrue(d1.IsLocked,
+                    "D1 must close and lock behind the freely moving wizard once it has crossed.");
+
+                float afterLocalZ = doorTransform.InverseTransformPoint(
+                    capsule.transform.position).z;
+                Assert.Greater(afterLocalZ, beforeLocalZ,
+                    "The wizard must actually have advanced in door-local Z while crossing D1; "
+                    + "an unmoved wizard would make the crossing assertions above vacuous.");
+
+                // Forward movement must remain possible after the door locks behind.
+                yield return DriveToDoorLocalZ(
+                    movement, doorTransform, throughLocalZ + (4f * radius));
+                float advancedLocalZ = doorTransform.InverseTransformPoint(
+                    capsule.transform.position).z;
+                Assert.Greater(advancedLocalZ, afterLocalZ + 0.05f,
+                    "Forward movement must remain possible after D1 locks behind the wizard. The "
+                    + "lock seals the way back, not the way on.");
+
+                // Drive Player Health to zero. PlayerHealth raises Died synchronously, so
+                // FloorRunRestartController has already performed the whole restart by the time
+                // TakeDamage returns.
+                crossings = 0;
+                playerHealth.TakeDamage(playerHealth.CurrentHealth);
+                yield return null;
+                yield return new WaitForFixedUpdate();
+
+                Assert.IsFalse(d1.IsLocked,
+                    "The FloorRunRestartController restart must clear D1's lock; a floor that "
+                    + "restarts behind a still-locked first door cannot be replayed.");
+                Assert.IsFalse(d1.HasCrossedForward,
+                    "The restart must clear D1's crossing state rather than leaving the floor "
+                    + "half-run.");
+                Assert.AreEqual(0, crossings,
+                    "The restart itself must not raise CrossedForward.");
+
+                // Repeat the full crossing and verify exactly one event FOR THAT RUN.
+                yield return DriveToDoorLocalZ(movement, doorTransform, approachLocalZ);
+                yield return OpenDoorThroughApproach(movement, interaction, d1);
+                Assert.IsTrue(d1.IsOpen, "D1 must be openable again after the restart.");
+
+                yield return DriveToDoorLocalZ(movement, doorTransform, throughLocalZ);
+
+                Assert.IsTrue(d1.HasCrossedForward,
+                    "The post-restart crossing of D1 must be recorded.");
+                Assert.AreEqual(1, crossings,
+                    "After the FloorRunRestartController restart, repeating the full crossing must "
+                    + "raise CrossedForward exactly once for that run. A count above one means "
+                    + "run state leaked across the restart.");
+            }
+            finally
+            {
+                d1.CrossedForward -= countCrossing;
+            }
+        }
+
+        // Drives the wizard to a point expressed in DOOR-LOCAL Z through PlayerMovement's public
+        // deterministic Tick seam under real CharacterController physics, never by writing the
+        // transform. Bounded by a frame count, and arrival is deliberately NOT asserted: while D1
+        // is sealed the doorway blocker is supposed to stop the wizard short, so a drive that does
+        // not complete is frequently the correct outcome. Callers assert crossing state, which is
+        // what the gate is about.
+        private static IEnumerator DriveToDoorLocalZ(
+            PlayerMovement movement, Transform door, float localZ)
+        {
+            movement.RequestDestination(door.TransformPoint(new Vector3(0f, 0f, localZ)));
+
+            for (int frame = 0; frame < MaxDriveFrames && movement.HasActiveDestination; frame++)
+            {
+                movement.Tick(SimulationStepSeconds);
+                yield return null;
+            }
+
+            // CharacterController.Move can settle a destination before Unity's next physics step
+            // dispatches the real OnTriggerEnter, so allow a small BOUNDED number of fixed steps
+            // for the crossing trigger to be delivered rather than demanding it in the same
+            // rendered frame.
+            for (int step = 0; step < TriggerSettleFixedSteps; step++)
+            {
+                yield return new WaitForFixedUpdate();
+            }
+        }
+
+        // Opens the door the way the shipped game does: a ground click at the door's own selection
+        // point issues the approach destination, arrival fires the real arm's-reach range trigger,
+        // and that trigger starts the automatic opening timer. No BeginInteraction call, no
+        // reflection, no writing IsOpen.
+        //
+        // The wait is bounded by the DOOR'S OWN clock - DoorInteractable.Update ticks the timer
+        // with Time.deltaTime, so accumulating Time.deltaTime tracks exactly the quantity the door
+        // is counting. A wall-clock deadline would instead be a race against batchmode frame rate.
+        private static IEnumerator OpenDoorThroughApproach(
+            PlayerMovement movement,
+            PlayerInteractionController interaction,
+            DoorInteractable door)
+        {
+            if (door.IsOpen) yield break;
+
+            Assert.IsTrue(interaction.TryBeginDoorApproach(door.SelectionPoint),
+                door.DoorId + " must accept a ground-click approach at its own SelectionPoint; "
+                + "that is the production path this gate opens the door through.");
+
+            float doorClockSeconds = 0f;
+            for (int frame = 0;
+                 frame < MaxOpenFrames && !door.IsOpen && doorClockSeconds < door.Duration + 2f;
+                 frame++)
+            {
+                movement.Tick(SimulationStepSeconds);
+                yield return null;
+                doorClockSeconds += Time.deltaTime;
             }
         }
     }
