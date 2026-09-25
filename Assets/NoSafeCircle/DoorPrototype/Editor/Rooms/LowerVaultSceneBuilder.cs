@@ -42,6 +42,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         private const int BlockoutProxyTextureSize = 64;
         private const float BlockoutProxyPixelsPerUnit = 64f;
         private static readonly Vector2 BlockoutProxyPivot = new Vector2(0.5f, 0f);
+        private const string WallAccentsRootName = "WallAccents";
 
         // RuinedEntrySceneBuilder.WallVisualOffset: every wall Tilemap stands this far inside its
         // RoomBounds line so its bottom-pivot sprites never extend past the gameplay wall collider.
@@ -153,6 +154,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
 
             BuildWallsAndFloor(visibleRoot, floorTile, nearWallStubTile);
             BuildBlockoutObstacleProxies(visibleRoot, blockoutProxySprite);
+            BuildWallAccents(visibleRoot);
             BuildGameplayGeometry(gameplayRoot);
 
             CreateDoorAnchor(
@@ -329,6 +331,29 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             renderer.sprite = proxySprite;
             renderer.sortingLayerName = DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
             renderer.sortingOrder = 0;
+        }
+
+        // NSC-126 AC-001/AC-003/AC-004: places the corner/jamb/end-cap accents NSC-120 delivered,
+        // from this room's own committed RoomBounds, floor Y and D3/D4 door openings -- no new
+        // door coordinates or bounds are introduced here. Nested under Visuals rather than as a
+        // direct child of the room root because RoomSceneComposer.ValidateContentCategories
+        // requires every direct room-root child to carry a RoomContentMarker for one of its four
+        // categories; the whole room is rebuilt from scratch on every call, so this is idempotent
+        // for free.
+        private static void BuildWallAccents(Transform visuals)
+        {
+            Bounds roomBounds = LowerVaultLayout.RoomBounds;
+            var doorOpenings = new List<WallAccentDoorOpening>
+            {
+                new WallAccentDoorOpening(WallSide.South, LowerVaultLayout.D3.x, LowerVaultLayout.DoorWidth),
+                new WallAccentDoorOpening(WallSide.North, LowerVaultLayout.D4.x, LowerVaultLayout.DoorWidth)
+            };
+            WallAccentRoomGeometry geometry = ArchitecturalWallAccentPlacement.BuildRectangularRoomGeometry(
+                roomBounds, roomBounds.center.y, doorOpenings);
+
+            GameObject accentsRoot = new GameObject(WallAccentsRootName);
+            accentsRoot.transform.SetParent(visuals, false);
+            ArchitecturalWallAccentPlacement.Place(accentsRoot.transform, geometry);
         }
 
         // ------------------------------------------------------------------

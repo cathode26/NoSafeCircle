@@ -1,0 +1,3 @@
+ Container nosafecircle-codex-review-run-696c78620ad0 Creating 
+ Container nosafecircle-codex-review-run-696c78620ad0 Created 
+OK 45 catalog entries validated against their PNGs
