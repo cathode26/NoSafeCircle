@@ -1,0 +1,61 @@
+{
+  "verification": "NSC-113 VAL-001 headless Windows standalone build",
+  "measured_by": "Game Agent (Integration Steward)",
+  "measured_at_utc": "2026-09-25T12:0xZ",
+  "unity_version": "6000.1.8f1",
+  "unity_exit_code": 0,
+  "project_path": "C:/nscrev/doormeta",
+  "repository_commit": "253c545bee60d925d4291d19692c90e571a9d506",
+  "execute_method": "NoSafeCircle.DoorPrototype.Editor.WindowsStandaloneBuildCommand.Build",
+  "output_argument": "-nsc-output",
+  "reported_output_path": "C:/nscrev/builds/nsc113-20260925",
+  "entries": [
+    {
+      "name": "D3D12",
+      "kind": "dir",
+      "size_bytes": null
+    },
+    {
+      "name": "MonoBleedingEdge",
+      "kind": "dir",
+      "size_bytes": null
+    },
+    {
+      "name": "NoSafeCircle.exe",
+      "kind": "file",
+      "size_bytes": 667648
+    },
+    {
+      "name": "NoSafeCircle_BurstDebugInformation_DoNotShip",
+      "kind": "dir",
+      "size_bytes": null
+    },
+    {
+      "name": "NoSafeCircle_Data",
+      "kind": "dir",
+      "size_bytes": null
+    },
+    {
+      "name": "UnityCrashHandler64.exe",
+      "kind": "file",
+      "size_bytes": 1555880
+    },
+    {
+      "name": "UnityPlayer.dll",
+      "kind": "file",
+      "size_bytes": 33511336
+    }
+  ],
+  "executable": {
+    "path": "NoSafeCircle.exe",
+    "size_bytes": 667648,
+    "sha256": "c52a78dcbe24e85319377eb294e063436122a643676c47423e723c8c541ce67a",
+    "non_empty": true
+  },
+  "data_directory": {
+    "path": "NoSafeCircle_Data",
+    "exists": true,
+    "entry_count": 14
+  },
+  "total_build_bytes": 138387335
+}
