@@ -1,0 +1,85 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Vincent 2026-09-25, both sentences: 'a highlight over the enemy when you are actually aiming at them properly' then, unprompted, 'so a mouse over'",
+      "requirement": "THE ENEMY UNDER THE CURSOR IS HIGHLIGHTED, AND THAT IS THE WHOLE SELECTION RULE. Vincent's second sentence NARROWS his first and the narrow reading governs: this is a mouse-over, NOT an aim cone, NOT a facing arc, NOT a lock-on, and NOT a function of where the wizard is pointing. At most one enemy is highlighted at a time; when the cursor is over none, none is highlighted."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Scripts/DoorInteractionFeedback.cs:77 IsHovered; PlayerMovement.PointerWorldTarget / HasPointerWorldTarget; SPELL_DECISIONS.md S4",
+      "requirement": "HOVER IS RESOLVED FROM THE SHARED PlayerMovement.PointerWorldTarget BY A FLAT HORIZONTAL DISTANCE TEST, FOLLOWING THE COMMITTED DoorInteractionFeedback PATTERN, AND THIS TASK ADDS NO COLLIDER TO ANY ENEMY. DoorInteractionFeedback already derives IsHovered from HasPointerWorldTarget plus a distance test, and SPELL_DECISIONS.md S4 established that enemies carry no colliders and are hit by a flat horizontal distance test instead - a decision three delivered spells rely on. A raycast-and-collider approach would reverse that for a cosmetic feature and does not satisfy this criterion. No new picking API, layer or tag is invented."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "NSC-114 Enemy Awareness Indicator, conformant; CLAUDE.md: art goes to the Art Director",
+      "requirement": "THIS TASK CREATES ITS OWN COMPONENT AND DOES NOT MODIFY EnemyAwarenessIndicator.cs, WHICH NSC-114 OWNS AND HAS DELIVERED. The two occupy the same enemy and must both remain readable when both are showing: an enemy that has noticed the wizard AND is under the cursor must still communicate both facts. THE VISUAL DESIGN OF THE HIGHLIGHT, AND HOW THE TWO STACK ON SCREEN, IS THE ART DIRECTOR'S PICK AND IS NOT DECIDED HERE - this criterion pins only that neither may suppress or obscure the other, which is a behavioural property a test can hold."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "CLAUDE.md: verify the dependency before relying on it; ls-files outline -> DOTweenModuleEPOOutline.cs and its meta only",
+      "requirement": "NO OUTLINE OR HIGHLIGHT THIRD-PARTY PACKAGE MAY BE ASSUMED PRESENT. The repository contains exactly two files matching 'outline' and both are DOTween's CONDITIONAL bridge to Easy Performant Outline; the EPOOutline asset itself is NOT in the repository. The highlight is built from assets and components this project already ships, or from art the Art Director delivers. A implementation that compiles only when an absent package is installed does not satisfy this criterion."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "NSC-114; NSC-030 encounter ownership; SPELL_DECISIONS.md S6",
+      "requirement": "THE HIGHLIGHT IS OBSERVATIONAL AND CHANGES NO GAMEPLAY. It does not alter targeting, damage, enemy detection, pursuit, spell behaviour or what any spell hits; it does not make the hovered enemy easier or harder to hit; and it does not decide who a spell targets, because no spell in this project targets by cursor selection. A run in which the highlight is suppressed must play identically."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "CLAUDE.md: assert the durable relation, not the value it has today; a green test can pass on a stub",
+      "requirement": "Play Mode coverage in Assets/NoSafeCircle/DoorPrototype/Tests/EnemyHoverHighlightPlayModeTests.cs proves, by MOVING THE SHARED POINTER TARGET rather than by setting a hover flag directly: that an enemy under the cursor becomes highlighted and the same enemy away from the cursor does not; that at most one enemy is highlighted with two enemies present and the cursor over one; that moving the cursor off every enemy clears the highlight; that an enemy carrying NSC-114's awareness indicator still reports that indicator's state while highlighted, which is AC-003's stacking property; and that enemy positions, health and pursuit state are identical to a run with the highlight suppressed, which is AC-005. THE COMPARISONS ARE BETWEEN MEASURED RUNS, NOT AGAINST HARD-CODED SCREEN COORDINATES."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "One bounded responsibility - resolve which enemy the cursor is over and show it - with a single measurable outcome. The visual itself is an Art Director pick and is not implementation.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-019",
+    "NSC-114"
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "Art Director Agent; CLAUDE.md: the Art Director decides visual picks, including which candidate is canonical",
+      "requirement": "THE HIGHLIGHT'S APPEARANCE AND ITS STACKING WITH NSC-114's AWARENESS INDICATOR ARE THE ART DIRECTOR'S CALL AND ARE NOT SPECIFIED HERE. This task must expose the hovered state and render SOMETHING legible; which treatment is canonical - tint, silhouette, ground marker or otherwise - is a visual pick, and Vincent is not the gate on it. If the pick requires new art, that art is the Art Director's to deliver and this task consumes it rather than authoring it."
+    }
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/EnemyHoverHighlight.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/EnemyHoverHighlight.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyHoverHighlightPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyHoverHighlightPlayModeTests.cs.meta"
+  ],
+  "execution_reason": "One agent writes one component that reads an existing shared pointer target and one Play Mode test file. No art authoring, no scene ownership, no changes to delivered enemy or spell code.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD Section 3 goals (Docs/GDD/No_Safe_Circle_GDD.md)",
+      "requirement": "The GDD names an awareness indicator, and its success criteria require that failure is readable. NSC-091 owns EnemyTargetKnowledge and the detection state; nothing on main shows that state to the player."
+    }
+  ],
+  "id": "NSC-129",
+  "kind": "implementation",
+  "notes": "Authored 2026-09-25 by the GER Agent from Vincent's own words, relayed by the Documentation Agent: 'The next thing I want is a highlight over the enemy when you are actually aiming at them properly' and then, unprompted, 'so a mouse over'. BOTH SENTENCES ARE RECORDED BECAUSE THE SECOND NARROWS THE FIRST: 'aiming at them properly' alone would have started a design argument about cones and arcs, and he settled it in four words. Losing the correction is how this gets built wrong. AUTHORED AS A SEPARATE CONTRACT FROM NSC-128, which was his other control request the same evening: that one is an input modifier over movement, this is pointer picking plus a visual whose look is an Art Director pick, and bundling them would have made an input change wait on an art decision. MEASURED BEFORE AUTHORING: DoorInteractionFeedback.cs already derives IsHovered from PlayerMovement.PointerWorldTarget plus a distance test, so the picking pattern exists and AC-002 pins it rather than inventing one; and the repository has NO outline package - the two files matching 'outline' are DOTween's conditional bridge to an asset that is not here (control: DOTween itself matches 48 files). THIS IS A FEATURE, NOT A DEFECT HE CAN SEE, so by his own standing ranking it is SECONDARY to sprint 1: authoring costs the sprint nothing and building it should not jump the queue.",
+  "parent": "NSC-010",
+  "provenance": {
+    "graph_delta_plan_id": null,
+    "origin": "ger_agent_contract_request",
+    "parent_contract_revision": null,
+    "parent_contract_sha256": null,
+    "parent_task_id": null
+  },
+  "reconciliation_key": "enemy-cursor-hover-highlight",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Highlight the Enemy Under the Cursor",
+  "type": "gameplay_feedback"
+}
