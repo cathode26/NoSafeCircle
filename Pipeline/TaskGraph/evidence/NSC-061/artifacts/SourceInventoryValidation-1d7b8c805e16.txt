@@ -1,0 +1,45 @@
+NSC-061 deterministic source inventory check (VAL-001)
+Validated commit: 1d7b8c805e165c3a0ec62689a80e1c412f234921
+Contract: Tasks/NSC-061.yaml revision 4, gates VAL-001/VAL-002
+Scope: the entire repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source directory,
+which is NSC-061's own exclusive_resources entry (both the PixelLab/ and PixelLab128/ trees
+currently live under it). This is a completeness/no-ambiguity check over everything NSC-061
+owns, not a statement of what is authorized for NSC-062 -- see the VAL-002 artifact for that.
+
+Total tracked files under Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/: 1018 (expected 1018)
+Total tracked PNGs: 448 (expected 448)
+PNGs NOT under a 'selected/' folder: 0 (expected 0)
+Sanity probe present (Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/walk/south-west/frame_000.png): True
+
+Unparsed PNG paths: 0 (expected 0)
+
+Trees found: ['PixelLab', 'PixelLab128'] (expected ['PixelLab', 'PixelLab128'])
+
+== PixelLab == combos: ['feminine-dark', 'feminine-light', 'masculine-dark', 'masculine-light']
+  feminine-dark: standing 8-dir=True (8/8), walk 8-dir=True (8/8), diagonal walk facings 4/4=True, walk frame counts={'east': 6, 'north': 6, 'north-east': 6, 'north-west': 6, 'south': 6, 'south-east': 6, 'south-west': 6, 'west': 6}
+  feminine-light: standing 8-dir=True (8/8), walk 8-dir=True (8/8), diagonal walk facings 4/4=True, walk frame counts={'east': 6, 'north': 6, 'north-east': 6, 'north-west': 6, 'south': 6, 'south-east': 6, 'south-west': 6, 'west': 6}
+  masculine-dark: standing 8-dir=True (8/8), walk 8-dir=True (8/8), diagonal walk facings 4/4=True, walk frame counts={'east': 6, 'north': 6, 'north-east': 6, 'north-west': 6, 'south': 6, 'south-east': 6, 'south-west': 6, 'west': 6}
+  masculine-light: standing 8-dir=True (8/8), walk 8-dir=True (8/8), diagonal walk facings 4/4=True, walk frame counts={'east': 6, 'north': 6, 'north-east': 6, 'north-west': 6, 'south': 6, 'south-east': 6, 'south-west': 6, 'west': 6}
+
+== PixelLab128 == combos: ['feminine-dark', 'feminine-light', 'masculine-dark', 'masculine-light']
+  feminine-dark: standing 8-dir=True (8/8), walk 8-dir=True (8/8), diagonal walk facings 4/4=True, walk frame counts={'east': 6, 'north': 6, 'north-east': 6, 'north-west': 6, 'south': 6, 'south-east': 6, 'south-west': 6, 'west': 6}
+  feminine-light: standing 8-dir=True (8/8), walk 8-dir=True (8/8), diagonal walk facings 4/4=True, walk frame counts={'east': 6, 'north': 6, 'north-east': 6, 'north-west': 6, 'south': 6, 'south-east': 6, 'south-west': 6, 'west': 6}
+  masculine-dark: standing 8-dir=True (8/8), walk 8-dir=True (8/8), diagonal walk facings 4/4=True, walk frame counts={'east': 6, 'north': 6, 'north-east': 6, 'north-west': 6, 'south': 6, 'south-east': 6, 'south-west': 6, 'west': 6}
+  masculine-light: standing 8-dir=True (8/8), walk 8-dir=True (8/8), diagonal walk facings 4/4=True, walk frame counts={'east': 6, 'north': 6, 'north-east': 6, 'north-west': 6, 'south': 6, 'south-east': 6, 'south-west': 6, 'west': 6}
+
+Duplicate/ambiguous walk-frame filenames within a direction bucket: 0 (expected 0)
+
+Per-file decode check: PixelLab/ (180px) tree, the 224 frames authorized for NSC-062
+Frames decoded and checked: 224 (expected 224)
+Frames failing (180x180 RGBA, transparent corners) check: 0 (expected 0)
+
+ALL_STRUCTURAL_CHECKS_OK = True
+
+Completeness statement for VAL-001: both trees under Source (PixelLab/ 180px and PixelLab128/
+128px) independently contain all four presentation/skin combinations (feminine-dark,
+feminine-light, masculine-dark, masculine-light), all eight PixelLab base directions in both
+the standing and walk poses, and walking frames (6 each) for all four diagonal gameplay
+facings (north-east, north-west, south-east, south-west) in every combination. No PNG under
+Source sits outside a 'selected/' folder, no walk-frame filename is duplicated or ambiguous
+within its direction, and every one of the 224 frames in the PixelLab/ (180px) tree decodes
+as a 180x180 RGBA image with fully transparent corner pixels. Result: PASS for VAL-001.
