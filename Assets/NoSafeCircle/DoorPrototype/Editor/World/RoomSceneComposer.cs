@@ -327,8 +327,20 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
         {
             foreach (var side in SharedBoundaryWallSides)
             {
-                var northPiece = FindGameplayGeometryChild(northRoomRoot, "South" + side + "Collision");
-                var southPiece = FindGameplayGeometryChild(southRoomRoot, "North" + side + "Collision");
+                // "SouthWall"/"NorthWall", not "South"/"North". Every room builder creates these
+                // through CreateOpeningWallCollision(parent, "SouthWall", ...), which appends
+                // "WestCollision"/"EastCollision" to that name - so the objects are
+                // SouthWallWestCollision and NorthWallWestCollision. This lookup was built from
+                // "South" + side + "Collision", which matches NOTHING, so FindGameplayGeometryChild
+                // always returned null and the continue below skipped every boundary.
+                //
+                // AC-004's collider half therefore removed nothing, ever, while its VISUAL half
+                // worked correctly - which is why composed boundaries look reconciled and still
+                // carry both rooms' overlapping wall colliders. A render cannot show this; only
+                // FiveRoomCompositionTests.ComposedScene_ReconcilesAllFourSharedRoomBoundaries
+                // does, and it has been reporting it.
+                var northPiece = FindGameplayGeometryChild(northRoomRoot, "SouthWall" + side + "Collision");
+                var southPiece = FindGameplayGeometryChild(southRoomRoot, "NorthWall" + side + "Collision");
                 if (northPiece == null || southPiece == null) continue;
 
                 var northCollider = northPiece.GetComponent<BoxCollider>();
