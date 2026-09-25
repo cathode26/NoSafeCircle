@@ -1,0 +1,344 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "aee652afcf64dcfabb33211d7274ef5206ace052",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/RuinedEntrySceneBuilder.cs",
+      "role": "implementation: RuinedEntry room builder that paints the authored floor and wall tilesets"
+    },
+    {
+      "blob_sha": "ad83f29168541b0e669c429f1e46f6dd07cf1136",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/BoneArchiveSceneBuilder.cs",
+      "role": "implementation: BoneArchive room builder that paints the authored floor and wall tilesets"
+    },
+    {
+      "blob_sha": "b9f6270905fbee2071c5b72e3efa84063251183b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ChapelOfAshSceneBuilder.cs",
+      "role": "implementation: ChapelOfAsh room builder that paints the authored floor and wall tilesets"
+    },
+    {
+      "blob_sha": "2d7ac576e4fcb7756060287faa4e4ef182483634",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/LowerVaultSceneBuilder.cs",
+      "role": "implementation: LowerVault room builder that paints the authored floor and wall tilesets"
+    },
+    {
+      "blob_sha": "76dbfbcf811c85b31a8f278e3e095deb2017d47e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/FinalRoomSceneBuilder.cs",
+      "role": "implementation: FinalRoom room builder that paints the authored floor and wall tilesets"
+    },
+    {
+      "blob_sha": "b381af00d5063d671f8dcdc72c068a241a09f0d0",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "role": "implementation: shared door-prototype builder supplying the tile load/create helpers"
+    },
+    {
+      "blob_sha": "c4a230567a15de85437c0a4b588bc1a943500631",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/RuinedEntrySceneTests.cs",
+      "role": "test: VAL-001 EditMode fixture RuinedEntrySceneTests"
+    },
+    {
+      "blob_sha": "825f937119f2ba323e487a23118a2034bdd1fffb",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/BoneArchiveSceneTests.cs",
+      "role": "test: VAL-001 EditMode fixture BoneArchiveSceneTests"
+    },
+    {
+      "blob_sha": "58c25ea9938eb247e4c98decdad2a89439fc1af5",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/ChapelOfAshSceneTests.cs",
+      "role": "test: VAL-001 EditMode fixture ChapelOfAshSceneTests"
+    },
+    {
+      "blob_sha": "480b482af93a39c1339f3b3a35b958dc1b913167",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/LowerVaultSceneTests.cs",
+      "role": "test: VAL-001 EditMode fixture LowerVaultSceneTests"
+    },
+    {
+      "blob_sha": "dca376924c77390458c46fa7463358c88f860d46",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/FinalRoomSceneTests.cs",
+      "role": "test: VAL-001 EditMode fixture FinalRoomSceneTests"
+    },
+    {
+      "blob_sha": "b9337c46559fbb8fa5379ddd97f639b4e5c72656",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+      "role": "test: VAL-001 EditMode fixture DoorPrototypeSceneBuilderTests"
+    },
+    {
+      "blob_sha": "7293153cebe433cd623c694b9200118fd886f15e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ArchitecturalBorderTile.asset",
+      "role": "implementation: generated architectural Tile asset bound to its committed source sprite"
+    },
+    {
+      "blob_sha": "8e543af816b2fe18b2be8cc6b6b76f911f0ca723",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ArchitecturalBorderTile.asset.meta",
+      "role": "implementation: Unity import metadata for the generated architectural Tile asset"
+    },
+    {
+      "blob_sha": "af6656ec261902a65d7712ddef441b332c9f9ba0",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/BoneArchiveFloorTile.asset",
+      "role": "implementation: generated architectural Tile asset bound to its committed source sprite"
+    },
+    {
+      "blob_sha": "02244d1eb292e5ec422b08e06b8fe6c20ef1534b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/BoneArchiveFloorTile.asset.meta",
+      "role": "implementation: Unity import metadata for the generated architectural Tile asset"
+    },
+    {
+      "blob_sha": "520c3f69a672daef94ff6f1e535e7748a9b7d200",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ChapelOfAshCutawayWallTile.asset",
+      "role": "implementation: generated architectural Tile asset bound to its committed source sprite"
+    },
+    {
+      "blob_sha": "21266bb07e64cb7d0b8cc705e8d34ee5c78f051b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ChapelOfAshCutawayWallTile.asset.meta",
+      "role": "implementation: Unity import metadata for the generated architectural Tile asset"
+    },
+    {
+      "blob_sha": "7f2f8a2309f064d9fce3eaaa7a058b44c6ac7f62",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ChapelOfAshFarWallTile.asset",
+      "role": "implementation: generated architectural Tile asset bound to its committed source sprite"
+    },
+    {
+      "blob_sha": "c6a1a2175ec6cb8e3354d0fe9b046f722bcdda66",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ChapelOfAshFarWallTile.asset.meta",
+      "role": "implementation: Unity import metadata for the generated architectural Tile asset"
+    },
+    {
+      "blob_sha": "0b50232a8581b289b65c019e9a1c948bcdbabc30",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ChapelOfAshFloorTile.asset",
+      "role": "implementation: generated architectural Tile asset bound to its committed source sprite"
+    },
+    {
+      "blob_sha": "ad3f2224c6980a1bd77340de9b7b57e3ac854fdf",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/ChapelOfAshFloorTile.asset.meta",
+      "role": "implementation: Unity import metadata for the generated architectural Tile asset"
+    },
+    {
+      "blob_sha": "de6a17b91dd631dcd31ed79ee7624a739bc62c30",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/DoorSprite.asset",
+      "role": "implementation: generated architectural Tile asset bound to its committed source sprite"
+    },
+    {
+      "blob_sha": "e29601f78b336e4e3540e9d485db8ad8fe1798f1",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/DoorSprite.asset.meta",
+      "role": "implementation: Unity import metadata for the generated architectural Tile asset"
+    },
+    {
+      "blob_sha": "0d416a78e5b58cc04b5c6dbc84d926d85014ecc9",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/FinalRoomFloorTile.asset",
+      "role": "implementation: generated architectural Tile asset bound to its committed source sprite"
+    },
+    {
+      "blob_sha": "40e6240370f596d1cf37add324706c0d6a8700cd",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/FinalRoomFloorTile.asset.meta",
+      "role": "implementation: Unity import metadata for the generated architectural Tile asset"
+    },
+    {
+      "blob_sha": "3da646498601535ddfec3e9573e7d299011a6e84",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/FloorTile.asset",
+      "role": "implementation: generated architectural Tile asset bound to its committed source sprite"
+    },
+    {
+      "blob_sha": "5fc68936face63aae721eaac733f8fb449d8c88e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/FloorTile.asset.meta",
+      "role": "implementation: Unity import metadata for the generated architectural Tile asset"
+    },
+    {
+      "blob_sha": "f9605c8a38a85bb0c7eb07f53ba40aa9dae2c4be",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/LanternWraithSprite.asset",
+      "role": "implementation: generated architectural Tile asset bound to its committed source sprite"
+    },
+    {
+      "blob_sha": "52eb0110cddead7729ee5a8556bf17faa8f740fa",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/LanternWraithSprite.asset.meta",
+      "role": "implementation: Unity import metadata for the generated architectural Tile asset"
+    },
+    {
+      "blob_sha": "2064d8096c3b8e2cb0ee364e137e3a2597e15522",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/LowerVaultBlockoutProxySprite.asset",
+      "role": "implementation: generated architectural Tile asset bound to its committed source sprite"
+    },
+    {
+      "blob_sha": "ec928ef80238e91f1695359c3b59e22ff3447ddd",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/LowerVaultBlockoutProxySprite.asset.meta",
+      "role": "implementation: Unity import metadata for the generated architectural Tile asset"
+    },
+    {
+      "blob_sha": "8b687884be8b1c11985e826271e1d896a285d2ca",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/LowerVaultFloorTile.asset",
+      "role": "implementation: generated architectural Tile asset bound to its committed source sprite"
+    },
+    {
+      "blob_sha": "9d203af7c87d0dbd9068d04ad8136679c225d757",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/LowerVaultFloorTile.asset.meta",
+      "role": "implementation: Unity import metadata for the generated architectural Tile asset"
+    },
+    {
+      "blob_sha": "67c7b4b3e109a412e12e4adaeadcfa754c9a1100",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/LowerVaultNearWallStubTile.asset",
+      "role": "implementation: generated architectural Tile asset bound to its committed source sprite"
+    },
+    {
+      "blob_sha": "3cd48082c1bd4479f1ab3c49bd0c21302f141253",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/LowerVaultNearWallStubTile.asset.meta",
+      "role": "implementation: Unity import metadata for the generated architectural Tile asset"
+    },
+    {
+      "blob_sha": "db6da5620bd6ad6f38f72cbea693df0cccd0269d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/MeleeEnemySprite.asset",
+      "role": "implementation: generated architectural Tile asset bound to its committed source sprite"
+    },
+    {
+      "blob_sha": "d5fb499d6400d32f3a4066d136e1a1d225abfcba",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/MeleeEnemySprite.asset.meta",
+      "role": "implementation: Unity import metadata for the generated architectural Tile asset"
+    },
+    {
+      "blob_sha": "a484f2123fcae9df7efc04b6112171f3d40a974c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/RuinedEntryFloorTile.asset",
+      "role": "implementation: generated architectural Tile asset bound to its committed source sprite"
+    },
+    {
+      "blob_sha": "fe1e496a0b57cb2e2e6ffdbd4d7b9ff8432ebd60",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/RuinedEntryFloorTile.asset.meta",
+      "role": "implementation: Unity import metadata for the generated architectural Tile asset"
+    },
+    {
+      "blob_sha": "b27976ce27690ff167d58ffe665de0b03ea83901",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/RuinedEntryLowWallTile.asset",
+      "role": "implementation: generated architectural Tile asset bound to its committed source sprite"
+    },
+    {
+      "blob_sha": "67a726e4e8719621b1443c5ce8660abb20415320",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/RuinedEntryLowWallTile.asset.meta",
+      "role": "implementation: Unity import metadata for the generated architectural Tile asset"
+    },
+    {
+      "blob_sha": "0410273290c76ec3dcdbf6e23b12858c2a994533",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WallTile.asset",
+      "role": "implementation: generated architectural Tile asset bound to its committed source sprite"
+    },
+    {
+      "blob_sha": "65ead0649659abf282a97ef04771cb7f17fb194c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WallTile.asset.meta",
+      "role": "implementation: Unity import metadata for the generated architectural Tile asset"
+    },
+    {
+      "blob_sha": "94d665f61b297bf8c62d522902a7b204a523a607",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WizardSprite.asset",
+      "role": "implementation: generated architectural Tile asset bound to its committed source sprite"
+    },
+    {
+      "blob_sha": "2e321a4a332b27ff3a574abb264dbb7b9e239792",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WizardSprite.asset.meta",
+      "role": "implementation: Unity import metadata for the generated architectural Tile asset"
+    },
+    {
+      "blob_sha": "4a09db85977855b200bf4d4f0037cabc04c465ea",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WorldSprites.meta",
+      "role": "implementation"
+    },
+    {
+      "blob_sha": "ce31e51a9a9077e719ab34a677378e9296878ea9",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WorldSprites/WorldSpriteVisual.prefab",
+      "role": "implementation"
+    },
+    {
+      "blob_sha": "7849d49b8da29639bdcc16333137e22d73e51cbe",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WorldSprites/WorldSpriteVisual.prefab.meta",
+      "role": "implementation"
+    },
+    {
+      "blob_sha": "feb48e622f2daa784d22be9dd2af1db0d468765b",
+      "path": "Assets/Scenes/Rooms/RuinedEntry.unity",
+      "role": "implementation: committed RuinedEntry room scene carrying the painted tilemaps"
+    },
+    {
+      "blob_sha": "82733d334610b7e5bce2715ad3d7e587f06739f9",
+      "path": "Assets/Scenes/Rooms/BoneArchive.unity",
+      "role": "implementation: committed BoneArchive room scene carrying the painted tilemaps"
+    },
+    {
+      "blob_sha": "a8b534bfd8bf0f0e786067d73e9d60011bb578bd",
+      "path": "Assets/Scenes/Rooms/ChapelOfAsh.unity",
+      "role": "implementation: committed ChapelOfAsh room scene carrying the painted tilemaps"
+    },
+    {
+      "blob_sha": "eea85b4113ae6ab8edc2595aab1bda276fcb492c",
+      "path": "Assets/Scenes/Rooms/LowerVault.unity",
+      "role": "implementation: committed LowerVault room scene carrying the painted tilemaps"
+    },
+    {
+      "blob_sha": "6c3543a81c7e8f70f2b635b7826744e777dd4a6f",
+      "path": "Assets/Scenes/Rooms/FinalRoom.unity",
+      "role": "implementation: committed FinalRoom room scene carrying the painted tilemaps"
+    }
+  ],
+  "delivery": {
+    "base_commit": "9a86882e082ad7419cfca4fb39a5abc6c2c317bd",
+    "candidate_commit": "b44a34ce481eb9b05464ea7c13d08249234536bd",
+    "integrated_commit": "b44a34ce481eb9b05464ea7c13d08249234536bd",
+    "integrated_tree": "48068dc834af1de30d9d61cb036cb6f5d1b5db02"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "7a35a6147cf28def0c9f40bce115414d7f17dc89",
+          "path": "Pipeline/TaskGraph/evidence/NSC-109/artifacts/NSC-109-EditMode-Results.xml-b44a34ce481e.xml"
+        },
+        {
+          "blob_sha": "0519b2147b0d8887b97f6e92c58e4bb7eb2adbbc",
+          "path": "Pipeline/TaskGraph/evidence/NSC-109/artifacts/NSC-109-EditMode-Unity.log-b44a34ce481e.log"
+        },
+        {
+          "blob_sha": "6c3472abeb15cbc04f075891c94c9ff111d85ad6",
+          "path": "Pipeline/TaskGraph/evidence/NSC-109/artifacts/NSC-109-EditMode-validation-manifest.json-b44a34ce481e.json"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "EditMode run at the validated commit b44a34ce481eb9b05464ea7c13d08249234536bd: total 304, passed 292, failed 0, skipped 12. The runner reports Git tree == post-run tree 48068dc834af1de30d9d61cb036cb6f5d1b5db02, so the repository was not mutated by the run, and the XML contains zero test-cases with result=Failed. All six fixtures this gate names ran and none failed: RuinedEntrySceneTests 17 total / 16 passed / 0 failed / 1 ignored; BoneArchiveSceneTests 5/5/0/0; ChapelOfAshSceneTests 21/21/0/0; LowerVaultSceneTests 22/21/0/1; FinalRoomSceneTests 11/11/0/0; DoorPrototypeSceneBuilderTests 58/58/0/0. The gate's sprite-binding requirement - which explicitly rejects an assertion that merely counts cells or checks a name - is met by two assertions that bind the committed asset. FLOOR: ChapelOfAshSceneTests.Builder_PaintsFloorTilemapExactlyInsideWallInteriorFaces asserts AssetDatabase.GetAssetPath(floorTile.sprite) equals Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_ChapelOfAsh.png. WALL: ChapelOfAshSceneTests.WallTiles_ResolveToCommittedSourceSpritesWithNoCollider loads the committed Art/Environment/Source/walls/wall_straight.png and wall_broken_stub.png sprites via AssetDatabase.LoadAssetAtPath, asserts both are non-null, then asserts Assert.AreSame object identity against farWallTile.sprite and cutawayWallTile.sprite - reference identity with the committed asset, which is stronger than a path string. The two ignored cases in these fixtures are RuinedEntrySceneTests.CaptureGameplayCameraReview and LowerVaultSceneTests.CaptureGameplayCameraReview, screenshot-capture helpers carrying [Ignore]; neither is an assertion of this gate.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "7a35a6147cf28def0c9f40bce115414d7f17dc89",
+          "path": "Pipeline/TaskGraph/evidence/NSC-109/artifacts/NSC-109-EditMode-Results.xml-b44a34ce481e.xml"
+        },
+        {
+          "blob_sha": "0519b2147b0d8887b97f6e92c58e4bb7eb2adbbc",
+          "path": "Pipeline/TaskGraph/evidence/NSC-109/artifacts/NSC-109-EditMode-Unity.log-b44a34ce481e.log"
+        },
+        {
+          "blob_sha": "6c3472abeb15cbc04f075891c94c9ff111d85ad6",
+          "path": "Pipeline/TaskGraph/evidence/NSC-109/artifacts/NSC-109-EditMode-validation-manifest.json-b44a34ce481e.json"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "Regression gate: it asserts NSC-045's delivered contract still holds after the tileset swap and does not restate NSC-045's numbers as a fresh claim. The same EditMode run at b44a34ce481eb9b05464ea7c13d08249234536bd carries the committed-scene checks and none failed. 0.5-world-unit sprite-extent-versus-BoxCollider agreement: ChapelOfAshSceneTests.CommittedScene_HasApprovedDoorsAisleLandingStagingAndCoverColliders asserts Mathf.Min(wall.bounds.size.x, wall.bounds.size.z) == 0.5 within 0.001 over the committed wall colliders, and FinalRoomSceneTests asserts wallTile.sprite.bounds.size.y * 0.2 == 0.5 within 0.05, tying the swapped sprite's extent to the same 0.5 world unit. Per-cell transform matrices: FinalRoomSceneTests.CommittedScene_CentralObstacleCarriesTheApprovedTint asserts tilemap.GetTransformMatrix(position) equals Matrix4x4.Scale(1, 0.2, 1) for low-wall cells and Matrix4x4.identity otherwise, per cell. BoneArchiveSceneTests.CommittedScene_ValidatesForComposition asserts the committed BoxCollider bounds equal their expected values. NOT PROVEN by this gate: nothing here re-derives NSC-045's original numbers; it establishes only that the assertions encoding them still pass at this commit.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "NSC-109 has two completion gates, VAL-001 and VAL-002, and both are automated EditMode gates; the contract contains no human gate, so no human approval is claimed. This follows the shape of NSC-050's record, which states the same thing for two automated PlayMode gates. Recorded by the Game Agent (Integration Steward) on 2026-09-25 at commit b44a34ce481eb9b05464ea7c13d08249234536bd, the tip of the wizard-scale merge where Unity actually ran. The implementation reached main on 2026-09-24 via merge ef2170cdd; base_commit 9a86882e082ad7419cfca4fb39a5abc6c2c317bd is the single merge-base of that merge's two parents, confirmed with git merge-base --all. This record is evidence debt being paid on already-merged work, not a claim that the work landed today. EXPLICITLY NOT CLAIMED, because it would be misleading by omission: Vincent has NOT signed off the appearance of these floor tiles. On 2026-09-25 at 10:12Z he ruled the opposite - that the violet stone palette is WRONG and is to be regraded, floors first - while choosing to ship now and regrade separately. The Art Director owns that regrade. VAL-001 and VAL-002 are binding and geometry gates and are unaffected by palette; they do not assert that the art looks right.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-109-b44a34ce481e",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-25T10:41:40Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-109.yaml",
+    "revision": 3,
+    "sha256": "c0c922b1573b9ad1d3c390fcc0f82c2e7f32ae4347c0070eeeffb4ba047ac23b"
+  },
+  "task_id": "NSC-109",
+  "validated_state": {
+    "commit": "b44a34ce481eb9b05464ea7c13d08249234536bd",
+    "tree": "48068dc834af1de30d9d61cb036cb6f5d1b5db02"
+  }
+}

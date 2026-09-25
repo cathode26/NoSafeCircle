@@ -21,7 +21,7 @@ Sprite:
   m_IsPolygon: 0
   m_PackingTag: 
   m_RenderDataKey:
-    00000000000000000000000000000000: 0
+    ef41a67a8bf6c9448b0f1e0732b60b4b: -4832537072075220255
   m_AtlasTags: []
   m_SpriteAtlas: {fileID: 0}
   m_RD:
@@ -222,7 +222,7 @@ MonoBehaviour:
   m_Script: {fileID: 13312, guid: 0000000000000000e000000000000000, type: 0}
   m_Name: FloorTile
   m_EditorClassIdentifier: 
-  m_Sprite: {fileID: -4832537072075220255}
+  m_Sprite: {fileID: 21300000, guid: a56398373e5849c6a2028bf913354170, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_Transform:
     e00: 1
