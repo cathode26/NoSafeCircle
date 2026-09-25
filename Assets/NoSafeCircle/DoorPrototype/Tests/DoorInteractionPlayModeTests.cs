@@ -837,7 +837,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
         private const int MaxDriveFrames = 1200;
 
-        private const int MaxOpenFrames = 4000;
+        // Backstop only: the door timer is bounded by the door own clock, not by frames.
+        private const int MaxDoorTimerFrames = 60000;
 
         private const int TriggerSettleFixedSteps = 3;
 
@@ -1266,16 +1267,35 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 door.DoorId + " must accept a ground-click approach at its own SelectionPoint; "
                 + "that is the production path this gate opens the door through.");
 
-            // BOUND BY FRAMES, NOT BY A CLOCK. The wizard walks on the fixed simulation step this
-            // fixture supplies, while the door timer runs on Time.deltaTime from its own Update -
-            // two different clocks. An earlier version bounded this loop by accumulated
-            // Time.deltaTime against Duration, which expired while the wizard was still walking
-            // and reported "the door did not open" for a journey that had not finished.
-            int frames = 0;
-            for (; frames < MaxOpenFrames && !door.IsOpen; frames++)
+            // TWO PHASES ON TWO DIFFERENT CLOCKS, AND A SINGLE LOOP IS WRONG FOR ONE OF THEM.
+            // The wizard walks on the fixed simulation step this fixture supplies, so the approach
+            // is bounded by FRAMES. The opening timer runs on Time.deltaTime inside
+            // DoorInteractable.Update, so it is bounded by the door's OWN clock. Both mistakes
+            // have been made here: bounding the whole wait by accumulated Time.deltaTime spent the
+            // timer budget while the wizard was still walking, and bounding it all by frames ran
+            // 4000 frames and reached only progress 0.629 of D1's 5 second duration, because
+            // batchmode frames are sub-millisecond.
+
+            // PHASE 1 - the approach.
+            int approachFrames = 0;
+            for (; approachFrames < MaxDriveFrames && movement.HasActiveDestination; approachFrames++)
             {
                 movement.Tick(SimulationStepSeconds);
                 yield return null;
+            }
+
+            // PHASE 2 - the opening timer, at the door's real production speed. The frame cap is
+            // only a backstop against a zero delta time; the door clock is the real bound.
+            float doorClockSeconds = 0f;
+            int timerFrames = 0;
+            while (!door.IsOpen
+                   && doorClockSeconds < door.Duration + 2f
+                   && timerFrames < MaxDoorTimerFrames)
+            {
+                movement.Tick(SimulationStepSeconds);
+                yield return null;
+                doorClockSeconds += Time.deltaTime;
+                timerFrames++;
             }
 
             // Asserted HERE rather than only in the caller so a failure names which half of the
@@ -1288,7 +1308,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             Assert.IsTrue(door.IsOpen,
                 door.DoorId + " must open through the production approach-and-timer path. After "
-                + frames + " frames: progress=" + door.Progress.ToString("F3")
+                + approachFrames + " approach frames and " + timerFrames + " timer frames ("
+                + doorClockSeconds.ToString("F3") + "s of door clock): progress="
+                + door.Progress.ToString("F3")
                 + " duration=" + door.Duration.ToString("F3")
                 + " doorInteracting=" + door.IsInteracting
                 + " playerInRange=" + door.IsPlayerInRange
