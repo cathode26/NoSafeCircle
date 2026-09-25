@@ -1,0 +1,91 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Sprint 1 levels-and-art done-condition line 4; NSC-064 delivered art",
+      "requirement": "The five room builders and Editor/DoorPrototypeSceneBuilder.cs source their floor and wall Tile sprites from the eleven committed assets under Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source - floors/floor_RuinedEntry.png, floor_BoneArchive.png, floor_ChapelOfAsh.png, floor_LowerVault.png, floor_FinalRoom.png and walls/wall_straight.png, wall_corner.png, wall_end_cap.png, wall_door_jamb.png, wall_pilaster.png, wall_broken_stub.png - instead of generating the embedded procedural sprites they use today. Each room's floor Tile uses that room's own floor sprite. MEASURED ON MAIN 2026-09-24: all eleven currently have ZERO references, by GUID, excluding each asset's own .meta file; the sprites are delivered by NSC-064 and applied by nothing."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Generated Tile assets under DoorPrototype/Generated/ArchitecturalTiles",
+      "requirement": "The Tile assets under Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles are regenerated from those sprites by the builders rather than hand-edited, and every Tile a builder paints resolves to one of the eleven committed sprites. This task owns that directory rather than enumerating its files, because the builders generate assets that cannot all be named in advance."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "NSC-045 VAL-002 (delivered); NSC-046 AC-003; NSC-042 AC-003",
+      "requirement": "THE DELIVERED GEOMETRY PINS MUST STILL HOLD AFTER THE SWAP, AND THIS IS THE CRITERION MOST LIKELY TO FAIL. NSC-045 VAL-002 is delivered and requires that each production wall run's painted sprite extent matches its gameplay wall BoxCollider extent within 0.5 world units, that Tilemap.GetTransformMatrix returns Matrix4x4.identity for every north and west cell and Matrix4x4.Scale(1, 0.2, 1) for every south and east cell, that the exact AC-005 cell sets are painted with no extra cell, and that the same WallTile reference is used in every wall cell. PAINTED EXTENT IS A FUNCTION OF EACH SPRITE'S PIVOT AND PIXELS-PER-UNIT, so swapping the source sprites can move it. The authored sprites' import settings must be chosen so those tolerances still hold; if they cannot, STOP and raise it rather than relaxing the delivered gate, because a change that breaks VAL-002 un-delivers NSC-045. NSC-046 AC-003 and NSC-042 AC-003 pin Grid configuration - cellSize (1, 0.5, 1), Rectangle cellLayout, exactly five Tilemaps, one unique asset per cell - which a sprite swap does not alter, and none of the three pins a floor cell COUNT."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "CLAUDE.md, Art goes to the Art Director",
+      "requirement": "This task applies existing committed art and AUTHORS NO NEW ART. It does not generate, repair, re-cut or re-import sprites, and it does not change the eleven source PNGs or their own .meta import settings, which belong to NSC-064 and to the Art Director. If the sprites prove unusable as Tile sources - wrong pivot, wrong PPU, wrong slicing - that is an Art Director question and a blocker to raise, not something to fix inside this task."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Edit Mode room scene tests",
+      "requirement": "The five room SceneTests fixtures - RuinedEntrySceneTests, BoneArchiveSceneTests, ChapelOfAshSceneTests, LowerVaultSceneTests, FinalRoomSceneTests - and DoorPrototypeSceneBuilderTests pass in Edit Mode, and at least one of them asserts that a painted floor Tile and a painted wall Tile resolve to sprites under Art/Environment/Source rather than to a procedurally generated texture. An assertion that merely counts cells or checks a name does not satisfy this gate: it must bind the committed sprite asset."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "NSC-045 VAL-002 regression",
+      "requirement": "NSC-045's committed-scene wall checks still pass unchanged after the swap, specifically the 0.5-world-unit sprite-extent-versus-BoxCollider agreement and the per-cell transform matrices. This gate asserts the delivered contract still holds; it does not restate its numbers as a fresh claim."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "One bounded responsibility with a measurable outcome; no sub-behaviour needs independent scheduling.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-064"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/RuinedEntrySceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/BoneArchiveSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ChapelOfAshSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/LowerVaultSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/FinalRoomSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/RuinedEntrySceneTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/BoneArchiveSceneTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/ChapelOfAshSceneTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/LowerVaultSceneTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/FinalRoomSceneTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles"
+  ],
+  "execution_reason": "One agent rebinds six builders to an already-committed sprite family and regenerates the Tile assets they produce. The work is a single coherent substitution across files that must change together, and splitting it would leave rooms painted from two different sources.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD Overview, door and pursuit rules (Docs/GDD/No_Safe_Circle_GDD.md:25)",
+      "requirement": "\"Locked doors provide recovery time, not permanent safety.\" A closed door whose jambs pass rays and projectiles grants no recovery at all, so the recovery the GDD promises is fake while this defect stands."
+    },
+    {
+      "reference": "GDD Core Loop (Docs/GDD/No_Safe_Circle_GDD.md:50)",
+      "requirement": "The player must \"cross through\" each door, which requires an opening the wizard fits through - the basis for AC-003."
+    }
+  ],
+  "id": "NSC-109",
+  "kind": "implementation",
+  "notes": "Authored 2026-09-24 from the Viewer Agent's intent (C:/NSC/agent-state/intent-NSC-109-apply-authored-tilesets-to-rooms.md), itself from the Producer Agent's sprint-1-levels-art.md proposal. VERIFIED BEFORE AUTHORING RATHER THAN RELAYED. The eleven sprites exist and are unreferenced: measured by resolving each .meta GUID and grepping the tree, excluding each asset's own .meta, with the grep mechanism proved against GUIDs that really do appear inside RuinedEntry.unity. NOTE FOR ANYONE RE-CHECKING: the assets are NOT named 'tileset' - a name-based search returns zero and that is a FALSE ABSENCE; they are floors/floor_<Room>.png and walls/wall_<shape>.png. NSC-064 is conformant (DEL-NSC-064-7f7a8efbb78f) so the dependency is satisfiable, and it owns Art/Environment/Source, which is why this task does not claim those PNGs. THE PRODUCER'S NSC-105 CITATION IS WRONG AND IS NOT CARRIED HERE: NSC-105 is 'Floor Identity Above the Room Catalog', a cancelled SpaceId/multi-floor composition task, unrelated to tileset art; this is a genuinely new task and supersedes nothing. NOT ESTABLISHED: Unity was not opened, so whether the eleven import as Sprites with usable pivots and PPU is unverified - AC-003 and AC-004 exist because that unknown is exactly what could break NSC-045's delivered extent tolerance.",
+  "parent": "NSC-022",
+  "provenance": {
+    "graph_delta_plan_id": null,
+    "origin": "ger_agent_contract_request",
+    "parent_contract_revision": null,
+    "parent_contract_sha256": null,
+    "parent_task_id": null
+  },
+  "reconciliation_key": "apply-authored-architectural-tilesets-to-room-builders",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Apply the Authored Architectural Tilesets to the Five Room Builders",
+  "type": "world-foundation"
+}

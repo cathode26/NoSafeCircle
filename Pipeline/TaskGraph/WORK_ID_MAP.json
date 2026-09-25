@@ -106,7 +106,9 @@
     "world": "NSC-022",
     "world-sprite-prefab-sorting": "NSC-039",
     "world-sprite-sorting-layer-adoption": "NSC-100",
-    "world-visual-foundation": "NSC-026"
+    "world-visual-foundation": "NSC-026",
+    "apply-authored-architectural-tilesets-to-room-builders": "NSC-109",
+    "player-traversal-proof-composed-five-room-floor": "NSC-110"
   },
   "reconciliation_run_id": "20260821T193541Z-998ee7b5",
   "schema_version": "1.0",

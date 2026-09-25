@@ -1,0 +1,70 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Sprint 1 levels-and-art done-condition line 6; NSC-049 AC-003 spawn point",
+      "requirement": "A Play Mode fixture at Assets/NoSafeCircle/DoorPrototype/Tests/FiveRoomTraversalPlayModeTests.cs drives the player from the Ruined Entry spawn point that NSC-049 AC-003 places, through D1, D2, D3, D4 and D5 in order, into the Final Room, and fails if any of the five rooms cannot be reached. Reaching a room is asserted from the player's own resulting world position against that room's committed RoomBounds, not from a door event alone, because a door that opens without the player crossing is not traversal."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "PlayerMovement.MoveToCursor; Vincent's 2026-09-23 Play session",
+      "requirement": "MOVEMENT IS DRIVEN THROUGH THE PRODUCTION LEFT-CLICK-TO-MOVE PATH (MoveToCursor), NEVER THROUGH SIMULATED WASD. WASD is bound in the input asset but no code reads it, so a test written against WASD would fail for a reason that has nothing to do with traversal and would be reported as a traversal defect. On 2026-09-23 Vincent hit Play and could not move the wizard; that may have been the control scheme rather than a defect, and this criterion exists so this test cannot repeat that confusion."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Coverage-gap scope",
+      "requirement": "This task adds the missing proof and does not fix what it finds. If the test fails because traversal is genuinely broken, that is a defect to report with the failing evidence, and the fix belongs to whoever owns the failing system - it is not in scope here. A test weakened, skipped or scoped down to make it pass does not satisfy this criterion."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Play Mode run",
+      "requirement": "FiveRoomTraversalPlayModeTests runs in Play Mode against the composed floor and its result is recorded, pass or fail. A failing run still satisfies this gate PROVIDED the failure is reported with its evidence: the point of this task is that the answer becomes known and measured, not that it is favourable."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "One bounded responsibility with a measurable outcome; no sub-behaviour needs independent scheduling.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-049"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FiveRoomTraversalPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FiveRoomTraversalPlayModeTests.cs.meta"
+  ],
+  "execution_reason": "A single Play Mode fixture with no production change. IT CANNOT BE A CREW AND THAT IS STRUCTURAL, NOT A PREFERENCE: this task owns only a test file, an execution scope plan requires at least one implementation path, so no scope plan can exist for it. It is single_agent work for whoever runs Unity.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD Overview, door and pursuit rules (Docs/GDD/No_Safe_Circle_GDD.md:25)",
+      "requirement": "\"Locked doors provide recovery time, not permanent safety.\" A closed door whose jambs pass rays and projectiles grants no recovery at all, so the recovery the GDD promises is fake while this defect stands."
+    },
+    {
+      "reference": "GDD Core Loop (Docs/GDD/No_Safe_Circle_GDD.md:50)",
+      "requirement": "The player must \"cross through\" each door, which requires an opening the wizard fits through - the basis for AC-003."
+    }
+  ],
+  "id": "NSC-110",
+  "kind": "implementation",
+  "notes": "Authored 2026-09-24 from the Viewer Agent's intent (C:/NSC/agent-state/intent-NSC-110-player-traversal-proof-composed-floor.md). depends_on NSC-049 because that task places the spawn point this test starts from; NSC-049 is not_delivered at authoring time and its own last gate is NSC-020, so this task cannot be completed before NSC-049 is. NOT ESTABLISHED: the game was not run, so whether traversal actually works today is unmeasured - this contract closes a COVERAGE gap and makes no claim about whether that gap hides a defect. THE TEST-ONLY SHAPE IS DELIBERATE AND ITS CONSEQUENCE IS RECORDED IN execution_reason: do not dispatch this as a crew and then report the refusal as a defect.",
+  "parent": "NSC-018",
+  "provenance": {
+    "graph_delta_plan_id": null,
+    "origin": "ger_agent_contract_request",
+    "parent_contract_revision": null,
+    "parent_contract_sha256": null,
+    "parent_task_id": null
+  },
+  "reconciliation_key": "player-traversal-proof-composed-five-room-floor",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Play Mode Proof That the Player Can Traverse the Composed Five-Room Floor",
+  "type": "gameplay_system"
+}

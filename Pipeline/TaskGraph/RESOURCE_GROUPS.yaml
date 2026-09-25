@@ -103,7 +103,8 @@
         "navmesh-agent-configuration-foundation",
         "spectral-decoy-spell",
         "doorway-opening-seal-and-door-art-binding",
-        "world-sprite-sorting-layer-adoption"
+        "world-sprite-sorting-layer-adoption",
+        "apply-authored-architectural-tilesets-to-room-builders"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
       "work_ids": [
@@ -134,7 +135,8 @@
         "NSC-089",
         "NSC-088",
         "NSC-097",
-        "NSC-100"
+        "NSC-100",
+        "NSC-109"
       ]
     },
     {
@@ -232,12 +234,14 @@
     {
       "reconciliation_keys": [
         "ruined-entry-blockout",
-        "world-sprite-sorting-layer-adoption"
+        "world-sprite-sorting-layer-adoption",
+        "apply-authored-architectural-tilesets-to-room-builders"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/RuinedEntrySceneBuilder.cs",
       "work_ids": [
         "NSC-044",
-        "NSC-100"
+        "NSC-100",
+        "NSC-109"
       ]
     },
     {
@@ -251,11 +255,13 @@
     },
     {
       "reconciliation_keys": [
-        "ruined-entry-blockout"
+        "ruined-entry-blockout",
+        "apply-authored-architectural-tilesets-to-room-builders"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/RuinedEntrySceneTests.cs",
       "work_ids": [
-        "NSC-044"
+        "NSC-044",
+        "NSC-109"
       ]
     },
     {
@@ -269,11 +275,13 @@
     },
     {
       "reconciliation_keys": [
-        "bone-archive-blockout"
+        "bone-archive-blockout",
+        "apply-authored-architectural-tilesets-to-room-builders"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/BoneArchiveSceneBuilder.cs",
       "work_ids": [
-        "NSC-045"
+        "NSC-045",
+        "NSC-109"
       ]
     },
     {
@@ -287,11 +295,13 @@
     },
     {
       "reconciliation_keys": [
-        "bone-archive-blockout"
+        "bone-archive-blockout",
+        "apply-authored-architectural-tilesets-to-room-builders"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/BoneArchiveSceneTests.cs",
       "work_ids": [
-        "NSC-045"
+        "NSC-045",
+        "NSC-109"
       ]
     },
     {
@@ -314,11 +324,13 @@
     },
     {
       "reconciliation_keys": [
-        "chapel-of-ash-blockout"
+        "chapel-of-ash-blockout",
+        "apply-authored-architectural-tilesets-to-room-builders"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ChapelOfAshSceneBuilder.cs",
       "work_ids": [
-        "NSC-046"
+        "NSC-046",
+        "NSC-109"
       ]
     },
     {
@@ -332,11 +344,13 @@
     },
     {
       "reconciliation_keys": [
-        "chapel-of-ash-blockout"
+        "chapel-of-ash-blockout",
+        "apply-authored-architectural-tilesets-to-room-builders"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/ChapelOfAshSceneTests.cs",
       "work_ids": [
-        "NSC-046"
+        "NSC-046",
+        "NSC-109"
       ]
     },
     {
@@ -359,11 +373,13 @@
     },
     {
       "reconciliation_keys": [
-        "lower-vault-blockout"
+        "lower-vault-blockout",
+        "apply-authored-architectural-tilesets-to-room-builders"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/LowerVaultSceneBuilder.cs",
       "work_ids": [
-        "NSC-047"
+        "NSC-047",
+        "NSC-109"
       ]
     },
     {
@@ -377,11 +393,13 @@
     },
     {
       "reconciliation_keys": [
-        "lower-vault-blockout"
+        "lower-vault-blockout",
+        "apply-authored-architectural-tilesets-to-room-builders"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/LowerVaultSceneTests.cs",
       "work_ids": [
-        "NSC-047"
+        "NSC-047",
+        "NSC-109"
       ]
     },
     {
@@ -395,11 +413,13 @@
     },
     {
       "reconciliation_keys": [
-        "final-room-blockout"
+        "final-room-blockout",
+        "apply-authored-architectural-tilesets-to-room-builders"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/FinalRoomSceneBuilder.cs",
       "work_ids": [
-        "NSC-048"
+        "NSC-048",
+        "NSC-109"
       ]
     },
     {
@@ -414,12 +434,14 @@
     {
       "reconciliation_keys": [
         "final-room-blockout",
-        "NSC-105"
+        "NSC-105",
+        "apply-authored-architectural-tilesets-to-room-builders"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/FinalRoomSceneTests.cs",
       "work_ids": [
         "NSC-048",
-        "NSC-105"
+        "NSC-105",
+        "NSC-109"
       ]
     },
     {
@@ -975,7 +997,8 @@
         "seamless-scalable-wall-tiling",
         "door-breach-feedback",
         "world-sprite-sorting-layer-adoption",
-        "doorway-opening-seal-and-door-art-binding"
+        "doorway-opening-seal-and-door-art-binding",
+        "apply-authored-architectural-tilesets-to-room-builders"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
       "work_ids": [
@@ -984,7 +1007,8 @@
         "NSC-042",
         "NSC-052",
         "NSC-100",
-        "NSC-097"
+        "NSC-097",
+        "NSC-109"
       ]
     },
     {
