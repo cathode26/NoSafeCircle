@@ -1,0 +1,329 @@
+{
+  "author_corrections_used": 0,
+  "authority": "review_only_not_applied",
+  "calls_used": 2,
+  "context_sha256": "45670eff56dc816e7654216225c8dfcf01f15794e435b3dc6c731ac21585efe1",
+  "d1a_semantic_parent_identity": {
+    "contract_revision": 7,
+    "contract_sha256": "fd246882b107e22a10ac89e3e6cb73e5157524fabb32f2ef6e08c590d3eda0d1",
+    "task_id": "NSC-007"
+  },
+  "decision": "decomposed",
+  "decomposition_result_path": null,
+  "duration_seconds": 1062.673415912,
+  "finding_history": [
+    {
+      "findings": [
+        {
+          "affected_contracts": [
+            "NSC-007"
+          ],
+          "category": "completion_locality",
+          "finding_id": "round-02-projectile-gate-needs-downstream-test-file",
+          "problem": "The projectile child (local_key fireball-projectile-flight-and-impact) has exactly one completion gate, VAL-001, and that gate's own text states the proof lives in FireballPlayModeTests.cs \"authored in the Fireball MonoBehaviour child\" and closes with \"the Fireball MonoBehaviour child owns the test file that exercises it\". FireballPlayModeTests.cs is claimed exclusively by the second child, which local-depends on the projectile child. The first child therefore cannot complete its only gate with the files it owns: the proof requires content authored by a later task that is itself blocked on this one. The child also carries no downstream_integration_obligations, so nothing records the deferred proof either. This is avoidable rather than intrinsic - the projectile is a standalone MonoBehaviour whose speed, lifetime, contact radius, damage and area radius are supplied per shot (child AC-005) and which exposes a public advance method (child AC-001), so a Play Mode test can construct one, configure it and tick it with no Fireball component present.",
+          "required_resolution": "Give the projectile child ownership of Assets/NoSafeCircle/DoorPrototype/Tests/FireballPlayModeTests.cs and its .meta, and rewrite its VAL-001 to create that file with a FireballProjectile fixture that constructs and advances the component directly, proving the wall/prop and sealed-locked-broken-door blocking, the open-door pass-through, the wizard never being hit, lifetime fizzle, once-per-cast area damage, the caster-component enemy being a valid target, and the two 1.5-unit vertical-offset cases. Parent VAL-004 then maps to that single child gate. The Fireball MonoBehaviour child keeps the same file as a shared, strictly-ordered resource and extends it with its own fixture rather than creating it, and drops its duplicate VAL-004 restatement, since its VAL-001 tap case already proves a cast-created projectile advances and damages through the production path.",
+          "severity": "blocking"
+        },
+        {
+          "affected_contracts": [
+            "NSC-007",
+            "NSC-015"
+          ],
+          "category": "other",
+          "finding_id": "round-02-defeated-enemy-cleanup-lost-with-demorunflow-fireball",
+          "problem": "DemoRunFlow.AdvanceFireballs currently destroys a defeated enemy GameObject at line 162, with the in-code comment that EnemyHealth reports defeat but never removes the object, so a defeated enemy would otherwise keep pursuing and keep dealing contact damage. The scene-wiring child deletes AdvanceFireballs wholesale, and the new Fireball correctly damages only through EnemyHealth.TakeDamage and must not destroy enemies, so between that child landing and NSC-015's MeleeEnemyDefeatResponse arriving, a killed enemy in the playable build will stay active and keep hurting the wizard through DemoRunFlow's retained ApplyEnemyContactDamage. This is inherited parent scope (parent AC-011 mandates the deletion verbatim and parent AC-007 confines Fireball to TakeDamage), not a defect the children introduce or may fix on their own; it is recorded so the human sees the interim build regression and its real owner.",
+          "required_resolution": "No child scope change. The replacement records the consequence in the scene-wiring child's notes so the implementing crew does not re-add enemy destruction to Fireball or DemoRunFlow to compensate, and names NSC-015's MeleeEnemyDefeatResponse as the owner of defeated-enemy removal.",
+          "severity": "advisory"
+        }
+      ],
+      "prior_finding_resolutions": [],
+      "reviewed_candidate_sha256": "22c4d0f5b1115988eb8918515bbec9c2b0a4a837a39e8bddb5b9944fa73c2324",
+      "reviewer_provider": "claude",
+      "round_number": 2,
+      "summary": "The three-child split (FireballProjectile component, Fireball MonoBehaviour, scene-builder assembly) is the right shape: it follows real file ownership, the assembly work is an explicit child rather than hidden sewing, all eleven parent acceptance criteria, seven gates and three downstream obligations are covered exactly once, every child entry is traced, and all fifteen parent resources are partitioned with no invented files. Repository inspection at the supplied head confirms the assumed starting state: no Fireball.cs or FireballProjectile.cs exists, the Player action map has PointerPosition and MoveToCursor but no Fireball action, DemoRunFlow.cs still holds the embedded right-click fireball (lines 20-25, 31, 37, 87, 92-177), and EnemyHealth.TakeDamage/IsDefeated plus EnemyLanternWispCaster's chest-height DefaultRaycastLayers/QueryTriggerInteraction.Ignore raycast are present to copy. One blocking defect: the projectile child's only completion gate requires FireballPlayModeTests.cs, a file the candidate assigns to the Fireball MonoBehaviour child, which depends on the projectile child - so the first child cannot prove itself without content authored downstream of it. The replacement moves creation of that Play Mode test file and the whole cover/door-state/area-damage/vertical-offset proof onto the projectile child, which can drive the component directly through its public advance method before Fireball.cs exists; the Fireball child then extends the same fixture with its cast-path cases. No scope, ownership, dependency meaning or resource set changes.",
+      "verdict": "revise"
+    }
+  ],
+  "graph_delta_path": null,
+  "human_next_step": "Inspect rejection_reasons and the per-round candidate/review artifacts. No review-ready decomposition was emitted.",
+  "independent_approver_provider": null,
+  "latest_candidate": {
+    "author_provider": "claude",
+    "decision": "decomposed",
+    "graph_delta_plan_id": "GDP-72c71fa14b49a39f7ea6ba79bbdaf35dec4c08e9bbf55bef911efba4c934fb40",
+    "sha256": "22c4d0f5b1115988eb8918515bbec9c2b0a4a837a39e8bddb5b9944fa73c2324",
+    "version": 1
+  },
+  "max_calls": 2,
+  "mode": "round_robin_d1b2",
+  "pooled_sessions": {
+    "claude:decomposition_reviewer": {
+      "confirmed_session": {
+        "mode": "start",
+        "provider_identifier": "claude-code",
+        "role": "decomposition_reviewer",
+        "schema_version": "1.0",
+        "session_id": "14acc3cf-f066-412c-b51f-4e195eee37d0"
+      },
+      "identity_unproven": null,
+      "invoked": true,
+      "lease_id": "bce2342c-e560-4d1c-be95-7dc8d2f2a494",
+      "provider_identifier": "claude-code",
+      "record_id": "14acc3cf-f066-412c-b51f-4e195eee37d0",
+      "requested_mode": "start",
+      "requested_session_id": "14acc3cf-f066-412c-b51f-4e195eee37d0",
+      "role": "decomposition_reviewer",
+      "rounds": [
+        {
+          "agent_status": "succeeded",
+          "artifact_path": "rounds/02/review.json",
+          "artifact_sha256": "bf522a0ff594892ffd9eea23c108b67ca3f21c5d29b79724dc5e19e39edfd623",
+          "checkout_identity": "manifest-sha256:44730cedc9c0ad1019bf139ab614c8bcf048da4ecf1a6ba999a2a10f9c4c02b4",
+          "confirmed_session": {
+            "mode": "start",
+            "provider_identifier": "claude-code",
+            "role": "decomposition_reviewer",
+            "schema_version": "1.0",
+            "session_id": "14acc3cf-f066-412c-b51f-4e195eee37d0"
+          },
+          "conversation_store": "compose:nosafecircle/claude-config",
+          "decomposition_mode": "round_robin_d1b2",
+          "invocation_id": "nsc-007-d1b2-r02-decomposition-reviewer-c2dfbb14417c",
+          "lease_id": "bce2342c-e560-4d1c-be95-7dc8d2f2a494",
+          "lease_key": "claude:decomposition_reviewer",
+          "model": "claude-opus-5",
+          "pool_schema_version": "1.0",
+          "protocol_version": "1.0",
+          "provider_identifier": "claude-code",
+          "provider_name": "claude",
+          "reasoning_effort": null,
+          "record_id": "14acc3cf-f066-412c-b51f-4e195eee37d0",
+          "repository_identity": "https://github.com/cathode26/NoSafeCircle.git",
+          "requested_mode": "start",
+          "requested_session_id": "14acc3cf-f066-412c-b51f-4e195eee37d0",
+          "role": "decomposition_reviewer",
+          "round_number": 2,
+          "round_status": "rejected",
+          "run_id": "decomp-nsc007-20260918c",
+          "schema_version": "1.0",
+          "source_head": "448b74927e08e49a0ad0b42dbce2d04a22c555f2",
+          "source_tree": "e675e5c5d1ed8420c366dd53311461830f9589ae",
+          "task_id": "NSC-007"
+        }
+      ]
+    },
+    "claude:task_decomposer": {
+      "confirmed_session": {
+        "mode": "start",
+        "provider_identifier": "claude-code",
+        "role": "task_decomposer",
+        "schema_version": "1.0",
+        "session_id": "982066e2-7340-4a42-852a-4804b8068168"
+      },
+      "identity_unproven": null,
+      "invoked": true,
+      "lease_id": "1591545c-8063-4baa-b7b6-7ce4c7075695",
+      "provider_identifier": "claude-code",
+      "record_id": "982066e2-7340-4a42-852a-4804b8068168",
+      "requested_mode": "start",
+      "requested_session_id": "982066e2-7340-4a42-852a-4804b8068168",
+      "role": "task_decomposer",
+      "rounds": [
+        {
+          "agent_status": "succeeded",
+          "artifact_path": "rounds/01/candidate.json",
+          "artifact_sha256": "f41eb46ba2bcd2fb63a370e3028f40e97b3303ed373bb95114d4d8ee464d7966",
+          "checkout_identity": "manifest-sha256:44730cedc9c0ad1019bf139ab614c8bcf048da4ecf1a6ba999a2a10f9c4c02b4",
+          "confirmed_session": {
+            "mode": "start",
+            "provider_identifier": "claude-code",
+            "role": "task_decomposer",
+            "schema_version": "1.0",
+            "session_id": "982066e2-7340-4a42-852a-4804b8068168"
+          },
+          "conversation_store": "compose:nosafecircle/claude-config",
+          "decomposition_mode": "round_robin_d1b2",
+          "invocation_id": "nsc-007-d1b2-r01-task-decomposer-179e945c2b6f",
+          "lease_id": "1591545c-8063-4baa-b7b6-7ce4c7075695",
+          "lease_key": "claude:task_decomposer",
+          "model": "claude-opus-5",
+          "pool_schema_version": "1.0",
+          "protocol_version": "1.0",
+          "provider_identifier": "claude-code",
+          "provider_name": "claude",
+          "reasoning_effort": null,
+          "record_id": "982066e2-7340-4a42-852a-4804b8068168",
+          "repository_identity": "https://github.com/cathode26/NoSafeCircle.git",
+          "requested_mode": "start",
+          "requested_session_id": "982066e2-7340-4a42-852a-4804b8068168",
+          "role": "task_decomposer",
+          "round_number": 1,
+          "round_status": "candidate_valid",
+          "run_id": "decomp-nsc007-20260918c",
+          "schema_version": "1.0",
+          "source_head": "448b74927e08e49a0ad0b42dbce2d04a22c555f2",
+          "source_tree": "e675e5c5d1ed8420c366dd53311461830f9589ae",
+          "task_id": "NSC-007"
+        }
+      ]
+    }
+  },
+  "provider_order": [
+    "claude",
+    "claude"
+  ],
+  "rejection_reasons": [
+    "round 2: review/revision deterministic validation failed: Child exclusive_resources must exactly partition the parent exclusive_resources (missing=[], extra=['repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FireballPlayModeTests.cs', 'repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FireballPlayModeTests.cs.meta'])."
+  ],
+  "review_independence": "same_provider_separate_sessions",
+  "rounds": [
+    {
+      "actual_model": "claude-opus-5",
+      "actual_provider": "claude-code",
+      "agent_failure_classification": "none",
+      "agent_runtime_result_path": "rounds/01/agent_runtime/nsc-007-d1b2-r01-task-decomposer-179e945c2b6f/result.json",
+      "agent_status": "succeeded",
+      "authority": "review_only_not_applied",
+      "candidate_after": {
+        "author_provider": "claude",
+        "decision": "decomposed",
+        "graph_delta_plan_id": "GDP-72c71fa14b49a39f7ea6ba79bbdaf35dec4c08e9bbf55bef911efba4c934fb40",
+        "sha256": "22c4d0f5b1115988eb8918515bbec9c2b0a4a837a39e8bddb5b9944fa73c2324",
+        "version": 1
+      },
+      "candidate_before": null,
+      "correction_of_round": null,
+      "duration_seconds": 473.408,
+      "new_finding_ids": [],
+      "pooled_session": {
+        "agent_status": "succeeded",
+        "artifact_path": "rounds/01/candidate.json",
+        "artifact_sha256": "f41eb46ba2bcd2fb63a370e3028f40e97b3303ed373bb95114d4d8ee464d7966",
+        "checkout_identity": "manifest-sha256:44730cedc9c0ad1019bf139ab614c8bcf048da4ecf1a6ba999a2a10f9c4c02b4",
+        "confirmed_session": {
+          "mode": "start",
+          "provider_identifier": "claude-code",
+          "role": "task_decomposer",
+          "schema_version": "1.0",
+          "session_id": "982066e2-7340-4a42-852a-4804b8068168"
+        },
+        "conversation_store": "compose:nosafecircle/claude-config",
+        "decomposition_mode": "round_robin_d1b2",
+        "invocation_id": "nsc-007-d1b2-r01-task-decomposer-179e945c2b6f",
+        "lease_id": "1591545c-8063-4baa-b7b6-7ce4c7075695",
+        "lease_key": "claude:task_decomposer",
+        "model": "claude-opus-5",
+        "pool_schema_version": "1.0",
+        "protocol_version": "1.0",
+        "provider_identifier": "claude-code",
+        "provider_name": "claude",
+        "reasoning_effort": null,
+        "record_id": "982066e2-7340-4a42-852a-4804b8068168",
+        "repository_identity": "https://github.com/cathode26/NoSafeCircle.git",
+        "requested_mode": "start",
+        "requested_session_id": "982066e2-7340-4a42-852a-4804b8068168",
+        "role": "task_decomposer",
+        "round_number": 1,
+        "round_status": "candidate_valid",
+        "run_id": "decomp-nsc007-20260918c",
+        "schema_version": "1.0",
+        "source_head": "448b74927e08e49a0ad0b42dbce2d04a22c555f2",
+        "source_tree": "e675e5c5d1ed8420c366dd53311461830f9589ae",
+        "task_id": "NSC-007"
+      },
+      "rejection_reasons": [],
+      "requested_provider": "claude",
+      "role": "task_decomposer",
+      "round_number": 1,
+      "schema_version": "1.0",
+      "status": "candidate_valid",
+      "task_execution_request_path": "rounds/01/task_execution/nsc-007-d1b2-r01-task-decomposer-179e945c2b6f/task_request.json",
+      "unresolved_finding_ids": [],
+      "verdict": null
+    },
+    {
+      "actual_model": "claude-opus-5",
+      "actual_provider": "claude-code",
+      "agent_failure_classification": "none",
+      "agent_runtime_result_path": "rounds/02/agent_runtime/nsc-007-d1b2-r02-decomposition-reviewer-c2dfbb14417c/result.json",
+      "agent_status": "succeeded",
+      "authority": "review_only_not_applied",
+      "candidate_after": null,
+      "candidate_before": {
+        "author_provider": "claude",
+        "decision": "decomposed",
+        "graph_delta_plan_id": "GDP-72c71fa14b49a39f7ea6ba79bbdaf35dec4c08e9bbf55bef911efba4c934fb40",
+        "sha256": "22c4d0f5b1115988eb8918515bbec9c2b0a4a837a39e8bddb5b9944fa73c2324",
+        "version": 1
+      },
+      "correction_of_round": null,
+      "duration_seconds": 393.434,
+      "new_finding_ids": [
+        "round-02-projectile-gate-needs-downstream-test-file",
+        "round-02-defeated-enemy-cleanup-lost-with-demorunflow-fireball"
+      ],
+      "pooled_session": {
+        "agent_status": "succeeded",
+        "artifact_path": "rounds/02/review.json",
+        "artifact_sha256": "bf522a0ff594892ffd9eea23c108b67ca3f21c5d29b79724dc5e19e39edfd623",
+        "checkout_identity": "manifest-sha256:44730cedc9c0ad1019bf139ab614c8bcf048da4ecf1a6ba999a2a10f9c4c02b4",
+        "confirmed_session": {
+          "mode": "start",
+          "provider_identifier": "claude-code",
+          "role": "decomposition_reviewer",
+          "schema_version": "1.0",
+          "session_id": "14acc3cf-f066-412c-b51f-4e195eee37d0"
+        },
+        "conversation_store": "compose:nosafecircle/claude-config",
+        "decomposition_mode": "round_robin_d1b2",
+        "invocation_id": "nsc-007-d1b2-r02-decomposition-reviewer-c2dfbb14417c",
+        "lease_id": "bce2342c-e560-4d1c-be95-7dc8d2f2a494",
+        "lease_key": "claude:decomposition_reviewer",
+        "model": "claude-opus-5",
+        "pool_schema_version": "1.0",
+        "protocol_version": "1.0",
+        "provider_identifier": "claude-code",
+        "provider_name": "claude",
+        "reasoning_effort": null,
+        "record_id": "14acc3cf-f066-412c-b51f-4e195eee37d0",
+        "repository_identity": "https://github.com/cathode26/NoSafeCircle.git",
+        "requested_mode": "start",
+        "requested_session_id": "14acc3cf-f066-412c-b51f-4e195eee37d0",
+        "role": "decomposition_reviewer",
+        "round_number": 2,
+        "round_status": "rejected",
+        "run_id": "decomp-nsc007-20260918c",
+        "schema_version": "1.0",
+        "source_head": "448b74927e08e49a0ad0b42dbce2d04a22c555f2",
+        "source_tree": "e675e5c5d1ed8420c366dd53311461830f9589ae",
+        "task_id": "NSC-007"
+      },
+      "rejection_reasons": [
+        "review/revision deterministic validation failed: Child exclusive_resources must exactly partition the parent exclusive_resources (missing=[], extra=['repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FireballPlayModeTests.cs', 'repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FireballPlayModeTests.cs.meta'])."
+      ],
+      "requested_provider": "claude",
+      "role": "decomposition_reviewer",
+      "round_number": 2,
+      "schema_version": "1.0",
+      "status": "rejected",
+      "task_execution_request_path": "rounds/02/task_execution/nsc-007-d1b2-r02-decomposition-reviewer-c2dfbb14417c/task_request.json",
+      "unresolved_finding_ids": [],
+      "verdict": "revise"
+    }
+  ],
+  "run_id": "decomp-nsc007-20260918c",
+  "run_status": "rejected",
+  "schema_version": "1.0",
+  "source_identity": {
+    "branch": "main",
+    "head_commit": "448b74927e08e49a0ad0b42dbce2d04a22c555f2",
+    "head_tree": "e675e5c5d1ed8420c366dd53311461830f9589ae"
+  },
+  "task_execution_contract_identity": {
+    "path": "Tasks/NSC-007.yaml",
+    "revision": 7,
+    "sha256": "8c44e831291ea4b466476e08211f9116ef974fb48f3ae0d750cbabae2fa6752a"
+  },
+  "task_id": "NSC-007",
+  "unresolved_findings": []
+}

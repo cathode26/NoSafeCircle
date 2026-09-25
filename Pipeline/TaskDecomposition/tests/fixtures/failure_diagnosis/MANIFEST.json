@@ -1,0 +1,42 @@
+{
+  "schema_version": "1",
+  "note": "Unmodified decomposition_run_result.json copies from real runs, taken 2026-09-25. sha256_lf is over the bytes with CRLF normalized to LF, so a Windows checkout's line-ending conversion does not break it.",
+  "fixtures": {
+    "decomp-nsc007-20260918a.json": {
+      "source": "C:/NSC/NoSafeCircle-AssistantCheckouts/.assistant-control/decomposition-runs/decomp-nsc007-20260918a/decomposition_run_result.json",
+      "sha256_lf": "0a240e0088e17071c47a23e1255d9d28c676d08930ace0738d40daf66c8f6906"
+    },
+    "decomp-nsc007-20260918c.json": {
+      "source": "C:/NSC/NoSafeCircle-AssistantCheckouts/.assistant-control/decomposition-runs/decomp-nsc007-20260918c/decomposition_run_result.json",
+      "sha256_lf": "81a0f26b19470ebe247940105d3c3989a82abd1e69e77f4a7d93f6cd65ececd3"
+    },
+    "decomp-nsc007-20260922a.json": {
+      "source": "C:/NSC/NoSafeCircle-AssistantCheckouts/.assistant-control/decomposition-runs/decomp-nsc007-20260922a/decomposition_run_result.json",
+      "sha256_lf": "e83cc2bb769abb24908622867f6532720edfb93e64319b4399885ec1cb891174"
+    },
+    "decomp-nsc015-20260917c.json": {
+      "source": "C:/NSC/NoSafeCircle-AssistantCheckouts/.assistant-control/decomposition-runs/decomp-nsc015-20260917c/decomposition_run_result.json",
+      "sha256_lf": "9e18115e133850494ab2f9e95b97f71275a0c998642dd2e2aaebe43c4bf02cdf"
+    },
+    "decomp-nsc066-20260924c.json": {
+      "source": "C:/NSC/NoSafeCircle-AssistantCheckouts/.assistant-control/decomposition-runs/decomp-nsc066-20260924c/decomposition_run_result.json",
+      "sha256_lf": "ed4779a12a6528a07cd3e3b787a4f0fb94752fd8b88416a075fa0a208bb2ead4"
+    },
+    "decomp-nsc088-clone-20260924a.json": {
+      "source": "C:/nscrev/work/decompose-on-clone/20260924T100924Z/checkouts/.assistant-control/decomposition-runs/decomp-nsc088-clone-20260924a/decomposition_run_result.json",
+      "sha256_lf": "573464570b1f3108310a35eb3f9468ca5bdc71fb4e3760dcb6d9eefd35a382ae"
+    },
+    "decomp-nsc088-clone-20260924b.json": {
+      "source": "C:/nscrev/work/decompose-on-clone/20260924T100924Z/checkouts/.assistant-control/decomposition-runs/decomp-nsc088-clone-20260924b/decomposition_run_result.json",
+      "sha256_lf": "6f879f8818dc40f8be98f0d9678970949dcd347e4246b0ecccec7172e4a46c47"
+    },
+    "decomp-nsc088-clone-20260924c.json": {
+      "source": "C:/nscrev/work/decompose-on-clone/20260924T100924Z/checkouts/.assistant-control/decomposition-runs/decomp-nsc088-clone-20260924c/decomposition_run_result.json",
+      "sha256_lf": "d5dd458cc9f25ec2d4c251ac4bd788f773d6d92e405f1b376a52c3adffd71c94"
+    },
+    "nsc015-d1b2-20260915b.json": {
+      "source": "C:/NSC/NoSafeCircle-AssistantCheckouts/.assistant-control/decomposition-runs/nsc015-d1b2-20260915b/decomposition_run_result.json",
+      "sha256_lf": "e1c2920c114c2db18f180fb16da9c9de28b4f27581099405a93b78ba56c7784d"
+    }
+  }
+}

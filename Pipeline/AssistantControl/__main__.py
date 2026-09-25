@@ -297,6 +297,10 @@ def main(argv=None) -> int:
     decompose.add_argument("--authorize-provider-spend", action="store_true")
     inspect_decomposition = commands.add_parser("inspect-decomposition", help="Recheck the exact retained decomposition review")
     inspect_decomposition.add_argument("task")
+    diagnose_decomposition = commands.add_parser(
+        "diagnose-decomposition", help="Explain why one retained decomposition run stopped; read-only, never retries")
+    diagnose_decomposition.add_argument("task")
+    diagnose_decomposition.add_argument("--run-id", required=True)
     apply_decomposition = commands.add_parser("apply-decomposition", help="Apply one exact reviewed decomposition locally; never pushes")
     apply_decomposition.add_argument("task")
     apply_decomposition.add_argument("--run-id", required=True)
@@ -740,6 +744,9 @@ def main(argv=None) -> int:
                     if args.command == "publish-approved"
                     else publication.inspect_ci(args.task, **values)
                 )
+            elif args.command == "diagnose-decomposition":
+                from Pipeline.AssistantControl import decomposition_diagnosis
+                result = decomposition_diagnosis.diagnose(manager, args.task, run_id=args.run_id)
             elif args.command in {"decompose", "inspect-decomposition", "apply-decomposition"}:
                 from Pipeline.AssistantControl import decomposition
                 if args.command == "decompose":

@@ -1,0 +1,150 @@
+{
+  "author_corrections_used": 0,
+  "authority": "review_only_not_applied",
+  "calls_used": 2,
+  "context_sha256": "35249edf72e95b2610f82b0d9abb1d593bc875b88023cc2f87c96843a3984203",
+  "d1a_semantic_parent_identity": {
+    "contract_revision": 6,
+    "contract_sha256": "7ea869ec234f0b13e74b88f5759a03d645c8b451f7f69ee0f357c72607974464",
+    "task_id": "NSC-015"
+  },
+  "decision": "decomposed",
+  "decomposition_result_path": null,
+  "duration_seconds": 472.041563759,
+  "finding_history": [
+    {
+      "findings": [
+        {
+          "affected_contracts": [
+            "NSC-015",
+            "melee-enemy-locomotion-and-prefab"
+          ],
+          "category": "requirement_coverage",
+          "finding_id": "round-02-parent-validation-weakened",
+          "problem": "The locomotion/prefab child materially weakens several parent gates. Its group-pursuit gate omits the Unity Input System requirement, continuous LoseTargetDistance condition, declared close-range sample, and changing/non-equal pairwise-distance checks. Its defeat/reset gate does not require every reset-call permutation. Its human Play Mode gate omits obstacle-circling separation without target loss. Its prefab and materialization gates also omit the no-unapproved-enemy-Collider check, protection of the NSC-077 stationary review prefab, semantic rather than raw-YAML comparison, and the required NEEDS_MATERIALIZATION stop when Unity is unavailable.",
+          "required_resolution": "Restore the omitted observable requirements in the corresponding child acceptance criteria and completion gates so each parent gate is preserved without weakening or reinterpretation.",
+          "severity": "blocking"
+        },
+        {
+          "affected_contracts": [
+            "NSC-015",
+            "melee-enemy-attack-cycle",
+            "melee-enemy-locomotion-and-prefab"
+          ],
+          "category": "authority_conflict",
+          "finding_id": "round-02-human-decisions-and-delivery-claim",
+          "problem": "The candidate reports no unresolved questions even though the parent explicitly says the second child cannot be dispatched until Vincent decides body blocking, wind-up locomotion, and defeated-enemy visual/collision treatment. The attack child also says prerequisite tasks are already delivered, although the supplied context establishes contracts and source relationships, not delivery records. These statements conceal the human authority stop and overstate lifecycle evidence.",
+          "required_resolution": "List the three parent-defined human decisions in unresolved_questions, retain the second child's dispatch block, remove the unsupported delivery claim, and describe prerequisites only as task dependencies whose satisfaction must be established outside this review.",
+          "severity": "blocking"
+        }
+      ],
+      "prior_finding_resolutions": [],
+      "reviewed_candidate_sha256": "9d1c51b980aadd271a7c3a0a72b62c31676bd2ba8623cae92ea6d66d73cdc679",
+      "reviewer_provider": "codex",
+      "round_number": 2,
+      "summary": "Revise. The proposed two-child ownership split is sound, but the current candidate weakens several parent validation requirements and hides explicit Vincent decisions while making an unsupported delivery claim. The replacement restores the complete parent test surface and preserves the human authority stop.",
+      "verdict": "revise"
+    }
+  ],
+  "graph_delta_path": null,
+  "human_next_step": "Inspect rejection_reasons and the per-round candidate/review artifacts. No review-ready decomposition was emitted.",
+  "independent_approver_provider": null,
+  "latest_candidate": {
+    "author_provider": "claude",
+    "decision": "decomposed",
+    "graph_delta_plan_id": "GDP-8e644b3fc1b748d631b47260b66607713587dacc5918251f9983934085168b9e",
+    "sha256": "9d1c51b980aadd271a7c3a0a72b62c31676bd2ba8623cae92ea6d66d73cdc679",
+    "version": 1
+  },
+  "max_calls": 2,
+  "mode": "round_robin_d1b2",
+  "pooled_sessions": null,
+  "provider_order": [
+    "claude",
+    "codex"
+  ],
+  "rejection_reasons": [
+    "round 2: review/revision deterministic validation failed: Accepted decomposition output may not contain unsupported assumptions or unresolved questions."
+  ],
+  "review_independence": "cross_provider",
+  "rounds": [
+    {
+      "actual_model": "claude-sonnet-5",
+      "actual_provider": "claude-code",
+      "agent_failure_classification": "none",
+      "agent_runtime_result_path": "rounds/01/agent_runtime/nsc-015-d1b2-r01-task-decomposer-6c241f2fb251/result.json",
+      "agent_status": "succeeded",
+      "authority": "review_only_not_applied",
+      "candidate_after": {
+        "author_provider": "claude",
+        "decision": "decomposed",
+        "graph_delta_plan_id": "GDP-8e644b3fc1b748d631b47260b66607713587dacc5918251f9983934085168b9e",
+        "sha256": "9d1c51b980aadd271a7c3a0a72b62c31676bd2ba8623cae92ea6d66d73cdc679",
+        "version": 1
+      },
+      "candidate_before": null,
+      "correction_of_round": null,
+      "duration_seconds": 178.998,
+      "new_finding_ids": [],
+      "pooled_session": null,
+      "rejection_reasons": [],
+      "requested_provider": "claude",
+      "role": "task_decomposer",
+      "round_number": 1,
+      "schema_version": "1.0",
+      "status": "candidate_valid",
+      "task_execution_request_path": "rounds/01/task_execution/nsc-015-d1b2-r01-task-decomposer-6c241f2fb251/task_request.json",
+      "unresolved_finding_ids": [],
+      "verdict": null
+    },
+    {
+      "actual_model": "gpt-5.6-sol",
+      "actual_provider": "openai-codex",
+      "agent_failure_classification": "none",
+      "agent_runtime_result_path": "rounds/02/agent_runtime/nsc-015-d1b2-r02-decomposition-reviewer-b592bdf69bb2/result.json",
+      "agent_status": "succeeded",
+      "authority": "review_only_not_applied",
+      "candidate_after": null,
+      "candidate_before": {
+        "author_provider": "claude",
+        "decision": "decomposed",
+        "graph_delta_plan_id": "GDP-8e644b3fc1b748d631b47260b66607713587dacc5918251f9983934085168b9e",
+        "sha256": "9d1c51b980aadd271a7c3a0a72b62c31676bd2ba8623cae92ea6d66d73cdc679",
+        "version": 1
+      },
+      "correction_of_round": null,
+      "duration_seconds": 200.87,
+      "new_finding_ids": [
+        "round-02-parent-validation-weakened",
+        "round-02-human-decisions-and-delivery-claim"
+      ],
+      "pooled_session": null,
+      "rejection_reasons": [
+        "review/revision deterministic validation failed: Accepted decomposition output may not contain unsupported assumptions or unresolved questions."
+      ],
+      "requested_provider": "codex",
+      "role": "decomposition_reviewer",
+      "round_number": 2,
+      "schema_version": "1.0",
+      "status": "rejected",
+      "task_execution_request_path": "rounds/02/task_execution/nsc-015-d1b2-r02-decomposition-reviewer-b592bdf69bb2/task_request.json",
+      "unresolved_finding_ids": [],
+      "verdict": "revise"
+    }
+  ],
+  "run_id": "nsc015-d1b2-20260915b",
+  "run_status": "rejected",
+  "schema_version": "1.0",
+  "source_identity": {
+    "branch": "main",
+    "head_commit": "9810029590bf2fd4099b36495dad7109c950302d",
+    "head_tree": "6c5b5da3616e4f3b0d983d060050fabfb8c3a69f"
+  },
+  "task_execution_contract_identity": {
+    "path": "Tasks/NSC-015.yaml",
+    "revision": 6,
+    "sha256": "ee3962b237b956762349e88467c6b121db9ef3cdc66f094f3a504f05be92effe"
+  },
+  "task_id": "NSC-015",
+  "unresolved_findings": []
+}

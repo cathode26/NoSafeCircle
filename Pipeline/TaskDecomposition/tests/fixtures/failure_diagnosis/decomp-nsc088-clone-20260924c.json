@@ -1,0 +1,155 @@
+{
+  "author_corrections_used": 0,
+  "authority": "review_only_not_applied",
+  "calls_used": 2,
+  "context_sha256": "ff65af0a318095f993d30d060bb2fd027604d0e94a5dad75fa613bbd2ec0625d",
+  "d1a_semantic_parent_identity": {
+    "contract_revision": 10,
+    "contract_sha256": "e9060b52230445505b7d7d64dca7a8a69d5d061bab67a2e86da494c9aaa9f0f2",
+    "task_id": "NSC-088"
+  },
+  "decision": "decomposed",
+  "decomposition_result_path": null,
+  "duration_seconds": 1039.128515508004,
+  "finding_history": [
+    {
+      "findings": [
+        {
+          "affected_contracts": [
+            "NSC-088 AC-013",
+            "spectral-decoy-cast-phantom-and-scene-wiring AC-009"
+          ],
+          "category": "authority_conflict",
+          "finding_id": "round-02-builder-facade-edit-authority",
+          "problem": "The spell child says it may change Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs as far as Spectral Decoy wiring requires. Parent AC-013 explicitly says that file is not modified. The parent requires the file to remain in the paired builder/scene lock, but grants no authority to edit it.",
+          "required_resolution": "Keep DoorPrototypeSceneBuilder.cs in the spell child's exclusive resources for the required paired lock, but state that the child does not modify it. All Spectral Decoy Player, Canvas, title-screen, and game-entry wiring must be implemented in DoorPrototypeGlobalSceneBuilder.cs behind the existing Build and BuildInMemoryForTests facade.",
+          "severity": "blocking"
+        }
+      ],
+      "prior_finding_resolutions": [],
+      "reviewed_candidate_sha256": "bce884b14da624f3b1e33f8883f14bd858d0febca24e1037499ff2ea497d5281",
+      "reviewer_provider": "codex",
+      "round_number": 2,
+      "summary": "The two-child ownership split and dependency rewrites are otherwise sound, but the current candidate grants the spell child authority to edit DoorPrototypeSceneBuilder.cs even though parent AC-013 explicitly forbids modifying that facade. The replacement keeps the required builder/scene lock and routes all new wiring through DoorPrototypeGlobalSceneBuilder.cs using the existing facade unchanged.",
+      "verdict": "revise"
+    }
+  ],
+  "graph_delta_path": null,
+  "human_next_step": "Inspect unresolved_findings and round artifacts. The bounded independent-review circuit reached a human authority boundary; no candidate was approved or applied.",
+  "independent_approver_provider": null,
+  "latest_candidate": {
+    "author_provider": "codex",
+    "decision": "decomposed",
+    "graph_delta_plan_id": "GDP-2342b2f1b717427996536515996d10c07c1f0354a0de1cd94c7814662312b879",
+    "sha256": "4f39d85988a7a0c9f6ca551c91dc20f1b80f05177cec8a9d6dbe0a84f80f5529",
+    "version": 2
+  },
+  "max_calls": 2,
+  "mode": "round_robin_d1b2",
+  "pooled_sessions": null,
+  "provider_order": [
+    "claude",
+    "codex"
+  ],
+  "rejection_reasons": [
+    "call limit ended immediately after a revision; the latest author may not approve its own candidate"
+  ],
+  "review_independence": "cross_provider",
+  "rounds": [
+    {
+      "actual_model": "claude-opus-5[1m]",
+      "actual_provider": "claude-code",
+      "agent_failure_classification": "none",
+      "agent_runtime_result_path": "rounds/01/agent_runtime/nsc-088-d1b2-r01-task-decomposer-bc9f632d80b8/result.json",
+      "agent_status": "succeeded",
+      "authority": "review_only_not_applied",
+      "candidate_after": {
+        "author_provider": "claude",
+        "decision": "decomposed",
+        "graph_delta_plan_id": "GDP-05142c86640a5749803ca04e73188845847cb32aa565c68125606615c8d2493c",
+        "sha256": "bce884b14da624f3b1e33f8883f14bd858d0febca24e1037499ff2ea497d5281",
+        "version": 1
+      },
+      "candidate_before": null,
+      "correction_of_round": null,
+      "duration_seconds": 460.136,
+      "new_finding_ids": [],
+      "pooled_session": null,
+      "rejection_reasons": [],
+      "requested_provider": "claude",
+      "role": "task_decomposer",
+      "round_number": 1,
+      "schema_version": "1.0",
+      "status": "candidate_valid",
+      "task_execution_request_path": "rounds/01/task_execution/nsc-088-d1b2-r01-task-decomposer-bc9f632d80b8/task_request.json",
+      "unresolved_finding_ids": [],
+      "verdict": null
+    },
+    {
+      "actual_model": "gpt-5.6-sol",
+      "actual_provider": "openai-codex",
+      "agent_failure_classification": "none",
+      "agent_runtime_result_path": "rounds/02/agent_runtime/nsc-088-d1b2-r02-decomposition-reviewer-aa1612618cee/result.json",
+      "agent_status": "succeeded",
+      "authority": "review_only_not_applied",
+      "candidate_after": {
+        "author_provider": "codex",
+        "decision": "decomposed",
+        "graph_delta_plan_id": "GDP-2342b2f1b717427996536515996d10c07c1f0354a0de1cd94c7814662312b879",
+        "sha256": "4f39d85988a7a0c9f6ca551c91dc20f1b80f05177cec8a9d6dbe0a84f80f5529",
+        "version": 2
+      },
+      "candidate_before": {
+        "author_provider": "claude",
+        "decision": "decomposed",
+        "graph_delta_plan_id": "GDP-05142c86640a5749803ca04e73188845847cb32aa565c68125606615c8d2493c",
+        "sha256": "bce884b14da624f3b1e33f8883f14bd858d0febca24e1037499ff2ea497d5281",
+        "version": 1
+      },
+      "correction_of_round": null,
+      "duration_seconds": 259.882,
+      "new_finding_ids": [
+        "round-02-builder-facade-edit-authority"
+      ],
+      "pooled_session": null,
+      "rejection_reasons": [],
+      "requested_provider": "codex",
+      "role": "decomposition_reviewer",
+      "round_number": 2,
+      "schema_version": "1.0",
+      "status": "revised_candidate_valid",
+      "task_execution_request_path": "rounds/02/task_execution/nsc-088-d1b2-r02-decomposition-reviewer-aa1612618cee/task_request.json",
+      "unresolved_finding_ids": [
+        "round-02-builder-facade-edit-authority"
+      ],
+      "verdict": "revise"
+    }
+  ],
+  "run_id": "decomp-nsc088-clone-20260924c",
+  "run_status": "needs_human",
+  "schema_version": "1.0",
+  "source_identity": {
+    "branch": "decomp/nsc-088",
+    "head_commit": "83ba11bd5629f0f02a8738c2904ff526ccca7feb",
+    "head_tree": "2dcfccd94ebb92e6342b9e4c7d0360bee17de93e"
+  },
+  "task_execution_contract_identity": {
+    "path": "Tasks/NSC-088.yaml",
+    "revision": 10,
+    "sha256": "864ef0090a3f782aee8a95845f29236a9f7c9708e30d94a0d6689e1f6351f470"
+  },
+  "task_id": "NSC-088",
+  "unresolved_findings": [
+    {
+      "affected_contracts": [
+        "NSC-088 AC-013",
+        "spectral-decoy-cast-phantom-and-scene-wiring AC-009"
+      ],
+      "category": "authority_conflict",
+      "finding_id": "round-02-builder-facade-edit-authority",
+      "problem": "The spell child says it may change Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs as far as Spectral Decoy wiring requires. Parent AC-013 explicitly says that file is not modified. The parent requires the file to remain in the paired builder/scene lock, but grants no authority to edit it.",
+      "required_resolution": "Keep DoorPrototypeSceneBuilder.cs in the spell child's exclusive resources for the required paired lock, but state that the child does not modify it. All Spectral Decoy Player, Canvas, title-screen, and game-entry wiring must be implemented in DoorPrototypeGlobalSceneBuilder.cs behind the existing Build and BuildInMemoryForTests facade.",
+      "severity": "blocking"
+    }
+  ]
+}
