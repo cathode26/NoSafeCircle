@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
-from Pipeline.AssistantControl import admission
+from Pipeline.AssistantControl import admission, worker_state
 from Pipeline.AssistantControl.checkouts import Checkouts
 from Pipeline.AssistantControl.dependencies import inspect_dependencies
 from Pipeline.AssistantControl.inspect_project import changes, git
@@ -52,6 +52,48 @@ def _registry_snapshot(checkouts: Checkouts) -> tuple[dict[str, Any], bool]:
     registry = admission._read_registry(path, checkouts.source)
     after = path.read_bytes() if path.is_file() else None
     return registry, before == after
+
+
+# graph_controller emits a `settle_worker` action for exactly these statuses;
+# the two must agree, so the set is stated the same way.
+_TERMINAL_WORKER_STATUSES = frozenset({"succeeded", "failed", "stopped", "spawn_failed"})
+
+
+def _reservations_awaiting_settle(checkouts: Checkouts, reservations: Any) -> tuple[list[str], list[str]]:
+    """Reservations whose run ENDED but was never settled.
+
+    A bare count cannot tell these from work in flight, so capacity reads as a
+    busy pipeline while it is really bookkeeping debt -- and unlike a running
+    crew it never clears itself, so nothing dispatches again until someone runs
+    `settle-worker`. Naming the holder is the whole point; `is_settled_worker`
+    is the record's own proof that the process and containers are gone.
+
+    Control records live under a checkout ROOT while the admissions registry
+    lives on the source, so a reservation taken from a different root is not
+    readable here. Those are returned separately rather than counted as clean:
+    an unreadable record is unknown, not settled.
+    """
+    awaiting: list[str] = []
+    unreadable: list[str] = []
+    for item in reservations or []:
+        task_id = item.get("task_id") if isinstance(item, Mapping) else None
+        if not isinstance(task_id, str) or not task_id:
+            continue
+        try:
+            record = json.loads((checkouts.records / f"{task_id}.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            unreadable.append(task_id)
+            continue
+        if not isinstance(record, Mapping):
+            unreadable.append(task_id)
+            continue
+        worker = record.get("worker") or record.get("launch")
+        if not isinstance(worker, Mapping):
+            continue
+        if (worker.get("status") in _TERMINAL_WORKER_STATUSES
+                and not worker_state.is_settled_worker(worker)):
+            awaiting.append(task_id)
+    return sorted(set(awaiting)), sorted(set(unreadable))
 
 
 def inspect_readiness(
@@ -147,8 +189,11 @@ def inspect_readiness(
     reservations = registry["reservations"]
     if not registry_stable:
         problems.append("admission_registry_changed_during_read")
+    awaiting_settle, unreadable_reservations = _reservations_awaiting_settle(checkouts, reservations)
     if len(reservations) >= capacity:
         problems.append("worker_capacity_exhausted")
+        if awaiting_settle:
+            problems.append("worker_capacity_held_by_unsettled_runs")
     if any(item.get("task_id") == task_id for item in reservations):
         problems.append("task_already_reserved")
     resource_owners = []
@@ -188,6 +233,8 @@ def inspect_readiness(
         "revision_baseline": baseline,
         "requested_capacity": capacity,
         "active_reservations": len(reservations),
+        "reservations_awaiting_settle": awaiting_settle,
+        "reservations_not_readable_here": unreadable_reservations,
         "available_capacity": max(0, capacity - len(reservations)),
         "resources": resources,
         "resource_owners": resource_owners,

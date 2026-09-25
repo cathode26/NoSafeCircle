@@ -127,6 +127,71 @@ class AdmissionTests(unittest.TestCase):
         self.assertIn("source_has_conflicting_local_edits", edited["problems"])
         self.assertEqual(["assets/feature/feature.cs"], edited["source_edit_conflicts"])
 
+    def test_capacity_held_by_an_unsettled_run_is_named_not_counted_as_work(self):
+        """A run that ENDED but was never settled still holds its reservation.
+
+        A bare count cannot tell it from work in flight, and unlike a running
+        crew it never clears itself, so nothing dispatches again until someone
+        settles it. Readiness names the holder instead of only saying the
+        pipeline is full.
+        """
+        self.plan(self.manager_one, "NSC-042", "lease-042")
+        self.plan(self.manager_one, "NSC-044", "lease-044")
+        reserve(
+            self.manager_one, "NSC-042", "run-042",
+            dependency_reader=self.dependencies,
+        )
+        # Control: a reservation held by work in flight must NOT be flagged, so
+        # a pass cannot come from flagging every reservation.
+        busy = inspect_readiness(
+            self.manager_one, "NSC-044", dependency_reader=self.dependencies,
+        )
+        self.assertIn("worker_capacity_exhausted", busy["problems"])
+        self.assertEqual([], busy["reservations_awaiting_settle"])
+        self.assertNotIn("worker_capacity_held_by_unsettled_runs", busy["problems"])
+
+        path = self.manager_one.records / "NSC-042.json"
+        record = json.loads(path.read_text(encoding="utf-8"))
+        record["worker"] = {"run_id": "run-042", "status": "succeeded"}
+        path.write_text(json.dumps(record), encoding="utf-8")
+
+        debt = inspect_readiness(
+            self.manager_one, "NSC-044", dependency_reader=self.dependencies,
+        )
+        self.assertIn("worker_capacity_exhausted", debt["problems"])
+        self.assertIn("worker_capacity_held_by_unsettled_runs", debt["problems"])
+        self.assertEqual(["NSC-042"], debt["reservations_awaiting_settle"])
+
+        # `settled_at` plus `capacity_released` is the record's own proof that
+        # the process and containers are gone: no longer debt.
+        record["worker"]["capacity_released"] = True
+        record["worker"]["settled_at"] = "2026-09-25T00:00:00Z"
+        path.write_text(json.dumps(record), encoding="utf-8")
+        settled = inspect_readiness(
+            self.manager_one, "NSC-044", dependency_reader=self.dependencies,
+        )
+        self.assertEqual([], settled["reservations_awaiting_settle"])
+        self.assertNotIn("worker_capacity_held_by_unsettled_runs", settled["problems"])
+
+    def test_a_reservation_from_another_checkout_root_is_unknown_not_clean(self):
+        """Control records are per checkout root; the registry is on the source.
+
+        A reservation taken from another root cannot be read here, and saying
+        nothing would report it as settled. It is listed as unreadable instead.
+        """
+        self.plan(self.manager_one, "NSC-042", "lease-042")
+        self.plan(self.manager_two, "NSC-043", "lease-043")
+        reserve(
+            self.manager_one, "NSC-042", "run-042",
+            dependency_reader=self.dependencies,
+        )
+        other = inspect_readiness(
+            self.manager_two, "NSC-043", dependency_reader=self.dependencies,
+        )
+        self.assertIn("worker_capacity_exhausted", other["problems"])
+        self.assertEqual([], other["reservations_awaiting_settle"])
+        self.assertEqual(["NSC-042"], other["reservations_not_readable_here"])
+
     def test_require_reservation_returns_exact_owned_current_record(self):
         self.plan(self.manager_one, "NSC-042", "lease-042")
         reserved = reserve(self.manager_one, "NSC-042", "run-042", dependency_reader=self.dependencies)
