@@ -1408,6 +1408,17 @@
         "NSC-100",
         "NSC-108"
       ]
+    },
+    {
+      "reconciliation_keys": [
+        "locked-door-enemy-attack",
+        "frost-field-slows-enemy-door-breach"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyLockedDoorAttack.cs",
+      "work_ids": [
+        "NSC-017",
+        "NSC-115"
+      ]
     }
   ],
   "schema_version": "1.0",
