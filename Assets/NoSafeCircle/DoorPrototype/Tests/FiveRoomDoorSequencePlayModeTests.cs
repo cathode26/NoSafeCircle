@@ -220,10 +220,33 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 var path = new NavMeshPath();
                 var found = agent.CalculatePath(forwardHit.position, path);
 
+                // "CalculatePath returned false" and "it returned a PARTIAL path" have opposite
+                // causes - the first is no navmesh under an endpoint, the second is a blocked
+                // corridor between two reachable endpoints - and the bare assertion could not
+                // tell them apart. The doorway sample is the discriminator the contract points
+                // at: VAL-007 targets "the builder's door-before-bake order", so a doorway with
+                // NO navmesh at all means the hole was BAKED IN and no runtime carving change
+                // can reopen it, while a carved hole means the obstacle is still carving.
+                var doorwayOnNavMesh = NavMesh.SamplePosition(doorPosition, out var doorwayHit, 1.5f, NavMesh.AllAreas);
+                var obstacle = doorRoot.GetComponentInChildren<NavMeshObstacle>(true);
+                var blockers = doorRoot.GetComponentsInChildren<Collider>(true)
+                    .Where(c => c.enabled && !c.isTrigger)
+                    .Select(c => $"{c.name}[y {c.bounds.min.y:F2}..{c.bounds.max.y:F2}]")
+                    .ToArray();
+
                 Assert.IsTrue(found && path.status == NavMeshPathStatus.PathComplete,
                     "VAL-007/NSC-017 INT-003: a test-owned NavMeshAgent using the project agent type must " +
                     "find a complete path from the broken door's approach side to its forward side once " +
-                    "DoorEnemyPassability carving has settled.");
+                    "DoorEnemyPassability carving has settled." +
+                    $" CalculatePath returned {found}, status {path.status}, {path.corners.Length} corner(s)." +
+                    $" Approach {approachHit.position} -> forward {forwardHit.position}." +
+                    $" Doorway {doorPosition} on navmesh: {doorwayOnNavMesh}" +
+                    (doorwayOnNavMesh ? $" at {doorwayHit.position}." : " (NO walkable surface in the doorway).") +
+                    $" IsBroken {door.IsBroken}, obstacle " +
+                    (obstacle == null
+                        ? "absent."
+                        : $"enabled {obstacle.enabled} carving {obstacle.carving}.") +
+                    $" Enabled non-trigger colliders still under the door: {string.Join(", ", blockers)}.");
             }
             finally
             {
@@ -491,6 +514,65 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsNotNull(method,
                 "Expected a private HandleForwardCrossingTriggerEnter(Collider) method on DoorInteractable.");
             method.Invoke(target, new object[] { other });
+        }
+
+        // ####################################################################################
+        // TEMPORARY DIAGNOSTIC - REVERT BEFORE HANDBACK. Not a gate, asserts nothing.
+        // Answers one question the AC-006 failure raised but cannot settle on its own: the
+        // Lower Vault's walkable surface sits at y 0.13 while the rooms that pass sit near
+        // 0.08, and every room's FloorCollision computes a top face of exactly y=0. So
+        // something else is the topmost collider at (-2,66). This prints the whole vertical
+        // column there, plus the measured navmesh height under all nine spawns, so the fix
+        // targets the real geometry instead of the first plausible one.
+        // ####################################################################################
+        [UnityTest]
+        public IEnumerator TEMP_DIAGNOSTIC_WalkableHeightsAndColliderColumn()
+        {
+            yield return SceneManager.LoadSceneAsync("DoorPrototype", LoadSceneMode.Single);
+            yield return null;
+            Physics.SyncTransforms();
+
+            var builderType = System.Type.GetType(
+                "NoSafeCircle.DoorPrototype.Editor.World.DoorPrototypeGlobalSceneBuilder, " +
+                "NoSafeCircle.DoorPrototype.Editor");
+            var probes = GetPrivateStaticVector3Array(builderType, "EnemySpawnPositions")
+                .Concat(GetPrivateStaticVector3Array(builderType, "LanternWraithSpawnPositions"))
+                .ToList();
+
+            Debug.Log("=== TEMP navmesh height under each fixed spawn ===");
+            foreach (var probe in probes)
+            {
+                var hit = NavMesh.SamplePosition(probe, out var sample, 5f, NavMesh.AllAreas);
+                Debug.Log(hit
+                    ? $"TEMP spawn {probe} -> navmesh y {sample.position.y:F4} (dY {sample.position.y - probe.y:F4})"
+                    : $"TEMP spawn {probe} -> NO navmesh within 5 units");
+            }
+
+            Debug.Log("=== TEMP collider column at the failing Lower Vault spawn (-2,66) ===");
+            LogColliderColumn(new Vector3(-2f, 66f));
+            Debug.Log("=== TEMP collider column at a PASSING Chapel spawn (-2,36), the control ===");
+            LogColliderColumn(new Vector3(-2f, 36f));
+        }
+
+        private static void LogColliderColumn(Vector3 groundPointXZ)
+        {
+            var centre = new Vector3(groundPointXZ.x, 1.5f, groundPointXZ.y);
+            var hits = Physics.OverlapBox(centre, new Vector3(0.02f, 2.5f, 0.02f),
+                Quaternion.identity, Physics.AllLayers, QueryTriggerInteraction.Collide);
+
+            if (hits.Length == 0)
+            {
+                Debug.Log($"TEMP column ({groundPointXZ.x},{groundPointXZ.y}): no colliders at all");
+                return;
+            }
+
+            foreach (var hit in hits.OrderByDescending(h => h.bounds.max.y))
+            {
+                var path = hit.name;
+                for (var t = hit.transform.parent; t != null; t = t.parent) path = t.name + "/" + path;
+                Debug.Log($"TEMP column ({groundPointXZ.x},{groundPointXZ.y}): top y {hit.bounds.max.y:F4} " +
+                          $"bottom y {hit.bounds.min.y:F4} trigger {hit.isTrigger} :: {path}");
+            }
         }
 
         [UnityTearDown]
