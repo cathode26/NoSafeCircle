@@ -69,6 +69,16 @@ namespace NoSafeCircle.DoorPrototype.Tests
             yield return SceneManager.LoadSceneAsync("DoorPrototype", LoadSceneMode.Single);
             var scene = SceneManager.GetSceneByName("DoorPrototype");
 
+            // THE COMPOSED SCENE STARTS AT THE TITLE SCREEN WITH GAMEPLAY INPUT SUSPENDED.
+            // TitleScreenController.Awake calls SuspendGameplayInput on PlayerInteractionController,
+            // and DoorInteractionFeedback gates IsHovered on exactly that flag - it reads
+            // `gameplayEnabled = interactionController == null || interactionController
+            // .IsGameplayEnabled` before hover can ever become true. So hover feedback cannot
+            // activate in a freshly loaded scene no matter how the pointer is set, and this test
+            // failed on D1 for that reason alone rather than for anything wrong with the feedback.
+            // Entering gameplay the way a player does is what makes the assertion meaningful.
+            yield return EnterGameplayThroughRunEntry();
+
             var player = scene.GetRootGameObjects().Single(root => root.name == "Player");
             var movement = player.GetComponent<PlayerMovement>();
             var interactionController = player.GetComponent<PlayerInteractionController>();
@@ -387,6 +397,28 @@ namespace NoSafeCircle.DoorPrototype.Tests
             controller.enabled = false;
             player.transform.position = position;
             controller.enabled = true;
+        }
+
+        // Walks the committed scene from its title screen into gameplay exactly as a player does:
+        // StartGame raises WizardSelectionRequested, WizardSelectionController shows its panel, and
+        // SelectOption plus ConfirmSelection hand a confirmed selection to WizardGameEntryController,
+        // which spawns the wizard and re-enables gameplay input on both player controllers.
+        private static IEnumerator EnterGameplayThroughRunEntry()
+        {
+            var title = Object.FindFirstObjectByType<TitleScreenController>();
+            if (title == null) yield break;
+
+            title.StartGame();
+            yield return null;
+
+            var selection = Object.FindFirstObjectByType<WizardSelectionController>();
+            if (selection != null && selection.IsSelectionVisible)
+            {
+                selection.SelectOption(0);
+                selection.ConfirmSelection();
+            }
+
+            yield return null;
         }
 
         private static Color ReadRendererColor(Renderer renderer)
