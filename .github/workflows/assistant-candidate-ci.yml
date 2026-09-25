@@ -65,6 +65,7 @@ jobs:
             "Pipeline.AssistantControl.test_decomposition_transport",
             "Pipeline.AssistantControl.test_decomposition_diagnosis",
             "Pipeline.AssistantControl.test_decomposition_recovery",
+            "Pipeline.AssistantControl.test_revise_on_source_human_rejection",
             "Pipeline.AssistantControl.test_post_crew_workflow",
             "Pipeline.AssistantControl.test_viewer",
             "Pipeline.AssistantControl.test_admission_reconciliation",

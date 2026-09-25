@@ -13,6 +13,10 @@ from typing import Any, Callable
 
 from Pipeline.AssistantControl.checkouts import Checkouts, write_record
 from Pipeline.AssistantControl.inspect_project import git
+from Pipeline.AssistantControl.reconciliation_binding import (
+    ReconciliationBindingError,
+    human_rejection_binding,
+)
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
 from Pipeline.TaskReviewAgent.contracts import ExecutionScopePlan, validate_task_id
 from Pipeline.TaskReviewAgent.execution_bridge import ExecutionCrewBridge, ExecutionCrewReceipt
@@ -266,14 +270,30 @@ def register_candidate(
                 _cleanup_recovery(recovery_root, checkouts.records)
             raise CandidateRegistrationError("ExecutionCrew receipt identity differs from registered scope")
 
+        # TWO WAYS A RUN CAN OWE FEEDBACK, ONE VERIFICATION. A `fresh` revision
+        # binds the rejection through `record["revision"]`; a run dispatched after
+        # `revise-on-source` withdrew a human-rejected candidate binds it through
+        # the withdrawal entry, because a reconciliation makes the rejected commit
+        # and the execution baseline different commits and the ordinary structure
+        # cannot express that. Both must be checked, or the second one accepts a
+        # candidate produced by a crew that was never given the feedback.
+        expected_message = None
         if (record.get("revision") or {}).get("feedback_mode") == "fresh":
+            expected_message = record["revision"]["rejected_review"]["message"]
+        else:
+            try:
+                withdrawal = human_rejection_binding(record)
+            except ReconciliationBindingError as exc:
+                raise CandidateRegistrationError(str(exc)) from exc
+            if withdrawal is not None:
+                expected_message = withdrawal["rejected_review"]["message"]
+        if expected_message is not None:
             # Read the same verified result bytes before accepting its feedback claim.
             result_bytes = Path(execution.result_path).read_bytes()
             if hashlib.sha256(result_bytes).hexdigest() != execution.result_sha256:
-                raise CandidateRegistrationError("fresh revision result changed after verification")
+                raise CandidateRegistrationError("revision result changed after verification")
             result_data = json.loads(result_bytes)
-            message = record["revision"]["rejected_review"]["message"]
-            expected_feedback = message.encode("utf-8")
+            expected_feedback = expected_message.encode("utf-8")
             feedback_path = Path(execution.result_path).parent / "human_review_feedback.txt"
             if (result_data.get("revision_feedback_file") != feedback_path.name
                     or result_data.get("revision_feedback_sha256") != hashlib.sha256(expected_feedback).hexdigest()

@@ -188,13 +188,18 @@ def main(argv=None) -> int:
         help=(
             "Dry-run (default) or --apply the reconciliation of ONE rejected "
             "candidate with an inspected Source and an explicitly named contract. "
-            "Publishes prepared with NO active candidate, for fresh crew work. "
-            "Carries the implementation forward, never its validation authority."
+            "The rejection may be a FAILED authoritative Unity validation or an "
+            "exact human reject; either way the candidate must carry authenticated "
+            "crew provenance. Publishes prepared with NO active candidate, for "
+            "fresh crew work, and freezes the rejection so the next crew is given "
+            "it verbatim. Carries the implementation forward, never its "
+            "validation authority."
         ),
     )
     on_source.add_argument("task")
     on_source.add_argument("--candidate-commit", required=True,
-                           help="The rejected materialized commit")
+                           help=("The rejected commit: a failed materialized "
+                                 "candidate, or the exact commit a human rejected"))
     on_source.add_argument("--source-commit", required=True,
                            help="The Source commit you INSPECTED; must equal Source HEAD")
     on_source.add_argument("--accept-contract-sha256", required=True,
