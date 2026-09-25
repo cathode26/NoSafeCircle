@@ -3,6 +3,7 @@ using UnityEditor;
 using UnityEditor.Animations;
 using UnityEditor.Events;
 using NoSafeCircle.DoorPrototype.Enemies;
+using NoSafeCircle.DoorPrototype.World.Rooms;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.EventSystems;
@@ -252,9 +253,8 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
         {
             var player = new GameObject("Player");
 
-            // Far south-west corner of the Ruined Entry (X[-14,14], Z[-26,0]), so the run opens
-            // with a walk across the whole first room toward D1 at (0, 0) instead of starting
-            // a few steps from it.
+            // AC-003: NSC-044 records the Ruined Entry start point authoritatively in
+            // RuinedEntryLayout; this facade reads it from there instead of re-authoring its own copy.
             player.transform.position = PlayerSpawnPosition;
 
             var characterController = player.AddComponent<CharacterController>();
@@ -353,38 +353,41 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
         // visual reuses the same world-space SpriteRenderer prefab as the wizard and door so
         // transparent sorting stays consistent with everything else in the scene. Must run after
         // BuildGameplayNavigation has baked, or the agent has no surface to path on.
-        // One enemy per room beyond the entry, placed near the middle of its own room and well
-        // away from both doors on that room's boundaries, so the wizard never walks through a
-        // door into an enemy waiting on the far side. Room bounds and door centers come from
-        // RoomSceneCatalog: RuinedEntry Z[-26,0], BoneArchive Z[0,20], ChapelOfAsh Z[20,42],
-        // LowerVault Z[42,64], FinalRoom Z[64,86]; doors D1(0,0) D2(6,20) D3(-6,42) D4(4,64)
-        // D5(0,86). The wizard spawns at (0, 0, -4), so RuinedEntry is deliberately left empty.
+        //
+        // AC-005 (contract revision 8): repositioned to the 2026-09-15 approved room bounds -
+        // BoneArchive X[-12,12] Z[0,20] D1(0,0)/D2(6,20); ChapelOfAsh X[-18,18] Z[20,54]
+        // D2(6,20)/D3(-8,54); LowerVault X[-20,20] Z[54,76] D3(-8,54)/D4(4,76); FinalRoom
+        // X[-15,15] Z[76,104] D4(4,76)/D5(0,104) - per the AC-005 oracles: each single-melee
+        // room's spawn sits within 4 units of its room's own entry/exit door-line midpoint, and
+        // Final Room's two melee spawns flank FR-1 (X[-3.5,3.5] Z[87,94]) on opposite sides of
+        // the D4-D5 line while staying within 6 units of that line's midpoint (2,90). RuinedEntry
+        // is deliberately left empty; the wizard spawns there instead.
         private static readonly Vector3[] EnemySpawnPositions =
         {
-            new Vector3(-6f, 0f, 10f),  // BoneArchive mid-room; D1 (0,0) and D2 (6,20) both 10 away
-            new Vector3(7f, 0f, 31f),   // ChapelOfAsh mid-room; D2 (6,20) and D3 (-6,42) both 11 away
-            new Vector3(-7f, 0f, 53f),  // LowerVault mid-room; D3 (-6,42) and D4 (4,64) both 11 away
-            new Vector3(8f, 0f, 74f),   // FinalRoom; 10 from D4 (4,64), 12 from the D5 exit (0,86)
-            new Vector3(-8f, 0f, 77f),  // FinalRoom second guard, opposite side
+            new Vector3(2f, 0f, 10f),   // BoneArchive: 1 unit from the D1-D2 midpoint (3,10)
+            new Vector3(-2f, 0f, 36f),  // ChapelOfAsh: ~1.4 units from the D2-D3 midpoint (-1,37)
+            new Vector3(-2f, 0f, 66f),  // LowerVault: 1 unit from the D3-D4 midpoint (-2,65)
+            new Vector3(-2f, 0f, 86f),  // FinalRoom west flank of FR-1, ~5.7 from midpoint (2,90)
+            new Vector3(4f, 0f, 95f),   // FinalRoom east flank of FR-1, opposite side of D4-D5 line
         };
 
         // Half a room, so a leashed enemy never reaches either of its room's doorways.
         private const float EnemyPursuitLeashDistance = 5f;
 
-        // Ruined Entry spans X[-14,14], Z[-26,0] with D1 at (0, 0). Starting in the far
-        // south-west corner keeps the wizard well clear of the first door and of every enemy,
-        // which all live from the Bone Archive northward.
-        private static readonly Vector3 PlayerSpawnPosition = new Vector3(-10f, 0f, -22f);
+        // AC-003: the start point NSC-044 records in RuinedEntryLayout, read here rather than
+        // re-authored as a second copy of that value.
+        private static readonly Vector3 PlayerSpawnPosition = RuinedEntryLayout.PlayerStart;
 
-        // Stationary Lantern Wraiths, one per room from the Bone Archive onward. Offset to the
-        // opposite side of each room from the melee enemy so the wizard is pressured from two
-        // directions rather than one, and still clear of every door center.
+        // AC-005: stationary Lantern Wraiths, repositioned alongside EnemySpawnPositions above to
+        // the same 2026-09-15 approved room bounds. Each sits on the opposite side of its room's
+        // door line from that room's melee spawn, at least 6 units clear of it, with a Linecast
+        // sight line to at least one of that room's two door approach points.
         private static readonly Vector3[] LanternWraithSpawnPositions =
         {
-            new Vector3(7f, 0f, 13f),   // Bone Archive, opposite the melee at (-6, 10)
-            new Vector3(-9f, 0f, 27f),  // Chapel of Ash, opposite the melee at (7, 31)
-            new Vector3(8f, 0f, 57f),   // Lower Vault, opposite the melee at (-7, 53)
-            new Vector3(0f, 0f, 70f),   // Final Room, covering the approach from D4
+            new Vector3(9f, 0f, 13f),   // BoneArchive, opposite side from melee (2,10); sees D2
+            new Vector3(0f, 0f, 45f),   // ChapelOfAsh, opposite side from melee (-2,36); sees D3
+            new Vector3(4f, 0f, 73f),   // LowerVault, opposite side from melee (-2,66); sees D4
+            new Vector3(10f, 0f, 80f),  // FinalRoom, within 12 units of D4 (4,76); sees D4
         };
 
         internal static void BuildChaseEnemies(Transform player, string architecturalTileAssetFolder)

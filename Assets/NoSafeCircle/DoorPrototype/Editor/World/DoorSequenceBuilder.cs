@@ -36,6 +36,10 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 }
             }
 
+            // AC-004: reconciles the four shared room boundaries only after every room has been
+            // cloned above, since it edits the already-composed content rather than the source rooms.
+            RoomSceneComposer.ReconcileSharedRoomBoundaries(targetScene, catalog);
+
             InstantiateRoomDressing(targetScene, catalog);
 
             RemoveLegacyEnvironmentRoots(targetScene);

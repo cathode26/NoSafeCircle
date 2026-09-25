@@ -190,9 +190,15 @@ namespace NoSafeCircle.DoorPrototype.Editor
             var demoRunFlow = new GameObject("DemoRunFlow");
             demoRunFlow.AddComponent<DemoRunFlow>();
 
-            var doorFeedback = door.GetComponent<DoorInteractionFeedback>();
-            SetPrivateField(doorFeedback, "playerMovement", movement);
-            SetPrivateField(doorFeedback, "interactionController", interactionController);
+            // AC-002/VAL-006: DoorSequenceBuilder.BuildCanonical clones D2-D5 from this D1
+            // instance before Player exists, so each clone's own DoorInteractionFeedback.Awake
+            // ran with no PlayerMovement/PlayerInteractionController to find yet. Wire every
+            // door's feedback component now that both exist, not only the original D1 door.
+            foreach (var doorFeedback in Object.FindObjectsByType<DoorInteractionFeedback>(FindObjectsSortMode.None))
+            {
+                SetPrivateField(doorFeedback, "playerMovement", movement);
+                SetPrivateField(doorFeedback, "interactionController", interactionController);
+            }
 
             BuildFloorRunRestartController(health, mana, movement, interactionController);
 

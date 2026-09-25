@@ -23,6 +23,12 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
         public const string ComposedRoomsRootName = "ComposedRooms";
         private const string RoomRootNamePrefix = "Room_";
 
+        // AC-004: the shared-boundary wall visual naming convention every room's Visuals category
+        // already paints its near/far Tilemap walls with (see e.g. RuinedEntrySceneBuilder,
+        // BoneArchiveSceneBuilder). This composer never creates or renames these Tilemaps; it only
+        // removes cells from an already-cloned one.
+        private const string NorthFullWallTilemapName = "NorthFullWallTilemap";
+
         private const float PositionTolerance = 0.01f;
         private const float WidthTolerance = 0.01f;
         private const float ForwardOppositionTolerance = 0.02f;
@@ -249,6 +255,140 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             }
 
             return TryComposeRoom(roomEntry.SceneAssetPath, roomId, roomEntry, catalog.Doors, targetScene, out validation);
+        }
+
+        // AC-004: reconciles the four shared north/south room boundaries (RuinedEntry/BoneArchive,
+        // BoneArchive/ChapelOfAsh, ChapelOfAsh/LowerVault, LowerVault/FinalRoom) after every room has
+        // already been cloned into targetScene by TryComposeRoom above. Consecutive catalog entries
+        // are adjoining rooms in the fixed south-to-north order ValidateFixedRoomOrder already
+        // requires, so rooms[i] is always south of rooms[i + 1] at their shared boundary. This never
+        // opens or writes to a room source scene; it only edits the already-cloned composed content.
+        public static void ReconcileSharedRoomBoundaries(Scene targetScene, RoomSceneCatalog catalog)
+        {
+            var rooms = catalog.Rooms;
+            for (var i = 0; i < rooms.Count - 1; i++)
+            {
+                ReconcileBoundary(targetScene, rooms[i], rooms[i + 1]);
+            }
+        }
+
+        private static void ReconcileBoundary(
+            Scene targetScene,
+            RoomSceneCatalog.RoomCatalogEntry southEntry,
+            RoomSceneCatalog.RoomCatalogEntry northEntry)
+        {
+            var southRoomRoot = FindComposedRoomRoot(targetScene, southEntry.RoomId);
+            var northRoomRoot = FindComposedRoomRoot(targetScene, northEntry.RoomId);
+            if (southRoomRoot == null || northRoomRoot == null) return;
+
+            // The northern room's SouthLowWallTilemap is kept unchanged; only the southern room's
+            // NorthFullWallTilemap cells falling inside the northern room's own X span are removed.
+            RemoveContainedWallVisualCells(southRoomRoot, northEntry.Bounds.MinX, northEntry.Bounds.MaxX);
+            RemoveContainedWallColliders(northRoomRoot, southRoomRoot);
+        }
+
+        private static void RemoveContainedWallVisualCells(GameObject southRoomRoot, float minX, float maxX)
+        {
+            var visualsRoot = FindCategoryRoot(southRoomRoot, RoomContentCategory.Visuals);
+            if (visualsRoot == null) return;
+
+            foreach (var tilemap in visualsRoot.GetComponentsInChildren<Tilemap>(true))
+            {
+                if (tilemap.name != NorthFullWallTilemapName) continue;
+                RemoveTilesWithinXSpan(tilemap, minX, maxX);
+            }
+        }
+
+        private static void RemoveTilesWithinXSpan(Tilemap tilemap, float minX, float maxX)
+        {
+            const float tolerance = 0.01f;
+
+            // Iterate every currently painted cell rather than assuming a contiguous run, since a
+            // wall tilemap already has a gap for its own door opening.
+            var bounds = tilemap.cellBounds;
+            foreach (var cell in bounds.allPositionsWithin)
+            {
+                if (!tilemap.HasTile(cell)) continue;
+
+                var worldCenter = tilemap.GetCellCenterWorld(cell);
+                if (worldCenter.x >= minX - tolerance && worldCenter.x <= maxX + tolerance)
+                {
+                    tilemap.SetTile(cell, null);
+                }
+            }
+        }
+
+        private static readonly string[] SharedBoundaryWallSides = { "West", "East" };
+
+        // AC-004: for each side of the boundary's door gap, one room's wall-collision piece
+        // entirely contains the other's (the wider room's piece spans the narrower room's), so the
+        // contained piece is removed by name. Neither surviving collider is resized.
+        private static void RemoveContainedWallColliders(GameObject northRoomRoot, GameObject southRoomRoot)
+        {
+            foreach (var side in SharedBoundaryWallSides)
+            {
+                var northPiece = FindGameplayGeometryChild(northRoomRoot, "South" + side + "Collision");
+                var southPiece = FindGameplayGeometryChild(southRoomRoot, "North" + side + "Collision");
+                if (northPiece == null || southPiece == null) continue;
+
+                var northCollider = northPiece.GetComponent<BoxCollider>();
+                var southCollider = southPiece.GetComponent<BoxCollider>();
+                if (northCollider == null || southCollider == null) continue;
+
+                var northBounds = northCollider.bounds;
+                var southBounds = southCollider.bounds;
+
+                if (IsContainedInX(northBounds, southBounds))
+                {
+                    Object.DestroyImmediate(northPiece);
+                }
+                else if (IsContainedInX(southBounds, northBounds))
+                {
+                    Object.DestroyImmediate(southPiece);
+                }
+            }
+        }
+
+        private static bool IsContainedInX(Bounds inner, Bounds outer)
+        {
+            const float tolerance = 0.01f;
+            return inner.min.x >= outer.min.x - tolerance && inner.max.x <= outer.max.x + tolerance;
+        }
+
+        private static GameObject FindComposedRoomRoot(Scene scene, RoomId roomId)
+        {
+            foreach (var root in scene.GetRootGameObjects())
+            {
+                if (root.name != WorldRootName) continue;
+
+                var composedRooms = root.transform.Find(ComposedRoomsRootName);
+                if (composedRooms == null) return null;
+
+                var roomRoot = composedRooms.Find(RoomRootNamePrefix + roomId);
+                return roomRoot != null ? roomRoot.gameObject : null;
+            }
+
+            return null;
+        }
+
+        private static GameObject FindCategoryRoot(GameObject roomRoot, RoomContentCategory category)
+        {
+            foreach (Transform child in roomRoot.transform)
+            {
+                var marker = child.GetComponent<RoomContentMarker>();
+                if (marker != null && marker.Category == category) return child.gameObject;
+            }
+
+            return null;
+        }
+
+        private static GameObject FindGameplayGeometryChild(GameObject roomRoot, string name)
+        {
+            var gameplayGeometryRoot = FindCategoryRoot(roomRoot, RoomContentCategory.GameplayGeometry);
+            if (gameplayGeometryRoot == null) return null;
+
+            var found = gameplayGeometryRoot.transform.Find(name);
+            return found != null ? found.gameObject : null;
         }
 
         private static void ValidateNoDisallowedComponents(GameObject roomRoot, RoomValidationResult result)
