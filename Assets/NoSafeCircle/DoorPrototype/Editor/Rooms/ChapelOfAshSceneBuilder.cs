@@ -32,6 +32,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         private const string FloorTilePath = ArchitecturalTileFolder + "/" + FloorTileName + ".asset";
         private const string FarWallTileName = "ChapelOfAshFarWallTile";
         private const string CutawayWallTileName = "ChapelOfAshCutawayWallTile";
+        private const string WallAccentsRootName = "WallAccents";
 
         // NSC-109 AC-001/AC-002/AC-004: the committed art this room and the shared full/low wall
         // modules are applied from, instead of the procedurally generated masonry textures this
@@ -163,6 +164,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             Transform authoring = CreateContentRoot(roomRoot.transform, AuthoringRootName, RoomContentCategory.Authoring);
 
             BuildVisuals(visuals, floorTile, farWallTile, cutawayWallTile);
+            BuildWallAccents(visuals);
             BuildGameplayGeometry(gameplay);
 
             CreateAnchor(anchors, "D2Anchor", ChapelOfAshLayout.D2, Vector3.back, DoorId.D2, DoorAnchorRole.Entry);
@@ -232,6 +234,29 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             renderer.sortingLayerName = DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
             renderer.sortingOrder = sortingOrder;
             return tilemap;
+        }
+
+        // NSC-126 AC-001/AC-003/AC-004: places the corner/jamb/end-cap accents NSC-120 delivered,
+        // from this room's own committed RoomBounds, floor Y and D2/D3 door openings -- no new
+        // door coordinates or bounds are introduced here. Nested under Visuals rather than as a
+        // direct child of the room root because RoomSceneComposer.ValidateContentCategories
+        // requires every direct room-root child to carry a RoomContentMarker for one of its four
+        // categories; the whole room is rebuilt from scratch on every call, so this is idempotent
+        // for free.
+        private static void BuildWallAccents(Transform visuals)
+        {
+            Bounds roomBounds = ChapelOfAshLayout.RoomBounds;
+            var doorOpenings = new List<WallAccentDoorOpening>
+            {
+                new WallAccentDoorOpening(WallSide.South, ChapelOfAshLayout.D2.x, ChapelOfAshLayout.DoorWidth),
+                new WallAccentDoorOpening(WallSide.North, ChapelOfAshLayout.D3.x, ChapelOfAshLayout.DoorWidth)
+            };
+            WallAccentRoomGeometry geometry = ArchitecturalWallAccentPlacement.BuildRectangularRoomGeometry(
+                roomBounds, roomBounds.center.y, doorOpenings);
+
+            GameObject accentsRoot = new GameObject(WallAccentsRootName);
+            accentsRoot.transform.SetParent(visuals, false);
+            ArchitecturalWallAccentPlacement.Place(accentsRoot.transform, geometry);
         }
 
         // AC-003: paints every cell whose center lies inside the wall-collider interior faces.

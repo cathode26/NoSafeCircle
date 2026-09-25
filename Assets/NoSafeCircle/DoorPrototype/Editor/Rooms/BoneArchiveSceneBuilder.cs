@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using NoSafeCircle.DoorPrototype.Editor;
 using NoSafeCircle.DoorPrototype.World;
@@ -32,6 +33,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         private const string FloorTilePath = ArchitecturalTileFolder + "/" + FloorTileName + ".asset";
         private const string FloorSpriteSourcePath =
             "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_BoneArchive.png";
+        private const string WallAccentsRootName = "WallAccents";
 
         [MenuItem("No Safe Circle/Rooms/Build Bone Archive Authoring Scene")]
         public static void BuildAndSave()
@@ -86,6 +88,13 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
                 HideBlockoutRenderers(visuals);
             }
 
+            // AFTER the hide block, deliberately. HideBlockoutRenderers walks
+            // GetComponentsInChildren<MeshRenderer>() over the whole Visuals subtree, and the
+            // accents nest under Visuals. They are SpriteRenderers today
+            // (ArchitecturalWallAccentPlacement.cs:469), so the order cannot matter now - but if
+            // an accent ever became a MeshRenderer, running before the hide would disable the art
+            // silently and every green assertion would still pass. This order fails loudly instead.
+            BuildWallAccents(visuals);
             CreateAnchor("D1Anchor", anchors, BoneArchiveLayout.D1, Vector3.back, DoorId.D1, DoorAnchorRole.Entry);
             CreateAnchor("D2Anchor", anchors, BoneArchiveLayout.D2, Vector3.forward, DoorId.D2, DoorAnchorRole.Exit);
             SceneManager.SetActiveScene(scene);
@@ -301,6 +310,29 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             float y = BoneArchiveLayout.WallHeight * 0.5f;
             CreateVisualAndCollision(name + "West", visuals, geometry, new Vector3(roomMinX + westLength * 0.5f, y, z), new Vector3(westLength, BoneArchiveLayout.WallHeight, BoneArchiveLayout.WallThickness), Color.black);
             CreateVisualAndCollision(name + "East", visuals, geometry, new Vector3(roomMaxX - eastLength * 0.5f, y, z), new Vector3(eastLength, BoneArchiveLayout.WallHeight, BoneArchiveLayout.WallThickness), Color.black);
+        }
+
+        // NSC-126 AC-001/AC-003/AC-004: places the corner/jamb/end-cap accents NSC-120 delivered,
+        // from this room's own committed RoomBounds, floor Y and D1/D2 door openings -- no new
+        // door coordinates or bounds are introduced here. Nested under Visuals rather than as a
+        // direct child of the room root because RoomSceneComposer.ValidateContentCategories
+        // requires every direct room-root child to carry a RoomContentMarker for one of its four
+        // categories; the whole room is rebuilt from scratch on every call, so this is idempotent
+        // for free.
+        private static void BuildWallAccents(Transform visuals)
+        {
+            Bounds roomBounds = BoneArchiveLayout.RoomBounds;
+            var doorOpenings = new List<WallAccentDoorOpening>
+            {
+                new WallAccentDoorOpening(WallSide.South, BoneArchiveLayout.D1.x, BoneArchiveLayout.DoorWidth),
+                new WallAccentDoorOpening(WallSide.North, BoneArchiveLayout.D2.x, BoneArchiveLayout.DoorWidth)
+            };
+            WallAccentRoomGeometry geometry = ArchitecturalWallAccentPlacement.BuildRectangularRoomGeometry(
+                roomBounds, roomBounds.center.y, doorOpenings);
+
+            GameObject accentsRoot = new GameObject(WallAccentsRootName);
+            accentsRoot.transform.SetParent(visuals, false);
+            ArchitecturalWallAccentPlacement.Place(accentsRoot.transform, geometry);
         }
 
         private static void CreateVisualAndCollision(string name, Transform visuals, Transform geometry, Vector3 position, Vector3 size, Color color)
