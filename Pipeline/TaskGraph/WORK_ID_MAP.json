@@ -118,7 +118,8 @@
     "world-sprite-prefab-sorting": "NSC-039",
     "world-sprite-sorting-layer-adoption": "NSC-100",
     "world-visual-foundation": "NSC-026",
-    "architectural-wall-accent-placement": "NSC-120"
+    "architectural-wall-accent-placement": "NSC-120",
+    "enemy-charge-shelter-behaviour": "NSC-121"
   },
   "reconciliation_run_id": "20260821T193541Z-998ee7b5",
   "schema_version": "1.0",

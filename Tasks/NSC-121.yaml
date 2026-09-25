@@ -1,0 +1,86 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Vincent 2026-09-25 via agent-state/vincent-decision-NSC-116-shield-cover.md; his two originating musings quoted there",
+      "requirement": "VINCENT PUT THIS BEHAVIOUR IN SCOPE AND THAT PART IS NOT GER'S TO RE-DERIVE. His word, 2026-09-25: 'Yes on NSC-116's shield/cover ladder'. THE SHAPE IS NOT HIS AND THE WORD 'LADDER' IS NOT HIS EITHER - it was a coordinator's shorthand that appeared in the sentence he approved, and the Documentation Agent flagged that itself rather than letting it pass as specification. HIS ACTUAL RAW MATERIAL IS TWO HEDGED MUSINGS: 'Maybe use another enemy as a shield?' and 'So what is running, Maybe attempt to hide behind something if it is near by?'. So this contract implements sheltering and every parameter below is MARKED 'DECIDED BY GER' so nobody later mistakes a GER choice for his. NO ORDERED FALLBACK LADDER IS SPECIFIED OR IMPLIED BY HIS WORDS."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-116 owns EnemyChargeFleeBehaviour.cs and the charge threshold; this task owns the sheltering response",
+      "requirement": "DECIDED BY GER - ONE COMPONENT, TWO SHELTER KINDS, NO SECOND TRIGGER. Create Assets/NoSafeCircle/DoorPrototype/Scripts/EnemyChargeShelterBehaviour.cs and its .meta. It responds to the SAME charge threshold NSC-116 already defines and reads it from NSC-116 rather than introducing a second serialized threshold, so a single tunable governs both responses and they can never disagree about when a charge counts. Sheltering behind another enemy and sheltering behind static cover are ONE state with two target kinds, not two states: both mean 'put a solid thing between me and the charging wizard', both share target selection and both are proven by the same occlusion assertion in VAL-001. Splitting them would duplicate the selection logic and the test for no behavioural difference."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "RoomContentCategory.GameplayGeometry is built by all five room builders (e.g. BoneArchiveSceneBuilder.cs:49); measured 2026-09-25, 18 tracked files reference it",
+      "requirement": "DECIDED BY GER - WHAT COUNTS AS COVER, CHOSEN SO THAT NO NEW AUTHORING IS NEEDED. Static cover is any collider under a room's GameplayGeometry category whose top is at or above a serialized minimum height with a stated default. THIS DELIBERATELY REUSES THE GEOMETRY THE ROOMS ALREADY CARRY - shelves, collapsed furniture and archive bays are already authored as GameplayGeometry BoxColliders - so this task adds no cover volumes, no tags and no scene authoring, and it works in every committed room on the day it lands. A shelter of the other kind is any other live enemy carrying NSC-091's EnemyTargetKnowledge. Neither kind is registered, tagged or authored specially; both are discovered at runtime."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "NSC-116 AC-004 flee shape and end condition; this task must leave that observable behaviour intact when no shelter exists",
+      "requirement": "DECIDED BY GER - PRIORITY AGAINST FLEEING, AND THE INVARIANT THAT PROTECTS NSC-116. When the threshold is crossed, an enemy inside the radius SHELTERS IF A VALID SHELTER IS REACHABLE WITHIN A SERIALIZED SEARCH RADIUS with a stated default, and otherwise FLEES exactly as NSC-116 already specifies. Sheltering is preferred because an enemy that takes cover stays in the fight while an enemy that flees leaves it, which is the more interesting behaviour and the one closer to the GDD's intent - see AC-006. THE HARD INVARIANT: WITH NO VALID SHELTER IN RANGE THIS TASK MUST NOT CHANGE NSC-116's OBSERVABLE BEHAVIOUR AT ALL. That is what keeps NSC-116's own gate honest, and VAL-001 proves it directly rather than assuming it."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "NSC-116 VAL-001 asserts distance from the wizard strictly increases while fleeing; sheltering cannot and must not",
+      "requirement": "DECIDED BY GER - WHAT SHELTERING MEANS GEOMETRICALLY, AND THE GUARD AGAINST ITS OBVIOUS FAILURE. A sheltered enemy ends with the chosen shelter BETWEEN itself and the wizard: the straight segment from the wizard's position to the enemy's position intersects the shelter's horizontal footprint. THIS IS WHY SHELTERING IS NOT A VARIANT OF FLEEING AND IS NOT IN NSC-116: a sheltering enemy moves laterally or even toward the wizard, so NSC-116's monotonic-distance assertion is violated by construction, and folding this behaviour into that contract would have forced that assertion to be weakened. AND THE GUARD THIS NEEDS: an enemy must never finish its shelter move CLOSER to the wizard than it started, so 'hiding' can never degenerate into walking into the caster. Movement drives NSC-092's NavMeshAgent, never the transform directly. The enemy resumes normal NSC-091/NSC-092 behaviour when the charge ends, is released, is cancelled, drops below the threshold, or the wizard dies."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "NSC-116 AC-005 records the same GDD tension for fleeing; GDD 'charging becomes unsafe once they close the distance'",
+      "requirement": "THE GDD TENSION NSC-116 RECORDED IS PARTLY RESOLVED BY THIS TASK RATHER THAN DEEPENED, AND THAT IS WORTH STATING. The GDD's goal is that 'charging becomes unsafe once they close the distance', which implies enemies CLOSING; NSC-116's fleeing does the opposite and makes charging safer. SHELTERING SITS BETWEEN THE TWO: the enemy stays near the wizard and stays in the fight, so the charge remains risky, while still reacting visibly to it. THIS IS AN ARGUMENT, NOT A RESOLUTION, AND THE TENSION REMAINS OPEN - if that GDD sentence proves load-bearing elsewhere, raise it rather than quietly changing either behaviour. NO NEW ART IS REQUIRED BY THIS CONTRACT: sheltering is positional and uses existing locomotion and facings. A distinct crouch or hide pose would be new art, is the Art Director's, and would be a later revision rather than a precondition."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "CLAUDE.md: a green test can pass on a stub, assert the durable relation; and NSC-116's own gate must stay honest",
+      "requirement": "In Play Mode, the tests in Assets/NoSafeCircle/DoorPrototype/Tests/EnemyChargeShelterPlayModeTests.cs drive NSC-118's real charge state - not a shelter flag set directly - and assert, with the enemy starting inside the radius: that a charge held below the threshold produces NO shelter move; that with a valid shelter in range the enemy shelters rather than flees; that when it settles, the straight segment from the wizard to the enemy INTERSECTS the chosen shelter's horizontal footprint, computed from the shelter's own bounds rather than compared against a literal position; and that the enemy is never closer to the wizard than it started. A separate case supplies NO valid shelter in range and asserts the enemy's behaviour is INDISTINGUISHABLE from NSC-116's flee, including its distance-strictly-increasing property, which is what proves AC-004's invariant rather than assuming it. Both shelter kinds are covered by at least one case each - one behind another live enemy, one behind room geometry - and a run that selected zero shelters of either kind FAILS rather than passing vacuously. Each end condition in AC-005 is a separate case asserting the enemy is no longer sheltering afterwards. No human review is claimed by this gate and none may be recorded against it."
+    }
+  ],
+  "confidence": "medium",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "One bounded response with two target kinds and one measurable occlusion outcome",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-116",
+    "NSC-118",
+    "NSC-091",
+    "NSC-092"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/EnemyChargeShelterBehaviour.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/EnemyChargeShelterBehaviour.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyChargeShelterPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyChargeShelterPlayModeTests.cs.meta"
+  ],
+  "execution_reason": "One agent adds a sheltering response beside the existing flee response and writes its Play Mode coverage",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD combat and enemy behaviour (Docs/GDD/No_Safe_Circle_GDD.md); Vincent's decision recorded at agent-state/vincent-decision-NSC-116-shield-cover.md",
+      "requirement": "The GDD wants charging a fireball to be a risk the player takes under pressure. Enemies that only flee remove that pressure; enemies that take cover keep it while still reading as reacting. Vincent put the behaviour in scope on 2026-09-25 and left its shape open."
+    }
+  ],
+  "id": "NSC-121",
+  "kind": "implementation",
+  "notes": "AUTHORED BY GER 2026-09-25 from Vincent's decision, relayed by the Documentation Agent, which explicitly flagged that the phrase he approved was its own shorthand - that honesty is why AC-001 can separate what he decided from what he did not. NEW CONTRACT RATHER THAN A NSC-116 REVISION, AND THE REASON IS MEASURED AT THE BLOB: NSC-116 VAL-001 asserts that 'the enemy's distance from the wizard strictly increases while fleeing'. A sheltering enemy moves laterally or toward the wizard, so folding sheltering into NSC-116 would have forced that assertion to be weakened - and that assertion is the thing that makes NSC-116's gate a real test rather than an eyeball. Scoping a gate down to fit new work is the move I refused twice elsewhere on 2026-09-25 and it would have been wrong here too. NSC-116 stays four resources, five ACs, one gate. THE INVARIANT IN AC-004 IS WHAT MAKES THE SPLIT SAFE: with no shelter in range this task changes nothing NSC-116 asserts, and VAL-001 proves that directly. NOT ESTABLISHED: no Unity was run, no Astra design job was commissioned, the search radius and minimum cover height have no measured defaults yet, and whether an enemy used as a shield should itself be allowed to shelter at the same moment is left to the implementer. confidence is MEDIUM for those reasons and because AC-006's GDD tension is open.",
+  "parent": "NSC-010",
+  "provenance": {
+    "graph_delta_plan_id": null,
+    "origin": "ger_agent_contract_request",
+    "parent_contract_revision": null,
+    "parent_contract_sha256": null,
+    "parent_task_id": null
+  },
+  "reconciliation_key": "enemy-charge-shelter-behaviour",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Enemies Shelter Behind Another Enemy or Nearby Cover When a Fireball Charges",
+  "type": "gameplay_behaviour"
+}
