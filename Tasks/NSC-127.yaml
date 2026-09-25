@@ -36,14 +36,25 @@
   ],
   "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "decomposition_reason": "One bounded responsibility - place one sprite at one rhythm along existing wall runs - with a single measurable outcome per room.",
   "decomposition_state": "concrete",
   "depends_on": [
     "NSC-109",
     "NSC-126"
   ],
-  "downstream_integration_obligations": [],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "Pipeline Runner Agent 2026-09-25, NSC-126 trial merge onto b71319c5: LowerVaultSceneTests.Build_SeparatesVaultVisualsFromGameplayGeometry 'Expected: 12 But was: 20'; CLAUDE.md: assert the durable relation, not the value it has today",
+      "requirement": "THIS TASK ADDS ONE SpriteRenderer PER PLACED PILASTER UNDER EACH ROOM'S VISUALS ROOT, SO ANY FIXTURE ASSERTING AN EXACT RENDERER TOTAL FOR A ROOM WILL FAIL BY CONSTRUCTION - not because the placement is wrong. The known instance is Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/LowerVaultSceneTests.cs, method Build_SeparatesVaultVisualsFromGameplayGeometry, which asserts a frozen total of renderers under Visuals. NSC-126 already hit it once: its candidate produced exactly one failure, 'Expected: 12 But was: 20', while BOTH separation assertions in that same method - zero colliders under Visuals, zero renderers under GameplayGeometry - continued to pass. THE OBLIGATION IS ON THE FIXTURE'S OWNERS, NSC-047 AND NSC-109, to assert the separation plus the NAMED FAMILIES rather than a frozen sum. The fixture's own failure message already names them - '5 wall/floor TilemapRenderers and 7 blockout obstacle proxy SpriteRenderers' - so it knows its own decomposition and asserts only the total. Re-freezing the number at a larger value is not a fix: it expires the next time any legitimate visual lands, which is this task. THIS TASK DOES NOT DECLARE OR EDIT THAT FIXTURE: changing what a test COUNTS is not authoring the test, and claiming a file to gain write authority over it is the shape rejected fleet-wide on 2026-09-25."
+    },
+    {
+      "obligation_id": "INT-002",
+      "reference": "Game Agent 2026-09-25, from NSC-126's candidate a0dbfb62 file list; NSC-049 notes: the committed room scenes are immutable composition inputs; NSC-009 execution_reason: Unity scene materialization remains a controller step",
+      "requirement": "THIS TASK LANDS BUILDER CODE. NOTHING IT PLACES APPEARS IN THE GAME UNTIL THE FIVE ROOM SOURCE SCENES UNDER Assets/Scenes/Rooms/ ARE REBUILT AND THE CANONICAL SCENE IS RECOMPOSED, AND THIS TASK OWNS NEITHER. Measured on NSC-126, whose candidate a0dbfb62 contains seven files - five Editor/Rooms/*SceneBuilder.cs, one test and one meta - and ZERO room scenes: a rebake from the committed room scenes produced a frame BYTE-IDENTICAL to main, 0 changed pixels of 480000, because the composed scene is built FROM those committed scenes and they contain no accents. SO A GREEN BUILDER TEST IS NOT A VISIBLE ROOM. This obligation exists so nobody records this task, or NSC-126, as having put art in the rooms on the strength of builder coverage alone. Materialization is a controller step and belongs to whoever owns those scenes and runs Unity; this task must not hand-edit them. The task is not DONE in the sense Vincent means until a rendered room shows the placement."
+    }
+  ],
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/WallPilasterRhythmPlacement.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/WallPilasterRhythmPlacement.cs.meta",
@@ -72,7 +83,18 @@
     "origin": "ger_agent_contract_request",
     "parent_contract_revision": null,
     "parent_contract_sha256": null,
-    "parent_task_id": null
+    "parent_task_id": null,
+    "contract_followups": [
+      {
+        "date": "2026-09-25",
+        "reason": "Adds two downstream integration obligations found on NSC-126 at merge time, so NSC-127 does not repeat them. INT-001: this task adds a SpriteRenderer per pilaster under each room's Visuals root, so any fixture asserting an EXACT renderer total fails by construction - LowerVaultSceneTests.Build_SeparatesVaultVisualsFromGameplayGeometry did exactly that on NSC-126 ('Expected: 12 But was: 20') while both separation assertions in the same method passed. The obligation is on that fixture's owners, NSC-047 and NSC-109, to assert the separation plus the named families the failure message already lists, not a frozen sum; re-freezing at 20 expires the next time any visual lands. This task does not declare or edit that fixture, because changing what a test counts is not authoring it. INT-002: this task lands BUILDER CODE and nothing it places appears in the game until the five room source scenes are rebuilt and the canonical scene recomposed, which it does not own - measured on NSC-126, whose candidate carries zero room scenes and whose rebake produced a byte-identical frame, 0 changed pixels of 480000. Recorded so nobody books builder coverage as art in the rooms. Obligations are ADDED only: acceptance criteria, gates and resources are byte-identical to revision 1, and NSC-127 has no control record.",
+        "source_head": "b71319c547a7d31278f9d2598c904ddecee8cf12",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "064b5a2b884262639618be7d184c9c1a9ff16e9be0b42b14e5521e113955cc1f",
+        "revised_contract_sha256": "3afcc86e0683a0ce255433837e6ec906824c5c029987f8eeab5fad5381d4be36",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   },
   "reconciliation_key": "wall-pilaster-rhythm-placement",
   "repository_evidence_at_bootstrap": [],
