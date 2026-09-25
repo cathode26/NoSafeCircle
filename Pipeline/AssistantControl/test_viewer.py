@@ -723,6 +723,34 @@ class WorkerViewTests(unittest.TestCase):
             row = next(item for item in reader.build()["tasks"] if item["id"] == "NSC-042")
         self.assertEqual("active", row["state"])
 
+    def test_committed_delivery_outweighs_a_stale_blocked_checkout(self):
+        """A checkout's retained failure must not hide a committed delivery.
+
+        The checkout is a snapshot of one past attempt; taskgraph conformance is
+        the current graph fact. The superseded view is kept rather than
+        discarded, so a delivered task never silently loses a pending candidate
+        or a retained failure.
+        """
+        manager, record, _ = self.worker()
+        record["status"] = "validation_failed"
+        record["worker"]["status"] = "succeeded"
+        record["candidate_validation_failure"] = {
+            "candidate_commit": "0" * 40,
+            "validation_error": "retained EditMode failure from an older attempt",
+        }
+        write_record(manager.records / "NSC-042.json", record)
+        reader = AssistantSnapshot(self.root, manager.root)
+        with unittest.mock.patch.object(
+                reader, "_taskgraph_states", return_value={"NSC-042": {"state": "conformant"}}):
+            row = next(item for item in reader.build()["tasks"] if item["id"] == "NSC-042")
+        self.assertEqual("complete", row["state"])
+        self.assertEqual("taskgraph_conformant", row["progress"]["phase"])
+        self.assertEqual("blocked", row["progress"]["superseded_checkout_state"])
+        self.assertEqual(
+            "candidate_validation_failed",
+            row["progress"]["superseded_progress"]["phase"],
+        )
+
     @staticmethod
     def _write_crew_progress(checkout, *, rows, run_id="fixture-crew-run", task_id="NSC-042"):
         """Write a durable ExecutionCrew progress.jsonl exactly where compose.yaml

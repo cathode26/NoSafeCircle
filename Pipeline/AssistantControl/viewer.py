@@ -1103,13 +1103,25 @@ class AssistantSnapshot:
                 }
         elif (active and taskgraph_state is not None
               and taskgraph_state.get("state") == "conformant"
-              and row["state"] in {"assistant_idle", "local_accepted", "complete"}):
+              and row["state"] in {"assistant_idle", "local_accepted", "complete",
+                                   "blocked", "human_action"}):
             # A retained checkout can be older than a delivery committed on main.
             # Its idle state must not hide authoritative TaskGraph completion.
+            # `blocked` and `human_action` are here for the same reason: a
+            # retained failure, or a candidate still queued for review, belongs
+            # to ONE past attempt, while the delivery record is the current
+            # graph fact. `active` is deliberately NOT included -- a worker
+            # running right now is live work and must keep saying so.
+            superseded_state = row["state"]
+            superseded_progress = row.get("progress")
             row["state"] = "complete"
             row["progress"] = {
                 "phase": "taskgraph_conformant",
                 "transition_context": "Committed TaskGraph evidence proves this task is complete.",
+                # Kept rather than discarded, so a delivered task never silently
+                # loses a pending candidate or a retained failure someone needs.
+                "superseded_checkout_state": superseded_state,
+                "superseded_progress": superseded_progress,
             }
         return row
 
