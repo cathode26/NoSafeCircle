@@ -30,9 +30,14 @@ class FixtureRuns(unittest.TestCase):
         self.manager = Checkouts(source, self.root / "checkouts")
         self.manager.records.mkdir(parents=True, exist_ok=True)
 
-    def install(self, run: str, task: str, **inputs) -> None:
+    def install(self, run: str, task: str, run_changes=None, **inputs) -> None:
         run_dir = self.manager.records / "decomposition-runs" / run
         shutil.copytree(FIXTURES / run, run_dir)
+        if run_changes:
+            result_path = run_dir / "decomposition_run_result.json"
+            result = json.loads(result_path.read_text(encoding="utf-8"))
+            result.update(run_changes)
+            result_path.write_text(json.dumps(result), encoding="utf-8")
         write_record(self.manager.records / f"{task}.decomposition.json", {
             "schema_version": "assistant-decomposition/v1", "task_id": task, "run_id": run,
             "status": "failed", "source": str(self.manager.source), "artifact_root": str(run_dir),
@@ -54,6 +59,7 @@ class FixtureRuns(unittest.TestCase):
         proposal = self.plan("NSC-088", run, "provider-route",
                              models={"NSC_CLAUDE_MODEL": "claude-opus-5-5[1m]"})
         self.assertEqual("claude-opus-5-5[1m]", proposal["proposed_inputs"]["provider_environment"]["NSC_CLAUDE_MODEL"])
+        self.assertIn("unverified", proposal["evidence"]["route"]["effect"])
         self.assertIs(False, proposal["retry_authorized"])
         self.assertIs(False, proposal["reserves_attempt"])
         saved = json.loads(Path(proposal["proposal_path"]).read_text(encoding="utf-8"))
@@ -62,7 +68,7 @@ class FixtureRuns(unittest.TestCase):
     def test_the_same_model_again_is_not_a_repair(self):
         run = "decomp-nsc088-clone-20260924b"
         self.install(run, "NSC-088", provider_environment={"NSC_CLAUDE_MODEL": "claude-opus-5-5[1m]"})
-        with self.assertRaisesRegex(RetryPlanError, "is already"):
+        with self.assertRaisesRegex(RetryPlanError, "already used"):
             self.plan("NSC-088", run, "provider-route", models={"NSC_CLAUDE_MODEL": "claude-opus-5-5[1m]"})
 
     def test_a_budget_stop_is_answered_only_by_moving_from_two_to_three_calls(self):
@@ -73,27 +79,46 @@ class FixtureRuns(unittest.TestCase):
         proposal = self.plan("NSC-088", run, "budget-3")
         self.assertEqual((2, 3), (proposal["prior_inputs"]["max_calls"], proposal["proposed_inputs"]["max_calls"]))
 
-    def test_an_exhausted_three_call_run_gets_no_bigger_budget(self):
+    def test_a_receipt_that_disagrees_with_the_run_is_refused(self):
         run = "decomp-nsc088-clone-20260924c"
         self.install(run, "NSC-088", max_calls=3)
-        with self.assertRaisesRegex(RetryPlanError, "already had a three-call budget"):
+        with self.assertRaisesRegex(RetryPlanError, "call budget 3 disagrees with the run's 2"):
             self.plan("NSC-088", run, "budget-3")
+
+    def test_the_route_that_already_failed_is_not_a_repair(self):
+        run = "decomp-nsc088-clone-20260924a"
+        self.install(run, "NSC-088", provider_environment={})
+        with self.assertRaisesRegex(RetryPlanError, "already used"):
+            self.plan("NSC-088", run, "provider-route", models={"NSC_CLAUDE_MODEL": "claude-opus-5-5"})
+
+    def test_a_malformed_model_or_a_second_one_million_route_is_refused(self):
+        run = "decomp-nsc088-clone-20260924a"
+        self.install(run, "NSC-088")
+        with self.assertRaisesRegex(RetryPlanError, "contains whitespace"):
+            self.plan("NSC-088", run, "provider-route", models={"NSC_CLAUDE_MODEL": "claude opus[1m]"})
+        self.install_again = None
+        (self.manager.records / "NSC-088.decomposition.json").unlink()
+        shutil.rmtree(self.manager.records / "decomposition-runs" / run)
+        self.install(run, "NSC-088", provider_environment={"NSC_CLAUDE_MODEL": "claude-opus-5[1m]"})
+        with self.assertRaisesRegex(RetryPlanError, "already ran a 1M-context route"):
+            self.plan("NSC-088", run, "provider-route", models={"NSC_CLAUDE_MODEL": "claude-opus-5-5[1m]"})
 
     def test_an_author_failure_is_answered_by_newly_enabling_the_checklist(self):
         run = "decomp-nsc007-20260918a"
-        self.install(run, "NSC-007")
+        self.install(run, "NSC-007", providers=["claude", "claude"])
         proposal = self.plan("NSC-007", run, "author-checklist")
         self.assertEqual("parent-contract-v1", proposal["proposed_inputs"]["author_checklist"])
 
     def test_an_author_failure_with_the_checklist_already_on_has_no_automatic_retry(self):
         run = "decomp-nsc007-20260918a"
-        self.install(run, "NSC-007", author_checklist="parent-contract-v1")
+        self.install(run, "NSC-007", run_changes={"author_checklist": "parent-contract-v1"},
+                     providers=["claude", "claude"], author_checklist="parent-contract-v1")
         with self.assertRaisesRegex(RetryPlanError, "already used"):
             self.plan("NSC-007", run, "author-checklist")
 
     def test_a_stop_is_never_proposed_for_retry_and_nothing_is_written(self):
         run = "decomp-nsc007-20260922a"
-        self.install(run, "NSC-007")
+        self.install(run, "NSC-007", providers=["claude", "claude"])
         with self.assertRaisesRegex(RetryPlanError, "needs manual investigation"):
             self.plan("NSC-007", run, "author-checklist")
         self.assertFalse((self.root / "out").exists())
@@ -160,6 +185,19 @@ class ContractRevisionTests(unittest.TestCase):
         with self.assertRaisesRegex(RetryPlanError, "unchanged since the failed run"):
             self.plan(explanation="GER clarified the owner.")
 
+    def commit_contract(self, text: str) -> None:
+        (self.source / "Tasks" / "NSC-010.yaml").write_text(text, encoding="utf-8")
+        for args in (("add", "--", "Tasks/NSC-010.yaml"),
+                     ("-c", "user.name=t", "-c", "user.email=t@t.invalid", "commit", "-q", "-m", "edit")):
+            subprocess.run(["git", "-C", str(self.source), *args], check=True)
+
+    def test_a_formatting_only_change_is_not_a_revision(self):
+        path = self.source / "Tasks" / "NSC-010.yaml"
+        value = json.loads(path.read_text(encoding="utf-8"))
+        self.commit_contract(json.dumps(value, indent=4) + "\n")
+        with self.assertRaisesRegex(RetryPlanError, "only in formatting"):
+            self.plan(explanation="Reformatted.")
+
     def test_a_committed_revision_with_an_explanation_is_proposed(self):
         path = self.source / "Tasks" / "NSC-010.yaml"
         value = json.loads(path.read_text(encoding="utf-8"))
@@ -170,8 +208,10 @@ class ContractRevisionTests(unittest.TestCase):
             subprocess.run(["git", "-C", str(self.source), *args], check=True)
         proposal = self.plan(explanation="GER named NSC-012 as the owning capability.")
         self.assertNotEqual(self.reviewed_sha, proposal["proposed_inputs"]["task_contract_sha256"])
-        self.assertEqual("GER named NSC-012 as the owning capability.",
-                         proposal["evidence"]["contract"]["explanation"])
+        contract = proposal["evidence"]["contract"]
+        self.assertEqual("GER named NSC-012 as the owning capability.", contract["operator_explanation"])
+        self.assertEqual(["notes"], contract["changed_fields"])
+        self.assertIn("not verified", contract["explanation_status"])
 
 
 if __name__ == "__main__":

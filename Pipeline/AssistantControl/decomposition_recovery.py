@@ -22,6 +22,7 @@ checkout root (the old receipt is preserved). Scoped by Astra round 20.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any, Mapping
@@ -30,6 +31,16 @@ from Pipeline.AssistantControl.checkouts import Checkouts
 from Pipeline.AssistantControl.decomposition_diagnosis import diagnose
 from Pipeline.AssistantControl.inspect_project import git
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
+
+from TaskDecomposition.context_builder import ContextPackage  # noqa: E402  (path set by diagnosis)
+from TaskDecomposition.live_decomposition import _model_value_problem  # noqa: E402
+from TaskDecomposition.policy import semantic_json_sha256  # noqa: E402
+from TaskDecomposition.run_diagnosis import (  # noqa: E402
+    RUN_RESULT_NAME,
+    confined,
+    load_run_snapshot,
+    parse_json_object,
+)
 
 PROPOSAL_SCHEMA_VERSION = "decomposition-retry-proposal/v1"
 CHANGE_FOR_ROUTE = {
@@ -80,9 +91,24 @@ def plan_retry(
     if change != wanted:
         raise RetryPlanError(f"{route}/{code} is answered by {wanted!r}, not {change!r}")
 
-    receipt_path = manager.records / diagnosis["receipt"]["path"]
-    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+    # The prior inputs come from exactly the receipt and run result that were
+    # diagnosed, and the two must agree about what the failed run used.
+    receipt_bytes = confined(manager.records, diagnosis["receipt"]["path"]).read_bytes()
+    if hashlib.sha256(receipt_bytes).hexdigest() != diagnosis["receipt"]["sha256"]:
+        raise RetryPlanError("the receipt changed after it was diagnosed")
+    receipt = parse_json_object(receipt_bytes, "decomposition receipt")
+    run_dir = confined(manager.records, f"decomposition-runs/{run_id}")
+    snapshot = load_run_snapshot(run_dir)
+    if snapshot.manifest[RUN_RESULT_NAME] != diagnosis["input_manifest"].get(RUN_RESULT_NAME):
+        raise RetryPlanError("the run result changed after it was diagnosed")
+    run_result = snapshot.result
     prior = _prior_inputs(receipt)
+    for label, recorded, observed in (
+            ("call budget", prior["max_calls"], run_result.get("max_calls")),
+            ("provider order", prior["providers"], run_result.get("provider_order")),
+            ("author checklist", prior["author_checklist"], run_result.get("author_checklist"))):
+        if recorded != observed:
+            raise RetryPlanError(f"the receipt's {label} {recorded!r} disagrees with the run's {observed!r}")
     proposed = json.loads(json.dumps(prior))
     evidence: dict[str, Any] = {}
 
@@ -106,23 +132,47 @@ def plan_retry(
         new_model = (models or {}).get(variable or "")
         if variable is None or not new_model:
             raise RetryPlanError(f"name the new model for the failed {provider!r} round as {variable}=...")
-        old_model = prior["provider_environment"].get(variable)
-        if new_model == old_model:
-            raise RetryPlanError(f"{variable} is already {old_model!r} in the failed run")
-        if code in _CAPACITY_CODES and not new_model.endswith("[1m]"):
-            raise RetryPlanError(f"a capacity stop needs a 1M-context model; {new_model!r} is not one")
+        problem = _model_value_problem(new_model)
+        if problem:
+            raise RetryPlanError(f"model value {new_model!r} {problem}")
+        recorded = prior["provider_environment"].get(variable)
+        observed = (diagnosis.get("rounds") or [{}])[-1].get("actual_model")
+        if new_model in {recorded, observed}:
+            raise RetryPlanError(f"{new_model!r} is the route the failed round already used")
+        if code in _CAPACITY_CODES:
+            if any(str(model or "").endswith("[1m]") for model in (recorded, observed)):
+                raise RetryPlanError("the failed round already ran a 1M-context route; reduce the context instead")
+            if not new_model.endswith("[1m]"):
+                raise RetryPlanError(f"a capacity stop needs a 1M-context model; {new_model!r} is not one")
         proposed["provider_environment"][variable] = new_model
-        evidence["route"] = {"variable": variable, "from": old_model, "to": new_model}
+        evidence["route"] = {
+            "variable": variable, "recorded_model": recorded, "observed_model": observed, "to": new_model,
+            "effect": "unverified until the launch preflight and container accept this route",
+        }
     elif change == "contract-revision":
         if not (explanation and explanation.strip()):
             raise RetryPlanError("explain how the contract revision addresses the finding")
         head = git(manager.source, "rev-parse", "HEAD").decode().strip()
-        current = load_committed_task(manager.source, task_id, commit=head)["task_contract_sha256"]
+        current_task = load_committed_task(manager.source, task_id, commit=head)
+        current = current_task["task_contract_sha256"]
         if current == prior["task_contract_sha256"]:
             raise RetryPlanError("the committed parent contract is unchanged since the failed run")
+        context_bytes = confined(run_dir, "context.json").read_bytes()
+        context = ContextPackage.from_payload(parse_json_object(context_bytes, "retained context"))
+        if context.semantic_sha256 != run_result.get("context_sha256"):
+            raise RetryPlanError("the retained context does not hash to the run's context_sha256")
+        before = {k: v for k, v in context.to_dict()["selected_task"]["contract"].items()
+                  if k != "task_contract_sha256"}
+        after = {k: v for k, v in current_task.items() if k != "task_contract_sha256"}
+        if semantic_json_sha256(before) == semantic_json_sha256(after):
+            raise RetryPlanError("the parent contract changed only in formatting, not in content")
         proposed["task_contract_sha256"] = current
-        evidence["contract"] = {"from": prior["task_contract_sha256"], "to": current,
-                                "source_commit": head, "explanation": explanation.strip()}
+        evidence["contract"] = {
+            "from": prior["task_contract_sha256"], "to": current, "source_commit": head,
+            "changed_fields": sorted(k for k in set(before) | set(after) if before.get(k) != after.get(k)),
+            "operator_explanation": explanation.strip(),
+            "explanation_status": "the operator's claimed connection to the finding; not verified",
+        }
 
     if proposed == prior:
         raise RetryPlanError("the proposal does not change any recorded input")
