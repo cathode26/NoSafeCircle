@@ -1,0 +1,78 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-007 AC-003; GDD §2 Fireball",
+      "requirement": "Create FireballProjectile.cs, a MonoBehaviour that owns one runtime-created Fireball shot. Add no prefab. Expose a public launch method, called by Fireball, that sets the shot's start position, gameplay-plane direction, speed, maximum lifetime, flat contact radius, damage, area radius and the casting wizard's CharacterController. Expose public Tick(float), and have Update call only Tick(Time.deltaTime). Each Tick moves the shot in a straight line at its configured speed. When maximum lifetime elapses without contact, destroy the shot in place and deal no damage. Never detonate at a cursor or ground point."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-007 AC-007; GDD §2 Fireball; GDD §3 Enemy health and defeat ownership",
+      "requirement": "Each FireballProjectile Tick casts a chest-height Physics.Raycast, or equivalent sweep, against non-trigger Colliders on the default gameplay layers, using the same trigger-ignoring query as the Ranged Enemy caster's HasUnobstructedViewOfWizard and ignoring the caster's CharacterController. Walls, prop and obstacle Colliders, and enabled doorway-blocker Colliders for sealed, locked and broken doors stop the shot. An open door that the wizard has not crossed does not. The shot never hits its caster. Because enemies have no Colliders, test contact using flat horizontal distance against active, non-defeated EnemyHealth Components inside the contact radius, including a Ranged Enemy carrying EnemyFireballCaster or EnemyLanternWispCaster. Contact with an enemy or blocking Collider detonates the shot and calls EnemyHealth.TakeDamage(float) on the contacted enemy. For tiers above tap, also call TakeDamage on every other active, non-defeated enemy inside the area radius with an unobstructed line from the detonation point under the same raycast rule. Damage each enemy at most once per shot and damage nothing behind a wall or blocked doorway. Add no enemy Collider, layer, tag or new query API."
+    }
+  ],
+  "basis": "Direct GDD authority, NSC-007 AC-003 and AC-007, NSC-012's EnemyHealth contract, NSC-019's sealed/open door behavior, and NSC-050's locked/broken door behavior.",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "NSC-007 VAL-001; NSC-007 AC-003",
+      "requirement": "FireballProjectilePlayModeTests calls the public launch method with a configured direction, speed and maximum lifetime, then advances Tick in bounded steps. Verify the shot follows one straight gameplay-plane line at the supplied speed. With no contact, verify it destroys itself when the supplied maximum lifetime elapses and damages nothing."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "NSC-007 VAL-004; NSC-007 AC-007",
+      "requirement": "FireballProjectilePlayModeTests places the casting wizard's CharacterController, EnemyHealth targets, a wall or cover Collider, and representative sealed, locked, open and broken DoorInteractable states in the projectile path. A wall or prop Collider, or an enabled sealed, locked or broken doorway blocker, must stop the shot with no damage beyond it. An uncrossed open doorway must let the shot through. The caster must never be hit. A charged-tier detonation must damage every unobstructed enemy in its area exactly once. An EnemyHealth target carrying whichever Ranged Enemy caster Component exists must take damage like any other enemy. A contact case and an area case must each place a target 1.5 units above the shot but inside the horizontal radius and verify that target takes damage."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "FireballProjectile flight/lifetime and collision/damage are one bounded runtime Component with one focused Play Mode fixture. Separate child criteria and gates preserve the distinct parent AC-003 and AC-007 responsibilities while keeping the code under one owner.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-012",
+    "NSC-019",
+    "NSC-050"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/FireballProjectile.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/FireballProjectile.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FireballProjectilePlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FireballProjectilePlayModeTests.cs.meta"
+  ],
+  "execution_reason": "One agent implements FireballProjectile's public launch method, straight-line Tick movement, maximum-lifetime fizzle, obstruction raycast, flat-distance enemy contact and charged-area damage, then verifies those behaviors in FireballProjectilePlayModeTests.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD §2 Player Actions and Systems — Fireball",
+      "requirement": "Fireball is a cursor-aimed shot, and a charged shot damages clustered enemies."
+    },
+    {
+      "reference": "GDD §3 Enemy health and defeat ownership",
+      "requirement": "Damage sources call Enemy Health/Defeat's damage method rather than writing enemy health directly."
+    },
+    {
+      "reference": "GDD §3 Door and Pursuit Rules",
+      "requirement": "Locked doors buy time; attacks do not pass through blocked doorways."
+    }
+  ],
+  "id": "NSC-117",
+  "kind": "implementation",
+  "notes": "NSC-012 owns EnemyHealth.TakeDamage(float), defeat state and health reset. NSC-019 owns sealed/open DoorInteractable behavior, and NSC-050 owns locked/broken lifecycle state. This child reads the resulting enabled doorway-blocker Colliders but does not edit DoorInteractable state or those owner files. The Ranged Enemy caster Component marks a valid target only and transfers no ownership. fireball-cast-charge-state launches shots only through this child's public launch method and never edits FireballProjectile.cs. Programmer-placeholder projectile and detonation visuals are allowed; NSC-098 owns final art and tier-scaled rendering.",
+  "parent": "NSC-007",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-84836ea0bedb87fcbf27409a37a1b30866d162a68db24a735d00ea2f2939a7ad",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 9,
+    "parent_contract_sha256": "10acb112a1fa988ca9243ecbb9aeaa1ac928ca430b284ff90542a914441d8920",
+    "parent_task_id": "NSC-007"
+  },
+  "reconciliation_key": "fireball-projectile-damage",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Fireball Projectile Flight, Lifetime, Cover Collision, and Enemy Damage",
+  "type": "spell"
+}

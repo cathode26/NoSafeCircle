@@ -36,11 +36,11 @@
   ],
   "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "decomposition_reason": "One bounded responsibility with a measurable outcome; no sub-behaviour needs independent scheduling.",
   "decomposition_state": "concrete",
   "depends_on": [
-    "NSC-007",
+    "NSC-118",
     "NSC-091",
     "NSC-092"
   ],

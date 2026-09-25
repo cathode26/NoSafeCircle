@@ -1,0 +1,131 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-007 AC-002; GDD §2 Fireball",
+      "requirement": "Fireball exposes public Tick(float) as its deterministic time seam. A press released before a serialized positive tap/hold threshold fires the tap tier. Holding past that threshold builds partial charge up to a serialized full-charge duration. The tap tier starts at 20 mana, 25 damage, 12 world units per second, a 3-second maximum projectile lifetime and a 0.9-unit flat contact radius. Fireball's cast cooldown starts at 0.5 seconds. Serialized mana cost, enemy damage and impact-area radius increase monotonically from tap through partial to full charge, and a full-charge impact can damage several clustered enemies."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-007 AC-003; GDD §2 Player Movement ownership",
+      "requirement": "Fireball reads PlayerMovement.PointerWorldTarget only while PlayerMovement.HasPointerWorldTarget is true. It never polls pointer hardware or makes its own screen-to-world projection. It aims by the gameplay-plane direction from the wizard to that target. If no valid pointer target exists when a charge would start or a cast would fire, Fireball spends no mana, launches nothing, deals no damage and clears the pending attempt. A successful cast calls FireballProjectile's public launch method with that direction and the reached tier's speed, lifetime, contact radius, damage and area radius. Fireball adds no cursor-point or ground-point detonation."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "NSC-007 AC-005; GDD §2 Player Movement ownership; door interaction rules",
+      "requirement": "Once a hold passes the tap/hold threshold, Fireball calls PlayerMovement.RequestMovementRestriction() exactly once and records that it holds one request. A tap never requests or releases a restriction. PlayerHealth.Damaged cancels an active charge: Fireball releases its own request exactly once, spends no mana and launches nothing. A move click or door click during a charge does not cancel it; PlayerMovement applies the latest click once movement is unrestricted. Fireball never calls PlayerMovement.RequestDestination(), PlayerMovement.CancelRequestedDestination(), or any PlayerInteractionController or DoorInteractable method, and it adds no separate abort input. Fireball releases its request at most once, whichever of these ends the charge first: firing, a missing pointer target at fire time, a refused cast, ResetFireball(), SuspendGameplayInput(), component disable or destruction. Charging or casting never resets or replaces an active door-opening attempt."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "NSC-007 AC-006; GDD §2 Player Mana ownership",
+      "requirement": "On press, a charge starts only if PlayerMana.CurrentMana covers the tap cost. Otherwise Fireball calls PlayerMana.Spend(tap cost) once, which returns false and raises PlayerMana.CastDenied, and starts no charge, restriction or projectile. While charging, the reached tier is capped at the highest tier CurrentMana can currently pay. On release, Fireball calls PlayerMana.Spend(float) exactly once for the reached tier's positive cost. If that call fails because mana dropped below the tap cost, CastDenied fires and nothing launches."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "NSC-007 AC-008; GDD §2 restart and victory ownership",
+      "requirement": "Fireball exposes public ResetFireball(), SuspendGameplayInput() and EnableGameplayInput() methods, plus read-only charging state and normalized charge progress. ResetFireball clears charge and cast state, releases Fireball's movement restriction if held, destroys every FireballProjectile it launched and re-enables input. SuspendGameplayInput performs the same active-operation cleanup but rejects new Fireball input until EnableGameplayInput() or ResetFireball() runs. Component disable and destruction also release the restriction and destroy launched projectiles. This child may create only programmer-placeholder charge feedback and adds no authored art."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "NSC-007 AC-004 (runtime input handling); GDD §2 Move and Aim",
+      "requirement": "Fireball has a serialized InputActionAsset reference. It reads press, hold and release from the Player map's Fireball action through Unity Input System callbacks or action state and never polls Mouse.current, Keyboard.current or other hardware. Press starts an affordable charge, holding advances it, and release casts; a quick press and release is the tap cast. This child does not edit Assets/InputSystem_Actions.inputactions. Its tests build a temporary in-memory InputActionAsset whose Player map contains PointerPosition, MoveToCursor and a Button-type Fireball action."
+    },
+    {
+      "criterion_id": "AC-007",
+      "reference": "NSC-007 AC-010 (controller references); GDD §2 Victory/input-shutdown ownership",
+      "requirement": "Add an optional serialized Fireball reference to TitleScreenController and WizardGameEntryController. When assigned, TitleScreenController.SuspendGameplayInput() calls Fireball.SuspendGameplayInput(). WizardGameEntryController.EnterWorld calls Fireball.EnableGameplayInput() immediately after enabling PlayerMovement and PlayerInteractionController. A missing Fireball reference must not make WizardGameEntryController.HasValidReferences() fail. Never add Fireball to TitleScreenController's gameplayInputBehaviours array, and make no other change to title, selection or game-entry behavior."
+    }
+  ],
+  "basis": "Direct GDD authority and the NSC-007, NSC-003, NSC-004, NSC-005 and NSC-019 contracts.",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "NSC-007 VAL-001",
+      "requirement": "FireballCastAndChargePlayModeTests uses InputTestFixture with the temporary in-memory Player map, real PlayerMovement, PlayerMana and EnemyHealth Components, and a valid shared pointer target. A tap through the Fireball action must raise PlayerMana.ManaSpent once with amount 20 and leave no movement restriction. It must launch one shot aimed from the shared target that advances at 12 units per Tick second and fizzles without damage after 3 seconds. With Tick steps moving the shot no more than 0.05 units, a target 0.85 units from the path must take 25 damage and a target 0.95 units away must not. A second tap within 0.5 seconds of a completed cast must spend no mana, raise no CastDenied and launch nothing. A tap after Tick advances the cooldown by 0.5 seconds must cast normally."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "NSC-007 VAL-002",
+      "requirement": "FireballCastAndChargePlayModeTests drives tap, partial and full holds through the temporary Fireball action and Tick(float). Cost, damage and impact area must increase monotonically, and a full charge must damage at least two clustered EnemyHealth targets without damaging any target twice. Count ManaSpent and CastDenied events. A press below the tap cost must raise CastDenied exactly once and start no charge, restriction or projectile. With mana for only an intermediate tier, normalized progress must stop at that tier. Calling PlayerMana.Spend directly mid-charge to drop mana below the tap cost must make release raise CastDenied exactly once, launch nothing and release the restriction once. A normal release must raise ManaSpent exactly once for the reached tier's cost."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "NSC-007 VAL-006",
+      "requirement": "FireballCastAndChargePlayModeTests starts a real door-opening attempt using a DoorInteractable in range and PlayerInteractionController.BeginInteraction or its approach flow. Advance DoorInteractable.Tick until Progress is above zero, then cast through the Fireball action, once as a tap and separately as a held-and-released charge. As DoorInteractable.Tick continues, PlayerInteractionController.IsInteracting must stay true, PendingDoor must remain the same door, and Progress must never drop and must keep increasing. Fireball must call no PlayerInteractionController or DoorInteractable method."
+    },
+    {
+      "gate_id": "VAL-004",
+      "reference": "NSC-007 VAL-003",
+      "requirement": "FireballLifecyclePlayModeTests begins a charge through the temporary Fireball action and separately exercises a refused mana spend, missing pointer target, ResetFireball(), SuspendGameplayInput(), component disable and destruction. Every path must release only Fireball's own movement restriction at most once, remove launched projectiles, leave no delayed damage, and reject input while suspended until re-enable or reset. For reset, suspension, disable and destruction, a separate case starts with a shot already in flight and verifies it is removed and later Tick calls deal no damage. A real PlayerHealth.TakeDamage during a charge must cancel it with zero ManaSpent events and zero projectiles. One case must hold an additional test-owned PlayerMovement restriction so IsMovementRestricted remains true until the test releases it; a second case without that restriction must make IsMovementRestricted false immediately after cancellation. With real TitleScreenController and WizardGameEntryController instances and assigned Fireball references, Fireball input must spend no mana and start no charge before EnterWorld and must cast normally afterward. With both references unassigned, HasValidReferences() must remain true and EnterWorld must complete."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "Fireball.cs is one input-driven state owner. Its reset, suspension, cancellation and title/game-entry behavior is verified in FireballLifecyclePlayModeTests, so that fixture and the two small controller edits remain with the Fireball owner.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-003",
+    "NSC-004",
+    "NSC-005",
+    "NSC-012",
+    "NSC-019",
+    "NSC-117"
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-007 INT-002; GDD §2 Floor-run restart ownership",
+      "requirement": "NSC-033's Floor Run/Restart Orchestrator calls Fireball.ResetFireball() before PlayerMovement.ResetMovement(). A real zero-health restart during a charge with a shot in flight must leave no charge, no Fireball-owned movement restriction, no projectile and no delayed enemy damage. The orchestrator does not write Fireball fields."
+    },
+    {
+      "obligation_id": "INT-002",
+      "reference": "NSC-007 INT-003; GDD §2 Victory/input-shutdown ownership",
+      "requirement": "NSC-087 calls Fireball.SuspendGameplayInput() and EnableGameplayInput() through VictoryGameplaySuspensionCoordinator. NSC-086 verifies that the final-door victory path cancels an active Fireball charge or cast and rejects later Fireball input."
+    }
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Fireball.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Fireball.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FireballCastAndChargePlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FireballCastAndChargePlayModeTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FireballLifecyclePlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FireballLifecyclePlayModeTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenController.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardGameEntryController.cs"
+  ],
+  "execution_reason": "One agent implements the Fireball MonoBehaviour and its Input Action handling, adds the optional Fireball references to TitleScreenController and WizardGameEntryController, and writes the cast/charge and lifecycle Play Mode fixtures.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD §2 Player Actions and Systems — Fireball",
+      "requirement": "Tap for a quick shot; hold to charge at a higher mana cost and with restricted movement."
+    },
+    {
+      "reference": "GDD §2 Player Movement ownership and Player Mana ownership",
+      "requirement": "Fireball uses the shared pointer target, movement-restriction methods and PlayerMana.Spend without writing their internal state."
+    },
+    {
+      "reference": "GDD §2 Victory/input-shutdown ownership; Floor-run restart ownership",
+      "requirement": "Fireball exposes its own reset and suspend/re-enable methods."
+    }
+  ],
+  "id": "NSC-118",
+  "kind": "implementation",
+  "notes": "NSC-003 owns PointerWorldTarget, HasPointerWorldTarget, RequestMovementRestriction() and ReleaseMovementRestriction(). NSC-005 owns CurrentMana, Spend(float), ManaSpent and CastDenied. NSC-004 owns PlayerHealth.Damaged. NSC-019 owns PlayerInteractionController and DoorInteractable; the door test only drives their public behavior. NSC-012's EnemyHealth is a test target. TitleScreenController and WizardGameEntryController are delivered on main; their optional spell-reference edits follow the established pattern and add no dependency on the tasks that originally introduced those files. This child does not edit FireballProjectile.cs, the Input Actions asset, either scene builder or the committed scene. NSC-098 owns final Fireball art, tier-scaled rendering and the charge glow.",
+  "parent": "NSC-007",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-84836ea0bedb87fcbf27409a37a1b30866d162a68db24a735d00ea2f2939a7ad",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 9,
+    "parent_contract_sha256": "10acb112a1fa988ca9243ecbb9aeaa1ac928ca430b284ff90542a914441d8920",
+    "parent_task_id": "NSC-007"
+  },
+  "reconciliation_key": "fireball-cast-charge-state",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Fireball Input, Charge Tiers, Mana, Movement Restriction, Reset, and Game-Entry Suspension",
+  "type": "spell"
+}

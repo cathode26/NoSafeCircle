@@ -61,7 +61,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 13,
+  "contract_revision": 14,
   "decomposition_reason": "The GDD names the complete required participant list and the exact reset contract for full closure; no missing design remains, though most listed owners do not yet exist.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -77,7 +77,7 @@
     "NSC-013",
     "NSC-011",
     "NSC-028",
-    "NSC-007",
+    "NSC-119",
     "NSC-008",
     "NSC-009",
     "NSC-015",
