@@ -567,10 +567,11 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
                 for (int row = -3; row <= 54; row++)
                 {
                     Vector3Int cell = new Vector3Int(x, row, 0);
-                    Vector3 center = floor.GetCellCenterWorld(cell);
-                    bool shouldPaint = center.x >= -13.75f && center.x <= 13.75f &&
-                                       center.z >= -25.75f && center.z <= -0.25f;
-                    Assert.AreEqual(shouldPaint, floor.HasTile(cell), $"Floor cell {cell} violates the inner wall face.");
+                    Vector3 corner = floor.GetCellCenterWorld(cell);
+                    // NSC-109 wall-floor gap: see ChapelOfAshSceneTests. The rule comes from the
+                    // builder so the assertion cannot drift away from what is painted.
+                    bool shouldPaint = RuinedEntrySceneBuilder.FloorCellIsInsideRoom(corner, floor.layoutGrid.cellSize);
+                    Assert.AreEqual(shouldPaint, floor.HasTile(cell), $"Floor cell {cell} at world {corner} violates RoomBounds.");
                     if (shouldPaint)
                     {
                         Assert.AreSame(floorTile, floor.GetTile(cell));
