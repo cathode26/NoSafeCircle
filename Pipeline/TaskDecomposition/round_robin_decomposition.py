@@ -367,6 +367,58 @@ def _run_request(
     }
 
 
+# A prompt larger than the model's context window is refused by the provider
+# after the call has already been made (NSC-088, 2026-09-24: a 724 KB author
+# prompt against a 200k-token model ended "Prompt is too long"). There is no
+# offline Claude tokenizer in the container and it authenticates with a
+# subscription rather than an API key, so the window check estimates. Three
+# bytes per token over-counts ordinary JSON, YAML, C# and English, so the
+# estimate errs toward refusing, and a refusal names the 1M-context fix. Only
+# Claude Code is checked: its windows are known; other providers' are not.
+ESTIMATED_BYTES_PER_TOKEN = 3
+CONTEXT_WINDOW_HEADROOM = 0.8
+CLAUDE_CONTEXT_WINDOW_TOKENS = 200_000
+CLAUDE_EXTENDED_CONTEXT_WINDOW_TOKENS = 1_000_000
+
+
+class PromptCapacityError(RuntimeError):
+    """The prompt's estimated size exceeds the refusal threshold; no call was made."""
+
+
+def prompt_capacity_problem(provider_identifier: str, model: str, prompt: str) -> str | None:
+    """Describe why the estimated prompt size refuses `model`, or None to proceed.
+
+    This is a provisional estimate, not a proven capacity bound: the provider
+    adds schema and instruction text after this point, and the byte ratio can
+    be wrong in either direction for unusual text.
+    """
+
+    if provider_identifier != "claude-code":
+        return None
+    window = (
+        CLAUDE_EXTENDED_CONTEXT_WINDOW_TOKENS
+        if model.endswith("[1m]")
+        else CLAUDE_CONTEXT_WINDOW_TOKENS
+    )
+    size = len(prompt.encode("utf-8"))
+    estimate = math.ceil(size / ESTIMATED_BYTES_PER_TOKEN)
+    limit = int(window * CONTEXT_WINDOW_HEADROOM)
+    if estimate <= limit:
+        return None
+    remedy = (
+        "reduce the decomposition context"
+        if window == CLAUDE_EXTENDED_CONTEXT_WINDOW_TOKENS
+        else "use a 1M-context model, for example NSC_CLAUDE_MODEL=claude-opus-5-5[1m]"
+    )
+    return (
+        f"provider_started=false: prompt is {size} bytes, estimated {estimate} "
+        f"tokens at {ESTIMATED_BYTES_PER_TOKEN} bytes per token, over the "
+        f"{limit}-token refusal threshold ({CONTEXT_WINDOW_HEADROOM:.0%} of the "
+        f"{window}-token window) for {provider_identifier} {model}; no provider "
+        f"call was made. To proceed, {remedy}"
+    )
+
+
 def _invoke_round(
     *,
     run_dir: Path,
@@ -394,6 +446,12 @@ def _invoke_round(
     )
     round_dir.mkdir(parents=True)
     key, configuration, registry = provider_bundle
+    route = configuration.to_dict()["provider_configurations"][key]
+    capacity_problem = prompt_capacity_problem(
+        str(route["provider"]), str(route["models"]["high_reasoning"]), prompt,
+    )
+    if capacity_problem is not None:
+        return None, PromptCapacityError(capacity_problem), 0.0, invocation_id
     invocation = AgentInvocationRequest(
         AGENT_INVOCATION_REQUEST_SCHEMA_VERSION,
         invocation_id,
@@ -946,7 +1004,10 @@ def run_round_robin_decomposition(
         round_rejections: list[str] = []
         post_call_source_reasons = source_revalidation_reasons(source_identity)
         session_unproven = False
-        if session_ledger is not None:
+        # A capacity refusal returns before any provider starts, so the lease
+        # was never invoked: leave it unrecorded for settlement to cancel.
+        refused_before_invocation = isinstance(invocation_exception, PromptCapacityError)
+        if session_ledger is not None and not refused_before_invocation:
             assert session_binding is not None and pooled_key is not None
             if session_ledger.confirmed is None:
                 # The provider never named the conversation, so this round's
