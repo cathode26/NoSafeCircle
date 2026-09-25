@@ -36,7 +36,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "decomposition_reason": "One bounded responsibility with a measurable outcome; no sub-behaviour needs independent scheduling.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -56,7 +56,12 @@
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/LowerVaultSceneTests.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/FinalRoomSceneTests.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles"
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles",
+    "unity-scene:Assets/Scenes/Rooms/RuinedEntry.unity",
+    "unity-scene:Assets/Scenes/Rooms/BoneArchive.unity",
+    "unity-scene:Assets/Scenes/Rooms/ChapelOfAsh.unity",
+    "unity-scene:Assets/Scenes/Rooms/LowerVault.unity",
+    "unity-scene:Assets/Scenes/Rooms/FinalRoom.unity"
   ],
   "execution_reason": "One agent rebinds six builders to an already-committed sprite family and regenerates the Tile assets they produce. The work is a single coherent substitution across files that must change together, and splitting it would leave rooms painted from two different sources.",
   "execution_scope": "single_agent",
@@ -72,14 +77,25 @@
   ],
   "id": "NSC-109",
   "kind": "implementation",
-  "notes": "Authored 2026-09-24 from the Viewer Agent's intent (C:/NSC/agent-state/intent-NSC-109-apply-authored-tilesets-to-rooms.md), itself from the Producer Agent's sprint-1-levels-art.md proposal. VERIFIED BEFORE AUTHORING RATHER THAN RELAYED. The eleven sprites exist and are unreferenced: measured by resolving each .meta GUID and grepping the tree, excluding each asset's own .meta, with the grep mechanism proved against GUIDs that really do appear inside RuinedEntry.unity. NOTE FOR ANYONE RE-CHECKING: the assets are NOT named 'tileset' - a name-based search returns zero and that is a FALSE ABSENCE; they are floors/floor_<Room>.png and walls/wall_<shape>.png. NSC-064 is conformant (DEL-NSC-064-7f7a8efbb78f) so the dependency is satisfiable, and it owns Art/Environment/Source, which is why this task does not claim those PNGs. THE PRODUCER'S NSC-105 CITATION IS WRONG AND IS NOT CARRIED HERE: NSC-105 is 'Floor Identity Above the Room Catalog', a cancelled SpaceId/multi-floor composition task, unrelated to tileset art; this is a genuinely new task and supersedes nothing. NOT ESTABLISHED: Unity was not opened, so whether the eleven import as Sprites with usable pivots and PPU is unverified - AC-003 and AC-004 exist because that unknown is exactly what could break NSC-045's delivered extent tolerance.",
+  "notes": "Authored 2026-09-24 from the Viewer Agent's intent (C:/NSC/agent-state/intent-NSC-109-apply-authored-tilesets-to-rooms.md), itself from the Producer Agent's sprint-1-levels-art.md proposal. VERIFIED BEFORE AUTHORING RATHER THAN RELAYED. The eleven sprites exist and are unreferenced: measured by resolving each .meta GUID and grepping the tree, excluding each asset's own .meta, with the grep mechanism proved against GUIDs that really do appear inside RuinedEntry.unity. NOTE FOR ANYONE RE-CHECKING: the assets are NOT named 'tileset' - a name-based search returns zero and that is a FALSE ABSENCE; they are floors/floor_<Room>.png and walls/wall_<shape>.png. NSC-064 is conformant (DEL-NSC-064-7f7a8efbb78f) so the dependency is satisfiable, and it owns Art/Environment/Source, which is why this task does not claim those PNGs. THE PRODUCER'S NSC-105 CITATION IS WRONG AND IS NOT CARRIED HERE: NSC-105 is 'Floor Identity Above the Room Catalog', a cancelled SpaceId/multi-floor composition task, unrelated to tileset art; this is a genuinely new task and supersedes nothing. NOT ESTABLISHED: Unity was not opened, so whether the eleven import as Sprites with usable pivots and PPU is unverified - AC-003 and AC-004 exist because that unknown is exactly what could break NSC-045's delivered extent tolerance. GER REVISION 2, 2026-09-25: THE FIVE ROOM SCENES ARE ADDED TO exclusive_resources, ADDITIVELY - NSC-044..048 KEEP THEM AND NOTHING IS TAKEN FROM ANY OF THEM. VAL-001 requires the five room SceneTests to pass and their CommittedVisuals_* cases OPEN the committed .unity scenes, so satisfying this contract necessarily WRITES five files revision 1 did not claim. exclusive_resources is a contention lock rather than a write grant, but it is also what an execution scope derives allowed_roots from, so as written no crew could ever satisfy VAL-001 - the gate named an outcome the resource list made unreachable. VAL-001 IS DELIBERATELY NOT SCOPED DOWN: those CommittedVisuals_* assertions are the only thing in the graph that proves an authored tileset actually reaches a committed room, and weakening them would have made the contract satisfiable and the claim worthless. The work landed by hand at merge ef2170cddf0c566f91dcdb421008bc9e0d79f602 (materialization e52a8042), so this revision also makes the delivery record about to be written honest: it will cover commits that modified five scenes revision 1 did not own. Raised by the Game Agent; ruled in C:/nscrev/reports/handoffs/GER-20260925-nsc045-nsc071-nsc109-rulings.md.",
   "parent": "NSC-022",
   "provenance": {
     "graph_delta_plan_id": null,
     "origin": "ger_agent_contract_request",
     "parent_contract_revision": null,
     "parent_contract_sha256": null,
-    "parent_task_id": null
+    "parent_task_id": null,
+    "contract_followups": [
+      {
+        "date": "2026-09-25",
+        "reason": "Rev 2 adds the five room scenes to exclusive_resources, additively - NSC-044..048 keep them. VAL-001 requires the five room SceneTests to pass and their CommittedVisuals_* cases open the committed .unity scenes, so satisfying this contract necessarily writes five files revision 1 did not claim; exclusive_resources is also what an execution scope derives allowed_roots from, so as written no crew could satisfy VAL-001. VAL-001 is deliberately NOT scoped down: those assertions are the only thing proving an authored tileset reaches a committed room. Raised by the Game Agent. The work landed by hand at merge ef2170cd (materialization e52a8042), so this also makes the delivery record about to be written honest. taskcontrol state NSC-109 was not_delivered with no selected_record, so nothing is un-delivered.",
+        "source_head": "ef2170cddf0c566f91dcdb421008bc9e0d79f602",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "eff193b15b6547eddd7ae708cf8a9df22115450466dcb558728b3b2c126acc2d",
+        "revised_contract_sha256": "29896a1f63c442a6a7db72573577303a26e0a860e92bd3c7a97e10bf7851bc4a",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   },
   "reconciliation_key": "apply-authored-architectural-tilesets-to-room-builders",
   "repository_evidence_at_bootstrap": [],
