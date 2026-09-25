@@ -382,11 +382,16 @@ CLAUDE_EXTENDED_CONTEXT_WINDOW_TOKENS = 1_000_000
 
 
 class PromptCapacityError(RuntimeError):
-    """The prompt cannot fit the model's context window, so no call was made."""
+    """The prompt's estimated size exceeds the refusal threshold; no call was made."""
 
 
 def prompt_capacity_problem(provider_identifier: str, model: str, prompt: str) -> str | None:
-    """Describe why `prompt` cannot fit `model`, or None when it can or is unknown."""
+    """Describe why the estimated prompt size refuses `model`, or None to proceed.
+
+    This is a provisional estimate, not a proven capacity bound: the provider
+    adds schema and instruction text after this point, and the byte ratio can
+    be wrong in either direction for unusual text.
+    """
 
     if provider_identifier != "claude-code":
         return None
@@ -400,12 +405,17 @@ def prompt_capacity_problem(provider_identifier: str, model: str, prompt: str) -
     limit = int(window * CONTEXT_WINDOW_HEADROOM)
     if estimate <= limit:
         return None
+    remedy = (
+        "reduce the decomposition context"
+        if window == CLAUDE_EXTENDED_CONTEXT_WINDOW_TOKENS
+        else "use a 1M-context model, for example NSC_CLAUDE_MODEL=claude-opus-5-5[1m]"
+    )
     return (
-        f"prompt is {size} bytes, estimated {estimate} tokens at "
-        f"{ESTIMATED_BYTES_PER_TOKEN} bytes per token, over the {limit}-token "
-        f"limit ({CONTEXT_WINDOW_HEADROOM:.0%} of the {window}-token window) for "
-        f"{model}; no provider call was made. Use a 1M-context model, for example "
-        "NSC_CLAUDE_MODEL=claude-opus-5-5[1m]"
+        f"provider_started=false: prompt is {size} bytes, estimated {estimate} "
+        f"tokens at {ESTIMATED_BYTES_PER_TOKEN} bytes per token, over the "
+        f"{limit}-token refusal threshold ({CONTEXT_WINDOW_HEADROOM:.0%} of the "
+        f"{window}-token window) for {provider_identifier} {model}; no provider "
+        f"call was made. To proceed, {remedy}"
     )
 
 
@@ -994,7 +1004,10 @@ def run_round_robin_decomposition(
         round_rejections: list[str] = []
         post_call_source_reasons = source_revalidation_reasons(source_identity)
         session_unproven = False
-        if session_ledger is not None:
+        # A capacity refusal returns before any provider starts, so the lease
+        # was never invoked: leave it unrecorded for settlement to cancel.
+        refused_before_invocation = isinstance(invocation_exception, PromptCapacityError)
+        if session_ledger is not None and not refused_before_invocation:
             assert session_binding is not None and pooled_key is not None
             if session_ledger.confirmed is None:
                 # The provider never named the conversation, so this round's

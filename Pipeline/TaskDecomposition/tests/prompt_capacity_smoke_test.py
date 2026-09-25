@@ -68,6 +68,9 @@ def test_the_estimate_and_its_scope() -> None:
     problem = prompt_capacity_problem("claude-code", "claude-opus-5-5", nsc088)
     assert problem is not None and "claude-opus-5-5[1m]" in problem, problem
     assert prompt_capacity_problem("claude-code", "claude-opus-5-5[1m]", nsc088) is None
+    huge = prompt_capacity_problem("claude-code", "claude-opus-5-5[1m]", "x" * 3_000_000)
+    assert huge is not None and "reduce the decomposition context" in huge, huge
+    assert "[1m]" not in huge.split("To proceed")[1], huge
     nsc066 = "x" * 300_636  # the measured NSC-066 context that fit claude-opus-5
     assert prompt_capacity_problem("claude-code", "claude-opus-5", nsc066) is None
     assert prompt_capacity_problem("openai-codex", "gpt-5.6-sol", nsc088 * 4) is None
@@ -94,6 +97,31 @@ def test_an_oversized_prompt_makes_no_provider_call() -> None:
         assert "PromptCapacityError" in reasons and "no provider call was made" in reasons, reasons
 
 
+def test_a_reviewer_refusal_follows_a_completed_author() -> None:
+    saved = round_robin.CLAUDE_CONTEXT_WINDOW_TOKENS
+    with tempfile.TemporaryDirectory(prefix="nsc-d1b2-capacity-") as text:
+        base = Path(text)
+        source = base / "source"
+        tasks = create_repository(source)
+        author = QueueProvider([decomposed_result(tasks["NSC-010"])])
+        reviewer = ClaudeCodeQueueProvider([])
+        try:
+            round_robin.CLAUDE_CONTEXT_WINDOW_TOKENS = 100
+            result = run_round_robin_decomposition(
+                source=source, output_root=base / "output", task_id="NSC-010",
+                provider_order=("codex", "claude"), max_calls=2,
+                run_id="capacity-reviewer-refused",
+                provider_factory=claude_code_factory(
+                    {"codex": author, "claude": reviewer}, "claude-sonnet-5"),
+                _require_physical_read_only_source=False,
+            )
+        finally:
+            round_robin.CLAUDE_CONTEXT_WINDOW_TOKENS = saved
+        assert (author.calls, reviewer.calls) == (1, 0), (author.calls, reviewer.calls)
+        assert result["run_status"] == "agent_failed", result["run_status"]
+        assert "PromptCapacityError" in " ".join(result["rejection_reasons"]), result
+
+
 def test_a_prompt_that_fits_is_unaffected() -> None:
     with tempfile.TemporaryDirectory(prefix="nsc-d1b2-capacity-") as text:
         base = Path(text)
@@ -112,6 +140,7 @@ def test_a_prompt_that_fits_is_unaffected() -> None:
 TESTS = (
     test_the_estimate_and_its_scope,
     test_an_oversized_prompt_makes_no_provider_call,
+    test_a_reviewer_refusal_follows_a_completed_author,
     test_a_prompt_that_fits_is_unaffected,
 )
 

@@ -645,6 +645,55 @@ def test_unproven_identity_stops_the_run_and_quarantines() -> None:
         require(settlement["leases"]["claude:task_decomposer"]["state"] == "idle", "the proven author conversation is unaffected")
 
 
+def _capacity_limited(run):
+    import TaskDecomposition.round_robin_decomposition as round_robin
+
+    saved = round_robin.CLAUDE_CONTEXT_WINDOW_TOKENS
+    round_robin.CLAUDE_CONTEXT_WINDOW_TOKENS = 100
+    try:
+        return run()
+    finally:
+        round_robin.CLAUDE_CONTEXT_WINDOW_TOKENS = saved
+
+
+def test_a_capacity_refused_author_leaves_both_leases_uninvoked() -> None:
+    with fixture() as text:
+        fx = Fixture(Path(text))
+        _, result, settlement = _capacity_limited(lambda: fx.run("run-capacity-author"))
+        require(fx.rounds() == [], f"no provider was invoked: {fx.rounds()}")
+        require(result["run_status"] == "agent_failed", str(result["run_status"]))
+        require(any("PromptCapacityError" in reason for reason in result["rejection_reasons"]),
+                f"the capacity reason survives: {result['rejection_reasons']}")
+        for key, lease in result["pooled_sessions"].items():
+            require(not lease["invoked"] and not lease["identity_unproven"], f"{key}: {lease}")
+        for key, lease in settlement["leases"].items():
+            require(lease.get("state") not in {"quarantined", "retired"}, f"{key} was not quarantined: {lease}")
+        fx.owner.close()
+
+
+def test_a_capacity_refused_reviewer_settles_the_completed_author() -> None:
+    with fixture() as text:
+        fx = Fixture(Path(text))
+        raw, _ = fx.candidate()
+        fx.outputs["codex"] = [raw]
+        _, result, settlement = _capacity_limited(
+            lambda: fx.run("run-capacity-reviewer", order=("codex", "claude")))
+        require([entry["provider"] for entry in fx.rounds()] == ["openai-codex"],
+                f"only the author was invoked: {fx.rounds()}")
+        require(any("PromptCapacityError" in reason for reason in result["rejection_reasons"]),
+                str(result["rejection_reasons"]))
+        author = result["pooled_sessions"]["codex:task_decomposer"]
+        reviewer = result["pooled_sessions"]["claude:decomposition_reviewer"]
+        require(author["invoked"] and author["confirmed_session"] is not None, str(author))
+        require(not reviewer["invoked"] and not reviewer["identity_unproven"], str(reviewer))
+        settled_author = settlement["leases"]["codex:task_decomposer"]
+        require(settled_author["state"] == "idle", f"the completed author settles normally: {settled_author}")
+        settled_reviewer = settlement["leases"].get("claude:decomposition_reviewer", {})
+        require(settled_reviewer.get("state") not in {"quarantined", "retired"},
+                f"the unused reviewer is not quarantined: {settled_reviewer}")
+        fx.owner.close()
+
+
 def test_timeout_and_stranded_owner_retire_as_uncertain() -> None:
     with fixture() as text:
         fx = Fixture(Path(text))
