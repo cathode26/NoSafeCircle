@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-060",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "contract_disposition": "active",
   "title": "Player Resource Feedback Modernization",
   "reconciliation_key": "player-resource-feedback-modernization",
@@ -20,7 +20,9 @@
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealth.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerHealthUI.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs"
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/PlayerManaUI.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/PlayerHealthPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/PlayerHealthPlayModeTests.cs.meta"
   ],
   "acceptance_criteria": [
     {
@@ -80,10 +82,21 @@
   "basis": "human_approved_engineering_guidance",
   "source_scope": "engineering",
   "confidence": "high",
-  "notes": "Targeted follow-up to completed player-resource tasks. The old task evidence remains valid; this contract modernizes implementation structure without retroactively changing what NSC-004/NSC-005 delivered. NSC-059 is a non-blocking reuse report; this task's concrete UI changes do not depend on its completion.",
+  "notes": "Targeted follow-up to completed player-resource tasks. The old task evidence remains valid; this contract modernizes implementation structure without retroactively changing what NSC-004/NSC-005 delivered. NSC-059 is a non-blocking reuse report; this task's concrete UI changes do not depend on its completion. This task owns PlayerHealth.cs, PlayerHealthUI.cs and PlayerManaUI.cs but owned no path under Tests/, so no execution scope plan could be built for it and it could never be crew-dispatched. It now owns PlayerHealthPlayModeTests.cs, the committed fixture covering the code it owns, which no other task claims or resolves.",
   "provenance": {
     "origin": "human_approved_engineering_followup",
     "engineering_source_commit": "014f3c55fca988ed4f253806aa71316196fd57d0",
-    "engineering_standard": "Docs/Engineering/ENGINEERING_STANDARDS.md"
+    "engineering_standard": "Docs/Engineering/ENGINEERING_STANDARDS.md",
+    "contract_followups": [
+      {
+        "date": "2026-09-25",
+        "reason": "NSC-060 owned PlayerHealth.cs, PlayerHealthUI.cs and PlayerManaUI.cs but no path under Tests/, so no execution scope plan could be built and the task could never be crew-dispatched. It now owns the committed fixture covering its own code, which no other task claims or resolves, and the policy entry binds that verified filter. No acceptance criterion or gate changed.",
+        "source_head": "41f94d70b00cf50dd939c38fa1c665d7e4bb36e5",
+        "previous_contract_revision": 2,
+        "base_contract_sha256": "2667e034e1cbbd28fb4e461cc083e27fbf77667cb9e9b7f4978e1c0c4897ac5f",
+        "revised_contract_sha256": "fff80bfd078c8f60956021557790a2e83809d0c8e090983c434182d1671dd698",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   }
 }

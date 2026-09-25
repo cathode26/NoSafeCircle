@@ -622,6 +622,16 @@
         "PlayMode": "NoSafeCircle.DoorPrototype.Tests.DoorInteractionFeedbackPlayModeTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-060": {
+      "task_contract_sha256": "88f70d36291d4b7c404ec9973174b60819422b4fb4b633bd399f421b352e6ddb",
+      "required_test_platforms": [
+        "PlayMode"
+      ],
+      "test_filters": {
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.PlayerHealthPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}
