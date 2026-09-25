@@ -323,6 +323,14 @@ def scope_plan(
     return automatic_scope_plan(source, task, commit)
 
 
+# Optional GraphPolicy field -> background decompose ticket identity key.
+_OPTIONAL_DECOMPOSITION_POLICY = {
+    "decomposition_max_calls": "max_calls",
+    "decomposition_author_checklist": "author_checklist",
+    "decomposition_bookkeeper_model": "bookkeeper_model",
+}
+
+
 @dataclass(frozen=True)
 class GraphPolicy:
     targets: tuple[str, ...]
@@ -334,6 +342,11 @@ class GraphPolicy:
     decomposition_providers: str = "claude,codex"
     compose_project: str = "nosafecircle"
     background_job_limit: int = 4
+    # Opt-in decomposition options for background decompose tickets. None keeps
+    # today's two-call proposal and leaves the policy bytes unchanged.
+    decomposition_max_calls: int | None = None
+    decomposition_author_checklist: str | None = None
+    decomposition_bookkeeper_model: str | None = None
 
     def __post_init__(self) -> None:
         if not self.targets:
@@ -348,6 +361,13 @@ class GraphPolicy:
             raise ValueError("Graph controller background job limit must be positive")
         if "NSC-042" not in self.human_review_tasks:
             raise ValueError("NSC-042 is permanently reserved for human review")
+        if self.decomposition_max_calls is not None and (
+                type(self.decomposition_max_calls) is not int or self.decomposition_max_calls not in (2, 3)):
+            raise ValueError("Graph decomposition max calls must be 2 or 3")
+        for label, value in (("author checklist", self.decomposition_author_checklist),
+                             ("bookkeeper model", self.decomposition_bookkeeper_model)):
+            if value is not None and (type(value) is not str or not value.strip()):
+                raise ValueError(f"Graph decomposition {label} must be a non-blank string")
 
 
 class GraphController:
@@ -395,8 +415,11 @@ class GraphController:
         self._snapshot_dirty = False
 
     def _policy_fields(self) -> dict[str, Any]:
+        # Unset opt-in decomposition options are omitted so existing policy
+        # bytes, and the preflights bound to them, are unchanged.
         return {
-            **vars(self.policy),
+            **{key: value for key, value in vars(self.policy).items()
+               if not (key in _OPTIONAL_DECOMPOSITION_POLICY and value is None)},
             "targets": list(self.policy.targets),
             "human_review_tasks": sorted(self.policy.human_review_tasks, key=_task_key),
             "scope_dir": (
@@ -1347,6 +1370,10 @@ class GraphController:
                 "task_contract_sha256": task.get("task_contract_sha256"),
                 "providers": providers, "compose_project": self.policy.compose_project,
             }
+            for field, key in _OPTIONAL_DECOMPOSITION_POLICY.items():
+                value = getattr(self.policy, field)
+                if value is not None:
+                    identity[key] = value
             return identity, None, True
         if kind == "post_crew":
             record = self._record(task_id) or {}

@@ -189,6 +189,35 @@ class GraphControllerTests(unittest.TestCase):
             {"provider": "claude", "execution_model": "fixture"},
         )
 
+    def test_decomposition_options_reach_the_ticket_and_leave_unset_policy_bytes_alone(self):
+        # The exact pre-change policy keys: an unset option must not change the
+        # bytes a stored preflight is bound to.
+        self.assertEqual(
+            {"targets", "human_review_tasks", "auto_approve_gauntlet", "capacity", "target_branch",
+             "scope_dir", "decomposition_providers", "compose_project", "background_job_limit",
+             "provider_spend_authorized"},
+            set(self.controller("NSC-898")._policy_fields()))
+        plain = GraphController(
+            self.manager, GraphPolicy(targets=("NSC-898",), target_branch="master"),
+            {"provider": "claude", "execution_model": "fixture"}, execution_authorized=True)
+        identity, _, spend = plain._job_identity({"kind": "decompose", "task_id": "NSC-898"})
+        self.assertTrue(spend)
+        self.assertFalse({"max_calls", "author_checklist", "bookkeeper_model"} & set(identity))
+        opted = GraphController(
+            self.manager,
+            GraphPolicy(targets=("NSC-898",), target_branch="master", decomposition_max_calls=3,
+                        decomposition_author_checklist="parent-contract-v1",
+                        decomposition_bookkeeper_model="gpt-5.6-luna"),
+            {"provider": "claude", "execution_model": "fixture"}, execution_authorized=True)
+        identity, _, _ = opted._job_identity({"kind": "decompose", "task_id": "NSC-898"})
+        self.assertEqual(
+            {"max_calls": 3, "author_checklist": "parent-contract-v1", "bookkeeper_model": "gpt-5.6-luna"},
+            {key: identity[key] for key in ("max_calls", "author_checklist", "bookkeeper_model")})
+        self.assertEqual(3, opted._policy_fields()["decomposition_max_calls"])
+        for bad in ({"decomposition_max_calls": 4}, {"decomposition_bookkeeper_model": " "}):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                GraphPolicy(targets=("NSC-898",), **bad)
+
     def test_automatic_scope_uses_exact_new_files_and_resolves_committed_test(self):
         task = load_committed_task(self.source, "NSC-899", commit=self.head)
         plan = automatic_scope_plan(self.source, task, self.head)
