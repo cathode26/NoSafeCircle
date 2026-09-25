@@ -25,6 +25,8 @@ from TaskDecomposition.round_robin_decomposition import _round_invocation_id  # 
 from TaskDecomposition.run_diagnosis import (  # noqa: E402
     RUN_RESULT_NAME,
     DiagnosisEvidenceError,
+    RunSnapshot,
+    classify_run_snapshot,
     diagnose_run,
     expected_invocation_id,
 )
@@ -159,6 +161,183 @@ def test_the_invocation_id_matches_the_engine() -> None:
             _round_invocation_id("NSC-088", "run-x", round_number, role, correction=correction))
 
 
+def test_bookkeeping_invocation_ids_match_every_round_and_attempt() -> None:
+    for number in (1, 2, 3, 4):
+        for attempt in (1, 2):
+            assert expected_invocation_id(
+                "NSC-010", "bookkeeping", number, "decomposition_bookkeeper", correction=False,
+                bookkeeping_attempt=attempt) == _round_invocation_id(
+                    "NSC-010", "bookkeeping", number, "decomposition_bookkeeper", bookkeeping_attempt=attempt)
+
+
+class MemorySnapshot(RunSnapshot):
+    def __init__(self, result: dict, files: dict[str, dict]) -> None:
+        super().__init__(Path("unused"), result)
+        self.files = files
+
+    def read_json(self, relative: str, label: str) -> dict:
+        if relative not in self.files:
+            raise DiagnosisEvidenceError(f"{label} is missing: {relative}")
+        value = self.files[relative]
+        self.manifest[relative] = hashlib.sha256(json.dumps(value).encode("utf-8")).hexdigest()
+        return value
+
+
+def bookkeeping_snapshot(*, capacity: bool = False, valid_revision: bool = False) -> MemorySnapshot:
+    candidate = {"sha256": "a" * 64, "version": 1, "author_provider": "claude"}
+    revised = {"sha256": "b" * 64, "version": 2, "author_provider": "codex"}
+    invocation = expected_invocation_id(
+        "NSC-010", "bookkeeping", 2, "decomposition_bookkeeper", correction=False, bookkeeping_attempt=1)
+    relative = f"rounds/02-bookkeeper-1/agent_runtime/{invocation}"
+    problem = ("bookkeeper invocation failed: PromptCapacityError: provider_started=false: prompt is 900000 bytes"
+               if capacity else "bookkeeper AgentResult failed (quota_exhausted): no remaining quota")
+    attempt = {"attempt": 1, "directory": "02-bookkeeper-1", "invocation_id": invocation,
+               "requested_provider": "claude", "actual_provider": None if capacity else "claude-code",
+               "actual_model": None if capacity else "compiler", "agent_status": "failed",
+               "agent_failure_classification": None if capacity else "quota_exhausted",
+               "agent_runtime_result_path": f"{relative}/result.json", "status": "rejected",
+               "candidate_after": None, "problems": [problem]}
+    initial = {"round_number": 1, "status": "candidate_accepted", "attempts": [{"attempt": 1}],
+               "compiled_candidate": candidate, "accepted_candidate": candidate,
+               "sheet_path": "rounds/01/ownership_sheet.json", "sheet_sha256": "c" * 64}
+    terminal = {"round_number": 2, "status": "compilation_failed", "attempts": [attempt],
+                "compiled_candidate": None, "accepted_candidate": None,
+                "sheet_path": "rounds/02/ownership_sheet.json", "sheet_sha256": "d" * 64}
+    last = {"round_number": 2, "role": "decomposition_reviewer", "correction_of_round": None,
+            "status": "rejected", "agent_status": "succeeded", "verdict": "revise", "rejection_reasons": [problem]}
+    record = {"schema_version": "2.0", "bookkeeper_provider": "claude", "bookkeeper_model": "compiler",
+              "compilations": [initial, terminal], "bookkeeping_calls_used": 2,
+              "latest_sheet": {"run_id": "bookkeeping", "round_number": 1,
+                               "sheet_path": initial["sheet_path"], "sheet_sha256": initial["sheet_sha256"],
+                               "candidate_sha256": candidate["sha256"]},
+              "terminal_stage": {"round_number": 2, "bookkeeping_attempt": 1,
+                                 "invocation_id": invocation, "agent_runtime_result_path": f"{relative}/result.json"}}
+    result = {"schema_version": "1.0", "mode": "round_robin_d1b2", "run_status": "agent_failed",
+              "task_id": "NSC-010", "run_id": "bookkeeping", "provider_order": ["claude", "codex"],
+              "calls_used": 2, "max_calls": 2, "author_corrections_used": 0, "finding_history": [],
+              "rejection_reasons": [f"round 2: {problem}"], "latest_candidate": candidate,
+              "designer_bookkeeper": record, "rounds": [
+                  {"round_number": 1, "role": "task_decomposer", "correction_of_round": None,
+                   "status": "candidate_valid", "rejection_reasons": []}, last]}
+    if valid_revision:
+        terminal.update(status="candidate_accepted", compiled_candidate=revised, accepted_candidate=revised)
+        record.pop("terminal_stage")
+        record["latest_sheet"] = {"run_id": "bookkeeping", "round_number": 2,
+                                  "sheet_path": terminal["sheet_path"], "sheet_sha256": terminal["sheet_sha256"],
+                                  "candidate_sha256": revised["sha256"]}
+        last.update(status="revised_candidate_valid", rejection_reasons=[])
+        result.update(run_status="needs_human", latest_candidate=revised, rejection_reasons=[BUDGET_TEXT])
+    files = {"rounds/02-bookkeeper-1/bookkeeping_attempt.json": deepcopy(attempt),
+             "decomposition_request.json": {"run_id": "bookkeeping", "provider_order": ["claude", "codex"],
+                 "designer_bookkeeper_version": "2.0", "ownership_sheet_review_version": "1.1",
+                 "bookkeeper_provider": "claude", "bookkeeper_model": "compiler", "author_timeout_seconds": 1440},
+             f"{relative}/request.json": {"run_id": invocation, "role": "decomposition_bookkeeper",
+                 "allowed_capabilities": ["repository_read", "repository_search"],
+                 "write_boundaries": {"allowed_paths": [], "denied_paths": []}, "budgets": {"timeout_seconds": 1440}},
+             f"{relative}/result.json": {"schema_version": "1.0", "run_id": invocation,
+                 "role": "decomposition_bookkeeper", "provider": "claude-code", "model": "compiler",
+                 "status": "failed", "failure_classification": "quota_exhausted", "failure_message": "no remaining quota",
+                 "claimed_changed_paths": [], "claimed_test_commands": [], "claims_execution_occurred": False}}
+    return MemorySnapshot(result, files)
+
+
+def test_bookkeeping_quota_and_capacity_failures_name_the_compiler() -> None:
+    for capacity, code in ((False, "quota_exhausted"), (True, "capacity_refused_before_call")):
+        snapshot = bookkeeping_snapshot(capacity=capacity)
+        diagnosis = classify_run_snapshot(snapshot)
+        assert (diagnosis["primary"]["route"], diagnosis["primary"]["reason_code"]) == ("SETUP", code), diagnosis
+        assert "rounds/02-bookkeeper-1/bookkeeping_attempt.json" in diagnosis["input_manifest"]
+        if not capacity:
+            assert "02-bookkeeper-1/agent_runtime" in diagnosis["primary"]["evidence"][0]["artifact"]
+
+
+def test_contradictory_bookkeeping_terminal_stages_stop() -> None:
+    for change in (
+        lambda s: s.result["designer_bookkeeper"]["terminal_stage"].update(round_number=1),
+        lambda s: s.result["designer_bookkeeper"].update(bookkeeping_calls_used=1),
+        lambda s: s.files["rounds/02-bookkeeper-1/bookkeeping_attempt.json"].update(actual_model="other"),
+        lambda s: s.files["decomposition_request.json"].update(bookkeeper_provider="codex"),
+    ):
+        snapshot = bookkeeping_snapshot()
+        change(snapshot)
+        primary = classify_run_snapshot(snapshot)["primary"]
+        assert (primary["route"], primary["reason_code"]) == ("STOP", "malformed_evidence"), primary
+
+
+def test_compilation_candidate_status_contradictions_stop() -> None:
+    for change in (
+        lambda r: r["compilations"][0].update(compiled_candidate=None, accepted_candidate=None),
+        lambda r: r["compilations"][-1].update(compiled_candidate=r["compilations"][0]["accepted_candidate"]),
+    ):
+        snapshot = bookkeeping_snapshot()
+        change(snapshot.result["designer_bookkeeper"])
+        primary = classify_run_snapshot(snapshot)["primary"]
+        assert (primary["route"], primary["reason_code"]) == ("STOP", "malformed_evidence"), primary
+
+    def identical_snapshot() -> MemorySnapshot:
+        snapshot = bookkeeping_snapshot()
+        snapshot.result["run_status"] = "rejected"
+        record = snapshot.result["designer_bookkeeper"]
+        record.pop("terminal_stage")
+        before = snapshot.result["latest_candidate"]
+        record["compilations"][-1].update(status="identical_candidate", candidate_before=deepcopy(before),
+                                         compiled_candidate={**before, "version": 2, "author_provider": "codex"})
+        return snapshot
+
+    primary = classify_run_snapshot(identical_snapshot())["primary"]
+    assert (primary["route"], primary["reason_code"]) == ("AUTHOR", "identical_candidate"), primary
+    for change in (
+        lambda c: c.update(compiled_candidate=None),
+        lambda c: c["compiled_candidate"].update(sha256="different"),
+        lambda c: c.update(candidate_before=None),
+        lambda c: c["candidate_before"].update(version=7),
+        lambda c: c.update(accepted_candidate=c["candidate_before"]),
+    ):
+        snapshot = identical_snapshot()
+        change(snapshot.result["designer_bookkeeper"]["compilations"][-1])
+        primary = classify_run_snapshot(snapshot)["primary"]
+        assert (primary["route"], primary["reason_code"]) == ("STOP", "malformed_evidence"), primary
+    snapshot = identical_snapshot()
+    snapshot.result.update(calls_used=3, max_calls=3)
+    later = deepcopy(snapshot.result["rounds"][-1])
+    later["round_number"] = 3
+    snapshot.result["rounds"].append(later)
+    primary = classify_run_snapshot(snapshot)["primary"]
+    assert (primary["route"], primary["reason_code"]) == ("STOP", "malformed_evidence"), primary
+
+
+def test_exhausted_bookkeeping_validation_is_an_author_failure() -> None:
+    snapshot = bookkeeping_snapshot()
+    record = snapshot.result["designer_bookkeeper"]
+    compilation = record["compilations"][-1]
+    original = compilation["attempts"][0]
+    attempt = deepcopy(original)
+    invocation = expected_invocation_id(
+        "NSC-010", "bookkeeping", 2, "decomposition_bookkeeper", correction=False, bookkeeping_attempt=2)
+    relative = f"rounds/02-bookkeeper-2/agent_runtime/{invocation}"
+    attempt.update(attempt=2, directory="02-bookkeeper-2", invocation_id=invocation,
+                   agent_runtime_result_path=f"{relative}/result.json", agent_status="succeeded",
+                   agent_failure_classification="none", problems=["entry reference is blank"])
+    compilation["attempts"].append(attempt)
+    record.update(bookkeeping_calls_used=3, terminal_stage={"round_number": 2, "bookkeeping_attempt": 2,
+                  "invocation_id": invocation, "agent_runtime_result_path": f"{relative}/result.json"})
+    original_base = original["agent_runtime_result_path"].removesuffix("/result.json")
+    request = deepcopy(snapshot.files[f"{original_base}/request.json"])
+    request["run_id"] = invocation
+    runtime = deepcopy(snapshot.files[f"{original_base}/result.json"])
+    runtime.update(run_id=invocation, status="succeeded", failure_classification="none", failure_message=None)
+    snapshot.files.update({"rounds/02-bookkeeper-2/bookkeeping_attempt.json": deepcopy(attempt),
+                           f"{relative}/request.json": request, f"{relative}/result.json": runtime})
+    snapshot.result["run_status"] = "rejected"
+    primary = classify_run_snapshot(snapshot)["primary"]
+    assert (primary["route"], primary["reason_code"]) == ("AUTHOR", "bookkeeping_validation_failed"), primary
+
+
+def test_last_call_successful_recompilation_is_a_review_budget_stop() -> None:
+    primary = classify_run_snapshot(bookkeeping_snapshot(valid_revision=True))["primary"]
+    assert (primary["route"], primary["reason_code"]) == ("BUDGET", "revision_used_last_call"), primary
+
+
 def test_a_revised_request_for_human_authority_is_contract_not_budget() -> None:
     def revised_needs_human(result: dict) -> None:
         result["decision"] = "needs_human"
@@ -271,6 +450,12 @@ TESTS = (
     test_model_text_in_a_provider_error_never_routes_to_setup,
     test_the_runtime_result_must_be_this_rounds_own,
     test_the_invocation_id_matches_the_engine,
+    test_bookkeeping_invocation_ids_match_every_round_and_attempt,
+    test_bookkeeping_quota_and_capacity_failures_name_the_compiler,
+    test_contradictory_bookkeeping_terminal_stages_stop,
+    test_compilation_candidate_status_contradictions_stop,
+    test_exhausted_bookkeeping_validation_is_an_author_failure,
+    test_last_call_successful_recompilation_is_a_review_budget_stop,
     test_a_revised_request_for_human_authority_is_contract_not_budget,
     test_a_structured_quota_failure_is_setup,
     test_the_terminal_stage_is_the_last_round_reached,

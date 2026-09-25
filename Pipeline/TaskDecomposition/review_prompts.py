@@ -202,3 +202,129 @@ END CURRENTLY UNRESOLVED BLOCKING FINDINGS
 
 Return only the structured object required by the supplied output schema.
 """
+
+
+def build_ownership_sheet_reviewer_prompt(
+    *,
+    context: ContextPackage,
+    candidate: DecompositionResult,
+    candidate_sha256: str,
+    sheet: dict[str, Any],
+    sheet_sha256: str,
+    candidate_author_provider: str,
+    reviewer_provider: str,
+    round_number: int,
+    graph_delta: Any | None,
+    review_history: Iterable[dict[str, Any]],
+    unresolved_findings: Iterable[ReviewFinding],
+    same_provider_separate_session_review: bool = False,
+) -> str:
+    history = list(review_history)
+    unresolved = [finding.to_dict() for finding in unresolved_findings]
+    checklist = render_author_checklist(context, audience="reviewer")
+    finding_prefix = f"round-{round_number:02d}-"
+    independence = (
+        "The conversation that most recently authored a candidate may not approve it. "
+        "You are a separately leased reviewer conversation."
+        if same_provider_separate_session_review else
+        "The provider that most recently authored a candidate may not approve it."
+    )
+    return f"""You are the independent D1B.2 ownership-sheet reviewer for round {round_number}.
+
+The current candidate's design author is `{candidate_author_provider}`. You are provider
+`{reviewer_provider}`. Independently review the full compiled candidate AND its exact ownership
+sheet; do not defer to the previous provider or expose private reasoning.
+
+Return review schema `1.1`, with both reviewed hashes copied exactly. Choose one verdict:
+
+1. `pass`: set `revised_sheet` to null, introduce no blocking findings, and resolve or withdraw
+   every prior unresolved blocking finding. The current candidate and sheet remain unchanged.
+2. `revise`: return a COMPLETE ownership sheet in `revised_sheet` and leave at least one blocking
+   finding unresolved. A new defect needs a new finding. An existing defect needs a prior
+   resolution marked `still_blocking`, not a duplicate finding. A bookkeeper will compile your
+   sheet into a full candidate, which another design author must independently review.
+3. `needs_human`: set `revised_sheet` to null and retain at least one unresolved blocking finding
+   explaining the authority gap. Use this when committed contracts/canon cannot support a safe
+   correction or the needed decision cannot be represented by an ownership sheet.
+
+Round and ownership rules:
+
+- {independence}
+- If you revise, you become the next candidate's design author. Bookkeeping does not transfer
+  authorship. Independence is from the design author, not from the bookkeeping provider.
+- Every new finding ID starts with `{finding_prefix}` and uses lowercase kebab-case.
+- `prior_finding_resolutions` exactly covers the currently unresolved blocking findings below,
+  using `resolved`, `withdrawn`, or `still_blocking` with concrete current-candidate explanations.
+- Findings are review artifacts; do not claim implementation, testing, graph application,
+  approval, delivery, conformance, or readiness.
+- Never return a full decomposition result, a patch, a partial child list, or a graph application.
+
+Revised ownership sheet rules:
+
+- Keep sheet schema `1`. It represents only `decision=decomposed`. Other decisions require
+  `needs_human`; there is no full-result fallback.
+- State every child's final local_key, title, purpose, kind, type, execution_scope, resources,
+  existing and local dependencies, design_notes, and complete entries with final requirements.
+- Every child needs acceptance criteria and completion gates. Each entry's `covers` names parent
+  obligations as `acceptance_criteria:AC-001`, `completion_gates:VAL-002`, or
+  `downstream_integration_obligations:INT-003`. Cover every parent obligation. Distinct parent
+  acceptance criteria or completion gates require distinct child entries of the same type.
+- Exactly partition parent exclusive resources, preserve supported ownership constraints, and
+  state every active direct dependent's replacement child keys in inbound_dependency_rewrites.
+- Child local keys must be stable lowercase kebab-case and reused exactly in dependencies,
+  coverage and rewrites. Do not invent authority missing from committed context.
+- A child's completion gate must be locally completable. Later authored content belongs in a
+  downstream integration obligation. Explicitly own necessary assembly and wiring; do not add
+  another integration child when an existing or proposed task already owns it.
+
+Review the compiled prose too: references, GDD evidence, reasons and additional notes are not
+fully determined by the sheet. State required prose repairs concretely in findings. An unchanged
+sheet is valid for a prose-only repair; the recompiled candidate must actually change. The
+bookkeeper receives the prior candidate, authenticated review and unresolved finding details.
+The skeleton preserves sheet structure, but does not prove that appended prose invents no design.
+
+Review all of these: duplicate responsibility; hidden assembly/wiring; unnecessary integration
+children; completion gates requiring downstream work; incorrect inbound dependency rewrites;
+missing/misleading/duplicated parent coverage; children too broad, too narrow or not single-agent
+bounded; ownership conflicts with contracts/canon; whether all children complete the parent;
+and invented bookkeeping tasks instead of implementation work.
+
+The human reader is an experienced Unity programmer. Review titles, requirements, reasons,
+notes and findings for concrete Prefab, Component, behavior, public method, collision, damage,
+and Play Mode/Edit Mode test wording. Opaque jargon is a blocking candidate-correctness defect.
+Rewrite it without changing ownership or observable behavior or inventing APIs, files, packages
+or mechanics. Keep machine schema taxonomy and identifiers unchanged. Do not compress separate
+requirements into slash-separated phrases. Structural validity is not semantic approval.
+
+Reviewed candidate SHA-256 (copy into `reviewed_candidate_sha256`):
+{candidate_sha256}
+
+Reviewed ownership sheet SHA-256 (copy into `reviewed_sheet_sha256`):
+{sheet_sha256}
+
+{checklist}BEGIN IMMUTABLE ORIGINAL CONTEXT
+{context.canonical_json()}
+END IMMUTABLE ORIGINAL CONTEXT
+
+BEGIN CURRENT DECOMPOSITION CANDIDATE
+{_json(candidate.to_dict())}
+END CURRENT DECOMPOSITION CANDIDATE
+
+BEGIN CURRENT OWNERSHIP SHEET
+{_json(sheet)}
+END CURRENT OWNERSHIP SHEET
+
+BEGIN CURRENT DETERMINISTIC GRAPH REVIEW VIEW
+{_json(graph_delta_review_view(graph_delta))}
+END CURRENT DETERMINISTIC GRAPH REVIEW VIEW
+
+BEGIN PRIOR REVIEW HISTORY
+{_json(history)}
+END PRIOR REVIEW HISTORY
+
+BEGIN CURRENTLY UNRESOLVED BLOCKING FINDINGS
+{_json(unresolved)}
+END CURRENTLY UNRESOLVED BLOCKING FINDINGS
+
+Return only the structured object required by the supplied output schema.
+"""

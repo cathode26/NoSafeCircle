@@ -108,6 +108,10 @@ def _preserved_notes(design_notes: str, model_notes: Any) -> str:
     written = model_notes.strip() if isinstance(model_notes, str) else ""
     if design_notes in written:
         return written
+    # Design notes that begin or end with whitespace are lost by the strip;
+    # recognise them in the unstripped text rather than duplicating them.
+    if isinstance(model_notes, str) and design_notes in model_notes:
+        return model_notes
     return f"{design_notes}\n\n{written}" if written else design_notes
 
 

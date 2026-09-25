@@ -102,7 +102,9 @@ def _summaries(value: Any) -> Any:
     return value
 
 
-def compact_bookkeeper_context(context: ContextPackage, sheet: Mapping[str, Any]) -> ContextPackage:
+def compact_bookkeeper_context(
+    context: ContextPackage, sheet: Mapping[str, Any], *, citation_sources: Iterable[Any] = (),
+) -> ContextPackage:
     """The bookkeeper's committed context, cut down from the designer's."""
 
     payload = context.to_dict()
@@ -110,7 +112,7 @@ def compact_bookkeeper_context(context: ContextPackage, sheet: Mapping[str, Any]
     gdd = payload.get("canonical_gdd")
     if isinstance(gdd, Mapping) and isinstance(gdd.get("full_committed_utf8_text"), str):
         cited = cited_gdd_lines(_strings([payload.get("selected_task"), payload.get("selected_task_gdd_evidence"),
-                                          sheet]))
+                                          sheet, *citation_sources]))
         compact["canonical_gdd_excerpt"] = {
             "exact_byte_sha256": gdd.get("exact_byte_sha256"),
             **gdd_excerpt(gdd["full_committed_utf8_text"], cited),

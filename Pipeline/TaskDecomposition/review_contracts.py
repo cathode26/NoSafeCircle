@@ -20,6 +20,7 @@ from TaskDecomposition.contracts import (
 
 
 REVIEW_RESULT_SCHEMA_VERSION = "1.0"
+OWNERSHIP_SHEET_REVIEW_SCHEMA_VERSION = "1.1"
 REVIEW_VERDICTS = frozenset({"pass", "revise", "needs_human"})
 FINDING_SEVERITIES = frozenset({"blocking", "advisory"})
 FINDING_CATEGORIES = frozenset(
@@ -309,4 +310,61 @@ class DecompositionReviewResult:
             allow_nan=False,
             sort_keys=True,
             separators=(",", ":"),
+        )
+
+
+@dataclass(frozen=True)
+class OwnershipSheetReviewResult:
+    schema_version: str
+    reviewed_candidate_sha256: str
+    reviewed_sheet_sha256: str
+    verdict: str
+    summary: str
+    findings: tuple[ReviewFinding, ...]
+    prior_finding_resolutions: tuple[PriorFindingResolution, ...]
+    revised_sheet: dict[str, Any] | None
+
+    @classmethod
+    def from_dict(cls, raw: Any) -> "OwnershipSheetReviewResult":
+        from Pipeline.AgentRuntime.schema_validation import SchemaValidationError, validate_instance
+        from TaskDecomposition.review_schemas import OWNERSHIP_SHEET_REVIEW_SCHEMA
+
+        try:
+            value = _snapshot(raw)
+            validate_instance(value, OWNERSHIP_SHEET_REVIEW_SCHEMA)
+        except (DecompositionContractError, SchemaValidationError) as exc:
+            raise DecompositionReviewContractError(str(exc)) from exc
+        sheet_sha = value["reviewed_sheet_sha256"]
+        if not SHA256_RE.fullmatch(sheet_sha):
+            raise DecompositionReviewContractError(
+                "ownership_sheet_review.reviewed_sheet_sha256 must be lowercase SHA-256."
+            )
+        common = {key: item for key, item in value.items()
+                  if key not in {"reviewed_sheet_sha256", "revised_sheet"}}
+        common.update(schema_version=REVIEW_RESULT_SCHEMA_VERSION, revised_decomposition=None)
+        parsed = DecompositionReviewResult.from_dict(common)
+        return cls(
+            value["schema_version"], parsed.reviewed_candidate_sha256, sheet_sha,
+            parsed.verdict, parsed.summary, parsed.findings,
+            parsed.prior_finding_resolutions, value["revised_sheet"],
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "schema_version": self.schema_version,
+            "reviewed_candidate_sha256": self.reviewed_candidate_sha256,
+            "reviewed_sheet_sha256": self.reviewed_sheet_sha256,
+            "verdict": self.verdict,
+            "summary": self.summary,
+            "findings": [finding.to_dict() for finding in self.findings],
+            "prior_finding_resolutions": [
+                resolution.to_dict() for resolution in self.prior_finding_resolutions
+            ],
+            "revised_sheet": _snapshot(self.revised_sheet),
+        }
+
+    def canonical_json(self) -> str:
+        return json.dumps(
+            self.to_dict(), ensure_ascii=False, allow_nan=False,
+            sort_keys=True, separators=(",", ":"),
         )

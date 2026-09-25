@@ -7,6 +7,7 @@ from typing import Any, Mapping
 from TaskDecomposition.review_contracts import (
     DecompositionReviewContractError,
     DecompositionReviewResult,
+    OwnershipSheetReviewResult,
     ReviewFinding,
 )
 
@@ -34,6 +35,50 @@ def validate_decomposition_review(
     except DecompositionReviewContractError:
         raise
 
+    unresolved = _validate_review_findings(
+        result, revision=result.revised_decomposition, revision_label="decomposition candidate",
+        expected_candidate_sha256=expected_candidate_sha256, round_number=round_number,
+        prior_unresolved_findings=prior_unresolved_findings,
+        all_prior_finding_ids=all_prior_finding_ids,
+    )
+    return result, unresolved
+
+
+def validate_ownership_sheet_review(
+    raw: Any,
+    *,
+    expected_candidate_sha256: str,
+    expected_sheet_sha256: str,
+    round_number: int,
+    prior_unresolved_findings: Mapping[str, ReviewFinding],
+    all_prior_finding_ids: set[str] | frozenset[str],
+) -> tuple[OwnershipSheetReviewResult, dict[str, ReviewFinding]]:
+    result = OwnershipSheetReviewResult.from_dict(
+        raw.to_dict() if type(raw) is OwnershipSheetReviewResult else raw
+    )
+    if result.reviewed_sheet_sha256 != expected_sheet_sha256:
+        raise DecompositionReviewPolicyError(
+            "Reviewer result is bound to a different ownership sheet SHA-256."
+        )
+    unresolved = _validate_review_findings(
+        result, revision=result.revised_sheet, revision_label="ownership sheet",
+        expected_candidate_sha256=expected_candidate_sha256, round_number=round_number,
+        prior_unresolved_findings=prior_unresolved_findings,
+        all_prior_finding_ids=all_prior_finding_ids,
+    )
+    return result, unresolved
+
+
+def _validate_review_findings(
+    result: DecompositionReviewResult | OwnershipSheetReviewResult,
+    *,
+    revision: Any,
+    revision_label: str,
+    expected_candidate_sha256: str,
+    round_number: int,
+    prior_unresolved_findings: Mapping[str, ReviewFinding],
+    all_prior_finding_ids: set[str] | frozenset[str],
+) -> dict[str, ReviewFinding]:
     if result.reviewed_candidate_sha256 != expected_candidate_sha256:
         raise DecompositionReviewPolicyError(
             "Reviewer result is bound to a different candidate SHA-256."
@@ -85,9 +130,9 @@ def validate_decomposition_review(
         unresolved[finding.finding_id] = finding
 
     if result.verdict == "pass":
-        if result.revised_decomposition is not None:
+        if revision is not None:
             raise DecompositionReviewPolicyError(
-                "pass may not contain a revised decomposition candidate."
+                f"pass may not contain a revised {revision_label}."
             )
         if blocking_new:
             raise DecompositionReviewPolicyError(
@@ -98,18 +143,18 @@ def validate_decomposition_review(
                 "pass requires every prior blocking finding to be resolved or withdrawn."
             )
     elif result.verdict == "revise":
-        if result.revised_decomposition is None:
+        if revision is None:
             raise DecompositionReviewPolicyError(
-                "revise requires a complete revised decomposition candidate."
+                f"revise requires a complete revised {revision_label}."
             )
         if not unresolved:
             raise DecompositionReviewPolicyError(
                 "revise requires at least one blocking finding: either a new finding or a prior finding marked still_blocking."
             )
     elif result.verdict == "needs_human":
-        if result.revised_decomposition is not None:
+        if revision is not None:
             raise DecompositionReviewPolicyError(
-                "needs_human may not contain a revised decomposition candidate."
+                f"needs_human may not contain a revised {revision_label}."
             )
         if not unresolved:
             raise DecompositionReviewPolicyError(
@@ -120,4 +165,4 @@ def validate_decomposition_review(
             f"Unsupported review verdict {result.verdict!r}."
         )
 
-    return result, unresolved
+    return unresolved

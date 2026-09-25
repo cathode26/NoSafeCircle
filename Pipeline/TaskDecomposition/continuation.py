@@ -71,6 +71,7 @@ from graph_delta import GraphDeltaPlanningError
 CONTINUATION_MODE = "round_robin_d1b2_continuation"
 RUN_RESULT_NAME = "decomposition_run_result.json"
 MAX_CONTINUATION_CALLS = 4
+BOOKKEEPER_CONTINUATION_PROBLEM = "bookkeeper-run continuation is unsupported; a fresh run is required"
 # Two revisions in a row that do not reduce the open blocking findings stop
 # the run: the reviewers are no longer converging, and a person or GER should
 # look at the findings before more calls are spent.
@@ -87,9 +88,15 @@ def _load_json(path: Path, label: str) -> tuple[dict[str, Any], bytes]:
     return value, data
 
 
-def continuable_problem(run_result: dict[str, Any]) -> str | None:
+def continuable_problem(
+    run_result: dict[str, Any], *, request: dict[str, Any] | None = None,
+) -> str | None:
     """Why this run cannot be continued, or None when it can."""
 
+    if any(key in value for value in (run_result, request or {}) for key in (
+            "designer_bookkeeper", "bookkeeper_model", "bookkeeper_provider",
+            "designer_bookkeeper_version", "ownership_sheet_review_version")):
+        return BOOKKEEPER_CONTINUATION_PROBLEM
     if run_result.get("run_status") != "needs_human":
         return f"the run ended {run_result.get('run_status')!r}; only a run that stopped after a revision continues"
     rounds = run_result.get("rounds") or []
@@ -168,7 +175,12 @@ def run_continuation(
 
     prior_dir = safe_output_root / prior_id
     prior, prior_bytes = _load_json(prior_dir / RUN_RESULT_NAME, "prior run result")
-    problem = continuable_problem(prior)
+    prior_request_path = prior_dir / "decomposition_request.json"
+    prior_request = (_load_json(prior_request_path, "prior decomposition request")[0]
+                     if prior_request_path.exists() else None)
+    problem = continuable_problem(prior, request=prior_request)
+    if problem == BOOKKEEPER_CONTINUATION_PROBLEM:
+        raise DecompositionPreflightError(f"cannot continue {prior_id}: {problem}")
     if prior.get("task_id") != task_id:
         problem = f"the prior run is for {prior.get('task_id')!r}, not {task_id}"
     if list(prior.get("provider_order") or []) != list(order):
