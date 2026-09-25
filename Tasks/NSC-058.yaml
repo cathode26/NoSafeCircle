@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-058",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Shared Hierarchy Fader Foundation",
   "reconciliation_key": "shared-hierarchy-fader-foundation",
@@ -16,7 +16,10 @@
     "NSC-057"
   ],
   "exclusive_resources": [
-    "logical:shared-hierarchy-fader"
+    "logical:shared-hierarchy-fader",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Presentation/HierarchyFader.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Presentation/HierarchyFaderEditModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Presentation/HierarchyFaderPlayModeTests.cs"
   ],
   "acceptance_criteria": [
     {
@@ -75,6 +78,17 @@
   "provenance": {
     "origin": "human_approved_engineering_followup",
     "engineering_source_commit": "014f3c55fca988ed4f253806aa71316196fd57d0",
-    "engineering_standard": "Docs/Engineering/ENGINEERING_STANDARDS.md"
+    "engineering_standard": "Docs/Engineering/ENGINEERING_STANDARDS.md",
+    "contract_followups": [
+      {
+        "date": "2026-09-25",
+        "reason": "Bind the contract to the HierarchyFader implementation and tests already committed on main so an execution scope plan can be built, and create the validation policy entry naming both committed fixtures; the logical contention lock is kept and no gate or acceptance criterion changes.",
+        "source_head": "21d154afb7f12fe6d3a862aea7b8d88ca97631c5",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "bdc6a69bdf51b940136e8b3a893fd6f1e88b60922572c02609ebd46b11b73f3c",
+        "revised_contract_sha256": "9e030217395eeb2cd72726d826444e64b24d84da08a8acd4aa710e0a09aba8f3",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   }
 }
