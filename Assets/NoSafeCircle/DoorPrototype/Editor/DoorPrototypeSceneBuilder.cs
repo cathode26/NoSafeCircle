@@ -481,84 +481,39 @@ namespace NoSafeCircle.DoorPrototype.Editor
             }
         }
 
+        // NSC-109 AC-001/AC-004: the committed art this generic demo layer's floor, wall and
+        // architectural-border Tiles are bound to, instead of the procedurally generated diamond
+        // and masonry textures this builder used before. The demo layer sits at D1's door, so it
+        // reuses Ruined Entry's own committed floor and the shared full/low wall modules; it never
+        // persists in the canonical scene (DoorSequenceBuilder.RemoveLegacyEnvironmentRoots
+        // deletes it once the five real rooms are composed).
+        private const string ArchitecturalFloorSpriteSourcePath =
+            "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_RuinedEntry.png";
+        private const string ArchitecturalWallSpriteSourcePath =
+            "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_straight.png";
+
         private static ArchitecturalTileSet CreateArchitecturalTileSet(string assetFolder)
         {
             return new ArchitecturalTileSet(
                 LoadOrCreateArchitecturalTile(
-                    assetFolder,
-                    "FloorTile.asset",
-                    "FloorTile",
-                    64,
-                    32,
-                    64f,
-                    CreateDiamondPixels(
-                        64,
-                        32,
-                        new Color32(80, 76, 70, 255),
-                        new Color32(49, 46, 43, 255),
-                        // Opaque, and deliberately the FILL tone rather than the darker border:
-                        // the corners are the smaller change from what shipped, where they read as
-                        // the lighter (104,97,92) ground. The scored border ring still draws the
-                        // diamond, so the isometric read survives without the holes. If the Art
-                        // Director wants heavy mortar instead, this one argument becomes the
-                        // border tone - the shape and the cell counts do not move either way.
-                        new Color32(80, 76, 70, 255))),
+                    assetFolder, "FloorTile.asset", "FloorTile", ArchitecturalFloorSpriteSourcePath),
                 LoadOrCreateArchitecturalTile(
-                    assetFolder,
-                    "WallTile.asset",
-                    "WallTile",
-                    64,
-                    160,
-                    64f,
-                    new Vector2(0.5f, 0f),
-                    CreateWallPixels(64, 160)),
+                    assetFolder, "WallTile.asset", "WallTile", ArchitecturalWallSpriteSourcePath),
                 LoadOrCreateArchitecturalTile(
-                    assetFolder,
-                    "ArchitecturalBorderTile.asset",
-                    "ArchitecturalBorderTile",
-                    64,
-                    32,
-                    64f,
-                    CreateDiamondPixels(
-                        64,
-                        32,
-                        new Color32(121, 105, 72, 255),
-                        new Color32(65, 56, 40, 255),
-                        // Unchanged: this tile is painted NOWHERE (its only references in Assets
-                        // are the two lines that create it), so transparent corners keep its
-                        // committed asset byte-identical instead of adding churn nobody reads.
-                        new Color32(0, 0, 0, 0))));
-        }
-        private static Tile LoadOrCreateArchitecturalTile(
-            string assetFolder,
-            string assetFileName,
-            string tileName,
-            int textureWidth,
-            int textureHeight,
-            float pixelsPerUnit,
-            Color32[] pixels)
-        {
-            return LoadOrCreateArchitecturalTile(
-                assetFolder,
-                assetFileName,
-                tileName,
-                textureWidth,
-                textureHeight,
-                pixelsPerUnit,
-                new Vector2(0.5f, 0.5f),
-                pixels);
+                    assetFolder, "ArchitecturalBorderTile.asset", "ArchitecturalBorderTile",
+                    ArchitecturalFloorSpriteSourcePath));
         }
 
         private static Tile LoadOrCreateArchitecturalTile(
-            string assetFolder,
-            string assetFileName,
-            string tileName,
-            int textureWidth,
-            int textureHeight,
-            float pixelsPerUnit,
-            Vector2 spritePivot,
-            Color32[] pixels)
+            string assetFolder, string assetFileName, string tileName, string sourceSpritePath)
         {
+            var sourceSprite = AssetDatabase.LoadAssetAtPath<Sprite>(sourceSpritePath);
+            if (sourceSprite == null)
+            {
+                throw new System.InvalidOperationException(
+                    $"The Door Prototype scene requires the committed sprite at '{sourceSpritePath}'.");
+            }
+
             if (!string.IsNullOrEmpty(assetFolder))
             {
                 var assetPath = assetFolder + "/" + assetFileName;
@@ -566,67 +521,23 @@ namespace NoSafeCircle.DoorPrototype.Editor
 
                 if (existing != null)
                 {
-                    existing.colliderType = Tile.ColliderType.None;
-
-                    if (!ArchitecturalTileVisualMatches(
-                            existing,
-                            textureWidth,
-                            textureHeight,
-                            pixelsPerUnit,
-                            spritePivot,
-                            pixels))
+                    if (existing.sprite != sourceSprite || existing.colliderType != Tile.ColliderType.None)
                     {
-                        ReplaceArchitecturalTileVisual(
-                            existing,
-                            tileName,
-                            textureWidth,
-                            textureHeight,
-                            pixelsPerUnit,
-                            spritePivot,
-                            pixels);
+                        existing.sprite = sourceSprite;
+                        existing.colliderType = Tile.ColliderType.None;
+                        EditorUtility.SetDirty(existing);
+                        AssetDatabase.SaveAssetIfDirty(existing);
                     }
-
-                    EditorUtility.SetDirty(existing);
-                    AssetDatabase.SaveAssetIfDirty(existing);
                     return existing;
                 }
 
                 var persistentTile = ScriptableObject.CreateInstance<Tile>();
                 persistentTile.name = tileName;
                 persistentTile.colliderType = Tile.ColliderType.None;
+                persistentTile.sprite = sourceSprite;
 
-                AssetDatabase.CreateAsset(
-                    persistentTile,
-                    assetPath);
-
-                var persistentTexture = CreateTileTexture(
-                    tileName + "Texture",
-                    textureWidth,
-                    textureHeight,
-                    pixels);
-
-                AssetDatabase.AddObjectToAsset(
-                    persistentTexture,
-                    persistentTile);
-
-                var persistentSprite = Sprite.Create(
-                    persistentTexture,
-                    new Rect(0f, 0f, textureWidth, textureHeight),
-                    spritePivot,
-                    pixelsPerUnit);
-
-                persistentSprite.name = tileName + "Sprite";
-
-                AssetDatabase.AddObjectToAsset(
-                    persistentSprite,
-                    persistentTile);
-
-                persistentTile.sprite = persistentSprite;
-
-                EditorUtility.SetDirty(persistentTexture);
-                EditorUtility.SetDirty(persistentSprite);
+                AssetDatabase.CreateAsset(persistentTile, assetPath);
                 EditorUtility.SetDirty(persistentTile);
-
                 AssetDatabase.SaveAssetIfDirty(persistentTile);
 
                 return persistentTile;
@@ -639,160 +550,11 @@ namespace NoSafeCircle.DoorPrototype.Editor
             inMemoryTile.name = tileName;
             inMemoryTile.colliderType = Tile.ColliderType.None;
             inMemoryTile.hideFlags = HideFlags.HideAndDontSave;
-
-            var inMemoryTexture =
-                OwnTransientArchitecturalObject(
-                    CreateTileTexture(
-                        tileName + "Texture",
-                        textureWidth,
-                        textureHeight,
-                        pixels));
-
-            inMemoryTexture.hideFlags = HideFlags.HideAndDontSave;
-
-            var inMemorySprite =
-                OwnTransientArchitecturalObject(
-                    Sprite.Create(
-                        inMemoryTexture,
-                        new Rect(0f, 0f, textureWidth, textureHeight),
-                        spritePivot,
-                        pixelsPerUnit));
-
-            inMemorySprite.name = tileName + "Sprite";
-            inMemorySprite.hideFlags = HideFlags.HideAndDontSave;
-
-            inMemoryTile.sprite = inMemorySprite;
+            inMemoryTile.sprite = sourceSprite;
 
             return inMemoryTile;
         }
 
-        private static bool ArchitecturalTileVisualMatches(
-            Tile tile,
-            int textureWidth,
-            int textureHeight,
-            float pixelsPerUnit,
-            Vector2 spritePivot,
-            Color32[] expectedPixels)
-        {
-            var sprite = tile.sprite;
-
-            if (sprite == null || sprite.texture == null)
-            {
-                return false;
-            }
-
-            var expectedPivotPixels = new Vector2(
-                textureWidth * spritePivot.x,
-                textureHeight * spritePivot.y);
-
-            var dimensionsMatch =
-                sprite.texture.width == textureWidth &&
-                sprite.texture.height == textureHeight &&
-                Mathf.Approximately(sprite.rect.width, textureWidth) &&
-                Mathf.Approximately(sprite.rect.height, textureHeight) &&
-                Mathf.Approximately(sprite.pixelsPerUnit, pixelsPerUnit) &&
-                Vector2.Distance(
-                    sprite.pivot,
-                    expectedPivotPixels) < 0.01f;
-
-            if (!dimensionsMatch)
-            {
-                return false;
-            }
-
-            // NSC-042: dimensions alone previously let a persisted asset authored under an
-            // older art convention (e.g. a wall texture whose brick pattern did not tile
-            // seamlessly) survive untouched forever, because its width/height/pivot never
-            // changed even though the intended pixel content did. Comparing actual pixel
-            // content ensures an authoring convention change like the seamless wall pattern
-            // fix is actually re-materialized into the persisted asset on the next Build().
-            return ArchitecturalTilePixelsMatch(sprite.texture, expectedPixels);
-        }
-
-        private static bool ArchitecturalTilePixelsMatch(Texture2D texture, Color32[] expectedPixels)
-        {
-            Color32[] actualPixels;
-            try
-            {
-                actualPixels = texture.GetPixels32();
-            }
-            catch (UnityException)
-            {
-                return false;
-            }
-
-            if (actualPixels.Length != expectedPixels.Length)
-            {
-                return false;
-            }
-
-            for (var i = 0; i < actualPixels.Length; i++)
-            {
-                if (!actualPixels[i].Equals(expectedPixels[i]))
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        private static void ReplaceArchitecturalTileVisual(
-            Tile tile,
-            string tileName,
-            int textureWidth,
-            int textureHeight,
-            float pixelsPerUnit,
-            Vector2 spritePivot,
-            Color32[] pixels)
-        {
-            var oldSprite = tile.sprite;
-            var oldTexture =
-                oldSprite != null ? oldSprite.texture : null;
-
-            tile.sprite = null;
-            EditorUtility.SetDirty(tile);
-
-            if (oldSprite != null && AssetDatabase.Contains(oldSprite))
-            {
-                Object.DestroyImmediate(oldSprite, true);
-            }
-
-            if (oldTexture != null && AssetDatabase.Contains(oldTexture))
-            {
-                Object.DestroyImmediate(oldTexture, true);
-            }
-
-            var replacementTexture = CreateTileTexture(
-                tileName + "Texture",
-                textureWidth,
-                textureHeight,
-                pixels);
-
-            AssetDatabase.AddObjectToAsset(
-                replacementTexture,
-                tile);
-
-            var replacementSprite = Sprite.Create(
-                replacementTexture,
-                new Rect(0f, 0f, textureWidth, textureHeight),
-                spritePivot,
-                pixelsPerUnit);
-
-            replacementSprite.name = tileName + "Sprite";
-
-            AssetDatabase.AddObjectToAsset(
-                replacementSprite,
-                tile);
-
-            tile.sprite = replacementSprite;
-
-            EditorUtility.SetDirty(replacementTexture);
-            EditorUtility.SetDirty(replacementSprite);
-            EditorUtility.SetDirty(tile);
-
-            AssetDatabase.SaveAssetIfDirty(tile);
-        }
         private static Texture2D CreateTileTexture(string name, int width, int height, Color32[] pixels)
         {
             var texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
@@ -804,66 +566,6 @@ namespace NoSafeCircle.DoorPrototype.Editor
             texture.SetPixels32(pixels);
             texture.Apply(false, false);
             return texture;
-        }
-
-        // NSC-044 floor-hole defect: the four corners outside the inscribed diamond used to be
-        // hardcoded transparent. A diamond inscribed in a rectangle covers exactly HALF its area,
-        // so on the Rectangle-cellLayout Grid every room paints with, half of every floor cell was
-        // a hole and the ground plane showed through as a lattice. Measured on an ortho-8 panel of
-        // the committed composed scene: 51% opaque against 50% predicted, with the remaining 45%
-        // reading (104,97,92) - the ground OUTSIDE the room, which is in no tile the builder makes.
-        // The corner colour is now the caller's, so a floor tile can be solid while a decorative
-        // overlay tile keeps its transparent corners.
-        private static Color32[] CreateDiamondPixels(
-            int width, int height, Color32 fill, Color32 border, Color32 corner)
-        {
-            var pixels = new Color32[width * height];
-            for (var y = 0; y < height; y++)
-            {
-                for (var x = 0; x < width; x++)
-                {
-                    var normalizedX = Mathf.Abs((x + 0.5f - width * 0.5f) / (width * 0.5f));
-                    var normalizedY = Mathf.Abs((y + 0.5f - height * 0.5f) / (height * 0.5f));
-                    var diamondDistance = normalizedX + normalizedY;
-                    pixels[y * width + x] = diamondDistance > 1f
-                        ? corner
-                        : diamondDistance > 0.89f ? border : fill;
-                }
-            }
-
-            return pixels;
-        }
-
-        // NSC-042 AC-001: blockWidth must evenly divide width. The wall Tile is reused
-        // unmodified for every one-cell wall segment (see PaintStraightWallRun above), so the
-        // brick coursing this method draws only reads as one continuous wall - rather than a
-        // row of visibly restarting pieces - when its own horizontal period tiles exactly into
-        // the texture's width with no leftover phase. A prior 48px block width against a 64px
-        // texture left a leftover partial block at each tile edge, which was the visible seam.
-        private static Color32[] CreateWallPixels(int width, int height)
-        {
-            var pixels = new Color32[width * height];
-            var stone = new Color32(74, 71, 68, 255);
-            var alternateStone = new Color32(86, 82, 77, 255);
-            var mortar = new Color32(39, 37, 36, 255);
-            const int courseHeight = 32;
-            const int blockWidth = 32;
-
-            for (var y = 0; y < height; y++)
-            {
-                var course = y / courseHeight;
-                var horizontalMortar = y % courseHeight < 2;
-                for (var x = 0; x < width; x++)
-                {
-                    var staggeredX = x + (course % 2) * (blockWidth / 2);
-                    var verticalMortar = staggeredX % blockWidth < 2;
-                    pixels[y * width + x] = horizontalMortar || verticalMortar
-                        ? mortar
-                        : ((staggeredX / blockWidth + course) % 2 == 0 ? stone : alternateStone);
-                }
-            }
-
-            return pixels;
         }
 
         private sealed class ArchitecturalTileSet

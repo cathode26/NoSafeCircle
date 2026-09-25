@@ -28,21 +28,25 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
 
         private const string ArchitecturalTileFolder =
             "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles";
-        private const string FloorTilePath = ArchitecturalTileFolder + "/FloorTile.asset";
+        private const string FloorTileName = "ChapelOfAshFloorTile";
+        private const string FloorTilePath = ArchitecturalTileFolder + "/" + FloorTileName + ".asset";
         private const string FarWallTileName = "ChapelOfAshFarWallTile";
         private const string CutawayWallTileName = "ChapelOfAshCutawayWallTile";
-        private const int FarWallTileWidth = 64;
-        private const int FarWallTileHeight = 160;
-        private const int CutawayWallTileWidth = 64;
-        private const int CutawayWallTileHeight = 32;
+
+        // NSC-109 AC-001/AC-002/AC-004: the committed art this room and the shared full/low wall
+        // modules are applied from, instead of the procedurally generated masonry textures this
+        // builder used before.
+        private const string FloorSpriteSourcePath =
+            "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_ChapelOfAsh.png";
+        private const string FarWallSpriteSourcePath =
+            "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_straight.png";
+        private const string CutawayWallSpriteSourcePath =
+            "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_broken_stub.png";
 
         // NSC-046 AC-004: the committed RuinedEntrySceneBuilder inward visual offset every wall
         // Tilemap is inset from its RoomBounds line by, so wall sprites never extend past their
         // gameplay collider face into walkable floor.
         private const float WallVisualOffset = 0.151f;
-
-        private const int WallCoursePixelHeight = 32;
-        private const int WallBlockPixelWidth = 32;
 
         private const float RitualFocusReserveHeight = 3.5f;
 
@@ -69,11 +73,12 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
                 ? EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single)
                 : EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
 
-            // Opening the old scene can unload a newly created Tile sub-asset. Resolve both Tiles
+            // Opening the old scene can unload a newly created Tile sub-asset. Resolve all Tiles
             // only after the destination scene is active so the references survive materialization.
+            Tile floorTile = LoadOrCreateFloorTile(ArchitecturalTileFolder);
             Tile farWallTile = LoadOrCreateFarWallTile(ArchitecturalTileFolder);
             Tile cutawayWallTile = LoadOrCreateCutawayWallTile(ArchitecturalTileFolder);
-            RebuildSceneContents(scene, farWallTile, cutawayWallTile);
+            RebuildSceneContents(scene, floorTile, farWallTile, cutawayWallTile);
 
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
@@ -85,21 +90,27 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         public static void BuildInMemoryForTests()
         {
             CleanupTransientTiles();
+            Tile floorTile = AssetDatabase.LoadAssetAtPath<Tile>(FloorTilePath);
+            if (floorTile == null)
+            {
+                floorTile = CreateTransientTile(FloorTileName, FloorSpriteSourcePath);
+            }
+
             Tile farWallTile = AssetDatabase.LoadAssetAtPath<Tile>(
                 ArchitecturalTileFolder + "/" + FarWallTileName + ".asset");
             if (farWallTile == null)
             {
-                farWallTile = CreateTransientFarWallTile();
+                farWallTile = CreateTransientTile(FarWallTileName, FarWallSpriteSourcePath);
             }
 
             Tile cutawayWallTile = AssetDatabase.LoadAssetAtPath<Tile>(
                 ArchitecturalTileFolder + "/" + CutawayWallTileName + ".asset");
             if (cutawayWallTile == null)
             {
-                cutawayWallTile = CreateTransientCutawayWallTile();
+                cutawayWallTile = CreateTransientTile(CutawayWallTileName, CutawayWallSpriteSourcePath);
             }
 
-            RebuildSceneContents(SceneManager.GetActiveScene(), farWallTile, cutawayWallTile);
+            RebuildSceneContents(SceneManager.GetActiveScene(), floorTile, farWallTile, cutawayWallTile);
         }
 
         [MenuItem("No Safe Circle/Rooms/Preview Chapel of Ash Gameplay Camera")]
@@ -138,7 +149,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             SceneManager.SetActiveScene(previewScene);
         }
 
-        private static void RebuildSceneContents(Scene scene, Tile farWallTile, Tile cutawayWallTile)
+        private static void RebuildSceneContents(Scene scene, Tile floorTile, Tile farWallTile, Tile cutawayWallTile)
         {
             foreach (GameObject root in scene.GetRootGameObjects())
             {
@@ -151,7 +162,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             Transform anchors = CreateContentRoot(roomRoot.transform, AnchorsRootName, RoomContentCategory.DoorAnchors);
             Transform authoring = CreateContentRoot(roomRoot.transform, AuthoringRootName, RoomContentCategory.Authoring);
 
-            BuildVisuals(visuals, farWallTile, cutawayWallTile);
+            BuildVisuals(visuals, floorTile, farWallTile, cutawayWallTile);
             BuildGameplayGeometry(gameplay);
 
             CreateAnchor(anchors, "D2Anchor", ChapelOfAshLayout.D2, Vector3.back, DoorId.D2, DoorAnchorRole.Entry);
@@ -168,15 +179,9 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         // NSC-046 AC-003/AC-004: one room-owned Grid with five Tilemaps (Floor, North, South,
         // West, East) painted with the committed RuinedEntrySceneBuilder cell mapping, plus the
         // sprite-blockout pews, columns, and ritual-focus placeholder that reuse the same
-        // generated wall Tile sprites.
-        private static void BuildVisuals(Transform visuals, Tile farWallTile, Tile cutawayWallTile)
+        // committed wall sprites.
+        private static void BuildVisuals(Transform visuals, Tile floorTile, Tile farWallTile, Tile cutawayWallTile)
         {
-            Tile floorTile = AssetDatabase.LoadAssetAtPath<Tile>(FloorTilePath);
-            if (floorTile == null)
-            {
-                throw new InvalidOperationException("Chapel of Ash requires the existing FloorTile asset.");
-            }
-
             GameObject gridObject = new GameObject(IsometricGridName, typeof(Grid));
             gridObject.transform.SetParent(visuals, false);
             Grid grid = gridObject.GetComponent<Grid>();
@@ -455,23 +460,38 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             return box;
         }
 
-        // NSC-046 AC-003: generates and reconciles the two Chapel-specific wall Tile assets using
-        // the same load/create/replace convention as RuinedEntrySceneBuilder.LoadOrCreateRuinedEntryLowWallTile.
+        // NSC-109 AC-001/AC-002: this room's own floor Tile, bound to the committed
+        // floor_ChapelOfAsh sprite rather than a procedurally generated texture.
+        public static Tile LoadOrCreateFloorTile(string assetFolder)
+        {
+            return LoadOrCreateSpriteTile(assetFolder, FloorTileName, FloorSpriteSourcePath);
+        }
+
+        // NSC-109 AC-001/AC-002: generates and reconciles the two Chapel-specific wall Tile
+        // assets, now bound to the committed wall_straight and wall_broken_stub sprites instead
+        // of procedurally generated masonry textures.
         public static Tile LoadOrCreateFarWallTile(string assetFolder)
         {
-            return LoadOrCreateWallTile(assetFolder, FarWallTileName, FarWallTileWidth, FarWallTileHeight, CreateFarWallPixels());
+            return LoadOrCreateSpriteTile(assetFolder, FarWallTileName, FarWallSpriteSourcePath);
         }
 
         public static Tile LoadOrCreateCutawayWallTile(string assetFolder)
         {
-            return LoadOrCreateWallTile(assetFolder, CutawayWallTileName, CutawayWallTileWidth, CutawayWallTileHeight, CreateCutawayPixels());
+            return LoadOrCreateSpriteTile(assetFolder, CutawayWallTileName, CutawayWallSpriteSourcePath);
         }
 
-        private static Tile LoadOrCreateWallTile(string assetFolder, string tileName, int width, int height, Color32[] pixels)
+        private static Tile LoadOrCreateSpriteTile(string assetFolder, string tileName, string sourceSpritePath)
         {
             if (string.IsNullOrWhiteSpace(assetFolder) || !assetFolder.StartsWith("Assets/", StringComparison.Ordinal))
             {
-                throw new ArgumentException("The wall Tile asset folder must be under Assets.", nameof(assetFolder));
+                throw new ArgumentException("The Tile asset folder must be under Assets.", nameof(assetFolder));
+            }
+
+            Sprite sourceSprite = AssetDatabase.LoadAssetAtPath<Sprite>(sourceSpritePath);
+            if (sourceSprite == null)
+            {
+                throw new InvalidOperationException(
+                    $"Chapel of Ash requires the committed sprite at '{sourceSpritePath}'.");
             }
 
             EnsureFolder(assetFolder);
@@ -482,15 +502,16 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
                 tile = ScriptableObject.CreateInstance<Tile>();
                 tile.name = tileName;
                 tile.colliderType = Tile.ColliderType.None;
+                tile.sprite = sourceSprite;
                 AssetDatabase.CreateAsset(tile, assetPath);
-                ReplaceWallVisual(tile, tileName, width, height, pixels);
+                EditorUtility.SetDirty(tile);
+                AssetDatabase.SaveAssetIfDirty(tile);
+                return tile;
             }
-            else if (!WallVisualMatches(tile, width, height, pixels))
+
+            if (tile.sprite != sourceSprite || tile.colliderType != Tile.ColliderType.None)
             {
-                ReplaceWallVisual(tile, tileName, width, height, pixels);
-            }
-            else if (tile.colliderType != Tile.ColliderType.None)
-            {
+                tile.sprite = sourceSprite;
                 tile.colliderType = Tile.ColliderType.None;
                 EditorUtility.SetDirty(tile);
                 AssetDatabase.SaveAssetIfDirty(tile);
@@ -499,31 +520,21 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             return tile;
         }
 
-        private static Tile CreateTransientFarWallTile()
+        private static Tile CreateTransientTile(string tileName, string sourceSpritePath)
         {
-            return CreateTransientWallTile(FarWallTileName, FarWallTileWidth, FarWallTileHeight, CreateFarWallPixels());
-        }
+            Sprite sourceSprite = AssetDatabase.LoadAssetAtPath<Sprite>(sourceSpritePath);
+            if (sourceSprite == null)
+            {
+                throw new InvalidOperationException(
+                    $"Chapel of Ash requires the committed sprite at '{sourceSpritePath}'.");
+            }
 
-        private static Tile CreateTransientCutawayWallTile()
-        {
-            return CreateTransientWallTile(CutawayWallTileName, CutawayWallTileWidth, CutawayWallTileHeight, CreateCutawayPixels());
-        }
-
-        private static Tile CreateTransientWallTile(string tileName, int width, int height, Color32[] pixels)
-        {
             Tile tile = ScriptableObject.CreateInstance<Tile>();
             tile.name = tileName;
             tile.colliderType = Tile.ColliderType.None;
             tile.hideFlags = HideFlags.HideAndDontSave;
-            Texture2D texture = CreateWallTexture(tileName, width, height, pixels);
-            texture.hideFlags = HideFlags.HideAndDontSave;
-            Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, width, height), new Vector2(0.5f, 0f), 64f);
-            sprite.name = tileName + "Sprite";
-            sprite.hideFlags = HideFlags.HideAndDontSave;
-            tile.sprite = sprite;
+            tile.sprite = sourceSprite;
             TransientTileObjects.Add(tile);
-            TransientTileObjects.Add(texture);
-            TransientTileObjects.Add(sprite);
             return tile;
         }
 
@@ -537,110 +548,6 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
                 }
             }
             TransientTileObjects.Clear();
-        }
-
-        private static bool WallVisualMatches(Tile tile, int width, int height, Color32[] pixels)
-        {
-            Sprite sprite = tile.sprite;
-            if (sprite == null || sprite.texture == null || sprite.texture.width != width || sprite.texture.height != height ||
-                !Mathf.Approximately(sprite.pixelsPerUnit, 64f) ||
-                Vector2.Distance(sprite.pivot, new Vector2(width * 0.5f, 0f)) > 0.01f)
-            {
-                return false;
-            }
-
-            try
-            {
-                Color32[] persisted = sprite.texture.GetPixels32();
-                if (persisted.Length != pixels.Length) return false;
-                for (int index = 0; index < pixels.Length; index++)
-                {
-                    if (!persisted[index].Equals(pixels[index])) return false;
-                }
-                return true;
-            }
-            catch (UnityException)
-            {
-                return false;
-            }
-        }
-
-        private static void ReplaceWallVisual(Tile tile, string tileName, int width, int height, Color32[] pixels)
-        {
-            Sprite previousSprite = tile.sprite;
-            Texture2D previousTexture = previousSprite != null ? previousSprite.texture : null;
-            tile.sprite = null;
-            if (previousSprite != null && AssetDatabase.Contains(previousSprite)) Object.DestroyImmediate(previousSprite, true);
-            if (previousTexture != null && AssetDatabase.Contains(previousTexture)) Object.DestroyImmediate(previousTexture, true);
-
-            Texture2D texture = CreateWallTexture(tileName, width, height, pixels);
-            AssetDatabase.AddObjectToAsset(texture, tile);
-            Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, width, height), new Vector2(0.5f, 0f), 64f);
-            sprite.name = tileName + "Sprite";
-            AssetDatabase.AddObjectToAsset(sprite, tile);
-            tile.sprite = sprite;
-            tile.colliderType = Tile.ColliderType.None;
-            EditorUtility.SetDirty(texture);
-            EditorUtility.SetDirty(sprite);
-            EditorUtility.SetDirty(tile);
-            AssetDatabase.SaveAssetIfDirty(tile);
-        }
-
-        private static Texture2D CreateWallTexture(string tileName, int width, int height, Color32[] pixels)
-        {
-            Texture2D texture = new Texture2D(width, height, TextureFormat.RGBA32, false)
-            {
-                name = tileName + "Texture",
-                filterMode = FilterMode.Point,
-                wrapMode = TextureWrapMode.Repeat
-            };
-            texture.SetPixels32(pixels);
-            texture.Apply(false, false);
-            return texture;
-        }
-
-        private static Color32[] CreateFarWallPixels()
-        {
-            return CreateWallPixels(FarWallTileWidth, FarWallTileHeight);
-        }
-
-        private static Color32[] CreateCutawayPixels()
-        {
-            return CreateWallPixels(CutawayWallTileWidth, CutawayWallTileHeight);
-        }
-
-        // NSC-046 AC-003/WALL_TILING_IMPLEMENTATION_GUIDE: a horizontally periodic 32-pixel block
-        // pattern that divides both 64-pixel-wide Tile textures exactly, so the pattern never
-        // truncates or restarts across a painted wall run.
-        private static Color32[] CreateWallPixels(int width, int height)
-        {
-            Color32[] pixels = new Color32[width * height];
-            Color32 stone = new Color32(94, 82, 70, 255);
-            Color32 alternateStone = new Color32(108, 94, 79, 255);
-            Color32 mortar = new Color32(46, 39, 34, 255);
-
-            for (int y = 0; y < height; y++)
-            {
-                int course = y / WallCoursePixelHeight;
-                bool horizontalMortar = y % WallCoursePixelHeight < 2;
-                int staggerOffset = (course % 2) * (WallBlockPixelWidth / 2);
-                for (int x = 0; x < width; x++)
-                {
-                    int staggeredX = (x + staggerOffset) % WallBlockPixelWidth;
-                    bool verticalMortar = staggeredX < 2;
-                    // The shade must NOT depend on the horizontal block index. (x + stagger)
-                    // / WallBlockPixelWidth climbs with x instead of wrapping, so adjacent
-                    // 32px blocks alternated and the texture repeated every 64px, not 32 --
-                    // measured at row 2: x=2 gave stone and x=34 gave alternateStone.
-                    // LowerVaultSceneBuilder.CreateNearWallStubPixels, which passes this same
-                    // assertion, varies shade by COURSE alone. Match it.
-                    pixels[y * width + x] = horizontalMortar || verticalMortar
-                        ? mortar
-                        : (course % 2 == 0 ? stone : alternateStone);
-                }
-            }
-
-            return pixels;
         }
 
         private static void EnsureFolder(string folder)

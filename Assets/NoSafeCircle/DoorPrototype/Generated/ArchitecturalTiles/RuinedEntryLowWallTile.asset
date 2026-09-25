@@ -58,7 +58,7 @@ MonoBehaviour:
   m_Script: {fileID: 13312, guid: 0000000000000000e000000000000000, type: 0}
   m_Name: RuinedEntryLowWallTile
   m_EditorClassIdentifier: 
-  m_Sprite: {fileID: 8457449735755476137}
+  m_Sprite: {fileID: 21300000, guid: 2080d27da4d94c51808934c2718eef00, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_Transform:
     e00: 1
@@ -101,7 +101,7 @@ Sprite:
   m_IsPolygon: 0
   m_PackingTag: 
   m_RenderDataKey:
-    00000000000000000000000000000000: 0
+    994f3bc370ee9914ea90d7e0b2d1bce1: 8457449735755476137
   m_AtlasTags: []
   m_SpriteAtlas: {fileID: 0}
   m_RD:

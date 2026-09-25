@@ -22,12 +22,20 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         private const string DoorMarkerName = "D1Opening";
         private const string ArchitecturalTileFolder =
             "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles";
+        private const string FloorTileName = "RuinedEntryFloorTile";
+        private const string FloorTilePath = ArchitecturalTileFolder + "/" + FloorTileName + ".asset";
         private const string LowWallTileName = "RuinedEntryLowWallTile";
         private const string LowWallTilePath = ArchitecturalTileFolder + "/" + LowWallTileName + ".asset";
-        private const string FloorTilePath = ArchitecturalTileFolder + "/FloorTile.asset";
         private const string FullWallTilePath = ArchitecturalTileFolder + "/WallTile.asset";
         private const float WallVisualOffset = 0.151f;
         private static readonly List<Object> TransientTileObjects = new List<Object>();
+
+        // NSC-109 AC-001/AC-004: the committed art the Art Director delivered for this room and
+        // for the shared low/broken-wall module. Applied as-authored; no local pixel edits.
+        private const string FloorSpriteSourcePath =
+            "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_RuinedEntry.png";
+        private const string LowWallSpriteSourcePath =
+            "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_broken_stub.png";
 
         [MenuItem("No Safe Circle/Rooms/Build Ruined Entry")]
         public static void Build()
@@ -40,8 +48,9 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
 
             // Opening the old scene can unload a newly created Tile sub-asset. Resolve it only
             // after the destination scene is active so the reference survives materialization.
+            Tile floorTile = LoadOrCreateRuinedEntryFloorTile(ArchitecturalTileFolder);
             Tile lowWallTile = LoadOrCreateRuinedEntryLowWallTile(ArchitecturalTileFolder);
-            RebuildSceneContents(scene, lowWallTile);
+            RebuildSceneContents(scene, floorTile, lowWallTile);
             EditorSceneManager.MarkSceneDirty(scene);
             EditorSceneManager.SaveScene(scene, ScenePath);
             AssetDatabase.Refresh();
@@ -52,15 +61,21 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         public static void BuildInMemoryForTests()
         {
             CleanupTransientTiles();
+            Tile floorTile = AssetDatabase.LoadAssetAtPath<Tile>(FloorTilePath);
+            if (floorTile == null)
+            {
+                floorTile = CreateTransientTile(FloorTileName, FloorSpriteSourcePath);
+            }
+
             Tile lowWallTile = AssetDatabase.LoadAssetAtPath<Tile>(LowWallTilePath);
             if (lowWallTile == null)
             {
-                lowWallTile = CreateTransientLowWallTile();
+                lowWallTile = CreateTransientTile(LowWallTileName, LowWallSpriteSourcePath);
             }
-            RebuildSceneContents(SceneManager.GetActiveScene(), lowWallTile);
+            RebuildSceneContents(SceneManager.GetActiveScene(), floorTile, lowWallTile);
         }
 
-        private static void RebuildSceneContents(Scene scene, Tile lowWallTile)
+        private static void RebuildSceneContents(Scene scene, Tile floorTile, Tile lowWallTile)
         {
             foreach (GameObject root in scene.GetRootGameObjects())
             {
@@ -79,7 +94,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             Transform authoringRoot = CreateContentRoot(
                 roomRoot.transform, "Authoring", RoomContentCategory.Authoring);
 
-            BuildVisibleBlockout(visibleRoot, lowWallTile);
+            BuildVisibleBlockout(visibleRoot, floorTile, lowWallTile);
             BuildGameplayGeometry(gameplayRoot);
             CreateDoorAnchor(
                 anchorsRoot,
@@ -92,13 +107,12 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             CreateMarker(authoringRoot, "PlayerStart", RuinedEntryLayout.PlayerStart);
         }
 
-        private static void BuildVisibleBlockout(Transform parent, Tile lowWallTile)
+        private static void BuildVisibleBlockout(Transform parent, Tile floorTile, Tile lowWallTile)
         {
-            Tile floorTile = AssetDatabase.LoadAssetAtPath<Tile>(FloorTilePath);
             Tile fullWallTile = AssetDatabase.LoadAssetAtPath<Tile>(FullWallTilePath);
-            if (floorTile == null || fullWallTile == null)
+            if (fullWallTile == null)
             {
-                throw new InvalidOperationException("Ruined Entry requires the existing FloorTile and WallTile assets.");
+                throw new InvalidOperationException("Ruined Entry requires the existing WallTile asset.");
             }
 
             GameObject gridObject = new GameObject("IsometricZAsY", typeof(Grid));
@@ -240,31 +254,52 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
                 new Vector3(northSegmentWidth, RuinedEntryLayout.WallHeight, RuinedEntryLayout.WallThickness));
         }
 
+        // NSC-109 AC-001/AC-002: this room's own floor Tile, bound to the committed
+        // floor_RuinedEntry sprite rather than a procedurally generated diamond texture.
+        public static Tile LoadOrCreateRuinedEntryFloorTile(string assetFolder)
+        {
+            return LoadOrCreateSpriteTile(assetFolder, FloorTileName, FloorSpriteSourcePath);
+        }
+
+        // NSC-109 AC-001/AC-002: bound to the committed wall_broken_stub sprite rather than a
+        // procedurally generated masonry-course texture.
         public static Tile LoadOrCreateRuinedEntryLowWallTile(string assetFolder)
+        {
+            return LoadOrCreateSpriteTile(assetFolder, LowWallTileName, LowWallSpriteSourcePath);
+        }
+
+        private static Tile LoadOrCreateSpriteTile(string assetFolder, string tileName, string sourceSpritePath)
         {
             if (string.IsNullOrWhiteSpace(assetFolder) || !assetFolder.StartsWith("Assets/", StringComparison.Ordinal))
             {
-                throw new ArgumentException("The low-wall Tile asset folder must be under Assets.", nameof(assetFolder));
+                throw new ArgumentException("The Tile asset folder must be under Assets.", nameof(assetFolder));
+            }
+
+            Sprite sourceSprite = AssetDatabase.LoadAssetAtPath<Sprite>(sourceSpritePath);
+            if (sourceSprite == null)
+            {
+                throw new InvalidOperationException(
+                    $"Ruined Entry requires the committed sprite at '{sourceSpritePath}'.");
             }
 
             EnsureFolder(assetFolder);
-            string assetPath = assetFolder + "/" + LowWallTileName + ".asset";
-            Color32[] pixels = CreateLowWallPixels();
+            string assetPath = assetFolder + "/" + tileName + ".asset";
             Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(assetPath);
             if (tile == null)
             {
                 tile = ScriptableObject.CreateInstance<Tile>();
-                tile.name = LowWallTileName;
+                tile.name = tileName;
                 tile.colliderType = Tile.ColliderType.None;
+                tile.sprite = sourceSprite;
                 AssetDatabase.CreateAsset(tile, assetPath);
-                ReplaceLowWallVisual(tile, pixels);
+                EditorUtility.SetDirty(tile);
+                AssetDatabase.SaveAssetIfDirty(tile);
+                return tile;
             }
-            else if (!LowWallVisualMatches(tile, pixels))
+
+            if (tile.sprite != sourceSprite || tile.colliderType != Tile.ColliderType.None)
             {
-                ReplaceLowWallVisual(tile, pixels);
-            }
-            else if (tile.colliderType != Tile.ColliderType.None)
-            {
+                tile.sprite = sourceSprite;
                 tile.colliderType = Tile.ColliderType.None;
                 EditorUtility.SetDirty(tile);
                 AssetDatabase.SaveAssetIfDirty(tile);
@@ -273,21 +308,21 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             return tile;
         }
 
-        private static Tile CreateTransientLowWallTile()
+        private static Tile CreateTransientTile(string tileName, string sourceSpritePath)
         {
+            Sprite sourceSprite = AssetDatabase.LoadAssetAtPath<Sprite>(sourceSpritePath);
+            if (sourceSprite == null)
+            {
+                throw new InvalidOperationException(
+                    $"Ruined Entry requires the committed sprite at '{sourceSpritePath}'.");
+            }
+
             Tile tile = ScriptableObject.CreateInstance<Tile>();
-            tile.name = LowWallTileName;
+            tile.name = tileName;
             tile.colliderType = Tile.ColliderType.None;
             tile.hideFlags = HideFlags.HideAndDontSave;
-            Texture2D texture = CreateLowWallTexture(CreateLowWallPixels());
-            texture.hideFlags = HideFlags.HideAndDontSave;
-            Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, 64f, 32f), new Vector2(0.5f, 0f), 64f);
-            sprite.name = LowWallTileName + "Sprite";
-            sprite.hideFlags = HideFlags.HideAndDontSave;
-            tile.sprite = sprite;
+            tile.sprite = sourceSprite;
             TransientTileObjects.Add(tile);
-            TransientTileObjects.Add(texture);
-            TransientTileObjects.Add(sprite);
             return tile;
         }
 
@@ -320,87 +355,6 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         // The approved blockout tone now lives in one place; see RoomPlaceholderVisuals.
         private static readonly Color32 RubblePlaceholderColor =
             RoomPlaceholderVisuals.BlockoutPlaceholder;
-        private static Color32[] CreateLowWallPixels()
-        {
-            const int width = 64;
-            const int height = 32;
-            const int repeatPeriod = 32;
-            Color32[] pixels = new Color32[width * height];
-            Color32 stone = new Color32(77, 70, 67, 255);
-            Color32 alternate = new Color32(88, 79, 73, 255);
-            Color32 mortar = new Color32(39, 35, 35, 255);
-            for (int y = 0; y < height; y++)
-            {
-                int course = y / 16;
-                for (int x = 0; x < width; x++)
-                {
-                    int phase = (x + course * 16) % repeatPeriod;
-                    bool isMortar = y % 16 < 2 || phase < 2;
-                    pixels[y * width + x] = isMortar ? mortar : (course == 0 ? stone : alternate);
-                }
-            }
-            return pixels;
-        }
-
-        private static Texture2D CreateLowWallTexture(Color32[] pixels)
-        {
-            Texture2D texture = new Texture2D(64, 32, TextureFormat.RGBA32, false)
-            {
-                name = LowWallTileName + "Texture",
-                filterMode = FilterMode.Point,
-                wrapMode = TextureWrapMode.Repeat
-            };
-            texture.SetPixels32(pixels);
-            texture.Apply(false, false);
-            return texture;
-        }
-
-        private static bool LowWallVisualMatches(Tile tile, Color32[] pixels)
-        {
-            Sprite sprite = tile.sprite;
-            if (sprite == null || sprite.texture == null || sprite.texture.width != 64 || sprite.texture.height != 32 ||
-                !Mathf.Approximately(sprite.pixelsPerUnit, 64f) ||
-                Vector2.Distance(sprite.pivot, new Vector2(32f, 0f)) > 0.01f)
-            {
-                return false;
-            }
-
-            try
-            {
-                Color32[] persisted = sprite.texture.GetPixels32();
-                if (persisted.Length != pixels.Length) return false;
-                for (int index = 0; index < pixels.Length; index++)
-                {
-                    if (!persisted[index].Equals(pixels[index])) return false;
-                }
-                return true;
-            }
-            catch (UnityException)
-            {
-                return false;
-            }
-        }
-
-        private static void ReplaceLowWallVisual(Tile tile, Color32[] pixels)
-        {
-            Sprite previousSprite = tile.sprite;
-            Texture2D previousTexture = previousSprite != null ? previousSprite.texture : null;
-            tile.sprite = null;
-            if (previousSprite != null && AssetDatabase.Contains(previousSprite)) Object.DestroyImmediate(previousSprite, true);
-            if (previousTexture != null && AssetDatabase.Contains(previousTexture)) Object.DestroyImmediate(previousTexture, true);
-
-            Texture2D texture = CreateLowWallTexture(pixels);
-            AssetDatabase.AddObjectToAsset(texture, tile);
-            Sprite sprite = Sprite.Create(texture, new Rect(0f, 0f, 64f, 32f), new Vector2(0.5f, 0f), 64f);
-            sprite.name = LowWallTileName + "Sprite";
-            AssetDatabase.AddObjectToAsset(sprite, tile);
-            tile.sprite = sprite;
-            tile.colliderType = Tile.ColliderType.None;
-            EditorUtility.SetDirty(texture);
-            EditorUtility.SetDirty(sprite);
-            EditorUtility.SetDirty(tile);
-            AssetDatabase.SaveAssetIfDirty(tile);
-        }
 
         private static Transform CreateContentRoot(
             Transform parent,

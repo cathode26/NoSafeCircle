@@ -939,8 +939,15 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                     AssetDatabase.GetAssetPath(tile));
                 Assert.IsNotNull(tile.sprite);
                 Assert.IsNotNull(tile.sprite.texture);
-                Assert.AreEqual(AssetDatabase.GetAssetPath(tile), AssetDatabase.GetAssetPath(tile.sprite));
-                Assert.AreEqual(AssetDatabase.GetAssetPath(tile), AssetDatabase.GetAssetPath(tile.sprite.texture));
+
+                // NSC-109 VAL-001/AC-001: each painted architectural Tile must resolve to one of
+                // the committed sprites under Art/Environment/Source, not to a procedurally
+                // generated texture owned by the Tile asset itself.
+                StringAssert.StartsWith(
+                    "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/",
+                    AssetDatabase.GetAssetPath(tile.sprite),
+                    "The Tile's sprite must be the committed source art, not a sub-asset generated " +
+                    "in-place under the temporary tile folder.");
             }
         }
 
@@ -1868,55 +1875,6 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                     $"Expected independently sortable wall segment at {cell}.");
             }
         }
-        // NSC-042 AC-001: the wall texture's own brick block/mortar pattern must repeat at a
-        // period that evenly divides the texture's width, or the last block at the texture's
-        // right edge is truncated ("leftover partial block") - the exact defect that made
-        // repeated wall Tile instances read as visibly restarting pieces instead of one
-        // continuous wall. This measures the actual generated mortar-band period from the built
-        // wall texture rather than asserting a specific pixel constant.
-        [Test]
-        public void Build_WallTileTexture_HasSeamlessHorizontalRepeatPeriodDividingTextureWidth()
-        {
-            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
-
-            var wallTilemap = GameObject.Find("IsometricVisualGrid/WallTilemap")?.GetComponent<Tilemap>();
-            Assert.IsNotNull(wallTilemap);
-
-            var wallTile = GetFirstTile(wallTilemap);
-            Assert.IsNotNull(wallTile);
-            var texture = wallTile.sprite.texture;
-            var width = texture.width;
-
-            const int sampleY = 16;
-            var mortarBandStartColumns = new List<int>();
-            for (var x = 0; x < width; x++)
-            {
-                var previousX = (x - 1 + width) % width;
-                if (IsDarkMortarPixel(texture.GetPixel(x, sampleY)) &&
-                    !IsDarkMortarPixel(texture.GetPixel(previousX, sampleY)))
-                {
-                    mortarBandStartColumns.Add(x);
-                }
-            }
-
-            Assert.GreaterOrEqual(mortarBandStartColumns.Count, 2,
-                "Expected at least two vertical mortar seams in the sampled wall course row to measure a " +
-                "repeat period.");
-
-            var period = mortarBandStartColumns[1] - mortarBandStartColumns[0];
-            Assert.Greater(period, 0);
-
-            Assert.AreEqual(0, width % period,
-                "The wall texture's brick block repeat period must evenly divide its own width so adjacent " +
-                "repeated wall Tiles join without a visible seam or pattern-phase reset.");
-        }
-
-        private static bool IsDarkMortarPixel(Color pixel)
-        {
-            var brightness = (pixel.r + pixel.g + pixel.b) / 3f;
-            return brightness < 0.2f;
-        }
-
         // NSC-042 AC-001/AC-003/VAL-001: the single reusable helper both current doorway walls
         // call to paint their wall segments must scale straight-wall authoring to representative
         // lengths (3, 10, and approximately 100 cells) by repeating one shared Tile asset across
@@ -1979,32 +1937,32 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             }
         }
 
-        // NSC-042 AC-001 (regression-only): a persisted architectural Tile asset authored under
-        // an older art convention (e.g. the previous non-seamless wall texture) can have
-        // identical dimensions/pivot to the current convention while its pixel content still
-        // differs. Without comparing actual pixel content, such an asset would silently survive
-        // Build() forever. This proves the seamless wall pattern fix actually re-materializes
-        // into an already-persisted asset like the committed WallTile.asset, not just into a
-        // freshly created one.
+        // NSC-109 AC-001/VAL-001 (regression-only, supersedes the NSC-042 pixel-content-staleness
+        // regression this replaces): a persisted architectural Tile asset can be carrying a stale
+        // sprite reference (e.g. left over from an older authoring convention) while its
+        // dimensions/pivot happen to match. Without comparing the sprite reference itself, such an
+        // asset would silently survive Build() forever. This proves a stale sprite reference on an
+        // already-persisted asset like the committed WallTile.asset is repaired back to the
+        // committed source sprite on rebuild, rather than only being set correctly the first time
+        // an asset is created. It never touches the committed source sprite's own pixel data.
         [Test]
-        public void Build_PersistedWallTileWithStalePixelContentButMatchingDimensions_IsReplacedOnRebuild()
+        public void Build_PersistedTileWithStaleSpriteReference_IsRepairedOnRebuild()
         {
             DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
 
             var wallTilePath = temporaryArchitecturalTileAssetFolder + "/WallTile.asset";
             var wallTile = AssetDatabase.LoadAssetAtPath<Tile>(wallTilePath);
             Assert.IsNotNull(wallTile);
-            var texture = wallTile.sprite.texture;
-            var currentConventionPixels = texture.GetPixels32();
 
-            var stalePixels = (Color32[])currentConventionPixels.Clone();
-            stalePixels[0] = new Color32(
-                (byte)(255 - stalePixels[0].r),
-                (byte)(255 - stalePixels[0].g),
-                (byte)(255 - stalePixels[0].b),
-                stalePixels[0].a);
-            texture.SetPixels32(stalePixels);
-            texture.Apply(false, false);
+            var expectedSprite = AssetDatabase.LoadAssetAtPath<Sprite>(
+                "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_straight.png");
+            var staleSprite = AssetDatabase.LoadAssetAtPath<Sprite>(
+                "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_corner.png");
+            Assert.IsNotNull(expectedSprite);
+            Assert.IsNotNull(staleSprite);
+            Assert.AreSame(expectedSprite, wallTile.sprite);
+
+            wallTile.sprite = staleSprite;
             EditorUtility.SetDirty(wallTile);
             AssetDatabase.SaveAssetIfDirty(wallTile);
 
@@ -2012,125 +1970,10 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
 
             var rebuiltTile = AssetDatabase.LoadAssetAtPath<Tile>(wallTilePath);
             Assert.IsNotNull(rebuiltTile);
-            var rebuiltPixels = rebuiltTile.sprite.texture.GetPixels32();
-
-            CollectionAssert.AreEqual(currentConventionPixels, rebuiltPixels,
-                "A persisted architectural Tile asset whose pixel content diverges from the current " +
-                "authoring convention - even with unchanged dimensions/pivot - must be re-materialized on " +
-                "the next Build() rather than silently surviving unchanged.");
-        }
-
-        // THE FLOOR-HOLE DEFECT. CreateDiamondPixels writes the four corners outside the
-        // inscribed diamond, and they used to be hardcoded transparent. A diamond inscribed in a
-        // rectangle covers exactly HALF its area, and every room paints this tile on a Grid whose
-        // cellLayout is Rectangle, so half of every floor cell was a hole. What showed through was
-        // the ground plane: measured (104,97,92) on an ortho-8 panel of the committed composed
-        // scene, a colour that appears in NO tile this builder generates.
-        //
-        // THIS ASSERTS THE RELATION, NOT THE ARTWORK. It does not care which tone the corners are
-        // - the Art Director may repick that freely - only that no floor pixel is see-through.
-        [Test]
-        public void Build_FloorTile_HasNoTransparentPixel_SoTheGroundCannotShowThroughTheFloor()
-        {
-            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
-
-            var floorTile = AssetDatabase.LoadAssetAtPath<Tile>(
-                temporaryArchitecturalTileAssetFolder + "/FloorTile.asset");
-            Assert.IsNotNull(floorTile, "The builder must materialize FloorTile.asset.");
-
-            var pixels = floorTile.sprite.texture.GetPixels32();
-            var transparentCount = 0;
-            foreach (var pixel in pixels)
-            {
-                if (pixel.a < 255) transparentCount++;
-            }
-
-            Assert.AreEqual(0, transparentCount,
-                "The floor tile must be fully opaque. " + transparentCount + " of " + pixels.Length +
-                " pixels are see-through, so that fraction of every painted floor cell is a hole " +
-                "and the ground plane reads through the floor as a lattice.");
-        }
-
-        // The fix must not flatten the tile into a plain rectangle: the scored border ring is what
-        // still draws the diamond once the corners are opaque. Asserted as a RELATION between the
-        // two tones rather than as counts, so repicking either colour leaves this test standing.
-        [Test]
-        public void Build_FloorTile_StillScoresItsDiamond_RatherThanBecomingAFlatRectangle()
-        {
-            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
-
-            var floorTile = AssetDatabase.LoadAssetAtPath<Tile>(
-                temporaryArchitecturalTileAssetFolder + "/FloorTile.asset");
-            Assert.IsNotNull(floorTile);
-
-            var pixels = floorTile.sprite.texture.GetPixels32();
-            var toneCounts = new Dictionary<int, int>();
-            foreach (var pixel in pixels)
-            {
-                var key = (pixel.r << 16) | (pixel.g << 8) | pixel.b;
-                toneCounts[key] = toneCounts.TryGetValue(key, out var seen) ? seen + 1 : 1;
-            }
-
-            Assert.AreEqual(2, toneCounts.Count,
-                "Expected exactly two opaque tones - the face and the scored ring. Got " +
-                toneCounts.Count + ".");
-
-            var counts = new List<int>(toneCounts.Values);
-            counts.Sort();
-            Assert.Greater(counts[0], 0,
-                "The scored ring must still be drawn; a flat rectangle has only one tone.");
-            Assert.Greater(counts[1], counts[0],
-                "The face must cover more of the tile than the ring that scores it.");
-        }
-
-        // THE ONE THAT GUARDS WHAT SHIPS. The two tests above build into a temporary folder and so
-        // only prove the GENERATOR is fixed. Every room loads the COMMITTED asset read-only
-        // (ChapelOfAshSceneBuilder.cs and its four siblings all LoadAssetAtPath the same path), so
-        // a green generator with a stale committed asset would still ship a holed floor.
-        [Test]
-        public void CommittedFloorTileAsset_HasNoTransparentPixel()
-        {
-            const string committedPath =
-                "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/FloorTile.asset";
-
-            var floorTile = AssetDatabase.LoadAssetAtPath<Tile>(committedPath);
-            Assert.IsNotNull(floorTile, "Expected the committed floor tile at " + committedPath + ".");
-
-            var pixels = floorTile.sprite.texture.GetPixels32();
-            var transparentCount = 0;
-            foreach (var pixel in pixels)
-            {
-                if (pixel.a < 255) transparentCount++;
-            }
-
-            Assert.AreEqual(0, transparentCount,
-                "The COMMITTED floor tile all five rooms load is " + transparentCount + "/" +
-                pixels.Length + " see-through. Rebuild it through the builder and commit the asset; " +
-                "fixing the generator alone changes nothing about what ships.");
-        }
-
-        // Proves the corner colour is genuinely per-caller and that the fix was not applied by
-        // blanket-editing the generator. This tile is painted NOWHERE, so its transparent corners
-        // are harmless - and keeping them keeps its committed asset byte-identical.
-        [Test]
-        public void Build_ArchitecturalBorderTile_KeepsItsTransparentCorners()
-        {
-            DoorPrototypeSceneBuilder.BuildInMemoryForTests(temporaryArchitecturalTileAssetFolder);
-
-            var borderTile = AssetDatabase.LoadAssetAtPath<Tile>(
-                temporaryArchitecturalTileAssetFolder + "/ArchitecturalBorderTile.asset");
-            Assert.IsNotNull(borderTile);
-
-            var pixels = borderTile.sprite.texture.GetPixels32();
-            var transparentCount = 0;
-            foreach (var pixel in pixels)
-            {
-                if (pixel.a == 0) transparentCount++;
-            }
-
-            Assert.Greater(transparentCount, 0,
-                "The decorative border tile is an overlay and keeps its transparent corners; if this " +
-                "fails, the floor fix was applied to the generator for every caller instead of per caller.");
+            Assert.AreSame(expectedSprite, rebuiltTile.sprite,
+                "A persisted architectural Tile asset carrying a stale sprite reference must be repaired " +
+                "back to the committed source sprite on the next Build() rather than silently surviving " +
+                "unchanged.");
         }
 
         [Test]
@@ -2263,19 +2106,20 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 "The builder must not globally save an unrelated dirty asset.");
         }
 
-        // NSC-038 regression-only invariant: rebuilding the parameterless seam destroys the
-        // exact transient Tile/Sprite/Texture instances owned by the prior build.
+        // NSC-109 AC-001 (regression-only, updates the NSC-038 invariant this supersedes):
+        // rebuilding the parameterless seam destroys the transient Tile wrapper owned by the
+        // prior build, but each Tile's sprite is now the shared committed source asset under
+        // Art/Environment/Source rather than a builder-owned transient, so it must survive
+        // rebuilding rather than being destroyed alongside the Tile.
         [Test]
-        public void BuildInMemory_TransientArchitecturalObjects_AreDestroyedOnRebuild()
+        public void BuildInMemory_TransientArchitecturalTiles_AreDestroyedOnRebuild()
         {
             DoorPrototypeSceneBuilder.BuildInMemoryForTests();
             var oldTiles = GetArchitecturalTilesFromActiveGrid();
             var oldSprites = new Sprite[oldTiles.Length];
-            var oldTextures = new Texture2D[oldTiles.Length];
             for (var i = 0; i < oldTiles.Length; i++)
             {
                 oldSprites[i] = oldTiles[i].sprite;
-                oldTextures[i] = oldSprites[i].texture;
             }
 
             DoorPrototypeSceneBuilder.BuildInMemoryForTests();
@@ -2284,10 +2128,10 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             {
                 Assert.IsTrue(oldTiles[i] == null,
                     $"Previous transient Tile {i} must be destroyed before rebuilding.");
-                Assert.IsTrue(oldSprites[i] == null,
-                    $"Previous transient Sprite {i} must be destroyed before rebuilding.");
-                Assert.IsTrue(oldTextures[i] == null,
-                    $"Previous transient Texture {i} must be destroyed before rebuilding.");
+                Assert.IsFalse(oldSprites[i] == null,
+                    $"Sprite {i} is the shared committed source asset and must survive rebuilding.");
+                Assert.IsTrue(AssetDatabase.Contains(oldSprites[i]),
+                    $"Sprite {i} must remain the committed source asset rather than a builder-owned transient.");
             }
 
             foreach (var replacementTile in GetArchitecturalTilesFromActiveGrid())
@@ -2297,19 +2141,19 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             }
         }
 
-        // NSC-038 regression-only invariant: closing/replacing the in-memory test scene cleans
-        // the final transient build even when no subsequent builder invocation occurs.
+        // NSC-109 AC-001 (regression-only, updates the NSC-038 invariant this supersedes):
+        // closing/replacing the in-memory test scene destroys the transient Tile wrapper even
+        // when no subsequent builder invocation occurs, but its sprite is the shared committed
+        // source asset and must survive.
         [Test]
-        public void BuildInMemory_TransientArchitecturalObjects_AreDestroyedOnSceneReplacement()
+        public void BuildInMemory_TransientArchitecturalTiles_AreDestroyedOnSceneReplacement()
         {
             DoorPrototypeSceneBuilder.BuildInMemoryForTests();
             var tiles = GetArchitecturalTilesFromActiveGrid();
             var sprites = new Sprite[tiles.Length];
-            var textures = new Texture2D[tiles.Length];
             for (var i = 0; i < tiles.Length; i++)
             {
                 sprites[i] = tiles[i].sprite;
-                textures[i] = sprites[i].texture;
             }
 
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
@@ -2318,10 +2162,8 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             {
                 Assert.IsTrue(tiles[i] == null,
                     $"Transient Tile {i} must be destroyed when its test scene closes.");
-                Assert.IsTrue(sprites[i] == null,
-                    $"Transient Sprite {i} must be destroyed when its test scene closes.");
-                Assert.IsTrue(textures[i] == null,
-                    $"Transient Texture {i} must be destroyed when its test scene closes.");
+                Assert.IsFalse(sprites[i] == null,
+                    $"Sprite {i} is the shared committed source asset and must survive scene closure.");
             }
         }
 
