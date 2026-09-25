@@ -722,6 +722,12 @@ contract is wrong) or `STOP` (source or evidence problems, success, or nothing
 recognised). Secondary causes, such as the reviewer findings behind a budget
 stop, are kept. It is read-only and every result says `retry_authorized:
 false`; choosing and authorizing a retry stays a separate decision.
+For a `CONTRACT` diagnosis, `--ger-packet OUTDIR` also writes `GER_PROBLEM.md`
+and `MANIFEST.json` into a new directory for the GER Agent: the authenticated
+reviewer findings and candidate questions, with each cited clause quoted from
+the retained parent contract the run used (anything else is listed as
+unresolved). It is labelled evidence only; it proposes no contract text and
+states that the contract needs review, not that it is defective.
 
 ### Decomposing in an isolated clone
 

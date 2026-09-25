@@ -307,6 +307,9 @@ def main(argv=None) -> int:
         "diagnose-decomposition", help="Explain why one retained decomposition run stopped; read-only, never retries")
     diagnose_decomposition.add_argument("task")
     diagnose_decomposition.add_argument("--run-id", required=True)
+    diagnose_decomposition.add_argument(
+        "--ger-packet", type=Path,
+        help="For a CONTRACT diagnosis, write GER_PROBLEM.md and MANIFEST.json into this new directory")
     apply_decomposition = commands.add_parser("apply-decomposition", help="Apply one exact reviewed decomposition locally; never pushes")
     apply_decomposition.add_argument("task")
     apply_decomposition.add_argument("--run-id", required=True)
@@ -752,7 +755,8 @@ def main(argv=None) -> int:
                 )
             elif args.command == "diagnose-decomposition":
                 from Pipeline.AssistantControl import decomposition_diagnosis
-                result = decomposition_diagnosis.diagnose(manager, args.task, run_id=args.run_id)
+                result = decomposition_diagnosis.diagnose(
+                    manager, args.task, run_id=args.run_id, ger_packet=args.ger_packet)
             elif args.command in {"decompose", "inspect-decomposition", "apply-decomposition"}:
                 from Pipeline.AssistantControl import decomposition
                 if args.command == "decompose":

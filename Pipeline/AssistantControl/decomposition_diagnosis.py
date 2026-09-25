@@ -25,10 +25,16 @@ for module_root in (ROOT, ROOT / "Pipeline", ROOT / "Pipeline" / "TaskGraph"):
     if str(module_root) not in sys.path:
         sys.path.insert(0, str(module_root))
 
+from TaskDecomposition.ger_problem_packet import (  # noqa: E402
+    ProblemPacketError,
+    build_problem_packet,
+    publish_problem_packet,
+)
 from TaskDecomposition.run_diagnosis import (  # noqa: E402
     DiagnosisEvidenceError,
     confined,
     diagnose_run,
+    load_run_snapshot,
     parse_json_object,
 )
 
@@ -60,7 +66,8 @@ def _receipt(manager: Checkouts, task_id: str, run_id: str) -> tuple[str, dict[s
     return matches[0]
 
 
-def diagnose(manager: Checkouts, task_id: str, *, run_id: str) -> dict[str, Any]:
+def diagnose(manager: Checkouts, task_id: str, *, run_id: str,
+             ger_packet: Path | None = None) -> dict[str, Any]:
     validate_task_id(task_id)
     if not isinstance(run_id, str) or not _RUN_ID_RE.fullmatch(run_id):
         raise ValueError("run id must be a plain identifier")
@@ -83,4 +90,18 @@ def diagnose(manager: Checkouts, task_id: str, *, run_id: str) -> dict[str, Any]
         "source": receipt.get("source"),
         "sha256": hashlib.sha256(data).hexdigest(),
     }
+    if ger_packet is not None:
+        # The only write this command makes, and only when asked: a new
+        # directory holding evidence for the GER Agent, never a contract edit.
+        try:
+            snapshot = load_run_snapshot(run_dir)
+            if snapshot.manifest != {k: v for k, v in diagnosis["input_manifest"].items() if k in snapshot.manifest}:
+                raise ValueError("the run result changed while it was being diagnosed")
+            packet = build_problem_packet(run_dir, diagnosis, snapshot.result)
+            diagnosis["ger_packet"] = {
+                "path": str(ger_packet),
+                "sha256": publish_problem_packet(Path(ger_packet), packet),
+            }
+        except (DiagnosisEvidenceError, ProblemPacketError) as exc:
+            raise ValueError(f"GER problem packet refused: {exc}") from exc
     return diagnosis

@@ -113,6 +113,14 @@ class DiagnoseDecompositionTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "link or junction"):
             diagnose(self.manager, "NSC-088", run_id=RUN)
 
+    def test_a_ger_packet_is_written_only_for_a_contract_diagnosis(self):
+        # The budget-stop fixture is not a contract review: no packet, no directory.
+        self.receipt()
+        out = self.outside.parent / "packet"
+        with self.assertRaisesRegex(ValueError, "only built for a CONTRACT diagnosis"):
+            diagnose(self.manager, "NSC-088", run_id=RUN, ger_packet=out)
+        self.assertFalse(out.exists())
+
     def test_a_run_result_that_names_another_run_is_refused(self):
         result = json.loads((self.run_dir / "decomposition_run_result.json").read_text(encoding="utf-8"))
         result["run_id"] = "different"
