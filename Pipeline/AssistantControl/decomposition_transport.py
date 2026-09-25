@@ -51,8 +51,13 @@ def build_compose_command(
     provider_order = tuple(item.strip() for item in providers.split(",") if item.strip())
     if len(provider_order) != 2 or any(name not in {"claude", "codex"} for name in provider_order):
         raise ValueError("Assistant decomposition requires exactly two claude/codex roles")
-    if type(max_calls) is not int or max_calls != 2:
-        raise ValueError("Assistant decomposition requires exactly two provider calls")
+    # Two calls is the only profile a same-provider pooled run supports. The
+    # opt-in three-call budget needs two distinct providers, so an independent
+    # PASS of a reviewer revision comes from the other provider.
+    if type(max_calls) is not int or max_calls not in (2, 3):
+        raise ValueError("Assistant decomposition requires a two- or three-call budget")
+    if max_calls == 3 and (len(set(provider_order)) != 2 or pool_assignment is not None):
+        raise ValueError("A three-call decomposition budget requires two distinct providers and no pool")
     if not _SAFE_ID.fullmatch(project):
         raise ValueError("Compose project name is invalid")
     if not _SAFE_ID.fullmatch(run_id):
@@ -106,7 +111,7 @@ def build_compose_command(
         "Pipeline/TaskDecomposition/run_round_robin_decomposition.py",
         "--task-id", validate_task_id(task_id),
         "--providers", ",".join(provider_order),
-        "--max-calls", "2",
+        "--max-calls", str(max_calls),
         "--run-id", run_id,
     ))
     if pool_assignment is not None:

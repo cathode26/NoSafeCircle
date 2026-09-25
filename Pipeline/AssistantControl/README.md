@@ -679,6 +679,24 @@ the older mixed-case and dotted run id.
 `apply-decomposition` creates the canonical local D1C commit only while the reviewed
 source, contract and plan are still exact. These commands never push.
 
+### Three-call review budget (opt-in)
+
+`decompose ... --max-calls 3` lets an independent PASS approve a reviewer's
+revision. With the default two calls a valid revision ends the run
+`needs_human`, because its author (the reviewer) cannot approve it and no
+call is left for anyone else; that stop is intended and remains in force for
+two-call runs and for a third revision. Budget 3 requires two distinct
+providers (never a pooled same-provider pair), stops early when round 2
+passes, and spends the third call only after a valid revision, which the
+other provider then reviews in full. Because the optional author correction
+is not counted, budget 3 can use four provider invocations. Inspection and
+application replay the whole chain (`TaskDecomposition/review_chain.py`):
+provider identities, candidate links, revision digest/version/author, the
+final PASS, every finding resolution, and the final artifacts, refusing with
+a named `D3_*` code. Application refuses if the chain's proof bytes changed
+after the review was recorded. The container timeout is 6,000 seconds for
+budget 3 and stays 3,600 seconds otherwise.
+
 ### Author checklist (opt-in)
 
 `decompose ... --author-checklist parent-contract-v1` gives the author, the

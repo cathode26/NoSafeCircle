@@ -57,6 +57,24 @@ class DecompositionTransportTests(unittest.TestCase):
                     max_calls=2, run_id="nsc-025-run", author_checklist=bad,
                 )
 
+    def test_a_three_call_budget_needs_two_distinct_providers_and_no_pool(self):
+        command = build_compose_command(
+            task_id="NSC-025", project="assistant-nsc", providers="claude,codex",
+            max_calls=3, run_id="nsc-025-run",
+        )
+        self.assertEqual("3", command[command.index("--max-calls") + 1])
+        plain = build_compose_command(
+            task_id="NSC-025", project="assistant-nsc", providers="claude,codex",
+            max_calls=2, run_id="nsc-025-run",
+        )
+        self.assertEqual("2", plain[plain.index("--max-calls") + 1])
+        for providers, budget in (("codex,codex", 3), ("claude,codex", 4), ("claude,codex", True)):
+            with self.subTest(providers=providers, budget=budget), self.assertRaises(ValueError):
+                build_compose_command(
+                    task_id="NSC-025", project="assistant-nsc", providers=providers,
+                    max_calls=budget, run_id="nsc-025-run",
+                )
+
     def test_cross_provider_command_refuses_a_pool_assignment(self):
         """Two distinct providers are independent by provider identity, so they
         never consume a role-session reservation.
@@ -297,11 +315,14 @@ class DecompositionTransportTests(unittest.TestCase):
         self.assertEqual("round-robin-decompose", command[11])
 
     def test_rejects_unbounded_calls(self):
-        for providers, assignment in (("claude,codex", None), ("claude,claude", self.assignment())):
-            with self.subTest(providers=providers), self.assertRaises(ValueError):
+        # Three calls is an opt-in profile for two distinct providers only; a
+        # pooled same-provider run stays at two, and nothing goes above three.
+        for providers, budget, assignment in (("claude,codex", 4, None),
+                                              ("claude,claude", 3, self.assignment())):
+            with self.subTest(providers=providers, budget=budget), self.assertRaises(ValueError):
                 build_compose_command(
                     task_id="NSC-025", project="assistant-nsc", providers=providers,
-                    max_calls=3, run_id="nsc-025-run", pool_assignment=assignment,
+                    max_calls=budget, run_id="nsc-025-run", pool_assignment=assignment,
                 )
 
     def test_rejects_unknown_providers_and_unsafe_identifiers(self):

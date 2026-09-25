@@ -47,6 +47,7 @@ from TaskDecomposition.author_checklist import (  # noqa: E402
 )
 from Pipeline.AgentRuntime.contracts import AGENT_INVOCATION_REQUEST_SCHEMA_VERSION  # noqa: E402
 from TaskDecomposition.context_builder import ContextPackage, DecompositionPreflightError  # noqa: E402
+from TaskDecomposition.review_chain import ReviewChainError, verify_three_call_chain  # noqa: E402
 from TaskDecomposition.run_diagnosis import (  # noqa: E402
     DiagnosisEvidenceError,
     confined,
@@ -481,6 +482,15 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
                 f"{sorted(reserved_leases)}, not one lease per role"
             )
 
+    # The budget comes from the durable record the host wrote at launch, never
+    # from provider-produced artifacts. A record without one predates the
+    # option and is the two-call profile.
+    budget = record.get("max_calls", 2)
+    if type(budget) is not int or budget not in (2, 3):
+        raise ValueError(f"Decomposition record carries unsupported call budget {budget!r}")
+    if budget == 3 and pooled:
+        raise ValueError("A three-call decomposition budget requires two distinct providers")
+
     run_path, result_path, graph_path = _artifact_paths(record)
     run_result, run_bytes = _load_object(run_path, "Decomposition run result")
     result_payload, result_bytes = _load_object(result_path, "Decomposition result")
@@ -500,8 +510,8 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
         "run_id": record["run_id"],
         "task_id": record["task_id"],
         "provider_order": record["providers"],
-        "max_calls": 2,
-        "calls_used": 2,
+        "max_calls": budget,
+        **({"calls_used": 2} if budget == 2 else {}),
         "run_status": "review_ready",
         "decision": "decomposed",
         # Two distinct providers are independent by provider identity; one
@@ -569,6 +579,13 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
     rounds = run_result.get("rounds")
     history = run_result.get("finding_history")
     corrections = run_result.get("author_corrections_used")
+    if budget == 3:
+        return _verify_three_call_review(
+            manager, record, run_result, decomposition, plan, task, digest,
+            head=head, tree=tree, source_advancement=source_advancement,
+            artifact_bytes=(run_bytes, result_bytes, graph_bytes),
+            checklist_evidence=checklist_evidence,
+        )
     # Exactly two round shapes may be applied and nothing else. Without a
     # correction the run is the author/reviewer pair it has always been. With
     # the one bounded author correction the rejected first round is retained,
@@ -678,6 +695,90 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
     }
 
 
+def _fresh_plan_proof(manager: Checkouts, decomposition: Any, plan: Any) -> Any:
+    fresh = plan_graph_apply(
+        load_persistent_work_graph(manager.source),
+        decomposition.parent_task,
+        decomposition,
+        plan,
+    )
+    if fresh.status != "fresh" or fresh.stored_plan_id != plan.plan_id:
+        raise ValueError(f"Reviewed decomposition plan is not fresh: {fresh.status}: {fresh.reason}")
+    if not (fresh.expected_parent_semantic_hash
+            == fresh.actual_parent_semantic_hash
+            == decomposition.parent_task.contract_sha256):
+        raise ValueError("Current parent contract differs from the reviewed semantic authorization")
+    return fresh
+
+
+def _verify_three_call_review(
+    manager: Checkouts, record: dict[str, Any], run_result: dict[str, Any],
+    decomposition: Any, plan: Any, task: dict[str, Any], digest: str, *,
+    head: str, tree: str, source_advancement: dict[str, Any],
+    artifact_bytes: tuple[bytes, bytes, bytes],
+    checklist_evidence: dict[str, str],
+) -> dict[str, Any]:
+    """The opt-in budget-3 profile: the whole review chain is replayed.
+
+    Every freshness guard is the same as in the two-call profile; only the
+    round-shape proof differs, and it comes from the pure chain verifier.
+    """
+
+    try:
+        chain = verify_three_call_chain(
+            run_dir=Path(record["artifact_root"]), run_result=run_result,
+            providers=tuple(record["providers"]),
+        )
+    except ReviewChainError as exc:
+        raise ValueError(f"Three-call decomposition review refused: {exc}") from exc
+    approved = chain["approved_candidate"]
+    if approved.get("sha256") != digest or approved.get("graph_delta_plan_id") != plan.plan_id:
+        raise ValueError("Three-call decomposition review refused: D3_FINAL_ARTIFACTS: "
+                         "the approved candidate is not this run's decomposition result")
+    history = run_result.get("finding_history")
+    if (not isinstance(history, list) or not history
+            or history[-1].get("verdict") != "pass"
+            or history[-1].get("reviewed_candidate_sha256") != digest
+            or _blocking_findings(history[-1])):
+        raise ValueError("Decomposition review history does not end with a clean pass")
+    fresh = _fresh_plan_proof(manager, decomposition, plan)
+    child_ids = sorted(plan.allocated_local_key_to_task_id.values())
+    if len(child_ids) != len(set(child_ids)) or not child_ids:
+        raise ValueError("Reviewed decomposition plan did not allocate unique children")
+    run_bytes, result_bytes, graph_bytes = artifact_bytes
+    return {
+        "status": "review_ready",
+        "task_id": record["task_id"],
+        "run_id": record["run_id"],
+        "plan_id": plan.plan_id,
+        "child_ids": child_ids,
+        "candidate_sha256": digest,
+        "artifact_sha256": {
+            "decomposition_run_result.json": hashlib.sha256(run_bytes).hexdigest(),
+            "decomposition_result.json": hashlib.sha256(result_bytes).hexdigest(),
+            "graph_delta.json": hashlib.sha256(graph_bytes).hexdigest(),
+            **chain["review_sha256"],
+            **checklist_evidence,
+        },
+        "reviewer_provider": chain["approver_provider"],
+        "models": chain["models"],
+        "call_budget": 3,
+        "calls_used": chain["calls_used"],
+        "author_corrections_used": chain["author_corrections_used"],
+        "apply_source_commit": head,
+        "reviewed_source_commit": record["source_commit"],
+        "source_advancement": {
+            **source_advancement,
+            "reviewed_source_tree": record["source_tree"],
+            "apply_source_tree": tree,
+            "parent_contract_exact_byte_sha256": task["task_contract_sha256"],
+            "reviewed_parent_semantic_sha256": fresh.expected_parent_semantic_hash,
+            "current_parent_semantic_sha256": fresh.actual_parent_semantic_hash,
+            "parent_contract_semantic_authorization_compatible": True,
+        },
+    }
+
+
 def run(
     manager: Checkouts,
     task_id: str,
@@ -689,6 +790,7 @@ def run(
     container_name: str | None = None,
     container_labels: Mapping[str, str] | None = None,
     author_checklist: str | None = None,
+    max_calls: int = 2,
 ) -> dict[str, Any]:
     """Run one two-call decomposition proposal: an author and an independent reviewer.
 
@@ -715,6 +817,12 @@ def run(
         raise ValueError("Decomposition container name contains unsupported characters")
     if author_checklist is not None and author_checklist not in CHECKLIST_VERSIONS:
         raise ValueError(f"Unknown decomposition author checklist {author_checklist!r}")
+    if type(max_calls) is not int or max_calls not in (2, 3):
+        raise ValueError(f"Decomposition call budget must be 2 or 3, not {max_calls!r}")
+    if max_calls == 3:
+        requested = tuple(item.strip() for item in providers.split(",") if item.strip())
+        if len(requested) != 2 or len(set(requested)) != 2:
+            raise ValueError("A three-call decomposition budget requires two distinct providers")
     labels = dict(container_labels or {})
     for key, value in labels.items():
         if not _LABEL_KEY.fullmatch(str(key)) or not _LABEL_VALUE.fullmatch(str(value)):
@@ -762,7 +870,7 @@ def run(
             "source_branch": branch,
             "task_contract_sha256": task["task_contract_sha256"],
             "providers": provider_order,
-            "max_calls": 2,
+            "max_calls": max_calls,
             "compose_project": compose_project,
             "output_root": str(output_root),
             "artifact_root": str(artifact_root),
@@ -833,7 +941,7 @@ def run(
             task_id=task_id,
             project=compose_project,
             providers=",".join(provider_order),
-            max_calls=2,
+            max_calls=max_calls,
             run_id=run_id,
             pool_assignment=pool_assignment,
             provider_environment=unpooled_environment,
@@ -856,7 +964,9 @@ def run(
                 env=environment,
                 stdout=stdout,
                 stderr=stderr,
-                timeout=3600,
+                # Three rounds plus the optional correction can outlast the
+                # two-call hour; only the opt-in profile gets the longer bound.
+                timeout=6000 if max_calls == 3 else 3600,
                 creationflags=creationflags,
                 check=False,
             )
@@ -957,6 +1067,13 @@ def _apply_locked(
     if record.get("run_id") != run_id or record.get("status") != "review_ready":
         raise ValueError("Exact decomposition run is not awaiting local application")
     review = _verify_review(manager, record)
+    if record.get("max_calls") == 3:
+        # The three-call chain is proven from more retained files than the
+        # two-call pair; its proof bytes are pinned when the run settles, and
+        # evidence that changed since is refused rather than re-accepted.
+        recorded = (record.get("review") or {}).get("artifact_sha256")
+        if recorded != review.get("artifact_sha256"):
+            raise ValueError("Three-call decomposition proof bytes changed since the review was recorded")
     if review.get("apply_source_commit") != expected_source_commit:
         raise ValueError("Requested source commit differs from the current compatible Source")
     if git(manager.source, "branch", "--show-current").decode().strip() != target_branch:
