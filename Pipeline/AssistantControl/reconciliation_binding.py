@@ -191,6 +191,31 @@ def crew_provenance_problem(record: Mapping[str, Any], candidate: Any,
     return candidate_receipt_problem(record, candidate, task_id)
 
 
+def sits_on_reconciliation(record: Mapping[str, Any]) -> Mapping[str, Any] | None:
+    """The reconciliation this record's baseline came from, or None.
+
+    Deliberately basis-AGNOSTIC where `human_rejection_binding` is not: a
+    materialization-basis reconciliation produces the same merge baseline and the
+    same consequences for anyone driving the everyday commands, so a caller
+    asking "is this record sitting on a merge Source does not contain" must get
+    yes for both.
+
+    Returns None rather than raising: this answers a question about shape, and
+    the callers that need the binding to be INTACT ask `human_rejection_binding`.
+    """
+
+    history = record.get("revise_on_source_history")
+    if not isinstance(history, list) or not history:
+        return None
+    entry = history[-1]
+    if not isinstance(entry, Mapping):
+        return None
+    reconciled = entry.get("reconciled_commit")
+    if not isinstance(reconciled, str) or reconciled != record.get("source_commit"):
+        return None
+    return entry
+
+
 def human_rejection_binding(record: Mapping[str, Any]) -> Mapping[str, Any] | None:
     """The live human-rejection withdrawal this record sits on, or None.
 
@@ -271,4 +296,5 @@ __all__ = [
     "crew_provenance_problem",
     "human_rejection_binding",
     "review_entry_index",
+    "sits_on_reconciliation",
 ]

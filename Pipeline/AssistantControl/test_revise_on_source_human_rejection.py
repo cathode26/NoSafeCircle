@@ -426,6 +426,71 @@ class HumanRejectionReconciliationTests(unittest.TestCase):
                 ReviseOnSourceError, "already has committed delivery evidence"):
             self.reconcile(candidate, head, hashlib.sha256(blob).hexdigest(), apply=True)
 
+    def test_refresh_prepared_tells_a_reconciled_record_what_to_do_INSTEAD(self):
+        """The Pipeline Runner lost three commands to an accurate message.
+
+        A reconciled record reaches refresh-prepared's ancestry check BY
+        CONSTRUCTION: its prepared HEAD is a merge of the rejected candidate and
+        Source, and Source has never contained that merge. The old message --
+        "expected Source is not a descendant of prepared HEAD" -- reads as "your
+        checkout is stale" and sends the operator to refresh it, which is the one
+        thing that must not happen here.
+
+        Reported from production 20 minutes after seam 1 merged, with the exact
+        words worth keeping: "every message was accurate; none of them says you
+        are revising, build the plan from the checkout."
+        """
+        from Pipeline.AssistantControl.prepared_refresh import (
+            PreparedRefreshError,
+            refresh_prepared,
+        )
+
+        candidate, head, contract = self.rejected_pair()
+        self.reconcile(candidate, head, contract, apply=True)
+        moved, _contract = self.advance_source(revise_contract=False)
+
+        with self.assertRaises(PreparedRefreshError) as caught:
+            refresh_prepared(self.manager, TASK, expected_source_commit=moved)
+        message = str(caught.exception)
+        self.assertIn("does not apply", message)
+        self.assertIn("CHECKOUT tree", message)
+        self.assertIn("never new_ ones", message)
+        self.assertNotIn(
+            "is not a descendant of prepared HEAD", message,
+            "the generic message is what sent the operator the wrong way")
+
+    def test_an_ordinary_prepared_record_keeps_the_plain_message(self):
+        """A negative control: the new branch must not swallow the old case.
+
+        A record that is simply behind Source is NOT reconciled, and it should
+        still get the plain refusal rather than advice about a checkout tree it
+        does not have.
+        """
+        from Pipeline.AssistantControl.prepared_refresh import (
+            PreparedRefreshError,
+            refresh_prepared,
+        )
+
+        self.register_candidate()
+        record = self.record()
+        record["status"] = "prepared"
+        record.pop("candidate", None)
+        record.pop("human_review", None)
+        # A baseline git cannot relate to Source HEAD, and NO reconciliation
+        # history. The ancestry check fails exactly as it does for a reconciled
+        # record, so this isolates the one thing under test: the new advice is
+        # conditional on the reconciliation, not on the refusal.
+        record["source_commit"] = "0" * 40
+        (self.manager.records / f"{TASK}.json").write_text(
+            json.dumps(record), encoding="utf-8")
+        head = self.git(self.source, "rev-parse", "HEAD")
+
+        with self.assertRaises(PreparedRefreshError) as caught:
+            refresh_prepared(self.manager, TASK, expected_source_commit=head)
+        message = str(caught.exception)
+        self.assertNotIn("CHECKOUT tree", message)
+        self.assertIn("is not a descendant of prepared HEAD", message)
+
     # ------------------------------------------- the interrupted-run journal
 
     def journal_path(self) -> Path:
