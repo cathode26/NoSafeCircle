@@ -530,6 +530,35 @@ class ChecklistDeliveryTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Author checklist evidence refused"):
             _verify_review(manager, record)
 
+    def test_a_prompt_carrying_only_the_checklist_is_refused(self):
+        manager, record, run_dir = self.produce(checklist=self.VERSION)
+        author_request = next((run_dir / "rounds" / "01" / "agent_runtime").glob("*/request.json"))
+        context_text = (run_dir / "context.json").read_text(encoding="utf-8").rstrip("\n")
+        self.rewrite(author_request, lambda value: value.update(
+            prompt=value["prompt"].replace(context_text, "{}")))
+        with self.assertRaisesRegex(ValueError, "Round 1 task_decomposer prompt did not carry the enriched context"):
+            _verify_review(manager, record)
+
+    def test_a_request_naming_another_run_is_refused(self):
+        for field, value, name in (("run_id", "another-run", "request run_id"),
+                                   ("selected_task_id", "NSC-011", "request selected_task_id")):
+            with self.subTest(field=field):
+                manager, record, run_dir = self.produce(checklist=self.VERSION)
+                self.rewrite(run_dir / "decomposition_request.json",
+                             lambda request, field=field, value=value: request.update({field: value}))
+                with self.assertRaisesRegex(ValueError, f"evidence disagrees: {name}"):
+                    _verify_review(manager, record)
+
+    def test_an_invocation_request_that_is_not_the_rounds_own_is_refused(self):
+        for field, value in (("schema_version", "9.9"), ("run_id", "other-invocation"),
+                             ("role", "task_decomposer")):
+            with self.subTest(field=field):
+                manager, record, run_dir = self.produce(checklist=self.VERSION)
+                reviewer_request = next((run_dir / "rounds" / "02" / "agent_runtime").glob("*/request.json"))
+                self.rewrite(reviewer_request, lambda value_, field=field, value=value: value_.update({field: value}))
+                with self.assertRaisesRegex(ValueError, "Round 2 invocation request is not this round's"):
+                    _verify_review(manager, record)
+
     def test_an_invocation_prompt_without_the_checklist_is_refused(self):
         manager, record, run_dir = self.produce(checklist=self.VERSION)
         reviewer_request = next((run_dir / "rounds" / "02" / "agent_runtime").glob("*/request.json"))

@@ -45,6 +45,7 @@ from TaskDecomposition.author_checklist import (  # noqa: E402
     render_author_checklist,
     verify_author_checklist,
 )
+from Pipeline.AgentRuntime.contracts import AGENT_INVOCATION_REQUEST_SCHEMA_VERSION  # noqa: E402
 from TaskDecomposition.context_builder import ContextPackage, DecompositionPreflightError  # noqa: E402
 from TaskDecomposition.run_diagnosis import (  # noqa: E402
     DiagnosisEvidenceError,
@@ -386,11 +387,33 @@ def _verify_checklist_delivery(
         context = ContextPackage.from_payload(read("context.json", "retained context"))
         if verify_author_checklist(context) != version:
             raise ValueError(f"Retained context does not carry the {version!r} author checklist")
+        payload = context.to_dict()
         request = read("decomposition_request.json", "decomposition request")
-        if (context.semantic_sha256 != run_result.get("context_sha256")
-                or request.get("context_sha256") != run_result.get("context_sha256")
-                or request.get("author_checklist") != version):
-            raise ValueError("Retained context, request and result disagree about the author checklist")
+        # The context, the run request and the run result must describe one
+        # run: this record's task and run, the reviewed source, and the parent
+        # contract the result names.
+        bindings = {
+            "request run_id": (request.get("run_id"), record["run_id"]),
+            "request selected_task_id": (request.get("selected_task_id"), record["task_id"]),
+            "request provider_order": (request.get("provider_order"), record["providers"]),
+            "request author_checklist": (request.get("author_checklist"), version),
+            "request context_sha256": (request.get("context_sha256"), run_result.get("context_sha256")),
+            "context hash": (context.semantic_sha256, run_result.get("context_sha256")),
+            "request source_identity": (request.get("source_identity"), run_result.get("source_identity")),
+            "context source_identity": (payload.get("source_identity"), run_result.get("source_identity")),
+            "request task identity": (request.get("task_execution_contract_identity"),
+                                      run_result.get("task_execution_contract_identity")),
+            "context task identity": ((payload.get("selected_task") or {}).get("task_execution_identity"),
+                                      run_result.get("task_execution_contract_identity")),
+            "request parent identity": (request.get("d1a_semantic_parent_identity"),
+                                        run_result.get("d1a_semantic_parent_identity")),
+            "context parent identity": ((payload.get("selected_task") or {}).get("d1a_semantic_parent_identity"),
+                                        run_result.get("d1a_semantic_parent_identity")),
+        }
+        for name, (got, wanted) in bindings.items():
+            if got != wanted:
+                raise ValueError(f"Author checklist evidence disagrees: {name} is {got!r}, expected {wanted!r}")
+        context_text = context.canonical_json()
         rendered = {
             "task_decomposer": render_author_checklist(context, audience="author"),
             "decomposition_reviewer": render_author_checklist(context, audience="reviewer"),
@@ -405,10 +428,19 @@ def _verify_checklist_delivery(
             directory = f"{entry['round_number']:02d}" + ("-correction" if correction else "")
             invocation_request = read(
                 f"rounds/{directory}/agent_runtime/{invocation}/request.json", "invocation request")
+            if (invocation_request.get("schema_version") != AGENT_INVOCATION_REQUEST_SCHEMA_VERSION
+                    or invocation_request.get("run_id") != invocation
+                    or invocation_request.get("role") != role):
+                raise ValueError(
+                    f"Round {entry['round_number']} invocation request is not this round's "
+                    f"{role} invocation {invocation}")
             prompt = invocation_request.get("prompt")
             if not isinstance(prompt, str) or rendered[role] not in prompt:
                 raise ValueError(
                     f"Round {entry['round_number']} {role} prompt did not carry the author checklist")
+            if context_text not in prompt:
+                raise ValueError(
+                    f"Round {entry['round_number']} {role} prompt did not carry the enriched context")
     except (DecompositionPreflightError, DiagnosisEvidenceError) as exc:
         raise ValueError(f"Author checklist evidence refused: {exc}") from exc
     return hashes
