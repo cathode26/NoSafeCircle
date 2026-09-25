@@ -204,6 +204,18 @@ def _blob_exists(source: Path, commit: str, path: str) -> bool:
         return False
 
 
+def _tree_exists(source: Path, commit: str, path: str) -> bool:
+    """The path is a committed DIRECTORY, not a file.
+
+    ``cat-file -e`` answers for any object, so it says yes to a tree too;
+    this asks for the type instead.
+    """
+    try:
+        return git(source, "cat-file", "-t", f"{commit}:{path}").decode().strip() == "tree"
+    except RuntimeError:
+        return False
+
+
 def _test_filters(source: Path, task: Mapping[str, Any], commit: str) -> list[str]:
     policy = committed_json(
         source, commit,
@@ -269,8 +281,17 @@ def automatic_scope_plan(
         if not separator or kind not in {"repo-file", "unity-scene"}:
             continue
         path = raw_path.replace("\\", "/").strip("/")
-        if not path or path.endswith("/"):
+        if not path:
             raise ValueError(f"{task.get('id')} has a non-file resource; provide a scope override")
+        # A task-owned DIRECTORY is a real resource but not an exact file, and
+        # the strip above means a trailing-slash test can never see one: this
+        # clause read `path.endswith("/")` from its first commit and could not
+        # fire, so a tree reached the plan as an implementation FILE.
+        # Unity's deterministic builder gets directory authority separately,
+        # from exclusive_resources via `_generated_resource_roots`; this plan
+        # grants exact files only, so a directory is skipped like a `.meta`.
+        if _tree_exists(source, commit, path):
+            continue
         # Unity .meta companions are generated and authenticated by the existing
         # candidate path.  ExecutionScopePlan deliberately never grants a model
         # direct write authority to them.

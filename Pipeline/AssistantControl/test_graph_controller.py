@@ -123,6 +123,14 @@ class GraphControllerTests(unittest.TestCase):
             "NSC-1010", origin="human_approved_synthetic_gauntlet",
             depends_on=["NSC-1011"],
         )
+        # Assets/Feature/Scripts is a committed TREE (it holds .gitkeep), so this
+        # task owns a directory resource the way the art tasks do.
+        self.write_task(
+            "NSC-900", origin="human_approved_synthetic_gauntlet", resources=[
+                "repo-file:Assets/Feature/Scripts",
+                "repo-file:Assets/Feature/Scripts/Gauntlet900.cs",
+            ],
+        )
         self.git("add", ".")
         self.git("commit", "-m", "graph fixture")
         self.head = self.git("rev-parse", "HEAD").decode().strip()
@@ -136,7 +144,7 @@ class GraphControllerTests(unittest.TestCase):
     def write_task(
         self, task_id: str, *, origin: str, execution_scope: str = "single_agent",
         parent: str = "NSC-001", depends_on: list[str] | None = None,
-        gauntlet_id: str | None = None,
+        gauntlet_id: str | None = None, resources: list[str] | None = None,
     ) -> None:
         number = task_id.removeprefix("NSC-")
         value = {
@@ -148,7 +156,7 @@ class GraphControllerTests(unittest.TestCase):
             "decomposition_reason": "fixture",
             "execution_reason": "fixture", "parent": parent,
             "depends_on": depends_on or [],
-            "exclusive_resources": [
+            "exclusive_resources": resources if resources is not None else [
                 f"repo-file:Assets/Feature/Scripts/Gauntlet{number}.cs",
                 f"repo-file:Assets/Feature/Scripts/Gauntlet{number}.cs.meta",
             ],
@@ -193,6 +201,17 @@ class GraphControllerTests(unittest.TestCase):
             ("Assets/Feature/Tests/Editor/GauntletTests.cs",),
             plan.existing_test_paths,
         )
+
+    def test_automatic_scope_never_grants_a_directory_as_an_implementation_file(self):
+        """A task-owned directory is not an exact file, so it is skipped, not granted."""
+        task = load_committed_task(self.source, "NSC-900", commit=self.head)
+        plan = automatic_scope_plan(self.source, task, self.head)
+        granted = plan.existing_implementation_paths + plan.new_implementation_paths
+        self.assertNotIn(
+            "Assets/Feature/Scripts", granted,
+            "a committed directory was granted as an implementation file",
+        )
+        self.assertEqual(("Assets/Feature/Scripts/Gauntlet900.cs",), plan.new_implementation_paths)
 
     def test_target_expansion_and_dependencies_are_rechecked(self):
         plan = self.controller("NSC-898", "NSC-1010").plan()
