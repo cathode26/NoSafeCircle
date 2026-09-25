@@ -127,6 +127,36 @@ class AdmissionTests(unittest.TestCase):
         self.assertIn("source_has_conflicting_local_edits", edited["problems"])
         self.assertEqual(["assets/feature/feature.cs"], edited["source_edit_conflicts"])
 
+    def test_readiness_names_the_checkout_cause_not_just_its_category(self):
+        """`checkout_or_scope_not_ready` alone names the CATEGORY, not the cause.
+
+        Reported from the floor by the Pipeline Runner, which lost a detour to
+        it: NSC-118 was prepared, dependency-clear and resource-free, and
+        readiness said only `checkout_or_scope_not_ready` while the string that
+        actually explained it -- "task checkout is not at current source HEAD"
+        -- sat in the separate `checkout_error` field. Both are in the same
+        returned dict; what was missing was any pointer from one to the other.
+
+        The stable code stays a PREFIX so a machine match still works.
+        """
+        self.plan(self.manager_one, "NSC-042", "lease-042")
+        (self.source / "Assets/Feature/Unrelated.cs").write_text("class Unrelated {}\n")
+        self.git("add", ".")
+        self.git("commit", "-m", "source moves on after the checkout was prepared")
+
+        stale = inspect_readiness(
+            self.manager_one, "NSC-042", dependency_reader=self.dependencies,
+        )
+        self.assertFalse(stale["ready_to_reserve"])
+        named = [problem for problem in stale["problems"]
+                 if problem.startswith("checkout_or_scope_not_ready")]
+        self.assertEqual(1, len(named), stale["problems"])
+
+        # The whole point: the entry must not be the bare category.
+        self.assertNotEqual("checkout_or_scope_not_ready", named[0])
+        self.assertTrue(stale["checkout_error"], "no cause was captured at all")
+        self.assertIn(stale["checkout_error"], named[0])
+
     def test_capacity_held_by_an_unsettled_run_is_named_not_counted_as_work(self):
         """A run that ENDED but was never settled still holds its reservation.
 

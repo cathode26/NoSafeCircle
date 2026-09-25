@@ -124,7 +124,8 @@
     "world-sprite-prefab-sorting": "NSC-039",
     "world-sprite-sorting-layer-adoption": "NSC-100",
     "world-visual-foundation": "NSC-026",
-    "room-builder-wall-accent-calls": "NSC-126"
+    "room-builder-wall-accent-calls": "NSC-126",
+    "wall-pilaster-rhythm-placement": "NSC-127"
   },
   "reconciliation_run_id": "20260821T193541Z-998ee7b5",
   "schema_version": "1.0",
