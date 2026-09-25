@@ -80,7 +80,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 var doorRoot = scene.GetRootGameObjects().Single(root => root.name == doorRootName);
                 var door = doorRoot.GetComponent<DoorInteractable>();
                 var feedback = doorRoot.GetComponent<DoorInteractionFeedback>();
-                var doorRenderer = doorRoot.transform.Find("DoorVisual").Find("DoorSprite").GetComponent<Renderer>();
+                var doorRenderer = doorRoot.transform.Find("DoorVisual").Find("DoorSprite").GetComponent<SpriteRenderer>();
 
                 Assert.IsNotNull(doorRenderer.sprite,
                     $"{door.DoorId}: expected the NSC-065 textured door Renderer to have an assigned sprite, " +
