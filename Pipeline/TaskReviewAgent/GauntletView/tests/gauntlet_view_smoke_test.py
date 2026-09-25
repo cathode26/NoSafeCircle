@@ -2792,6 +2792,23 @@ class GauntletViewHtmlTests(unittest.TestCase):
         self.assertNotIn('dQw4w9WgXcQ', self.html)
         self.assertNotIn('speechSynthesis', self.html)
 
+    def test_the_waiting_signal_is_shown_quietly_and_cannot_inject_markup(self) -> None:
+        # 330cd3777 removed a full-screen modal with an autoplaying video, and
+        # took the producer's ONLY reader with it: viewer.py kept emitting
+        # waiting_since_epoch/waiting_seconds to nobody for 11 days while
+        # NSC-032 and NSC-050 sat unactioned. The signal is restored as the
+        # OPPOSITE of the alarm, and these are the properties that keep it so.
+        # test_review_queue_never_forces_approval_with_media above still owns
+        # "the alarm stays gone"; this owns "its replacement stays quiet".
+        start = self.html.index("function renderAssistantAttention(attention)")
+        end = self.html.index("function renderPipelineActivity(activity)", start)
+        source = self.html[start:end]
+        self.assertIn("el.textContent =", source)
+        self.assertNotIn("innerHTML", source)
+        self.assertIn('id="attention-note"', self.html)
+        self.assertIn('aria-live="polite" hidden', self.html)
+        self.assertNotIn('aria-live="assertive"', self.html)
+
     def test_human_action_primary_destination_is_issue(self) -> None:
         self.assertIn("function githubIssueNavigation(task)", self.html)
         self.assertIn("task.state === 'human_action' ? ' primary' : ''", self.html)

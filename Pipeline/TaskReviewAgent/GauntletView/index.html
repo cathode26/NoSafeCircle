@@ -265,6 +265,7 @@
       <button id="pipeline-toggle" aria-label="Collapse Pipeline Activity" aria-expanded="true" aria-controls="pipeline-body">Collapse</button>
     </div>
     <div id="pipeline-body"></div>
+    <div id="attention-note" class="pipeline-note" role="status" aria-live="polite" hidden></div>
     <div id="pipeline-resize" class="resize-handle" role="separator" tabindex="0" aria-label="Resize Pipeline Activity height" aria-orientation="horizontal" aria-controls="pipeline-activity" title="Drag or use Up/Down to resize Pipeline Activity"></div>
   </section>
   <div id="cy"></div>
@@ -826,6 +827,7 @@ function render(snap, { relayout }) {
   configureDisplayScope(snap);
   configureStageExpansion(snap);
   renderPipelineActivity(snap.pipeline_activity);
+  renderAssistantAttention(snap.assistant_attention);
   cy.resize();
   const { nodes, edges } = buildElements(snap.tasks);
   const wantNodes = new Set(nodes.map(n => n.data.id));
@@ -1091,6 +1093,40 @@ function validPipelineActivity(activity) {
   return Array.isArray(activity.recent_activity) && activity.recent_activity.every(item =>
     record(item) && typeof item.headline === 'string' &&
     (item.timestamp_utc === null || typeof item.timestamp_utc === 'string'));
+}
+
+// Deliberately the OPPOSITE of the alarm 330cd3777 removed: one quiet line,
+// no overlay, no media, no external resources, polite ARIA, and textContent so
+// it cannot inject markup. Kept independent of renderPipelineActivity, which
+// returns early on invalid activity -- the waiting signal matters most exactly
+// when the rest of the panel is unhappy.
+function humaniseWait(seconds) {
+  if (seconds < 90) return `${Math.round(seconds)}s`;
+  const minutes = seconds / 60;
+  if (minutes < 90) return `${Math.round(minutes)}m`;
+  const hours = minutes / 60;
+  if (hours < 48) return `${hours.toFixed(1)}h`;
+  return `${(hours / 24).toFixed(1)} days`;
+}
+
+function renderAssistantAttention(attention) {
+  const el = document.getElementById('attention-note');
+  if (!el) return;
+  const items = attention && Array.isArray(attention.candidates) ? attention.candidates : [];
+  if (!items.length) {
+    el.textContent = '';
+    el.hidden = true;
+    return;
+  }
+  const parts = items.map(item => {
+    const id = String((item && item.task_id) || 'unknown task');
+    const seconds = Number(item && item.waiting_seconds);
+    return Number.isFinite(seconds) && seconds >= 0
+      ? `${id} (${humaniseWait(seconds)})`
+      : id;
+  });
+  el.textContent = `Awaiting human review: ${parts.join(' · ')}`;
+  el.hidden = false;
 }
 
 function renderPipelineActivity(activity) {
