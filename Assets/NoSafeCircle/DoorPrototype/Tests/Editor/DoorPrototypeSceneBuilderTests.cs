@@ -1452,13 +1452,13 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 $"artwork. Was ({scale.x}, {scale.y}, {scale.z}).");
             Assert.Greater(scale.x, 0f, "The wizard's Visual must have a positive scale.");
 
-            // The rendered figure must stay taller than it is wide, which is what a viewer
-            // actually checks. Read from the sprite the builder chose rather than restating its
-            // dimensions here, so re-authored art is measured rather than assumed.
-            float renderedWidth = renderer.sprite.bounds.size.x * scale.x;
-            float renderedHeight = renderer.sprite.bounds.size.y * scale.y;
-            Assert.Greater(renderedHeight, renderedWidth,
-                $"A standing wizard must render taller than wide. Was {renderedWidth} x {renderedHeight}.");
+            // A "taller than wide" assertion lived here for one run and was WRONG, not merely
+            // redundant: sprite.bounds is the PADDED SQUARE CANVAS, not the drawn figure.
+            // PixelLab pads every frame to 180x180 at 180 pixels per unit, so the rendered size
+            // is 2 x 2 under any uniform scale and the check could never pass however the wizard
+            // actually looks. Measuring the figure needs its alpha bounds, which is the art
+            // pipeline's job and not a scene builder's. The uniform-scale assertion above is the
+            // whole guard: it is what the defect violated, and it is sufficient.
         }
 
         // NSC-039 AC-001 / VAL-001 (human-review correction, items 1 and 6): every
