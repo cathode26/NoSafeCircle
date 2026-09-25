@@ -1,0 +1,61 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "30419d2b637ee0fba9a893fb4f86549cdc4280e4",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/DoorInteractionPlayModeTests.cs",
+      "role": "The Play Mode conformance surface VAL-001 names by path. It carries the committed-scene D1 real-physics restart regression that contract revision 4 added in place of the former human Play Mode clause, alongside the pre-existing focused fixture tests and the committed-scene geometry conformance checks."
+    },
+    {
+      "blob_sha": "bffcebcc4225ee8147caf6f7d9a5f8de5d541bd0",
+      "path": "Assets/Scenes/DoorPrototype.unity",
+      "role": "The materialized committed scene VAL-001 requires inside the exact candidate commit, rebuilt by DoorPrototypeSceneBuilder.Build in batch mode. It is also the subject under test: the committed-scene checks load this scene read-only and assert the production D1 through D5 rather than a temporary fixture."
+    }
+  ],
+  "delivery": {
+    "base_commit": "943549b5deffaf77023985481c384f479c4ce61f",
+    "candidate_commit": "c6c0279d4900465e0288edff612c7ba84ff6552a",
+    "integrated_commit": "c6c0279d4900465e0288edff612c7ba84ff6552a",
+    "integrated_tree": "7debd5dbc5a891553db8f496c0f8a5a37542090d"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "aa9edd7e0e83424825ef7ca4a066579387ebdbec",
+          "path": "Pipeline/TaskGraph/evidence/NSC-020/artifacts/Unity-PlayMode-01-c6c0279d4900.xml"
+        },
+        {
+          "blob_sha": "c3c6db3e432807f5bffe704ea1a5b3cb197fe7cf",
+          "path": "Pipeline/TaskGraph/evidence/NSC-020/artifacts/Unity-PlayMode-01-c6c0279d4900.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Satisfied at validated commit c6c0279d4900465e0288edff612c7ba84ff6552a by the bound Play Mode run in unity_01_results and unity_01_log: 26 of 26 passed, 0 failed, 0 skipped, repository clean before and after, post-run tree identical to the validated tree 7debd5dbc5a891553db8f496c0f8a5a37542090d. The run covers every test class in the single file the gate names, Assets/NoSafeCircle/DoorPrototype/Tests/DoorInteractionPlayModeTests.cs, namely DoorInteractionPlayModeTests, DoorArrivalPhysicsPlayModeTests and DoorCrossingCommittedSceneConformanceTests. The materialization the gate requires first was performed before the run: DoorPrototypeSceneBuilder.Build was executed in batch mode with zero compile errors and the rebuilt Assets/Scenes/DoorPrototype.unity is committed in this history; the 211 other paths that builder run dirtied were verified whitespace-only with git diff -w and restored rather than committed. The final clause added by revision 4 is covered by CommittedD1_RealPhysics_SurvivesFloorRunRestartAndFiresOneCrossingPerRun, which was verified present and Passed BY NAME in the results XML rather than inferred from the total. It loads the committed scene read-only, enters gameplay through the production run-entry flow because the scene starts with input suspended behind the title screen, and drives the production D1 through PlayerMovement under real physics with one movement step per physics step: it steps to the threshold and retreats with no crossing and no lock, opens the door through the ground-click approach and automatic timer path, walks through and asserts exactly one CrossedForward with the blocker locked behind and forward travel continuing after the lock fired, then drives Player Health to zero so FloorRunRestartController performs its own owner-controlled restart through the Died event it subscribes in OnEnable, and repeats the full crossing asserting exactly one event for that run. NOT PROVEN by this record: the full Play Mode and Edit Mode suites were not run, only the three classes in the file this gate names; no human Play Mode review is claimed, and this gate forbids recording one.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "No human approval is claimed and none may be. VAL-001 states in terms that no human Play Mode review is claimed by this gate and that none may be recorded against it: GER contract revision 4, commit 05f82360 on 2026-09-25, replaced the former human Play Mode clause with an automated equivalent against the production D1 in the committed scene, and explicitly added the zero-health restart crossing that no test in DoorInteractionPlayModeTests.cs previously covered. NSC-020 has exactly one completion gate and it is automated, so there is no human gate to satisfy. This spec is hand authored rather than produced by generate_delivery_spec finalize because that tool's non-required approval path demands a pipeline validation event identifier, and this Unity run was performed by hand with Pipeline/Testing/run_unity_tests_clean.ps1; citing a validation event id the pipeline never issued would overstate the evidence. Same shape and reasoning as the NSC-050 record. Evidence recorded by the Game Agent (Integration Steward) on 2026-09-25 at commit c6c0279d4900465e0288edff612c7ba84ff6552a, which is main tip and the commit where Unity actually ran.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-020-c6c0279d4900",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-25T18:16:31Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-020.yaml",
+    "revision": 4,
+    "sha256": "79e3742b3559ef00766d549ee4ee24f754b938a049399942895d4a275d2036f7"
+  },
+  "task_id": "NSC-020",
+  "validated_state": {
+    "commit": "c6c0279d4900465e0288edff612c7ba84ff6552a",
+    "tree": "7debd5dbc5a891553db8f496c0f8a5a37542090d"
+  }
+}
