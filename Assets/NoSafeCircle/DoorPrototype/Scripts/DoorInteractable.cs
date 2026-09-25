@@ -35,7 +35,21 @@ namespace NoSafeCircle.DoorPrototype
         // on the opposite (far) side of the doorway. DoorPrototypeSceneBuilder may override this
         // per door instance to match authored room geometry; this default assumes the door faces
         // +Z, matching interactionPositionOffset's -Z approach-side default.
-        [SerializeField] private Vector3 forwardCrossingOffset = new Vector3(0f, 0f, 1.5f);
+        //
+        // AC-001 requires the wizard's CharacterController capsule to be geometrically
+        // CLEAR of the doorwayBlocker before crossing is recorded, and
+        // HandleForwardCrossingTriggerEnter deliberately performs no geometry test - the
+        // guarantee lives entirely in this placement. OnTriggerEnter fires when the
+        // capsule's LEADING edge reaches the volume's near face, so the capsule's
+        // TRAILING edge is then 2r behind it. Clearing the blocker therefore needs
+        //
+        //     nearFace >= blockerForwardFace + 2 * playerRadius
+        //
+        // which is VAL-001's committed-scene conformance rule verbatim. At the built
+        // geometry that is 0.15 + 2(0.5) = 1.15, and nearFace is offset.z - size.z/2.
+        // 1.75 gives 1.25: the minimum plus 0.10, deliberately not the bare minimum so
+        // the conformance check is not asserting float equality at the boundary.
+        [SerializeField] private Vector3 forwardCrossingOffset = new Vector3(0f, 0f, 1.75f);
         [SerializeField] private Vector3 forwardCrossingTriggerSize = new Vector3(3f, 3f, 1f);
 
         // AC-002: fixed health amount requested from Player Health when the automatic

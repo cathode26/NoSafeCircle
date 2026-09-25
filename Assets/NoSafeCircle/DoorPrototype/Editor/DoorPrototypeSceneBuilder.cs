@@ -1120,10 +1120,25 @@ namespace NoSafeCircle.DoorPrototype.Editor
             SetPrivateField(door, "doorVisual", visual);
             SetPrivateField(door, "doorwayBlocker", doorwayBlocker);
             SetPrivateFieldValue(door, "groundSelectionOffset", ComputeGroundSelectionOffset(visualLocalHeight));
-            // The crossing volume starts one unit beyond the doorway rather than on it, so entering
-            // it means the wizard is already through. A volume that began at the doorway plane
+            // The crossing volume starts clear of the doorway rather than on it, so entering it
+            // means the wizard is already through. A volume that began at the doorway plane
             // locked the door while the wizard still stood in the opening.
-            SetPrivateFieldValue(door, "forwardCrossingOffset", new Vector3(0f, 0f, 1.5f));
+            //
+            // THE PREVIOUS VALUE (1.5, near face 1.0) FIXED THAT GROSS CASE BUT NOT THE
+            // CAPSULE'S OWN DEPTH, and the comment above used to claim entering the volume
+            // meant the wizard was already through. Measured at main b6cb952f2, it was not:
+            //
+            //     blocker forward face   +0.15   DoorVisual local Z 0, BoxCollider size.z 0.3
+            //     player capsule radius   0.5    DoorPrototypeGlobalSceneBuilder.cs:257
+            //     VAL-001 requires        1.15   blockerFace + 2 * radius
+            //     near face was           1.0    SHORT BY 0.15
+            //
+            // At the old value the capsule spanned door-local Z [0.0, 1.0] when
+            // CrossedForward fired while the blocker occupied [-0.15, +0.15], so CloseAndLock
+            // re-enabled the blocker INSIDE the wizard. 1.75 puts the near face at 1.25.
+            // Trigger depth stays 1.0, so no tunneling margin is given up to buy the
+            // clearance. Keep this in step with DoorInteractable's own default.
+            SetPrivateFieldValue(door, "forwardCrossingOffset", new Vector3(0f, 0f, 1.75f));
             SetPrivateFieldValue(door, "forwardCrossingTriggerSize", new Vector3(3f, 3f, 1f));
             door.BindEnemyPassability(doorEnemyPassability);
 
