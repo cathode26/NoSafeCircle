@@ -724,6 +724,19 @@ contracts and file list committed at HEAD and records that commit. The component
 person to read, not decisions. Use it before a paid run; send only the gaps
 it shows to GER.
 
+### Proposing a retry
+
+`plan-decomposition-retry TASK --run-id RUN --out FILE --change KIND` writes
+a retry proposal only when KIND answers the run's diagnosed cause and really
+differs from what the failed run used: `provider-route` for SETUP (a new model
+for the failed provider; a 1M-context model for a capacity stop), `budget-3`
+for BUDGET (two calls to three), `author-checklist` for AUTHOR (checklist
+newly enabled) and `contract-revision` for CONTRACT (a committed parent
+revision plus `--explanation`). STOP routes get no proposal. The file must
+not exist. It reserves no attempt, grants no spend and launches nothing
+(`retry_authorized: false`); a retry still needs explicit authorization, a
+fresh run id and a fresh checkout root.
+
 ### Diagnosing a stopped decomposition
 
 `diagnose-decomposition TASK --run-id RUN` reads that run's retained
