@@ -61,10 +61,8 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             // ADDITIVE and changes neither. What it changes is what you SEE: when the shared
             // tiles load, the primitives stop rendering and the tilemaps become the visible
             // surface, which is how the other four rooms are built.
-            if (BuildTilemapVisuals(visuals))
-            {
-                HideBlockoutRenderers(visuals);
-            }
+            bool tilesAreTheVisibleSurface = BuildTilemapVisuals(visuals);
+
             Color shelfColor = new Color(0.22f, 0.12f, 0.08f);
             CreateBlockout("Shelf A", visuals, geometry, BoneArchiveLayout.ShelfA, BoneArchiveLayout.ShelfVisualHeight, shelfColor);
             CreateBlockout("Shelf B", visuals, geometry, BoneArchiveLayout.ShelfB, BoneArchiveLayout.ShelfVisualHeight, shelfColor);
@@ -77,6 +75,17 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             // BoxCollider by design, so it reads from the entry and central lanes without
             // narrowing them or intruding on the D2 staging rectangle.
             CreateNonCollidingBlockout("Archive Reliquary", visuals, BoneArchiveLayout.ArchiveReliquary, new Color(0.34f, 0.30f, 0.22f));
+
+            // MOVED HERE FROM ABOVE THE CreateBlockout CALLS. Vincent photographed seven dark
+            // brown cubes standing among the bookshelves: this ran BEFORE the blockouts existed,
+            // so it hid the two things already built - floor and perimeter - and every blockout
+            // created afterwards kept rendering. The comment above stated the intent correctly
+            // and the code did the opposite.
+            if (tilesAreTheVisibleSurface)
+            {
+                HideBlockoutRenderers(visuals);
+            }
+
             CreateAnchor("D1Anchor", anchors, BoneArchiveLayout.D1, Vector3.back, DoorId.D1, DoorAnchorRole.Entry);
             CreateAnchor("D2Anchor", anchors, BoneArchiveLayout.D2, Vector3.forward, DoorId.D2, DoorAnchorRole.Exit);
             SceneManager.SetActiveScene(scene);
@@ -143,15 +152,23 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
 
         /// <summary>Stops the blockout primitives rendering once the tiles are the visible surface.</summary>
         /// <remarks>
-        /// The GameObjects and their transforms SURVIVE, because that is what the room tests
-        /// assert on. Only the Renderer goes. Tilemaps carry their own TilemapRenderer, so
-        /// Visuals still has renderers afterwards and VAL-001 still holds.
+        /// The GameObjects and their transforms SURVIVE. Tilemaps carry their own TilemapRenderer,
+        /// so Visuals still has renderers afterwards and VAL-001 still holds.
+        /// <para>
+        /// DISABLES rather than destroys, and the difference is load-bearing now. This used to say
+        /// "only the Renderer goes, because transforms are what the room tests assert on" - true
+        /// when written, and no longer true: the NSC-045 widening added three
+        /// GetComponent&lt;Renderer&gt;().bounds reads to BoneArchiveSceneTests, so the tests now
+        /// assert on exactly the component that remark promised to remove. Destroying it once this
+        /// runs in the right order would null all three. A disabled MeshRenderer draws nothing and
+        /// still reports bounds, which satisfies both.
+        /// </para>
         /// </remarks>
         private static void HideBlockoutRenderers(Transform visuals)
         {
             foreach (MeshRenderer renderer in visuals.GetComponentsInChildren<MeshRenderer>())
             {
-                Object.DestroyImmediate(renderer);
+                renderer.enabled = false;
             }
         }
 

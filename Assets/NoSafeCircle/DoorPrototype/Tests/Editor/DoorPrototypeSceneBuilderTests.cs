@@ -235,12 +235,34 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 0.049f,
                 "Health indicator must have a dedicated normalized vertical lane above the interaction prompt.");
 
-            Assert.Greater(healthRect.anchorMin.y, progressRect.anchorMin.y,
+            // These two used to compare anchorMin.y directly, which only works while the rects
+            // being compared are anchored at DIFFERENT normalized heights. Health and mana are
+            // now both top-anchored in one HUD column - Vincent reported them floating
+            // mid-screen, which they were, at (0.50,0.25) and (0.50,0.06) - so both anchorMin.y
+            // read 1.0 and "health is above mana" became 1.0 > 1.0 and failed while the layout
+            // was correct. The assertion froze the MECHANISM, two different anchors, rather than
+            // the INVARIANT, that health sits higher on screen.
+            //
+            // Resolving each rect to a canvas-space height compares where things actually are and
+            // holds under any anchoring, including the old one.
+            var canvasRect = GameObject.Find("Canvas").GetComponent<RectTransform>();
+
+            Assert.Greater(CanvasHeightOf(healthRect, canvasRect), CanvasHeightOf(progressRect, canvasRect),
                 "Health indicator must remain above the door progress bar.");
-            Assert.Greater(healthRect.anchorMin.y, manaRect.anchorMin.y,
+            Assert.Greater(CanvasHeightOf(healthRect, canvasRect), CanvasHeightOf(manaRect, canvasRect),
                 "Health indicator must remain above the mana indicator.");
         }
-[Test]
+
+        /// Where a rect actually sits vertically inside the canvas, in canvas pixels, so two rects
+        /// can be compared whatever they are anchored to. anchorMin.y alone answers a different
+        /// question - which normalized edge it hangs from - and two elements stacked under the
+        /// same anchor share it.
+        private static float CanvasHeightOf(RectTransform rect, RectTransform canvasRect)
+        {
+            return rect.anchorMin.y * canvasRect.rect.height + rect.anchoredPosition.y;
+        }
+
+        [Test]
         public void Build_ControlsHud_ExistsSeparateFromPromptAndProgressIndicator()
         {
             DoorPrototypeSceneBuilder.BuildInMemoryForTests();
