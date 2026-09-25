@@ -1,0 +1,77 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "GDD Section 3 goals name Frost Field slowing a breach",
+      "requirement": "An enemy that is inside an active Frost Field reduces a locked door's durability at a lower rate than the same enemy outside one. The reduction is applied at the point where enemy attacks damage door durability, driven by the slow condition NSC-008 already requests, so a single source of truth decides whether an enemy is slowed."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "GDD: locked doors provide recovery time, not permanent safety",
+      "requirement": "The breach-rate multiplier is a serialized tunable with a stated default rather than a literal buried in the damage path, so balance changes need no contract revision. THE EXACT VALUE IS NOT PINNED BY THIS CONTRACT. What is pinned is the durable relation: slowed breach rate is strictly lower than unslowed, and never zero, because a Frost Field must buy recovery time rather than make a door permanently safe."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "NSC-008 owns Frost Field placement and the enemy slow request",
+      "requirement": "When the Frost Field expires, is left, or is otherwise no longer affecting the enemy, the breach rate returns to its unslowed value. No residual slow survives the field, and an enemy that never entered a field is unaffected by this task."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "NSC-052 AC-005, read at main 05f823604",
+      "requirement": "THIS TASK DOES NOT MODIFY DoorBreachFeedback. NSC-052 AC-005 states that door breach feedback is observational only and does not decide enemy attack timing; that boundary is deliberate and is preserved here. The banging, shaking, cracks and durability indicator continue to reflect whatever damage occurs, at whatever rate it occurs, without being taught about Frost Field."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "CLAUDE.md: before calling a gap a gap, check whether something specifies it",
+      "requirement": "This contract was authored as a NEW task rather than as a revision of NSC-052 after reading NSC-052 at source. Folding this behaviour into NSC-052 would have required deleting or rewriting its AC-005, which exists to keep feedback out of the enemy attack decision. The absence the Producer measured is that boundary working, not a gap in it."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "CLAUDE.md: assert the durable relation, not the value it has today",
+      "requirement": "In Play Mode, FrostFieldDoorBreachPlayModeTests places a locked door and an enemy that breaches it, and measures durability lost over a fixed number of fixed steps in two runs from the same starting durability: one with an active Frost Field covering the enemy, one without. The test asserts the slowed run loses strictly less durability than the unslowed run and strictly more than zero, comparing the two measured runs against each other rather than against a hard-coded expected value, so retuning the multiplier does not break the test. A third run lets the field expire mid-breach and asserts the rate returns to the unslowed figure. The test drives the real NSC-008 slow request rather than setting a slow flag directly, and asserts DoorBreachFeedback's observable state is untouched by this task beyond reflecting the damage that actually occurred."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "One bounded responsibility with a measurable outcome; no sub-behaviour needs independent scheduling.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-008",
+    "NSC-052"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FrostFieldDoorBreachPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FrostFieldDoorBreachPlayModeTests.cs.meta"
+  ],
+  "execution_reason": "One agent connects two systems that already exist. The work is a single conditional on the door-damage path plus the tests that prove it, and splitting a connection from its own test would leave neither half meaningful.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD Section 3 goals (Docs/GDD/No_Safe_Circle_GDD.md)",
+      "requirement": "The GDD names Frost Field slowing a breach. Both halves exist separately - Frost Field appears in 26 contracts and durability in 11 - and six phrasings joining the two concepts return zero, so the interaction is missing rather than either system."
+    }
+  ],
+  "id": "NSC-115",
+  "kind": "implementation",
+  "notes": "AUTHORED FROM agent-state/intent-NSC-115-frost-field-slows-door-breach.md. THE NEW-VERSUS-REVISE CALL WAS SETTLED BY OPENING NSC-052, NOT BY TRUSTING THE PROPOSAL - see AC-005. THE EXCLUSIVE RESOURCES ARE DELIBERATELY NARROW: only the new test file is claimed. The production file that carries the damage path is not named here because it was not identified at authoring time, and claiming a file by guess would either lock a file this task does not touch or collide with NSC-052, which already owns DoorInteractable.cs, DoorBreachFeedback.cs and the scene builder. WHOEVER IMPLEMENTS THIS MUST ADD THE PRODUCTION PATH TO exclusive_resources BEFORE WRITING IT, through a contract revision, so the contention lock is real rather than nominal; a shared resource is the normal additive outcome there and is not a conflict. The intent flagged the magnitude of the slow as an unmade balance decision; AC-002 resolves that by requiring a tunable with a stated default and pinning only the relation, so it is implementation-time tuning and not a blocking design question. NOT ESTABLISHED: no Unity run was made and the enemy door-damage path was not read, so the shape of the change is inferred from the contracts rather than measured in code.",
+  "parent": "NSC-018",
+  "provenance": {
+    "graph_delta_plan_id": null,
+    "origin": "ger_agent_contract_request",
+    "parent_contract_revision": null,
+    "parent_contract_sha256": null,
+    "parent_task_id": null
+  },
+  "reconciliation_key": "frost-field-slows-enemy-door-breach",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Frost Field Slows Enemy Door Breach",
+  "type": "gameplay_system"
+}

@@ -1,0 +1,80 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Vincent to the Documentation Agent, 2026-09-25 07:1xZ, quoted verbatim",
+      "requirement": "VINCENT SPECIFIED THIS AND IT IS NOT GER'S TO RE-DERIVE. Vincent, 2026-09-25, on being shown the proposal: \"This is a neat idea, I would think they would run.\" Enemies flee when the player charges a fireball near them. Every remaining parameter below was chosen by the GER Agent under the 80-percent rule and is marked DECIDED BY GER, so a later reader can tell which choices carry his authority and which carry only this contract's."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-007 owns the charged fireball input and charge state machine",
+      "requirement": "DECIDED BY GER - TRIGGER. Fleeing begins when the charge passes a named charge threshold, not at charge start. A tap-cast, and a charge abandoned below the threshold, must not scatter the room. The threshold is a serialized tunable with a stated default and is read from NSC-007's existing charge state rather than re-implemented."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "CLAUDE.md: gates assert what must hold; say what is decided rather than leaving it open",
+      "requirement": "DECIDED BY GER - RADIUS AND WHO FLEES. 'Near' is a serialized radius around the charging wizard with a stated default. Every enemy carrying NSC-091's EnemyTargetKnowledge and NSC-092's EnemyPursuitMovement that is within that radius when the threshold is passed flees; this contract defines no per-type exemption. If a later enemy type should stand its ground, that is a new decision and a revision, not an omission to be read into this text."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "NSC-031 Floor Run/Restart: a zero-health restart must not leave enemies in a flee state",
+      "requirement": "DECIDED BY GER - FLEE SHAPE AND END CONDITION. A fleeing enemy moves away from the charging wizard until it is beyond the radius, driving NSC-092's NavMeshAgent movement rather than moving the transform directly, then resumes its normal NSC-091/NSC-092 behaviour. Fleeing ends when the charge is released, is cancelled, drops below the threshold, or the wizard dies mid-charge; in every one of those cases the enemy resumes normal behaviour rather than remaining stuck in flight. No enemy is left fleeing after the thing it fled from is gone."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "GDD Section 3; the tension was put to Vincent by the Documentation Agent before he decided",
+      "requirement": "THE GDD TENSION IS RECORDED RATHER THAN RESOLVED SILENTLY. The GDD's stated goal is that \"charging becomes unsafe once they close the distance\", which implies enemies CLOSING. Fleeing does the opposite: it makes charging safer and turns the fireball into crowd control rather than a damage combo. Both are coherent games and they are not the same game. Vincent chose fleeing with that tension put to him in the same turn. IF THE GDD SENTENCE IS FOUND TO BE LOAD-BEARING ELSEWHERE, THAT IS A CONTRACT QUESTION TO RAISE - it must not be resolved by quietly reverting this behaviour to closing the distance."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "CLAUDE.md: break the guard on purpose; a test nobody has tried to break is a claim",
+      "requirement": "In Play Mode, EnemyChargeFleePlayModeTests drives NSC-007's real charge state - not a flee flag set directly - and asserts, with the enemy starting inside the radius: that a charge held below the threshold produces NO flee; that crossing the threshold starts one; that the enemy's distance from the wizard strictly increases while fleeing; and that it stops fleeing and resumes normal behaviour once beyond the radius. Separate cases cover each end condition in AC-004 - release, cancel, dropping below the threshold, and wizard death mid-charge - and each asserts the enemy is no longer fleeing afterwards, because an enemy stuck in flight after the charge is gone is the failure this gate exists to catch. A case with the enemy starting outside the radius asserts it does not flee, so the radius is proven to bound the behaviour rather than being assumed. No human review is claimed by this gate and none may be recorded against it."
+    }
+  ],
+  "confidence": "medium",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "One bounded responsibility with a measurable outcome; no sub-behaviour needs independent scheduling.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-007",
+    "NSC-091",
+    "NSC-092"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/EnemyChargeFleeBehaviour.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/EnemyChargeFleeBehaviour.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyChargeFleePlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyChargeFleePlayModeTests.cs.meta"
+  ],
+  "execution_reason": "One agent adds a single enemy reaction on top of an existing detection foundation and an existing charge state machine. The state, its transitions and its tests must change together, and no sub-behaviour here is independently schedulable.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD Section 3 combat goals (Docs/GDD/No_Safe_Circle_GDD.md)",
+      "requirement": "The GDD asks for a meaningful reaction to charging. Zero enemy-side code exists for this: two independent sweeps found no contract and no shipped behaviour, with only a player-side comment in PlayerMovement.cs matching at all against a positive control of 152 files."
+    }
+  ],
+  "id": "NSC-116",
+  "kind": "implementation",
+  "notes": "AUTHORED FROM agent-state/intent-NSC-116-fireball-charge-enemy-flee.md. THIS IS GREENFIELD - nothing shipped to build on, confirmed by two independent sweeps with positive controls. VINCENT'S DECISION IS AC-001 AND IS QUOTED VERBATIM; EVERY OTHER PARAMETER IS MARKED 'DECIDED BY GER' so nobody later mistakes a GER choice for his. The five parameters the intent listed are all answered here rather than bounced back to him, per the 80-percent rule: trigger is a charge threshold (AC-002), radius is a serialized default (AC-003), who flees is everything on the NSC-091/NSC-092 foundation (AC-003), flee shape is away-until-beyond-radius (AC-004), and the release/cancel/death cases are all enumerated (AC-004). THE FLEE SHAPE IS THE LEAST CONFIDENT CHOICE: directly-away was chosen over break-line-of-sight or away-and-regroup because it is the one shape that can be asserted by a monotonic distance check, which makes VAL-001 a real test rather than an eyeball. If playtesting shows directly-away reads badly, changing it is a revision and VAL-001's distance assertion is what will need rewriting. confidence is MEDIUM rather than high for that reason and because the GDD tension in AC-005 is unresolved. NOT ESTABLISHED: no Unity was run, the size of the change is unmeasured, and the exact public surface of NSC-007's charge state was not read at authoring time.",
+  "parent": "NSC-010",
+  "provenance": {
+    "graph_delta_plan_id": null,
+    "origin": "ger_agent_contract_request",
+    "parent_contract_revision": null,
+    "parent_contract_sha256": null,
+    "parent_task_id": null
+  },
+  "reconciliation_key": "enemies-flee-a-charging-fireball",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Enemies Flee a Charging Fireball",
+  "type": "enemy_ai_state"
+}

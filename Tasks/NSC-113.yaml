@@ -1,0 +1,78 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "GDD Platform: Windows PC; NSC-037 configures the target and registers the scene",
+      "requirement": "A new Editor menu command under No Safe Circle produces a Windows Standalone player from the canonical gameplay scene registered by NSC-037, using that registration as the scene source rather than a hard-coded path, so the build follows the registered scene if it changes. The command builds the StandaloneWindows64 target that NSC-037 already configures; this task does not change build target configuration, player settings, or the scene registration itself."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "CLAUDE.md: a status label names the outcome of the whole attempt, not the step it is named after",
+      "requirement": "The command writes its output to a deterministic, repository-relative path that is not tracked by git, and reports that path on completion. The produced output is a complete Windows player: an executable plus the Unity data directory required to launch it. A build that returns success while producing no executable is a failure of this criterion."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "CLAUDE.md: never point Unity at canonical; a dirty canonical blocks every merge and decompose",
+      "requirement": "The build command leaves HEAD, tracked files and untracked tracked-path state unchanged apart from its own output directory. It does not save, re-serialize or modify any scene, and it does not run against the canonical checkout's tracked scenes in a way that dirties them."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "CLAUDE.md: pushes, CI and github.io go to the Release Agent",
+      "requirement": "PUBLICATION IS EXPLICITLY OUT OF SCOPE. This task produces a local artifact only. Uploading, releasing, hosting, github.io, CI wiring and any push to origin belong to the Release Agent and are not claimed here. WebGL is not in scope either; NSC-043 owns the browser bundle and its AC-005 restricts it to desktop-browser play."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "NSC-043 AC-004 and AC-005, read at main 05f823604",
+      "requirement": "This contract was authored as a NEW task rather than as a revision of NSC-043 after reading NSC-043 at source. NSC-043 is 'Desktop WebGL Build Artifact': its AC-004 treats Windows-only APIs and native Windows-only plugins as a hazard the WebGL build must avoid, and its AC-005 restricts that artifact to desktop-browser play only. Folding a Windows player into it would require rewriting both exclusions, so the two targets stay in separate contracts."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "CLAUDE.md: never overstate what a human reviewed",
+      "requirement": "On a clean checkout at the exact candidate commit, invoke the build command headlessly and verify it exits successfully, that the reported output path contains a Windows executable and its accompanying data directory, and that the executable is non-empty. Then verify the checkout is unchanged: HEAD, tracked files and untracked files outside the output directory are all as they were before the run. An Edit Mode test in Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WindowsStandaloneBuildCommandTests.cs asserts the command resolves the NSC-037-registered scene and targets StandaloneWindows64, and is written so that it fails if the registration is ignored in favour of a literal path. Whether the produced player launches into gameplay is NOT claimed by this gate; it requires a human at a Windows desktop and is raised separately rather than recorded here as if it had been run."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "One bounded responsibility with a measurable outcome; no sub-behaviour needs independent scheduling.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-037"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/WindowsStandaloneBuildCommand.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/WindowsStandaloneBuildCommand.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WindowsStandaloneBuildCommandTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WindowsStandaloneBuildCommandTests.cs.meta"
+  ],
+  "execution_reason": "One agent adds a single Editor build command and its Edit Mode test. The build command and the test that proves its artifact must change together, and there is no second responsibility to schedule separately.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD Platform section (Docs/GDD/No_Safe_Circle_GDD.md)",
+      "requirement": "The GDD's REQUIRED scope names a Windows build so the game can be run without a browser or the Unity editor. Nothing on main produces that artifact: NSC-037 only configures the target and registers the scene, NSC-024 is package-manifest-only, and NSC-043 produces WebGL."
+    }
+  ],
+  "id": "NSC-113",
+  "kind": "implementation",
+  "notes": "AUTHORED FROM agent-state/intent-NSC-113-windows-standalone-build-artifact.md. THE NEW-VERSUS-REVISE CALL WAS SETTLED BY OPENING NSC-043, NOT BY TRUSTING THE PROPOSAL - see AC-005. The intent correctly flagged that revising NSC-043 would void no delivery record because it is still open; that is true and is not the reason this is separate. The reason is that NSC-043's own criteria are built around avoiding Windows dependence. NOT ESTABLISHED: whether the project builds for Windows today. Neither the Producer nor the GER Agent ran a build; the measured claim is only that no contract asks for one. Expect the first run to surface real build errors, and treat those as this task's work rather than as a defect in the contract. The Producer's first sweep misreported this as already covered by pattern-matching configuration tasks; that was corrected in their second pass and is recorded here so nobody re-derives the wrong answer from an older note.",
+  "parent": "NSC-036",
+  "provenance": {
+    "graph_delta_plan_id": null,
+    "origin": "ger_agent_contract_request",
+    "parent_contract_revision": null,
+    "parent_contract_sha256": null,
+    "parent_task_id": null
+  },
+  "reconciliation_key": "windows-standalone-build-artifact",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Windows Standalone Build Artifact",
+  "type": "build-configuration"
+}

@@ -1,0 +1,73 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-091 owns EnemyTargetKnowledge; this task owns only its display",
+      "requirement": "EnemyAwarenessIndicator reads the enemy detection state owned by NSC-091's EnemyTargetKnowledge through its existing public surface and renders whether the enemy has currently detected the wizard. It READS ONLY: it never writes, clears or advances detection state, never changes pursuit, search or last-known-position behaviour, and never influences when an enemy attacks."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "GDD Section 3 success criteria: failure is readable",
+      "requirement": "The indicator distinguishes at least the undetected and detected conditions, and updates within one fixed step of the underlying state changing in either direction, including back to undetected when the enemy loses the wizard. A one-way indicator that latches on detection is not acceptable, because the GDD's readability goal is about the player understanding their current exposure."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "CLAUDE.md: all 2D art goes to the Art Director, which decides visual picks",
+      "requirement": "THE ICON ARTWORK IS NOT OWNED BY THIS CONTRACT AND MUST NOT BE AUTHORED HERE. The indicator binds whatever sprite it is given through a serialized reference, and the visual itself is the Art Director's to choose and deliver, including its .meta import settings. This task is complete with a placeholder sprite bound; swapping in the final art requires no change to this contract."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "CLAUDE.md: 80 percent is the bar, appearance is fixable afterwards",
+      "requirement": "The indicator is readable at the normal gameplay camera without obscuring the wizard, the enemy it belongs to, or usable cursor-target floor. Exact placement, size and styling are implementation-time choices and are not pinned by this contract, so tuning them later needs no revision."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "CLAUDE.md: a green test can pass on a stub; assert the durable relation",
+      "requirement": "In Play Mode, EnemyAwarenessIndicatorPlayModeTests drives an enemy through NSC-091's real detection path - not by setting a field through reflection - from undetected to detected and back, and asserts the indicator reflects each transition within one fixed step in both directions. The test asserts the indicator never writes detection state, by reading that state before and after rendering and requiring it unchanged. It also asserts that with no sprite bound the component fails visibly rather than silently rendering nothing, so a missing art binding cannot be mistaken for an enemy that has not noticed the wizard. Whether the final artwork reads well at gameplay scale is NOT claimed by this gate; that is the Art Director's visual call and is not recorded here as a human review."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "One bounded responsibility with a measurable outcome; no sub-behaviour needs independent scheduling.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-091"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/EnemyAwarenessIndicator.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/EnemyAwarenessIndicator.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyAwarenessIndicatorPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyAwarenessIndicatorPlayModeTests.cs.meta"
+  ],
+  "execution_reason": "One agent exposes an existing detection state and renders an indicator from it. The component, its scene wiring and its tests must change together. The icon artwork is not part of this task, so there is no art half to schedule separately.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD Section 3 goals (Docs/GDD/No_Safe_Circle_GDD.md)",
+      "requirement": "The GDD names an awareness indicator, and its success criteria require that failure is readable. NSC-091 owns EnemyTargetKnowledge and the detection state; nothing on main shows that state to the player."
+    }
+  ],
+  "id": "NSC-114",
+  "kind": "implementation",
+  "notes": "AUTHORED FROM agent-state/intent-NSC-114-enemy-awareness-indicator.md. THE INTENT ASKED WHETHER THIS SHOULD BE ONE CONTRACT OR TWO, ART AND BUILDER. IT IS ONE, DELIBERATELY. Splitting the icon into its own task would create a contract owning only a binary asset plus a test, which is exactly the NSC-102/NSC-103 shape that CANNOT produce a scope plan - the crew predicate needs at least one implementation path and asset-only tasks have none. Rather than author a task nothing can schedule, the art is left to the Art Director to deliver directly and hand over, which is the route CLAUDE.md already records as working. AC-003 makes that boundary explicit so the split is visible to the next reader. The two contract hits the Producer found were verified false positives by reading them: NSC-040 is about visual/simulation desync and NSC-072 uses 'awareness' in an ordinary English sense. NOT ESTABLISHED: the exact public surface NSC-091's EnemyTargetKnowledge exposes was not read field by field at authoring time; if it turns out no read-only accessor exists, adding one is this task's work and does not need a revision, provided AC-001's read-only constraint still holds.",
+  "parent": "NSC-010",
+  "provenance": {
+    "graph_delta_plan_id": null,
+    "origin": "ger_agent_contract_request",
+    "parent_contract_revision": null,
+    "parent_contract_sha256": null,
+    "parent_task_id": null
+  },
+  "reconciliation_key": "enemy-awareness-indicator",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Enemy Awareness Indicator",
+  "type": "gameplay_feedback"
+}
