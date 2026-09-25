@@ -53,7 +53,7 @@ def _classify(resources: list[str]) -> dict[str, Any]:
             tests.append(path)
         else:
             production.append(path)
-    bases = set(production) | set(tests)
+    bases = set(production) | set(tests) | {_resource_path(lock)[1] for lock in locks}
     return {
         "production_files": sorted(production),
         "test_files": sorted(tests),
@@ -96,7 +96,8 @@ def _flag(pattern: re.Pattern, sources: list[tuple[str, str]]) -> list[dict[str,
 
 
 def build_worksheet(tasks: Mapping[str, Mapping[str, Any]], task_id: str, *,
-                    repository_components: set[str] | frozenset[str] = frozenset()) -> dict[str, Any]:
+                    repository_components: set[str] | frozenset[str] = frozenset(),
+                    source_commit: str | None = None) -> dict[str, Any]:
     """The worksheet for `task_id` from the committed task contracts.
 
     `repository_components` is the set of production `.cs` file stems in the
@@ -119,30 +120,33 @@ def build_worksheet(tasks: Mapping[str, Mapping[str, Any]], task_id: str, *,
 
     own_stems = {PurePosixPath(_resource_path(r)[1]).stem for r in resources}
     named = sorted(set(_COMPONENT_NAME.findall(requirement_blob)) - own_stems)
-    claimants: dict[str, set[str]] = {}
+    claimants: dict[str, dict[str, str]] = {}
     for other_id, other in tasks.items():
         if other_id == task_id or other.get("contract_disposition") != "active":
             continue
         for resource in other.get("exclusive_resources") or []:
             kind, path = _resource_path(resource)
             if kind == "repo-file" and path.endswith(".cs") and "/Tests/" not in f"/{path}":
-                claimants.setdefault(PurePosixPath(path).stem, set()).add(other_id)
+                claimants.setdefault(PurePosixPath(path).stem, {})[other_id] = path
     mentioned: list[dict[str, Any]] = []
-    unclaimed: list[str] = []
+    unclaimed: list[dict[str, Any]] = []
     for name in named:
-        owners = sorted(claimants.get(name, ()))
-        if not owners:
+        where = [source for source, text in text_sources if re.search(rf"\b{re.escape(name)}\b", text)]
+        by_task = claimants.get(name, {})
+        if not by_task:
             if name in repository_components:
-                unclaimed.append(name)
+                unclaimed.append({"component": name, "named_in": where})
             continue
         mentioned.append({
-            "component": name, "owners": owners,
-            "declared_owners": [o for o in owners if o in declared],
-            "reachable_owners": [o for o in owners if o in reachable],
+            "component": name, "named_in": where,
+            "candidate_claimants": [{"task": task, "path": by_task[task],
+                                     "declared": task in declared, "reachable": task in reachable}
+                                    for task in sorted(by_task)],
         })
 
     return {
         "schema_version": WORKSHEET_SCHEMA_VERSION,
+        "source_commit": source_commit,
         "task_id": task_id,
         "title": contract.get("title"),
         "contract_revision": contract.get("contract_revision"),
@@ -151,9 +155,10 @@ def build_worksheet(tasks: Mapping[str, Mapping[str, Any]], task_id: str, *,
         "requirements": requirements,
         "resources": _classify(resources),
         "dependencies": {"declared": declared, "transitive": sorted(reachable - set(declared))},
-        "mentioned_components_by_name_match": mentioned,
-        "components_with_no_reachable_owner": [m["component"] for m in mentioned if not m["reachable_owners"]],
-        "named_identifiers_no_task_claims": unclaimed,
+        "candidate_claimants_by_name_match": mentioned,
+        "components_with_no_reachable_claimant": [
+            m["component"] for m in mentioned if not any(c["reachable"] for c in m["candidate_claimants"])],
+        "repository_components_no_task_claims": unclaimed,
         "edit_restriction_clauses_by_text_match": _flag(_EDIT_RESTRICTION, text_sources),
         "reserved_decision_clauses_by_text_match": _flag(_RESERVED_DECISION, text_sources),
         "decomposition_reason": contract.get("decomposition_reason"),
@@ -168,10 +173,14 @@ def render_worksheet_markdown(sheet: Mapping[str, Any]) -> str:
         "",
         f"**{sheet['title']}** ({sheet['execution_scope']}, {sheet['decomposition_state']})",
         "",
-        "Facts from the committed contracts. Name matches and clause flags are text matches for a "
-        "person to read, not decisions.",
+        f"Built from the contracts committed at `{sheet.get('source_commit') or 'an unrecorded source'}`. "
+        "Name matches and clause flags are text matches for a person to read, not decisions.",
         "",
-        "## Parent requirements (each must map to exactly one child entry)",
+        "## Parent requirements",
+        "",
+        "Each needs one coverage record. An AC maps to child acceptance criteria, a VAL to child "
+        "completion gates, and distinct parent obligations map distinctly; one obligation may still "
+        "have several child targets or shared integration coverage.",
         "",
     ]
     lines += [f"- **{r['entry_id']}** ({r['collection']}): {r['requirement']}" for r in sheet["requirements"]]
@@ -186,20 +195,25 @@ def render_worksheet_markdown(sheet: Mapping[str, Any]) -> str:
     lines += ["", "## Dependencies", "",
               f"- Declared: {', '.join(deps['declared']) or 'none'}",
               f"- Reachable transitively: {', '.join(deps['transitive']) or 'none'}", "",
-              "## Components the requirements name, and who owns them (name match)", ""]
-    for m in sheet["mentioned_components_by_name_match"]:
-        reach = (", ".join(m["reachable_owners"]) + " reachable") if m["reachable_owners"] else "NO OWNER REACHABLE"
-        lines.append(f"- `{m['component']}`: claimed by {', '.join(m['owners'])} ({reach})")
-    if not sheet["mentioned_components_by_name_match"]:
+              "## Components the requirements name, and candidate claimants (name match)", "",
+              "A claimant is a task whose resources include a file of that name. It is not proven to "
+              "own the behaviour, and a name can appear in a prohibition or a note.", ""]
+    for m in sheet["candidate_claimants_by_name_match"]:
+        claimants = ", ".join(
+            f"{c['task']} (`{c['path']}`, {'reachable' if c['reachable'] else 'not reachable'})"
+            for c in m["candidate_claimants"])
+        lines.append(f"- `{m['component']}` named in {', '.join(m['named_in'])}: {claimants}")
+    if not sheet["candidate_claimants_by_name_match"]:
         lines.append("- none found")
-    if sheet["components_with_no_reachable_owner"]:
-        lines += ["", "**Check first:** no owner reachable through dependencies for "
-                      f"{', '.join(sheet['components_with_no_reachable_owner'])}. A child whose code or "
-                      "tests use one needs its owner as a dependency."]
-    if sheet["named_identifiers_no_task_claims"]:
-        lines += ["", "**No task claims these by file** (existing code or another task's responsibility; "
-                      "a person must name the owner): "
-                      f"{', '.join(sheet['named_identifiers_no_task_claims'])}"]
+    if sheet["components_with_no_reachable_claimant"]:
+        lines += ["", "**Inspect before deciding:** no candidate claimant is reachable through dependencies for "
+                      f"{', '.join(sheet['components_with_no_reachable_claimant'])}. Read the clauses that name "
+                      "them and the claimants' contracts to decide whether a child needs a dependency."]
+    if sheet["repository_components_no_task_claims"]:
+        lines += ["", "**In the repository but claimed by no task** (a person must decide who owns the "
+                      "behaviour, if a child needs it):"]
+        lines += [f"- `{u['component']}` named in {', '.join(u['named_in'])}"
+                  for u in sheet["repository_components_no_task_claims"]]
     lines += ["", "## Clauses that restrict edits (text match; a lock is not edit permission)", ""]
     lines += [f"- {c['where']}: {c['text']}" for c in sheet["edit_restriction_clauses_by_text_match"]] or ["- none found"]
     lines += ["", "## Clauses that may reserve a human or design decision (text match)", ""]
@@ -207,21 +221,31 @@ def render_worksheet_markdown(sheet: Mapping[str, Any]) -> str:
     return "\n".join(lines).rstrip() + "\n"
 
 
-def repository_components(source: Path) -> set[str]:
-    """Production C# file stems committed at HEAD under Assets/."""
-
+def _git(source: Path, *args: str) -> bytes:
     import subprocess
 
-    listed = subprocess.run(
-        ["git", "-C", str(source), "ls-files", "-z", "--", "Assets/*.cs"],
-        check=True, capture_output=True,
-    ).stdout.decode("utf-8").split("\0")
+    return subprocess.run(["git", "-C", str(source), *args], check=True, capture_output=True).stdout
+
+
+def repository_components(source: Path, commit: str) -> set[str]:
+    """Production C# file stems in the tree of `commit` under Assets/."""
+
+    listed = _git(source, "ls-tree", "-r", "-z", "--name-only", commit, "--", "Assets").decode("utf-8").split("\0")
     return {PurePosixPath(path).stem for path in listed
-            if path and "/Tests/" not in f"/{path}"}
+            if path.endswith(".cs") and "/Tests/" not in f"/{path}"}
 
 
 def worksheet_for_source(source: Path, task_id: str) -> dict[str, Any]:
-    from persistent_work_graph import load_persistent_work_graph
+    """The worksheet from the contracts and files committed at HEAD, not the working tree."""
 
-    return build_worksheet(load_persistent_work_graph(Path(source)).tasks_by_id, task_id,
-                           repository_components=repository_components(Path(source)))
+    from Pipeline.TaskReviewAgent.committed_tasks import load_committed_tasks
+
+    source = Path(source)
+    head = _git(source, "rev-parse", "--verify", "HEAD").decode().strip()
+    task_ids = sorted(
+        PurePosixPath(path).stem
+        for path in _git(source, "ls-tree", "-z", "--name-only", head, "--", "Tasks/").decode("utf-8").split("\0")
+        if re.fullmatch(r"Tasks/NSC-\d+\.yaml", path))
+    tasks = load_committed_tasks(source, task_ids, commit=head)
+    return build_worksheet(tasks, task_id, repository_components=repository_components(source, head),
+                           source_commit=head)

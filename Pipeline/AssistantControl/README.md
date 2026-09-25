@@ -717,9 +717,10 @@ contracts and without any model call, what a split of TASK must get right:
 every parent requirement, the resources split into production files, test
 files each child could claim, scene/prefab locks and unpaired `.meta` files,
 declared and transitive dependencies, the components the requirements name
-with their owning tasks and whether each owner is reachable, repository
-components no task claims, and clauses that restrict edits or reserve a
-human decision. The component and clause sections are text matches for a
+with candidate claimants (tasks whose resources include a file of that name)
+and whether each is reachable, repository components no task claims, and
+clauses that restrict edits or reserve a human decision. It reads the
+contracts and file list committed at HEAD and records that commit. The component and clause sections are text matches for a
 person to read, not decisions. Use it before a paid run; send only the gaps
 it shows to GER.
 

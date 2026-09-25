@@ -36,7 +36,7 @@ def graph() -> dict:
             "repo-file:Assets/Game/Scripts/Decoy.cs", "repo-file:Assets/Game/Scripts/Decoy.cs.meta",
             "repo-file:Assets/Game/Tests/DecoyTests.cs", "repo-file:Assets/Game/Tests/DecoyTests.cs.meta",
             "repo-file:Assets/Game/Scripts/Orphan.cs.meta",
-            "unity-scene:Assets/Scenes/Main.unity",
+            "unity-scene:Assets/Scenes/Main.unity", "repo-file:Assets/Scenes/Main.unity.meta",
         ],
         requirement=("Decoy calls PlayerInteractionController and checks EnemyHealth. "
                      "SceneBuilder.cs is not modified. Vincent reviews the result."),
@@ -59,13 +59,17 @@ def test_resources_dependencies_and_owners() -> None:
     assert resources["scene_or_prefab_locks"] == ["unity-scene:Assets/Scenes/Main.unity"]
     assert resources["unpaired_meta_files"] == ["Assets/Game/Scripts/Orphan.cs.meta"]
     assert sheet["dependencies"] == {"declared": ["NSC-010"], "transitive": ["NSC-019"]}
-    components = {m["component"]: m for m in sheet["mentioned_components_by_name_match"]}
-    # Owned through a transitive dependency: reachable, not flagged.
-    assert components["PlayerInteractionController"]["reachable_owners"] == ["NSC-019"]
-    # Named, claimed by a task the parent cannot reach: flagged.
-    assert sheet["components_with_no_reachable_owner"] == ["SceneBuilder"]
-    # In the repository but claimed by no task: a person must name the owner.
-    assert sheet["named_identifiers_no_task_claims"] == ["EnemyHealth"]
+    components = {m["component"]: m for m in sheet["candidate_claimants_by_name_match"]}
+    # Claimed through a transitive dependency: reachable, with the matched path.
+    claimant = components["PlayerInteractionController"]["candidate_claimants"][0]
+    assert (claimant["task"], claimant["reachable"]) == ("NSC-019", True)
+    assert claimant["path"] == "Assets/Game/Scripts/PlayerInteractionController.cs"
+    # Named only in a prohibition, claimed by an unreachable task: flagged for
+    # inspection, with the clause it came from, never asserted as an owner.
+    assert sheet["components_with_no_reachable_claimant"] == ["SceneBuilder"]
+    assert components["SceneBuilder"]["named_in"] == ["AC-001"]
+    # In the repository but claimed by no task: a person must decide.
+    assert sheet["repository_components_no_task_claims"] == [{"component": "EnemyHealth", "named_in": ["AC-001"]}]
     assert sheet["authority"] == "worksheet_only_not_a_decision"
 
 
@@ -76,17 +80,42 @@ def test_clause_flags_and_rendering() -> None:
     markdown = render_worksheet_markdown(sheet)
     assert markdown.startswith("# Decomposition readiness: NSC-100 rev 1")
     assert "text matches for a person to read, not decisions" in markdown
-    assert "No task claims these by file" in markdown and "EnemyHealth" in markdown
+    assert "claimed by no task" in markdown and "EnemyHealth" in markdown
     assert "a lock is not edit permission" in markdown
+    assert "each must map to exactly one child entry" not in markdown
+    assert "one obligation may still have several child targets" in markdown
+    assert "Inspect before deciding" in markdown and "needs its owner" not in markdown
 
 
 def test_superseded_tasks_and_method_names_are_not_owners() -> None:
     tasks = graph()
     tasks["NSC-100"]["acceptance_criteria"][0]["requirement"] += " Retired stays. CalculatePath runs."
     sheet = build_worksheet(tasks, "NSC-100", repository_components=set())
-    names = {m["component"] for m in sheet["mentioned_components_by_name_match"]}
+    names = {m["component"] for m in sheet["candidate_claimants_by_name_match"]}
     assert "Retired" not in names
-    assert sheet["named_identifiers_no_task_claims"] == []
+    assert sheet["repository_components_no_task_claims"] == []
+
+
+def test_the_worksheet_reads_the_committed_snapshot_not_the_working_tree() -> None:
+    import json
+    import subprocess
+    import tempfile
+    from TaskDecomposition.readiness_worksheet import worksheet_for_source
+    from TaskDecomposition.tests.test_support import create_repository
+
+    with tempfile.TemporaryDirectory(prefix="nsc-worksheet-") as text:
+        source = Path(text) / "source"
+        create_repository(source)
+        head = subprocess.run(["git", "-C", str(source), "rev-parse", "HEAD"],
+                              capture_output=True, text=True, check=True).stdout.strip()
+        committed = worksheet_for_source(source, "NSC-010")
+        assert committed["source_commit"] == head
+        path = source / "Tasks" / "NSC-010.yaml"
+        value = json.loads(path.read_text(encoding="utf-8"))
+        value["acceptance_criteria"][0]["requirement"] = "Uncommitted edit mentioning WorkingTreeOnly."
+        path.write_text(json.dumps(value), encoding="utf-8")
+        again = worksheet_for_source(source, "NSC-010")
+        assert again["requirements"] == committed["requirements"], "a working-tree edit leaked in"
 
 
 def test_an_unknown_task_is_refused() -> None:
@@ -102,6 +131,7 @@ TESTS = (
     test_resources_dependencies_and_owners,
     test_clause_flags_and_rendering,
     test_superseded_tasks_and_method_names_are_not_owners,
+    test_the_worksheet_reads_the_committed_snapshot_not_the_working_tree,
     test_an_unknown_task_is_refused,
 )
 
