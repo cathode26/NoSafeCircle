@@ -63,6 +63,7 @@ jobs:
           $tests = @(
             "Pipeline.AssistantControl.test_decomposition",
             "Pipeline.AssistantControl.test_decomposition_transport",
+            "Pipeline.AssistantControl.test_decomposition_diagnosis",
             "Pipeline.AssistantControl.test_post_crew_workflow",
             "Pipeline.AssistantControl.test_viewer.ViewerTests.test_review_queue_preserves_exact_candidate_without_alarm",
             "Pipeline.AssistantControl.test_viewer.ViewerTests.test_review_queue_clears_after_approve_or_deny_state",
@@ -93,7 +94,8 @@ jobs:
             "Pipeline/TaskDecomposition/tests/decomposition_contracts_smoke_test.py",
             "Pipeline/TaskDecomposition/tests/live_decomposition_smoke_test.py",
             "Pipeline/TaskDecomposition/tests/round_robin_decomposition_smoke_test.py",
-            "Pipeline/TaskDecomposition/tests/prompt_capacity_smoke_test.py"
+            "Pipeline/TaskDecomposition/tests/prompt_capacity_smoke_test.py",
+            "Pipeline/TaskDecomposition/tests/run_diagnosis_smoke_test.py"
           )
           foreach ($test in $tests) {
             python $test
