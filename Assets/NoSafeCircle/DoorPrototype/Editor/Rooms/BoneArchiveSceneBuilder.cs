@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using NoSafeCircle.DoorPrototype.Editor;
 using NoSafeCircle.DoorPrototype.World;
 using NoSafeCircle.DoorPrototype.World.Rooms;
@@ -16,14 +17,21 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
     {
         public const string ScenePath = "Assets/Scenes/Rooms/BoneArchive.unity";
 
-        // The same two shared Tile assets the other four rooms paint with. They are not
-        // generated here and this builder does not own them.
+        // The shared full-wall Tile asset every room paints its far walls with. It is not
+        // generated here and this builder does not own it.
         private const string ArchitecturalTileFolder =
             "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles";
-        private const string FloorTilePath = ArchitecturalTileFolder + "/FloorTile.asset";
         private const string WallTilePath = ArchitecturalTileFolder + "/WallTile.asset";
         private const float WallVisualOffset = 0.151f;
         private static readonly Vector3 LowWallCellScale = new Vector3(1f, 0.2f, 1f);
+
+        // NSC-109 AC-001/AC-002: this room's own floor Tile, owned and materialized here rather
+        // than borrowed from a room-agnostic shared asset, so it can be bound to this room's own
+        // committed floor sprite.
+        private const string FloorTileName = "BoneArchiveFloorTile";
+        private const string FloorTilePath = ArchitecturalTileFolder + "/" + FloorTileName + ".asset";
+        private const string FloorSpriteSourcePath =
+            "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_BoneArchive.png";
 
         [MenuItem("No Safe Circle/Rooms/Build Bone Archive Authoring Scene")]
         public static void BuildAndSave()
@@ -73,12 +81,11 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         /// </remarks>
         private static bool BuildTilemapVisuals(Transform parent)
         {
-            Tile floorTile = AssetDatabase.LoadAssetAtPath<Tile>(FloorTilePath);
+            Tile floorTile = LoadOrCreateBoneArchiveFloorTile(ArchitecturalTileFolder);
             Tile wallTile = AssetDatabase.LoadAssetAtPath<Tile>(WallTilePath);
-            if (floorTile == null || wallTile == null)
+            if (wallTile == null)
             {
-                Debug.LogError(
-                    $"Bone Archive requires the existing {FloorTilePath} and {WallTilePath} Tile assets.");
+                Debug.LogError($"Bone Archive requires the existing {WallTilePath} Tile asset.");
                 return false;
             }
 
@@ -307,6 +314,47 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             Material material = new Material(Shader.Find("Standard"));
             material.color = color;
             return material;
+        }
+
+        // NSC-109 AC-001/AC-002: binds this room's floor Tile to the committed floor_BoneArchive
+        // sprite rather than a procedurally generated texture.
+        private static Tile LoadOrCreateBoneArchiveFloorTile(string assetFolder)
+        {
+            Sprite sourceSprite = AssetDatabase.LoadAssetAtPath<Sprite>(FloorSpriteSourcePath);
+            if (sourceSprite == null)
+            {
+                throw new InvalidOperationException(
+                    $"Bone Archive requires the committed sprite at '{FloorSpriteSourcePath}'.");
+            }
+
+            if (!AssetDatabase.IsValidFolder(assetFolder))
+            {
+                Directory.CreateDirectory(assetFolder);
+                AssetDatabase.Refresh();
+            }
+
+            Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(FloorTilePath);
+            if (tile == null)
+            {
+                tile = ScriptableObject.CreateInstance<Tile>();
+                tile.name = FloorTileName;
+                tile.colliderType = Tile.ColliderType.None;
+                tile.sprite = sourceSprite;
+                AssetDatabase.CreateAsset(tile, FloorTilePath);
+                EditorUtility.SetDirty(tile);
+                AssetDatabase.SaveAssetIfDirty(tile);
+                return tile;
+            }
+
+            if (tile.sprite != sourceSprite || tile.colliderType != Tile.ColliderType.None)
+            {
+                tile.sprite = sourceSprite;
+                tile.colliderType = Tile.ColliderType.None;
+                EditorUtility.SetDirty(tile);
+                AssetDatabase.SaveAssetIfDirty(tile);
+            }
+
+            return tile;
         }
     }
 }

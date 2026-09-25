@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using NoSafeCircle.DoorPrototype.Editor;
 using NoSafeCircle.DoorPrototype.World;
 using NoSafeCircle.DoorPrototype.World.Rooms;
@@ -18,10 +19,17 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
 
         private const string ArchitecturalTileFolder =
             "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles";
-        private const string FloorTilePath = ArchitecturalTileFolder + "/FloorTile.asset";
         private const string WallTilePath = ArchitecturalTileFolder + "/WallTile.asset";
         private const float WallVisualOffset = 0.151f;
         private static readonly Vector3 LowWallCellScale = new Vector3(1f, 0.2f, 1f);
+
+        // NSC-109 AC-001/AC-002: this room's own floor Tile, owned and materialized here rather
+        // than borrowed from a room-agnostic shared asset, so it can be bound to this room's own
+        // committed floor sprite.
+        private const string FloorTileName = "FinalRoomFloorTile";
+        private const string FloorTilePath = ArchitecturalTileFolder + "/" + FloorTileName + ".asset";
+        private const string FloorSpriteSourcePath =
+            "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_FinalRoom.png";
 
         [MenuItem("No Safe Circle/Rooms/Build Final Room Authoring Scene")]
         public static void BuildAndSave()
@@ -64,12 +72,11 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
 
         private static void BuildTilemapVisuals(Transform parent)
         {
-            Tile floorTile = AssetDatabase.LoadAssetAtPath<Tile>(FloorTilePath);
+            Tile floorTile = LoadOrCreateFloorTile(ArchitecturalTileFolder);
             Tile wallTile = AssetDatabase.LoadAssetAtPath<Tile>(WallTilePath);
-            if (floorTile == null || wallTile == null)
+            if (wallTile == null)
             {
-                Debug.LogError(
-                    $"Final Room requires the existing {FloorTilePath} and {WallTilePath} Tile assets.");
+                Debug.LogError($"Final Room requires the existing {WallTilePath} Tile asset.");
                 return;
             }
 
@@ -316,6 +323,47 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         }
 
         private static string Suffix(bool collision) => collision ? "Collision" : "Visual";
+
+        // NSC-109 AC-001/AC-002: this room's own floor Tile, bound to the committed
+        // floor_FinalRoom sprite rather than a procedurally generated texture.
+        private static Tile LoadOrCreateFloorTile(string assetFolder)
+        {
+            Sprite sourceSprite = AssetDatabase.LoadAssetAtPath<Sprite>(FloorSpriteSourcePath);
+            if (sourceSprite == null)
+            {
+                throw new InvalidOperationException(
+                    $"Final Room requires the committed sprite at '{FloorSpriteSourcePath}'.");
+            }
+
+            if (!AssetDatabase.IsValidFolder(assetFolder))
+            {
+                Directory.CreateDirectory(assetFolder);
+                AssetDatabase.Refresh();
+            }
+
+            Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(FloorTilePath);
+            if (tile == null)
+            {
+                tile = ScriptableObject.CreateInstance<Tile>();
+                tile.name = FloorTileName;
+                tile.colliderType = Tile.ColliderType.None;
+                tile.sprite = sourceSprite;
+                AssetDatabase.CreateAsset(tile, FloorTilePath);
+                EditorUtility.SetDirty(tile);
+                AssetDatabase.SaveAssetIfDirty(tile);
+                return tile;
+            }
+
+            if (tile.sprite != sourceSprite || tile.colliderType != Tile.ColliderType.None)
+            {
+                tile.sprite = sourceSprite;
+                tile.colliderType = Tile.ColliderType.None;
+                EditorUtility.SetDirty(tile);
+                AssetDatabase.SaveAssetIfDirty(tile);
+            }
+
+            return tile;
+        }
 
         // WAS: new Material(Standard); material.color = color; return material; - which drops
         // any alpha below 255 SILENTLY, because the Standard shader ships in Opaque mode and

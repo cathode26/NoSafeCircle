@@ -171,9 +171,10 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             }
             else
             {
+                // The Tile itself is a fabricated transient object, but its sprite is now the
+                // shared committed source asset (NSC-109), not a fabricated sub-asset, so only
+                // the Tile's own hideFlags are asserted here.
                 Assert.AreEqual(HideFlags.HideAndDontSave, farWallTile.hideFlags);
-                Assert.AreEqual(HideFlags.HideAndDontSave, farWallTile.sprite.hideFlags);
-                Assert.AreEqual(HideFlags.HideAndDontSave, farWallTile.sprite.texture.hideFlags);
             }
 
             if (cutawayIsAsset)
@@ -184,12 +185,21 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             else
             {
                 Assert.AreEqual(HideFlags.HideAndDontSave, cutawayWallTile.hideFlags);
-                Assert.AreEqual(HideFlags.HideAndDontSave, cutawayWallTile.sprite.hideFlags);
             }
             Assert.AreEqual(Tile.ColliderType.None, farWallTile.colliderType);
             Assert.AreEqual(Tile.ColliderType.None, cutawayWallTile.colliderType);
             Assert.That(farWallTile.sprite.bounds.size.y, Is.EqualTo(2.5f).Within(0.001f));
             Assert.That(cutawayWallTile.sprite.bounds.size.y, Is.EqualTo(0.5f).Within(0.001f));
+
+            // NSC-109 AC-001/VAL-001: both wall Tiles must resolve to their committed source
+            // sprites rather than to a procedurally generated texture, whether the persisted
+            // asset already exists or the builder fell back to an equivalent transient Tile.
+            Assert.AreEqual(
+                "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_straight.png",
+                AssetDatabase.GetAssetPath(farWallTile.sprite));
+            Assert.AreEqual(
+                "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_broken_stub.png",
+                AssetDatabase.GetAssetPath(cutawayWallTile.sprite));
         }
 
         [Test]
@@ -227,9 +237,24 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
         {
             Transform grid = FindGrid(SceneManager.GetActiveScene());
             Tilemap floor = RequireTilemap(grid, "FloorTilemap");
-            Tile floorTile = AssetDatabase.LoadAssetAtPath<Tile>(
-                "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/FloorTile.asset");
+
+            // Read the floor Tile off a painted cell rather than assuming the room's own
+            // generated Tile asset is already persisted: BuildInMemoryForTests() falls back to an
+            // equivalent transient Tile when no persisted asset exists yet.
+            Tile floorTile = null;
+            foreach (Vector3Int candidate in floor.cellBounds.allPositionsWithin)
+            {
+                if (!floor.HasTile(candidate)) continue;
+                floorTile = floor.GetTile(candidate) as Tile;
+                break;
+            }
             Assert.IsNotNull(floorTile);
+
+            // NSC-109 AC-001/VAL-001: the painted floor Tile must resolve to the committed
+            // floor_ChapelOfAsh sprite rather than a procedurally generated texture.
+            Assert.AreEqual(
+                "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_ChapelOfAsh.png",
+                AssetDatabase.GetAssetPath(floorTile.sprite));
 
             int paintedCount = 0;
             int minPaintedX = int.MaxValue, maxPaintedX = int.MinValue;
@@ -394,10 +419,12 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
 
         // ---- VAL-002 (temporary-asset generator tests) ----
 
+        // NSC-109 AC-001/AC-002/VAL-001: both wall Tiles must resolve to their committed source
+        // sprites instead of a procedurally generated masonry texture.
         [Test]
-        public void WallTiles_UseSeamlessThirtyTwoPixelRepeatCorrectSizesAndNoCollider()
+        public void WallTiles_ResolveToCommittedSourceSpritesWithNoCollider()
         {
-            string folderName = "__NSC046ChapelWall_" + Guid.NewGuid().ToString("N");
+            string folderName = "__NSC109ChapelWall_" + Guid.NewGuid().ToString("N");
             string folderPath = "Assets/" + folderName;
             AssetDatabase.CreateFolder("Assets", folderName);
             try
@@ -405,8 +432,17 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
                 Tile farWallTile = ChapelOfAshSceneBuilder.LoadOrCreateFarWallTile(folderPath);
                 Tile cutawayWallTile = ChapelOfAshSceneBuilder.LoadOrCreateCutawayWallTile(folderPath);
 
-                AssertWallTileShape(farWallTile, folderPath, "ChapelOfAshFarWallTile", 64, 160);
-                AssertWallTileShape(cutawayWallTile, folderPath, "ChapelOfAshCutawayWallTile", 64, 32);
+                Sprite expectedFarWallSprite = AssetDatabase.LoadAssetAtPath<Sprite>(
+                    "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_straight.png");
+                Sprite expectedCutawaySprite = AssetDatabase.LoadAssetAtPath<Sprite>(
+                    "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_broken_stub.png");
+                Assert.IsNotNull(expectedFarWallSprite);
+                Assert.IsNotNull(expectedCutawaySprite);
+
+                Assert.AreSame(expectedFarWallSprite, farWallTile.sprite);
+                Assert.AreSame(expectedCutawaySprite, cutawayWallTile.sprite);
+                Assert.AreEqual(Tile.ColliderType.None, farWallTile.colliderType);
+                Assert.AreEqual(Tile.ColliderType.None, cutawayWallTile.colliderType);
             }
             finally
             {
@@ -414,10 +450,15 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             }
         }
 
+        // NSC-109 AC-001/VAL-001 (regression-only, supersedes the NSC-046 pixel-content-staleness
+        // regression this replaces): a stale sprite reference on an already-persisted wall Tile
+        // asset must be repaired back to the committed source sprite on the next build. This never
+        // mutates the committed source sprite's own pixel data - only the generated Tile asset's
+        // own sprite reference.
         [Test]
-        public void WallTile_RepairsStalePersistedPixelsAndReusesCorrectAsset()
+        public void WallTile_RepairsAStaleSpriteReferenceAndReusesCorrectAsset()
         {
-            string folderName = "__NSC046ChapelWallRepair_" + Guid.NewGuid().ToString("N");
+            string folderName = "__NSC109ChapelWallRepair_" + Guid.NewGuid().ToString("N");
             string folderPath = "Assets/" + folderName;
             AssetDatabase.CreateFolder("Assets", folderName);
             try
@@ -427,24 +468,25 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
                 string guid = AssetDatabase.AssetPathToGUID(assetPath);
                 Assert.IsNotEmpty(guid);
 
-                Texture2D texture = tile.sprite.texture;
-                Color32[] original = texture.GetPixels32();
+                Sprite expectedSprite = AssetDatabase.LoadAssetAtPath<Sprite>(
+                    "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_straight.png");
+                Sprite staleSprite = AssetDatabase.LoadAssetAtPath<Sprite>(
+                    "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_corner.png");
+                Assert.IsNotNull(expectedSprite);
+                Assert.IsNotNull(staleSprite);
+                Assert.AreSame(expectedSprite, tile.sprite);
 
-                texture.SetPixel(5, 5, Color.red);
-                texture.Apply(false, false);
-                EditorUtility.SetDirty(texture);
-                AssetDatabase.SaveAssetIfDirty(texture);
-                Assert.AreNotEqual(original[5 * texture.width + 5], texture.GetPixels32()[5 * texture.width + 5]);
+                tile.sprite = staleSprite;
+                EditorUtility.SetDirty(tile);
+                AssetDatabase.SaveAssetIfDirty(tile);
 
                 Tile repaired = ChapelOfAshSceneBuilder.LoadOrCreateFarWallTile(folderPath);
                 Assert.AreSame(tile, repaired);
                 Assert.AreEqual(guid, AssetDatabase.AssetPathToGUID(assetPath));
-                CollectionAssert.AreEqual(original, repaired.sprite.texture.GetPixels32());
-
-                Sprite correctSprite = repaired.sprite;
+                Assert.AreSame(expectedSprite, repaired.sprite,
+                    "A stale sprite reference must be repaired back to the committed wall_straight " +
+                    "sprite on the next build.");
                 Assert.AreSame(repaired, ChapelOfAshSceneBuilder.LoadOrCreateFarWallTile(folderPath));
-                Assert.AreSame(correctSprite, repaired.sprite,
-                    "A correct wall Sprite should be reused on a repeat build.");
             }
             finally
             {
@@ -854,30 +896,6 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             Assert.AreEqual("Default", renderer.sortingLayerName);
             Assert.AreEqual(0, renderer.sortingOrder);
             Assert.IsNull(child.GetComponent<Collider>());
-        }
-
-        private static void AssertWallTileShape(Tile tile, string folderPath, string tileName, int width, int height)
-        {
-            string assetPath = folderPath + "/" + tileName + ".asset";
-            Assert.IsNotEmpty(AssetDatabase.AssetPathToGUID(assetPath));
-            Assert.AreEqual(Tile.ColliderType.None, tile.colliderType);
-            Assert.That(tile.sprite.pixelsPerUnit, Is.EqualTo(64f).Within(0.001f));
-            Assert.That(tile.sprite.pivot.x, Is.EqualTo(width * 0.5f).Within(0.001f));
-            Assert.That(tile.sprite.pivot.y, Is.EqualTo(0f).Within(0.001f));
-
-            Texture2D texture = tile.sprite.texture;
-            Assert.AreEqual(width, texture.width);
-            Assert.AreEqual(height, texture.height);
-            Color32[] pixels = texture.GetPixels32();
-            Assert.AreEqual(0, width % 32);
-            for (int y = 0; y < height; y++)
-            {
-                for (int x = 0; x < width - 32; x++)
-                {
-                    Assert.AreEqual(pixels[y * width + x], pixels[y * width + x + 32],
-                        $"{tileName} masonry repeat breaks at row {y}, column {x}.");
-                }
-            }
         }
 
         private static HashSet<Vector2Int> FloodFillFromD2Landing(Bounds[] blockers)

@@ -328,10 +328,15 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             if (proxyExisted) CollectionAssert.AreEqual(proxyBefore, File.ReadAllBytes(proxySpritePath));
         }
 
-        [Test] // VAL-002: the near-wall stub Tile uses a seamless repeat and repairs stale persisted pixels.
-        public void NearWallStubTile_UsesSeamlessRepeatAndRepairsStalePersistedPixels()
+        // NSC-109 AC-001/AC-002/VAL-001: the near-wall stub Tile must resolve to the committed
+        // wall_broken_stub sprite rather than a procedurally generated masonry texture, and a
+        // stale sprite reference on an already-persisted Tile asset must be repaired back to that
+        // committed sprite on the next build. This never mutates the committed source sprite's own
+        // pixel data - only the generated Tile asset's own sprite reference.
+        [Test]
+        public void NearWallStubTile_ResolvesToCommittedSourceSpriteAndRepairsAStaleSpriteReference()
         {
-            string folderName = "__NSC047NearWallStub_" + Guid.NewGuid().ToString("N");
+            string folderName = "__NSC109NearWallStub_" + Guid.NewGuid().ToString("N");
             string folderPath = "Assets/" + folderName;
             AssetDatabase.CreateFolder("Assets", folderName);
             try
@@ -341,39 +346,27 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
                 string guid = AssetDatabase.AssetPathToGUID(assetPath);
                 Assert.IsNotEmpty(guid);
                 Assert.AreEqual(Tile.ColliderType.None, tile.colliderType);
-                Assert.That(tile.sprite.bounds.size.y, Is.EqualTo(0.5f).Within(0.001f));
-                Assert.That(tile.sprite.pixelsPerUnit, Is.EqualTo(64f).Within(0.001f));
-                Assert.That(tile.sprite.pivot.x, Is.EqualTo(32f).Within(0.001f));
-                Assert.That(tile.sprite.pivot.y, Is.EqualTo(0f).Within(0.001f));
 
-                Texture2D texture = tile.sprite.texture;
-                Assert.AreEqual(64, texture.width);
-                Assert.AreEqual(32, texture.height);
-                Color32[] original = texture.GetPixels32();
-                Assert.AreEqual(0, 64 % 32);
-                for (int y = 0; y < 32; y++)
-                {
-                    for (int x = 0; x < 32; x++)
-                    {
-                        Assert.AreEqual(original[y * 64 + x], original[y * 64 + x + 32],
-                            $"Near-wall stub masonry repeat breaks at row {y}, column {x}.");
-                    }
-                }
+                Sprite expectedSprite = AssetDatabase.LoadAssetAtPath<Sprite>(
+                    "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_broken_stub.png");
+                Sprite staleSprite = AssetDatabase.LoadAssetAtPath<Sprite>(
+                    "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_corner.png");
+                Assert.IsNotNull(expectedSprite);
+                Assert.IsNotNull(staleSprite);
+                Assert.AreSame(expectedSprite, tile.sprite,
+                    "The near-wall stub Tile must resolve to the committed wall_broken_stub sprite.");
 
-                texture.SetPixel(5, 5, Color.red);
-                texture.Apply(false, false);
-                EditorUtility.SetDirty(texture);
-                AssetDatabase.SaveAssetIfDirty(texture);
-                Assert.AreNotEqual(original[5 * 64 + 5], texture.GetPixels32()[5 * 64 + 5]);
+                tile.sprite = staleSprite;
+                EditorUtility.SetDirty(tile);
+                AssetDatabase.SaveAssetIfDirty(tile);
 
                 Tile repaired = LowerVaultSceneBuilder.LoadOrCreateNearWallStubTile(folderPath);
                 Assert.AreSame(tile, repaired);
                 Assert.AreEqual(guid, AssetDatabase.AssetPathToGUID(assetPath));
-                CollectionAssert.AreEqual(original, repaired.sprite.texture.GetPixels32());
-                Sprite correctSprite = repaired.sprite;
+                Assert.AreSame(expectedSprite, repaired.sprite,
+                    "A stale sprite reference on the persisted near-wall stub Tile must be repaired " +
+                    "back to the committed wall_broken_stub sprite on the next build.");
                 Assert.AreSame(repaired, LowerVaultSceneBuilder.LoadOrCreateNearWallStubTile(folderPath));
-                Assert.AreSame(correctSprite, repaired.sprite,
-                    "A correct near-wall stub Sprite should be reused on a repeat build.");
             }
             finally
             {
@@ -885,8 +878,16 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             Assert.That(west.transform.localPosition.x, Is.EqualTo(-19.849f).Within(0.001f));
             Assert.That(east.transform.localPosition.x, Is.EqualTo(19.849f).Within(0.001f));
 
-            Tile floorTile = AssetDatabase.LoadAssetAtPath<Tile>(
-                "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/FloorTile.asset");
+            // Read the floor Tile off a painted cell rather than assuming the room's own
+            // generated Tile asset is already persisted: BuildInMemoryForTests() falls back to an
+            // equivalent transient Tile when no persisted asset exists yet.
+            Tile floorTile = null;
+            foreach (Vector3Int candidate in floor.cellBounds.allPositionsWithin)
+            {
+                if (!floor.HasTile(candidate)) continue;
+                floorTile = floor.GetTile(candidate) as Tile;
+                break;
+            }
             Tile fullWallTile = AssetDatabase.LoadAssetAtPath<Tile>(
                 "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WallTile.asset");
             Tile nearWallStubTile = south.GetTile(new Vector3Int(-20, 0, 0)) as Tile;
@@ -895,6 +896,16 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             Assert.IsNotNull(nearWallStubTile);
             Assert.That(fullWallTile.sprite.bounds.size.y, Is.EqualTo(2.5f).Within(0.001f));
             Assert.That(nearWallStubTile.sprite.bounds.size.y, Is.EqualTo(0.5f).Within(0.001f));
+
+            // NSC-109 AC-001/VAL-001: the painted floor and near-wall stub Tiles must resolve to
+            // the committed sprites under Art/Environment/Source rather than a procedurally
+            // generated texture.
+            Assert.AreEqual(
+                "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_LowerVault.png",
+                AssetDatabase.GetAssetPath(floorTile.sprite));
+            Assert.AreEqual(
+                "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_broken_stub.png",
+                AssetDatabase.GetAssetPath(nearWallStubTile.sprite));
 
             if (scene.path == LowerVaultSceneBuilder.ScenePath)
             {
