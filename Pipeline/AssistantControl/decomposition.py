@@ -756,6 +756,19 @@ def three_call_timeout_profile(environment: Mapping[str, str]) -> dict[str, int]
     return profile
 
 
+def bookkeeper_outer_timeout(max_calls: int, profile: Mapping[str, int] | None) -> int:
+    """The host bound for a designer/bookkeeper run: every call it may make, plus overhead.
+
+    Designer and its one correction, both bookkeeping attempts (each at the
+    author's timeout), and every reviewer round the budget allows.
+    """
+
+    author = profile["task_decomposer"] if profile is not None else TIMEOUT_ENVIRONMENT["task_decomposer"][1]
+    reviewer = (profile["decomposition_reviewer"] if profile is not None
+                else TIMEOUT_ENVIRONMENT["decomposition_reviewer"][1])
+    return (2 + BOOKKEEPER_ATTEMPTS) * author + (max_calls - 1) * reviewer + THREE_CALL_OVERHEAD_SECONDS
+
+
 def _verify_three_call_run_binding(record: dict[str, Any], run_result: dict[str, Any]) -> dict[str, str]:
     """Bind a budget-3 run's retained request and context to this record.
 
@@ -1151,10 +1164,9 @@ def run(
                 stderr=stderr,
                 # Three rounds plus the optional correction can outlast the
                 # two-call hour; only the opt-in profile gets the longer bound.
-                timeout=(THREE_CALL_OUTER_TIMEOUT_SECONDS if max_calls == 3 else 3600) + (
-                    0 if bookkeeper_model is None else BOOKKEEPER_ATTEMPTS * (
-                        timeout_profile["task_decomposer"] if timeout_profile is not None
-                        else TIMEOUT_ENVIRONMENT["task_decomposer"][1])),
+                timeout=(
+                    (THREE_CALL_OUTER_TIMEOUT_SECONDS if max_calls == 3 else 3600) if bookkeeper_model is None
+                    else bookkeeper_outer_timeout(max_calls, timeout_profile)),
                 creationflags=creationflags,
                 check=False,
             )

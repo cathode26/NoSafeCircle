@@ -622,6 +622,13 @@ class BookkeeperReviewTests(unittest.TestCase):
         }
         return manager, record, output_root / run_id
 
+    def test_the_outer_timeout_covers_every_call_a_bookkeeper_run_may_make(self):
+        from Pipeline.AssistantControl.decomposition import bookkeeper_outer_timeout
+        # designer + correction + two bookkeeping attempts at 1440, reviewers at 1200, overhead 720
+        self.assertEqual(4 * 1440 + 1200 + 720, bookkeeper_outer_timeout(2, None))
+        self.assertEqual(4 * 100 + 2 * 50 + 720,
+                         bookkeeper_outer_timeout(3, {"task_decomposer": 100, "decomposition_reviewer": 50}))
+
     def test_a_two_call_bookkeeper_run_is_accepted_with_its_evidence(self):
         manager, record, _ = self.produce()
         review = _verify_review(manager, record)
