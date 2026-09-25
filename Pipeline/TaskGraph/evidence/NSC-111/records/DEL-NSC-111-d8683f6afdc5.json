@@ -1,0 +1,144 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "a93caa842d2ab52403d6b05703afdaa11c111f2c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyTargetKnowledge.cs",
+      "role": "implementation: EnemyTargetKnowledge spectral decoy redirect and end-redirect resolution"
+    },
+    {
+      "blob_sha": "5833e2bf698a5fdc204d9d9fb78eca805c1d25d5",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/SpectralDecoyEnemyTargetKnowledgePlayModeTests.cs",
+      "role": "test: PlayMode fixture SpectralDecoyEnemyTargetKnowledgePlayModeTests"
+    },
+    {
+      "blob_sha": "729edf9c7eb99fb7689551ded03b20cacd3530a0",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/SpectralDecoyEnemyTargetKnowledgePlayModeTests.cs.meta",
+      "role": "Unity import metadata for the test"
+    }
+  ],
+  "delivery": {
+    "base_commit": "86242ab5e0165707e8cff06d29ce2d1ee50c19d2",
+    "candidate_commit": "471e023329e5260e8952e704d647a5d981ef7cc3",
+    "integrated_commit": "d8683f6afdc56a102eca0f63e6c61f1beb4ab4a2",
+    "integrated_tree": "44db484f0c8e6874150371430b46eb5642519536"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "ef2e1c70f4703c059314314fc25699f7a428a768",
+          "path": "Pipeline/TaskGraph/evidence/NSC-111/artifacts/NSC-111-PlayMode-Filtered-Results.xml-d8683f6afdc5.xml"
+        },
+        {
+          "blob_sha": "977817cc5510dcce1c6f11d8cd333228a94bea75",
+          "path": "Pipeline/TaskGraph/evidence/NSC-111/artifacts/NSC-111-PlayMode-Filtered-Unity.log-d8683f6afdc5.log"
+        },
+        {
+          "blob_sha": "fe38419434c93aaf69c3e685ef1ce683249778cd",
+          "path": "Pipeline/TaskGraph/evidence/NSC-111/artifacts/NSC-111-PlayMode-Filtered-manifest.json-d8683f6afdc5.json"
+        },
+        {
+          "blob_sha": "283de5824a6ca12df24262695eab9899d9941dcf",
+          "path": "Pipeline/TaskGraph/evidence/NSC-111/artifacts/NSC-111-PlayMode-Full-Results.xml-d8683f6afdc5.xml"
+        },
+        {
+          "blob_sha": "4752eeb7725b89f1469f2166c6662e85c457c9a0",
+          "path": "Pipeline/TaskGraph/evidence/NSC-111/artifacts/NSC-111-PlayMode-Full-Unity.log-d8683f6afdc5.log"
+        },
+        {
+          "blob_sha": "44bd76d8eb19a3d9d7017c80699d69d48fdc6db0",
+          "path": "Pipeline/TaskGraph/evidence/NSC-111/artifacts/NSC-111-PlayMode-Full-manifest.json-d8683f6afdc5.json"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Acceptance proof is the focused fixture SpectralDecoyEnemyTargetKnowledgePlayModeTests, which ran by name and passed 20 of 20 in both runs. TWO RUNS, AS VAL-003 REQUIRES, AND THE RECORD SAYS WHICH WAS FILTERED. FILTERED run at d8683f6afdc56a102eca0f63e6c61f1beb4ab4a2, Unity exit code 0, result Passed, total 84, passed 84, failed 0, skipped 0, tree == post-run tree 44db484f0c8e6874150371430b46eb5642519536. Its filter was the focused fixture plus the six regression-only filters the gate names, semicolon-separated, and all seven ran by name: SpectralDecoy 20/20, EnemyTargetKnowledge 22/22, EnemyPursuit 7/7, EnemyPursuitDoorCrossing 3/3, EnemyLockedDoorAttack 9/9, RangedEnemyKeepDistanceMovement 9/9, RangedEnemyAttack 14/14 - which sums to exactly 84, so nothing was silently undiscovered. UNFILTERED full PlayMode suite at cacc7f8074773381859dfde31c2f5370d44d9431, Unity exit code 0, total 305, passed 300, failed 0, skipped 5, tree == post-run tree 6414250bd81741c24e265548b2787dd96a8d1a83. THE TWO RUNS AGREE: the focused fixture is 20 of 20 passing in both, so the unfiltered result - which the gate says governs - does not contradict the filtered one. STATED PLAINLY BECAUSE THE GATE INVITES THE QUESTION: the two runs are at DIFFERENT COMMITS. The unfiltered suite ran at cacc7f807 and the filtered run at d8683f6af. Every commit between them is a delivery-evidence commit under Pipeline/TaskGraph/evidence/ (NSC-114 and NSC-117) plus their merge, and Unity neither compiles nor loads those paths, so they cannot change a test result. I did not re-run the full suite at d8683f6af.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "ef2e1c70f4703c059314314fc25699f7a428a768",
+          "path": "Pipeline/TaskGraph/evidence/NSC-111/artifacts/NSC-111-PlayMode-Filtered-Results.xml-d8683f6afdc5.xml"
+        },
+        {
+          "blob_sha": "977817cc5510dcce1c6f11d8cd333228a94bea75",
+          "path": "Pipeline/TaskGraph/evidence/NSC-111/artifacts/NSC-111-PlayMode-Filtered-Unity.log-d8683f6afdc5.log"
+        },
+        {
+          "blob_sha": "fe38419434c93aaf69c3e685ef1ce683249778cd",
+          "path": "Pipeline/TaskGraph/evidence/NSC-111/artifacts/NSC-111-PlayMode-Filtered-manifest.json-d8683f6afdc5.json"
+        },
+        {
+          "blob_sha": "283de5824a6ca12df24262695eab9899d9941dcf",
+          "path": "Pipeline/TaskGraph/evidence/NSC-111/artifacts/NSC-111-PlayMode-Full-Results.xml-d8683f6afdc5.xml"
+        },
+        {
+          "blob_sha": "4752eeb7725b89f1469f2166c6662e85c457c9a0",
+          "path": "Pipeline/TaskGraph/evidence/NSC-111/artifacts/NSC-111-PlayMode-Full-Unity.log-d8683f6afdc5.log"
+        },
+        {
+          "blob_sha": "44bd76d8eb19a3d9d7017c80699d69d48fdc6db0",
+          "path": "Pipeline/TaskGraph/evidence/NSC-111/artifacts/NSC-111-PlayMode-Full-manifest.json-d8683f6afdc5.json"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "The same fixture carries the end-redirect boundary cases - ending one redirect with the wizard exactly at LoseTargetDistance and another just beyond it - and passed 20 of 20 in both runs. TWO RUNS, AS VAL-003 REQUIRES, AND THE RECORD SAYS WHICH WAS FILTERED. FILTERED run at d8683f6afdc56a102eca0f63e6c61f1beb4ab4a2, Unity exit code 0, result Passed, total 84, passed 84, failed 0, skipped 0, tree == post-run tree 44db484f0c8e6874150371430b46eb5642519536. Its filter was the focused fixture plus the six regression-only filters the gate names, semicolon-separated, and all seven ran by name: SpectralDecoy 20/20, EnemyTargetKnowledge 22/22, EnemyPursuit 7/7, EnemyPursuitDoorCrossing 3/3, EnemyLockedDoorAttack 9/9, RangedEnemyKeepDistanceMovement 9/9, RangedEnemyAttack 14/14 - which sums to exactly 84, so nothing was silently undiscovered. UNFILTERED full PlayMode suite at cacc7f8074773381859dfde31c2f5370d44d9431, Unity exit code 0, total 305, passed 300, failed 0, skipped 5, tree == post-run tree 6414250bd81741c24e265548b2787dd96a8d1a83. THE TWO RUNS AGREE: the focused fixture is 20 of 20 passing in both, so the unfiltered result - which the gate says governs - does not contradict the filtered one. STATED PLAINLY BECAUSE THE GATE INVITES THE QUESTION: the two runs are at DIFFERENT COMMITS. The unfiltered suite ran at cacc7f807 and the filtered run at d8683f6af. Every commit between them is a delivery-evidence commit under Pipeline/TaskGraph/evidence/ (NSC-114 and NSC-117) plus their merge, and Unity neither compiles nor loads those paths, so they cannot change a test result. I did not re-run the full suite at d8683f6af.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "ef2e1c70f4703c059314314fc25699f7a428a768",
+          "path": "Pipeline/TaskGraph/evidence/NSC-111/artifacts/NSC-111-PlayMode-Filtered-Results.xml-d8683f6afdc5.xml"
+        },
+        {
+          "blob_sha": "977817cc5510dcce1c6f11d8cd333228a94bea75",
+          "path": "Pipeline/TaskGraph/evidence/NSC-111/artifacts/NSC-111-PlayMode-Filtered-Unity.log-d8683f6afdc5.log"
+        },
+        {
+          "blob_sha": "fe38419434c93aaf69c3e685ef1ce683249778cd",
+          "path": "Pipeline/TaskGraph/evidence/NSC-111/artifacts/NSC-111-PlayMode-Filtered-manifest.json-d8683f6afdc5.json"
+        },
+        {
+          "blob_sha": "283de5824a6ca12df24262695eab9899d9941dcf",
+          "path": "Pipeline/TaskGraph/evidence/NSC-111/artifacts/NSC-111-PlayMode-Full-Results.xml-d8683f6afdc5.xml"
+        },
+        {
+          "blob_sha": "4752eeb7725b89f1469f2166c6662e85c457c9a0",
+          "path": "Pipeline/TaskGraph/evidence/NSC-111/artifacts/NSC-111-PlayMode-Full-Unity.log-d8683f6afdc5.log"
+        },
+        {
+          "blob_sha": "44bd76d8eb19a3d9d7017c80699d69d48fdc6db0",
+          "path": "Pipeline/TaskGraph/evidence/NSC-111/artifacts/NSC-111-PlayMode-Full-manifest.json-d8683f6afdc5.json"
+        }
+      ],
+      "gate_id": "VAL-003",
+      "notes": "This gate is about the RUNS themselves rather than behaviour. TWO RUNS, AS VAL-003 REQUIRES, AND THE RECORD SAYS WHICH WAS FILTERED. FILTERED run at d8683f6afdc56a102eca0f63e6c61f1beb4ab4a2, Unity exit code 0, result Passed, total 84, passed 84, failed 0, skipped 0, tree == post-run tree 44db484f0c8e6874150371430b46eb5642519536. Its filter was the focused fixture plus the six regression-only filters the gate names, semicolon-separated, and all seven ran by name: SpectralDecoy 20/20, EnemyTargetKnowledge 22/22, EnemyPursuit 7/7, EnemyPursuitDoorCrossing 3/3, EnemyLockedDoorAttack 9/9, RangedEnemyKeepDistanceMovement 9/9, RangedEnemyAttack 14/14 - which sums to exactly 84, so nothing was silently undiscovered. UNFILTERED full PlayMode suite at cacc7f8074773381859dfde31c2f5370d44d9431, Unity exit code 0, total 305, passed 300, failed 0, skipped 5, tree == post-run tree 6414250bd81741c24e265548b2787dd96a8d1a83. THE TWO RUNS AGREE: the focused fixture is 20 of 20 passing in both, so the unfiltered result - which the gate says governs - does not contradict the filtered one. STATED PLAINLY BECAUSE THE GATE INVITES THE QUESTION: the two runs are at DIFFERENT COMMITS. The unfiltered suite ran at cacc7f807 and the filtered run at d8683f6af. Every commit between them is a delivery-evidence commit under Pipeline/TaskGraph/evidence/ (NSC-114 and NSC-117) plus their merge, and Unity neither compiles nor loads those paths, so they cannot change a test result. I did not re-run the full suite at d8683f6af. Regression-only results are not treated as acceptance proof here: acceptance rests on the focused fixture, and the six regression filters are recorded as regression evidence only, exactly as the gate directs.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "NSC-111's three completion gates are automated Play Mode gates and the contract names no human gate, so no human approval is claimed - the shape used by NSC-050, NSC-109, NSC-120 and NSC-114. Recorded by the Game Agent (Integration Steward) on 2026-09-25. base_commit 86242ab5e0165707e8cff06d29ce2d1ee50c19d2 is the parent of the single candidate commit 471e023329e5260e8952e704d647a5d981ef7cc3, which I merged earlier today. WORTH STATING: an EditMode run at the same tree returned 304/292/0/12 and that was COMPILE-ONLY EVIDENCE for this task, not a pass - this fixture is PlayMode, lives in Tests/ rather than Tests/Editor/, and appears ZERO times in the EditMode XML. The tell was that the EditMode total sat at main's exact baseline of 304.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-111-d8683f6afdc5",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-25T11:59:32Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-111.yaml",
+    "revision": 1,
+    "sha256": "daf666b01538837033c83d2a1a3da2aa950cbe6391e46fb5eda4807c43868423"
+  },
+  "task_id": "NSC-111",
+  "validated_state": {
+    "commit": "d8683f6afdc56a102eca0f63e6c61f1beb4ab4a2",
+    "tree": "44db484f0c8e6874150371430b46eb5642519536"
+  }
+}

@@ -1,0 +1,45 @@
+{
+    "schema_version":  "1.1",
+    "manifest_type":  "unity_test_validation",
+    "status":  "passed",
+    "validated_state":  {
+                            "commit":  "d8683f6afdc56a102eca0f63e6c61f1beb4ab4a2",
+                            "tree":  "44db484f0c8e6874150371430b46eb5642519536",
+                            "post_commit":  "d8683f6afdc56a102eca0f63e6c61f1beb4ab4a2",
+                            "post_tree":  "44db484f0c8e6874150371430b46eb5642519536",
+                            "repository_clean_before":  true,
+                            "repository_clean_after":  true
+                        },
+    "unity":  {
+                  "version":  "6000.1.8f1",
+                  "executable":  "C:\\Program Files\\Unity\\Hub\\Editor\\6000.1.8f1\\Editor\\Unity.exe",
+                  "exit_code":  0,
+                  "test_platform":  "PlayMode",
+                  "test_filter":  "NoSafeCircle.DoorPrototype.Tests.SpectralDecoyEnemyTargetKnowledgePlayModeTests;NoSafeCircle.DoorPrototype.Tests.EnemyTargetKnowledgePlayModeTests;NoSafeCircle.DoorPrototype.Tests.EnemyPursuitPlayModeTests;NoSafeCircle.DoorPrototype.Tests.EnemyPursuitDoorCrossingPlayModeTests;NoSafeCircle.DoorPrototype.Tests.EnemyLockedDoorAttackPlayModeTests;NoSafeCircle.DoorPrototype.Tests.RangedEnemyKeepDistanceMovementPlayModeTests;NoSafeCircle.DoorPrototype.Tests.RangedEnemyAttackPlayModeTests"
+              },
+    "test_run":  {
+                     "result":  "Passed",
+                     "total":  84,
+                     "passed":  84,
+                     "failed":  0,
+                     "skipped":  0
+                 },
+    "artifacts":  {
+                      "xml":  {
+                                  "relative_path":  "test-results.xml",
+                                  "sha256":  "788299015a09de685bf7bedf824cc99cbfb4ded028bff961006853371bda957c",
+                                  "size_bytes":  75217
+                              },
+                      "log":  {
+                                  "relative_path":  "unity.log",
+                                  "sha256":  "35016a835595650683fb9356216a700804a35acd52147f93c91cc8909cab2e04",
+                                  "size_bytes":  46991
+                              }
+                  },
+    "runner":  {
+                   "path":  "Pipeline/Testing/run_unity_tests_clean.ps1",
+                   "sha256":  "9cb1e7ade6adc7975b4d60f8cab6477b58373ac3353000ad33c7fea63569b09d",
+                   "source_commit":  "d8683f6afdc56a102eca0f63e6c61f1beb4ab4a2",
+                   "source_tree":  "44db484f0c8e6874150371430b46eb5642519536"
+               }
+}
