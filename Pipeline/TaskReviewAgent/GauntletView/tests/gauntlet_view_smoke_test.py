@@ -2803,8 +2803,14 @@ class GauntletViewHtmlTests(unittest.TestCase):
         start = self.html.index("function renderAssistantAttention(attention)")
         end = self.html.index("function renderPipelineActivity(activity)", start)
         source = self.html[start:end]
-        self.assertIn("el.textContent =", source)
+        # Emphasis needs per-entry elements; the safety property is that none
+        # of them is ever built from a markup string.
+        self.assertIn("textContent", source)
         self.assertNotIn("innerHTML", source)
+        self.assertIn("createElement('span')", source)
+        # A day is the line between "in flight" and "nobody has looked".
+        self.assertIn("seconds >= 86400", source)
+        self.assertIn('attention-stale', self.html)
         self.assertIn('id="attention-note"', self.html)
         self.assertIn('aria-live="polite" hidden', self.html)
         self.assertNotIn('aria-live="assertive"', self.html)
