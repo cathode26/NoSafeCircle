@@ -1,0 +1,191 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Tasks/NSC-015.yaml: acceptance_criteria AC-001; Docs/GDD/No_Safe_Circle_GDD.md:687-693",
+      "requirement": "Extend EnemyPursuitMovement with a generic, Melee-independent hold-and-resume seam that reads MeleeEnemyAttack's public wind-up phase, stops NavMeshAgent translation for the wind-up, and resumes the existing pursuit behavior as soon as the cycle leaves wind-up or ResetAttack cancels it. The enemy may keep facing its current target. Do not alter existing pursuit, search, locked-door routing, doorway traversal, or ResetPursuit behavior."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Tasks/NSC-015.yaml: acceptance_criteria AC-004; Docs/GDD/No_Safe_Circle_GDD.md:566-576, 676-695",
+      "requirement": "Create MeleeEnemyGameplayPrefabBuilder.cs and its Unity sidecar. Expose BuildMeleeEnemyGameplayPrefab at No Safe Circle/Build Melee Enemy Gameplay Prefab. The production entry point exclusively materializes Generated/MeleeEnemyGameplay.prefab and its Unity sidecar; neither generated file may be hand-written or reconstructed. Create MeleeEnemyGameplayPrefabTests.cs and its Unity sidecar with a non-saving temporary builder seam and deliberate read-only checks of the exact generated prefab."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Tasks/NSC-015.yaml: acceptance_criteria AC-005; Docs/GDD/No_Safe_Circle_GDD.md:676-693",
+      "requirement": "Configure the generated prefab with the project NavMesh agent type, radius, and height from NSC-089 without editing ProjectSettings. Serialize only Melee-specific speed, acceleration, angular speed, stoppingDistance, autoBraking, obstacleAvoidanceType, and avoidancePriority. Set stoppingDistance below MeleeEnemyAttack's close attack range and set speed before EnemyStatusEffectMovement.Awake records BaselineSpeed. In later-encounter tuning, production PlayerMovement must not preserve indefinite separation during an unobstructed retreat that remains inside LoseTargetDistance. Add no per-enemy slot or offset destination."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "Tasks/NSC-015.yaml: acceptance_criteria AC-006; Docs/GDD/No_Safe_Circle_GDD.md:522, 687-695",
+      "requirement": "Create MeleeEnemyDefeatResponse.cs and its Unity sidecar. On EnemyHealth.Defeated, call MeleeEnemyAttack.ResetAttack and EnemyLockedDoorAttack.ResetAttack, disable EnemyLockedDoorAttack, stop EnemyPursuitMovement participation, remove NavMeshAgent avoidance obstruction, disable the living body Collider, preserve the same persistent GameObject, and swap its SpriteRenderer to one cached death sprite. Expose ResetDefeatResponse to restore only response-owned state, including the living sprite, Collider, locomotion participation, EnemyLockedDoorAttack enablement, cached corpse state, and current-life hit count. After ResetDefeatResponse, EnemyHealth.ResetHealth, and EnemyPursuitMovement.ResetPursuit run in any order, the same GameObject must be alive, on the NavMesh at its reset placement, and able to acquire and pursue again."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "Tasks/NSC-015.yaml: acceptance_criteria AC-006; Tasks/NSC-099.yaml: acceptance_criteria AC-003 and INT-001; Docs/GDD/No_Safe_Circle_GDD.md:522, 687-695",
+      "requirement": "Implement the reusable ordered, first-match-wins death-look selector and configure the Dungeon Brute rules. Count positive EnemyHealth.Damaged notifications over the current life and reset the count in MeleeEnemyDefeatResponse.ResetDefeatResponse, not EnemyHealth.ResetHealth; damage-over-time ticks do not count where a distinct damage-over-time system exists. Select burned for a fire killing blow only if the project defines fire as a distinct damage type; select blasted for exactly one hit whose damage reaches a serialized fraction of maximum health; otherwise select decapitated for exactly one hit; select dismembered for more than one hit; and select blasted for zero or unknown hits. Keep the heavy-blow threshold relative to maximum health and tunable. All configured Dungeon Brute looks must be reachable. The serialized look data must support look, variant, and weight without embedding final NSC-099 sprite identity or tuning in this child."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "Tasks/NSC-015.yaml: acceptance_criteria AC-006; Tasks/NSC-099.yaml: acceptance_criteria AC-002 through AC-004; Docs/GDD/No_Safe_Circle_GDD.md:572-576, 687-695",
+      "requirement": "Choose the death look and variant once at defeat and cache them for the displayed corpse. For a look with multiple variants, use its serialized weights while preventing the same variant from repeating back-to-back for the same enemy type; never change the selected look to satisfy no-repeat, and allow repeats when a look has only one variant. Keep defeated bodies for the rest of the level with no fade. Choose one small world-space ground-plane offset at death, cache it, and keep it inside the corpse footprint without changing the shared ground-line alignment. Sort the corpse through its pivot ground point using the existing NSC-039 sorting band and project transparency-sort axis, not sprite bounds. The corpse has no physical body collision or NavMesh avoidance obstruction."
+    },
+    {
+      "criterion_id": "AC-007",
+      "reference": "Tasks/NSC-015.yaml: acceptance_criteria AC-007; Tasks/NSC-039.yaml and Tasks/NSC-077.yaml: approved world-sprite and enemy-animation ownership; Docs/GDD/No_Safe_Circle_GDD.md:572-576, 676-695",
+      "requirement": "Generate MeleeEnemyGameplay.prefab with exactly one NavMeshAgent, EnemyTargetKnowledge, EnemyPursuitMovement, EnemyStatusEffectMovement, EnemyHealth, MeleeEnemyAttack, MeleeEnemyDefeatResponse, EnemyLockedDoorAttack, EnemyAnimationController, SpriteRenderer visual, and generated MeleeEnemyAnimator controller. Preserve EnemyTargetKnowledge.Initialize(Transform) and EnemyHealth.Initialize(ActiveEnemyRegistry) as activation seams. Include no scene registry, wizard scene reference, spawn placement, encounter count, room identity, door target, input action, or spell behavior. Reuse NSC-077 outputs read-only and create no second walk-direction component."
+    },
+    {
+      "criterion_id": "AC-008",
+      "reference": "Tasks/NSC-015.yaml: acceptance_criteria AC-008; Docs/GDD/No_Safe_Circle_GDD.md:522, 686-693",
+      "requirement": "Give the living prefab exactly one non-trigger physical body Collider sized to the enemy footprint so PlayerMovement cannot pass through it and living enemies obstruct one another. Keep attack range and damage on MeleeEnemyAttack; the Collider must not drive attacks or damage. MeleeEnemyDefeatResponse disables the Collider on defeat and ResetDefeatResponse re-enables it."
+    },
+    {
+      "criterion_id": "AC-009",
+      "reference": "Tasks/NSC-015.yaml: acceptance_criteria AC-009; Docs/GDD/No_Safe_Circle_GDD.md:668-695",
+      "requirement": "In DoorPrototypeGlobalSceneBuilder.cs, remove EnemyPursuitLeashDistance and the BuildChaseEnemy call to EnemyTargetKnowledge.SetMaximumPursuitDistanceFromStart, while leaving the public API itself unchanged. In the same change, move the Bone Archive melee spawn from (-6,0,10) to (-3,0,10), the Lower Vault melee spawn from (-7,0,53) to (-2,0,53), and the Chapel Lantern Wraith spawn from (-9,0,27) to (-9,0,31), with comments recording the geometry clearance. Regenerate DoorPrototype.unity through the owned builder; do not hand-edit the binary scene."
+    }
+  ],
+  "basis": "The ownership sheet assigns all remaining parent work to one ordered child: the generic EnemyPursuitMovement hold seam, Dungeon Brute defeat response and death-look mechanism, MeleeEnemyGameplay prefab generation, prefab and pursuit tests, builder leash removal, and canonical DoorPrototype scene regeneration. Existing components and read-only generated art/navigation outputs remain owned by their named task contracts.",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Tasks/NSC-015.yaml: completion_gates VAL-003; Docs/GDD/No_Safe_Circle_GDD.md:572-576, 676-695",
+      "requirement": "MeleeEnemyGameplayPrefabTests must exercise only the non-saving builder seam in a temporary asset location. After controller materialization, open the exact generated prefab read-only and close it without saving. Verify exact component counts, same-prefab references, public activation seams, NSC-077 SpriteRenderer pivot, scale, sorting, animation binding, NSC-089 NavMesh settings, serialized speed, stoppingDistance below close attack range, exactly the AC-008 body Collider and no additional unapproved Collider, and no scene or encounter references."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Tasks/NSC-015.yaml: completion_gates VAL-004; Docs/AI-Pipeline/GAME_TASK_LESSONS_LEARNED.md and Unity build/test policy",
+      "requirement": "The Windows Unity controller runs No Safe Circle/Build Melee Enemy Gameplay Prefab, verifies that the prefab and Unity sidecar were materialized, runs the focused conformance tests, runs the production builder a second time, and compares serialized component, reference, and configuration meaning rather than raw YAML or whole-file hashes. The second run creates no duplicate asset or Component. If Unity materialization is unavailable, stop at NEEDS_MATERIALIZATION with the exact menu command and expected output paths."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "Tasks/NSC-015.yaml: completion_gates VAL-005; Docs/GDD/No_Safe_Circle_GDD.md:75-79, 81-94, 526-532, 686-693",
+      "requirement": "Create MeleeEnemyPursuitPlayModeTests.cs and its Unity sidecar. On a temporary NavMesh, drive production PlayerMovement through the Unity Input System while at least three read-only instances of the exact generated prefab start at distinct positions, acquire the wizard normally, and remain inside LoseTargetDistance. Verify the unobstructed retreat gap decreases over a bounded interval; at one declared sample all three are within a documented test-local multiple of close attack range; pairwise distances change and are not all equal within a documented tolerance; no slot or offset destination is used; EnemyStatusEffectMovement.BaselineSpeed equals the prefab NavMeshAgent speed; and Frost reset restores that speed."
+    },
+    {
+      "gate_id": "VAL-004",
+      "reference": "Tasks/NSC-015.yaml: completion_gates VAL-006; Docs/GDD/No_Safe_Circle_GDD.md:522, 686-695",
+      "requirement": "Create MeleeEnemyDefeatResponsePlayModeTests.cs and its Unity sidecar. Instantiate the exact generated prefab read-only in a registry harness, register it only as test setup, defeat it through EnemyHealth.TakeDamage, and verify one unregister, no later player or locked-door damage, no pursuit, no NavMesh avoidance obstruction, disabled body collision, and preservation of the same GameObject. Exercise every order of ResetDefeatResponse, ResetHealth, and ResetPursuit; after all three, verify the agent is on the NavMesh at its reset placement, the locked-door attack and body Collider are enabled, and the same object can register, acquire, and pursue again."
+    },
+    {
+      "gate_id": "VAL-005",
+      "reference": "Tasks/NSC-015.yaml: completion_gates VAL-007; Docs/GDD/No_Safe_Circle_GDD.md:21-25, 75-79, 114-118, 526-544",
+      "requirement": "Vincent reviews the exact materialized candidate from the gameplay camera. Record grounded eight-direction movement and sorting, gradual closing pressure instead of endless straight-retreat safety, changing multi-enemy clustering instead of a fixed formation, temporary separation from circling an obstacle without target loss, readable rooted wind-up timing, and understandable defeated-enemy treatment. If attack or defeat feedback is unavailable or unreadable, record the open presentation decision rather than claiming this check."
+    },
+    {
+      "gate_id": "VAL-006",
+      "reference": "Tasks/NSC-015.yaml: completion_gates VAL-008; Docs/GDD/No_Safe_Circle_GDD.md:522, 686-695",
+      "requirement": "In Play Mode, verify production PlayerMovement cannot pass through a living generated Melee Enemy; the defeated enemy obstructs neither the wizard nor pathing and has no enabled body Collider; ResetDefeatResponse restores its body Collider and living sprite; and at least two test-configured death looks share the living frames' ground line. With three enemies converging on one doorway, verify every enemy reaches the wizard's side within a bounded time and none remains permanently wedged."
+    },
+    {
+      "gate_id": "VAL-007",
+      "reference": "Tasks/NSC-015.yaml: completion_gates VAL-008; Tasks/NSC-099.yaml: acceptance_criteria AC-003 and completion_gates VAL-003; Docs/GDD/No_Safe_Circle_GDD.md:522, 687-695",
+      "requirement": "In focused Play Mode tests, prove the ordered Dungeon Brute selector with one-hit, heavy one-hit, multiple-hit, zero-hit, and distinct-fire cases when a fire damage type exists; prove a chip hit followed by a killing hit counts as multiple hits; prove damage-over-time ticks do not increment the count when such a system exists; prove ResetDefeatResponse clears the current-life hit count; and prove every configured Dungeon Brute look is reachable. Kill an enemy through the public selector seam with zero hits to verify the catch-all without adding a new EnemyHealth kill API."
+    },
+    {
+      "gate_id": "VAL-008",
+      "reference": "Tasks/NSC-015.yaml: completion_gates VAL-008; Tasks/NSC-099.yaml: acceptance_criteria AC-002 and completion_gates VAL-001; Docs/GDD/No_Safe_Circle_GDD.md:572-576, 687-695",
+      "requirement": "Hold a corpse across re-enable and several frames and verify its cached sprite and world-space offset never change. For two consecutive same-type kills by the same rule, verify the same look remains selected while two variants alternate when available. Verify the cached offset stays inside the footprint and preserves the common ground row. Place an overhanging corpse sprite beside a wall and verify sorting follows the corpse pivot ground point rather than renderer bounds."
+    },
+    {
+      "gate_id": "VAL-009",
+      "reference": "Tasks/NSC-015.yaml: completion_gates VAL-009; Docs/GDD/No_Safe_Circle_GDD.md:526-544, 668-695",
+      "requirement": "Extend EnemyPursuitPlayModeTests.cs without weakening its NSC-092 regression coverage. In Play Mode, verify an enemy in the committed DoorPrototype scene follows a retreating wizard beyond the former five-unit leash. Add an Edit Mode assertion for the three revised spawn positions so later changes fail explicitly. Tests must not save DoorPrototype.unity."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "This child is the explicitly ordered second implementation bundle. It depends on the first child's public attack-phase surface, then owns the remaining shared locomotion resource, defeat response, generated prefab, builder output, canonical scene regeneration, and all combined prefab/pursuit/defeat validation. The resource partition leaves no hidden parent assembly work.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-003",
+    "NSC-011",
+    "NSC-012",
+    "NSC-013",
+    "NSC-017",
+    "NSC-039",
+    "NSC-077",
+    "NSC-089",
+    "NSC-091",
+    "NSC-092",
+    "NSC-124"
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "Tasks/NSC-015.yaml: downstream_integration_obligations INT-001; Docs/GDD/No_Safe_Circle_GDD.md:687-695",
+      "requirement": "The Floor Run/Restart work must call MeleeEnemyDefeatResponse.ResetDefeatResponse during a real zero-health restart alongside MeleeEnemyAttack.ResetAttack and the enemy-owned health and pursuit resets. This child proves ResetDefeatResponse locally and does not edit the restart orchestrator."
+    },
+    {
+      "obligation_id": "INT-002",
+      "reference": "Tasks/NSC-015.yaml: downstream_integration_obligations INT-002; Docs/GDD/No_Safe_Circle_GDD.md:549-554, 687-695",
+      "requirement": "NSC-030 must instantiate the generated MeleeEnemyGameplay prefab, pass the wizard Transform to EnemyTargetKnowledge.Initialize, pass the shared ActiveEnemyRegistry to EnemyHealth.Initialize, and submit the instance through EncounterAdmissionController.RequestAdmission so registration occurs only after admission. Encounter placement, room identity, counts, mixed composition, and admission policy remain outside this child."
+    },
+    {
+      "obligation_id": "INT-003",
+      "reference": "Tasks/NSC-015.yaml: downstream_integration_obligations INT-003; Tasks/NSC-099.yaml: downstream_integration_obligations INT-001; Docs/GDD/No_Safe_Circle_GDD.md:522, 687-695",
+      "requirement": "NSC-055 must reuse this child's generic ordered first-match selector shape for the Lantern Wraith and wire the NSC-099 wraith sprites without creating a second selection mechanism. Configure one-hit deaths as shattered with dissipated as the rarer variant, multiple-hit deaths as unravelled or snuffed with draining and hollowed as rarer variants, and zero or unknown-hit deaths as dissipated. This child creates no Lantern Wraith-specific type, sprite, prefab, or test."
+    }
+  ],
+  "exclusive_resources": [
+    "logical:enemy-locomotion-behavior-surface",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyDefeatResponse.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyDefeatResponse.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/MeleeEnemyGameplayPrefabBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/MeleeEnemyGameplayPrefabBuilder.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/MeleeEnemyGameplay.prefab",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/MeleeEnemyGameplay.prefab.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyPursuitPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyPursuitPlayModeTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyDefeatResponsePlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyDefeatResponsePlayModeTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/MeleeEnemyGameplayPrefabTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/MeleeEnemyGameplayPrefabTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyPursuitPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyPursuitPlayModeTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyPursuitMovement.cs",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+  ],
+  "execution_reason": "One Unity programmer can add the generic pursuit hold-and-resume seam, implement the Dungeon Brute defeat response and solid-body behavior, generate and validate MeleeEnemyGameplay.prefab, remove the demo pursuit leash through the scene builder, materialize DoorPrototype.unity, and perform the remaining pursuit, defeat, prefab, and gameplay-camera checks.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:522, 526-544",
+      "requirement": "Enemy Health/Defeat owns enemy health and defeat state; target knowledge and pursuit retain persistent enemies across target loss and doorway traversal while the shared door and navigation systems own passability."
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:549-554",
+      "requirement": "The Active Enemy Registry owns persistent active-enemy bookkeeping and admission capacity; prefab activation does not own scene-level registry or encounter admission."
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:566-576, 676-695",
+      "requirement": "Enemies use world-space SpriteRenderer prefabs, the visual and gameplay layers remain separate, and the shared gameplay navigation layer owns NavMesh-based movement and configuration."
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:75-79, 81-94, 114-118",
+      "requirement": "Melee groups, obstacles, room routes, Frost Field, Force Wave, and Fireball create the intended separation and pressure; movement alone does not preserve indefinite safety."
+    }
+  ],
+  "id": "NSC-125",
+  "kind": "implementation",
+  "notes": "This child is the sole proposed owner of logical:enemy-locomotion-behavior-surface and all parent resources not assigned to melee-close-range-attack. Its EnemyPursuitMovement edit is limited to a generic, Melee-independent hold-and-resume API and the minimum production wiring needed to honor MeleeEnemyAttack wind-up; existing NSC-092 pursuit/search/door-traversal/reset behavior and NSC-017 locked-door behavior remain unchanged. NSC-089 owns NavMesh configuration; NSC-091 owns target knowledge; NSC-012 owns health and defeat; NSC-011 owns registry bookkeeping; NSC-013 owns Frost slowdown and forced displacement; NSC-017 owns EnemyLockedDoorAttack; NSC-039 and NSC-077 own the read-only SpriteRenderer, sorting, EnemyAnimationController, and MeleeEnemyAnimator outputs; NSC-003 owns PlayerMovement. NSC-099 later assigns the committed Dungeon Brute death sprites, tags, and weights to the serialized mechanism; this child must not edit those art assets or claim visual approval. The five room source scenes remain out of scope. DoorPrototype.unity is materialized by the owned builder and must not be hand-edited. Builder tests use temporary assets; committed prefab and scene checks open exact artifacts read-only and close them without saving. The listed existing-task references establish ownership for every existing production component, generated output, and navigation surface this child uses.",
+  "parent": "NSC-015",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-3a8f425799968e2f4af157126829502c7abfd6e9712f9090a9d46c5e823fe7f9",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 17,
+    "parent_contract_sha256": "eccaaf878e02994638f535ad429f85a8ca6a773524d8a283c099ddd3c61b03a9",
+    "parent_task_id": "NSC-015"
+  },
+  "reconciliation_key": "melee-prefab-locomotion-defeat",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "Tasks/NSC-015.yaml AC-001 and AC-004 through AC-009, VAL-003 through VAL-009, and INT-001 through INT-003; the cited GDD behavior and the existing owner contracts",
+  "title": "Melee Enemy Gameplay Prefab, Pursuit Tuning, and Defeat Response",
+  "type": "enemy_prefab"
+}

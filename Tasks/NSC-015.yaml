@@ -96,9 +96,14 @@
   ],
   "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 17,
-  "decomposition_reason": "Execution has two ordered Unity ownership bundles. The first owns close-range attack, PlayerHealth damage, defeat gating, and ResetAttack with real-component Play Mode tests and no art dependency. The second is the sole owner of logical:enemy-locomotion-behavior-surface for Melee movement tuning, defeat-time movement shutdown/restoration, deterministic gameplay-prefab materialization, assembled-prefab tests, group pursuit validation, and gameplay-camera review. This removes the prior attack/prefab test cycle and prevents two children from mutating locomotion.",
-  "decomposition_state": "concrete",
+  "contract_revision": 18,
+  "decomposition_children": [
+    "NSC-124",
+    "NSC-125"
+  ],
+  "decomposition_reason": "This decomposition adds reviewed child contracts: NSC-124 (melee-close-range-attack), NSC-125 (melee-prefab-locomotion-defeat). The complete active direct-child set is: NSC-124 (melee-close-range-attack), NSC-125 (melee-prefab-locomotion-defeat). Aggregate conformance is derived from that complete child set; any required assembly or integration must be an explicit child contract.",
+  "decomposition_requirement_sha256": "a11b4290423dfba74eb90435921591fac8f34bc8e1a579d18801322368cd050a",
+  "decomposition_state": "decomposed",
   "depends_on": [
     "NSC-003",
     "NSC-004",
@@ -129,33 +134,9 @@
       "requirement": "NSC-055 owns the Lantern Wraith's death looks, their sprites and their prefab wiring, and consumes the enemy-agnostic selection shape NSC-015 delivers in AC-006: the ordered, first-match-wins rule evaluation and the per-enemy serialized set of at least two distinct death looks. NSC-055 serializes the wraith's four looks against the AC-006 wraith rule - one damaging hit selects shattered with dissipated as its rarer variant, more than one selects unravelled or snuffed - and proves that mapping in its own coverage. NSC-015 delivers no wraith-specific type, sprite, prefab or test, and a NSC-015 split that implements only the Dungeon Brute half of AC-006 satisfies AC-006 for this task."
     }
   ],
-  "exclusive_resources": [
-    "logical:enemy-locomotion-behavior-surface",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyAttack.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyAttack.cs.meta",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyDefeatResponse.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyDefeatResponse.cs.meta",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/MeleeEnemyGameplayPrefabBuilder.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/MeleeEnemyGameplayPrefabBuilder.cs.meta",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/MeleeEnemyGameplay.prefab",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/MeleeEnemyGameplay.prefab.meta",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyAttackPlayModeTests.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyAttackPlayModeTests.cs.meta",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyPursuitPlayModeTests.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyPursuitPlayModeTests.cs.meta",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyDefeatResponsePlayModeTests.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyDefeatResponsePlayModeTests.cs.meta",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/MeleeEnemyGameplayPrefabTests.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/MeleeEnemyGameplayPrefabTests.cs.meta",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs.meta",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyPursuitPlayModeTests.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyPursuitPlayModeTests.cs.meta",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyPursuitMovement.cs",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity"
-  ],
-  "execution_reason": "The task combines a close-range attack state owner with a separately ordered locomotion/prefab owner that configures the project NavMeshAgent, stops/restores movement on defeat, assembles read-only presentation outputs, materializes a Unity prefab, and proves multiple-enemy production pursuit. These are two bounded dependent handoffs, not one conflict-free implementation assignment.",
-  "execution_scope": "needs_execution_decomposition",
+  "exclusive_resources": [],
+  "execution_reason": "Non-executable aggregate feature. All implementation responsibilities are represented by active direct child contracts: NSC-124 (melee-close-range-attack), NSC-125 (melee-prefab-locomotion-defeat). No later implementation pass on NSC-015 exists.",
+  "execution_scope": "not_applicable",
   "gdd_evidence": [
     {
       "reference": "Docs/GDD/No_Safe_Circle_GDD.md:511-520; Required Enemy Roster",
@@ -187,11 +168,112 @@
     }
   ],
   "id": "NSC-015",
-  "kind": "implementation",
+  "kind": "feature",
   "notes": "D1B.2 should produce two ordered responsibility splits without allocating child IDs here. Split 1 owns MeleeEnemyAttack, ResetAttack, and MeleeEnemyAttackPlayModeTests; it depends on NSC-004, NSC-012, NSC-089, NSC-091, and NSC-092 and has no art dependency. Its tests construct real production components and do not require the assembled prefab. Split 2 depends on split 1 and is the sole owner of logical:enemy-locomotion-behavior-surface; it owns MeleeEnemyDefeatResponse, Melee-specific movement serialization, MeleeEnemyGameplayPrefabBuilder, the generated prefab, prefab conformance, EnemyLockedDoorAttack wiring and conformance, production-input retreat/group tests, Frost baseline-speed proof, and human review. It additionally depends on NSC-003, NSC-011, NSC-013, NSC-017, NSC-039, and NSC-077. D1B.2 still produces exactly two ordered splits. A third split is justified only if Vincent approves separate attack or defeat art that does not edit locomotion. No split edits EnemyTargetKnowledge.cs, EnemyStatusEffectMovement.cs, PlayerMovement.cs, PlayerHealth.cs, EnemyHealth.cs, ActiveEnemyRegistry.cs, ProjectSettings, NSC-077 outputs, room/scene assets, Input Actions, encounters, doors, or spells. GER REVISION 16, 2026-09-25: 'room/scene assets' STILL EXCLUDES THE FIVE ROOM SCENES AND NOW CARRIES ONE NAMED EXCEPTION - Assets/Scenes/DoorPrototype.unity, which this task now owns. VAL-009 requires Play Mode proof that THE COMMITTED SCENE no longer carries the demo pursuit leash, and revision 15 gave no split any way to write that scene, so the gate named an outcome the resource list made unreachable - the fourth instance of that same shape in this contract. MEASURED RATHER THAN ASSUMED, and both measurements argue for the grant rather than against it. FIRST, THE LEASH IS NOT SCENE-AUTHORED: it is EnemyPursuitLeashDistance = 5f, a const at DoorPrototypeGlobalSceneBuilder.cs:352 applied at :499 through SetMaximumPursuitDistanceFromStart, in a FILE THIS TASK ALREADY OWNS, and EnemyTargetKnowledge.cs:44 records that the anchor is deliberately not serialized. So the scene write is a REGENERATION by the owned builder, not a hand edit of scene content. SECOND, THIS IS THE NORM AND NOT A NEW RISK: THIRTY-TWO active contracts already own Assets/Scenes/DoorPrototype.unity, so NSC-015 is the thirty-third and withholding it was the anomaly. AND THE CRLF HAZARD CLAUDE.md WARNS ABOUT DOES NOT APPLY TO THIS FILE: DoorPrototype.unity is a BINARY Unity scene - it opens with NUL bytes and the version string 6000.1.8f1, carries 437,825 NULs and ZERO CRLF pairs - so there are no line endings for a re-serialization to flip. That hazard is real for TEXT scenes and this is not one. The five room scenes remain forbidden to every split. GER REVISION 15, 2026-09-25: EnemyPursuitMovement.cs IS DELIBERATELY NO LONGER ON THAT LIST, AND THE PERMISSION IS NARROW. AC-001 requires EnemyPursuitMovement to hold the NavMeshAgent during wind-up and resume after, while revision 14 forbade editing the only file where that can live, so the contract asked for behaviour it prohibited implementing. THE ONLY CHANGE PERMITTED THERE IS ADDING A GENERIC, MELEE-AGNOSTIC HOLD-AND-RESUME API plus the minimum wiring to honour it: no change to existing pursuit, search, door-traversal or reset behaviour, no melee-specific type or field, and every existing NSC-092 and NSC-017 test must still pass unchanged. NSC-092 AND NSC-017 ARE NOT REVISED AND KEEP THE FILE - both are conformant with delivery records, and revising either to add the API would have un-delivered a delivered task to buy an API this task can add itself. A third claimant is the normal additive branch, and this contract ALREADY shares NSC-092's EnemyPursuitPlayModeTests.cs on exactly the stated grounds that contention is resolved by sequencing rather than by narrowing the claim. NSC-017 owns EnemyLockedDoorAttack.cs and its behavior; split 2 only attaches the existing component to the generated prefab and wires it to the EnemyPursuitMovement and EnemyTargetKnowledge already present there, without editing NSC-017's file. NSC-007 owns Charged Fireball's multiple-Melee damage gate and its settled target discovery: a flat horizontal distance test against active, non-defeated EnemyHealth objects, with no enemy colliders (SPELL_DECISIONS.md S4; NSC-007 AC-007). This task adds no Collider, layer, tag, query API, or Fireball dependency edge. Gate mapping from revision 5 is old VAL-001 to new VAL-005, old VAL-002 to new VAL-001, and old VAL-003/VAL-004 to new VAL-002. Split 2 must not be dispatched until Vincent answers the body-blocking, wind-up locomotion, and defeated-enemy visual and collision decisions, because each can change split 2's components or files. The attack-feedback decision gates only VAL-007 approval. Split 1 does not wait for any of these decisions. Revision 7 (2026-09-16): NSC-094 is superseded by NSC-077 revision 3, which delivers EnemyAnimationController and the generated MeleeEnemyAnimator.controller for the existing scene MeleeEnemy. This prefab reuses them, so the conditional MeleeEnemyWalkDirection script and its resource claims are removed. Revision 10 (2026-09-17): the Fireball target-discovery sentence now states the settled rule instead of pending approval; no scope, resource, criterion, or gate change. Revision 11 (2026-09-17): AC-002 and VAL-001 record NSC-088 revision 4 INT-003 (a CurrentTarget without PlayerHealth, such as the Spectral Decoy phantom, takes no damage and causes no exception); split 1 owns it. No scope, resource, dependency or split change. Revision 12, 2026-09-17: Vincent answered the four open melee questions, firing all three revision triggers revision 11 had written into itself. AC-001's locomotion-owner revision is approved (rooted wind-up, suppression owned by EnemyPursuitMovement, facing still permitted); AC-006's two pending decisions are resolved (a set of at least two stylised death looks selected at random, burned gated to fire kills only if a distinct fire damage type exists, ground-line aligned, artwork from a separate task and approved by Vincent; no physical body collision once defeated); AC-008 adds the living enemy's solid body, which no criterion covered; AC-009 takes ownership of the demo-leash removal and its three spawn re-clearances, which were otherwise a direct edit to a builder eleven tasks claim with no contract behind it. VAL-008 checks the doorway-crowding consequence of solid bodies instead of assuming it away. The Lantern Wraith's death looks are deliberately NOT here: the Art Director established that blood, decapitation and severed arms belong to the Dungeon Brute and would read as a bug on a spectral enemy, so the wraith's four looks belong to the wraith task. GER REVISION 15, 2026-09-25: THAT SENTENCE AND AC-006 APPEARED TO CONTRADICT EACH OTHER AND DO NOT, BUT THE CONTRACT NEVER SAID SO. AC-006 states the Lantern Wraith's ordered selection RULE; this sentence excludes the wraith's SPRITES and its prefab wiring. Both are correct and they are different deliverables. NSC-015 delivers the ordered, first-match-wins selector and the per-enemy serialized look-set mechanism, and nothing wraith-specific: the wraith rule in AC-006 is the specification NSC-055 must satisfy, binding on NSC-055 through INT-003, and is NOT a NSC-015 deliverable. A split covering only the Dungeon Brute half of AC-006 is therefore CORRECT and its coverage record must say so rather than claiming AC-006 whole. Claiming the global scene builder makes this task contend with eleven others and with NSC-092 on EnemyPursuitPlayModeTests; that is resolved by sequencing, not by narrowing the claim. Revision 13, 2026-09-18: death-look selection changes from random to an ordered, first-match-wins rule driven by how the enemy died - Vincent's \"you get killed with 1 shot, then you are decapitated\" and \"if you need multiple shots to kill you, you lose an arm\". GER REVISION 15, 2026-09-25: THIS COUNTS DAMAGING HITS WITHOUT EDITING EnemyHealth.cs, which revision 14 both required here and forbade three sentences later in these same notes - a contradiction a decompose reviewer stopped on. The committed EnemyHealth.cs already exposes public event Action<float> Damaged, so MeleeEnemyDefeatResponse subscribes to it and owns the count itself. The count resets in MeleeEnemyDefeatResponse.ResetDefeatResponse(), which AC-006 already requires this task to expose, and NOT in ResetHealth(), which raises no event and therefore cannot notify any subscriber - that is why the revision 13 wording could not be implemented as written. The zero-hit death case is proven by calling the public selector directly with a hit count of zero, not by driving a real defeat, because defeat is reachable only through TakeDamage and a genuine zero-hit Defeated cannot be produced through any authorized API. NO MECHANISM IS ADDED TO EnemyHealth.cs AND NO SPLIT EDITS IT. Two ambiguities are answered here rather than left to a crew: hits are counted over the whole life, not just the killing blow, and damage-over-time ticks do not count. The rule is ordered because a one-shot fire kill would otherwise match two rules, and every look must be reachable because an earlier draft of this mapping left four of the twelve sprites unable to appear in play. Sprite identity, look and variant tags and selection weights are NSC-099's. Revision 14, 2026-09-18: the consequences of Vincent choosing that corpses persist for the level. With a fade, overlap is momentary and none of this is worth a clause; with persistence it is permanent, so variant no-repeat and a cached positional jitter go in to stop a doorway of dead brutes reading as a rendering fault. The no-repeat is deliberately at the VARIANT level: the Art Director proposed it at the look level, which would have broken \"one shot means decapitated\" for the second of two consecutive one-shot kills while still passing every reachability gate - a silent override of Vincent's own rule. Corpse sorting by pivot rather than sprite bounds is stated because this art violates the usual assumption that a sprite's bounds approximate its footprint; the separate pieces that make the deaths read are exactly what would make a bounds-based sort flicker.",
   "parent": "NSC-010",
   "provenance": {
     "bootstrap_status_observation": "open",
+    "contract_followups": [
+      {
+        "base_contract_sha256": "50ff30f44f3b5e8d08c41d693de85b35f2f448b0cd1e93cb327e3ff7f54e986b",
+        "date": "2026-09-17",
+        "previous_contract_revision": 6,
+        "reason": "Follow-up revision 7: NSC-094 is superseded by NSC-077 revision 3, which delivers EnemyAnimationController and MeleeEnemyAnimator.controller; the prefab reuses them, so the NSC-094 dependency and the conditional MeleeEnemyWalkDirection script are removed. Decomposition is still pending.",
+        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)",
+        "revised_contract_sha256": "4345f845266789afd35e4aa3cc3ba0dce0295c29257c8823cbfb26aabe879508",
+        "source_head": "588bfc03b7b88b159feec010325b0c1f83b5f612"
+      },
+      {
+        "base_contract_sha256": "afa6886854c16ebd4d64701dce23c224bb32ac59fe35b948d8ac16d16699e768",
+        "date": "2026-09-17",
+        "previous_contract_revision": 7,
+        "reason": "Follow-up revision 8 from the rev 7 contract check (revise): split 2 depends on NSC-017 and attaches and verifies EnemyLockedDoorAttack on the generated prefab; INT-002 submits instances through EncounterAdmissionController.RequestAdmission (from the NSC-030 check). Decomposition still pending.",
+        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)",
+        "revised_contract_sha256": "57b5d6908749709f11dfa985888e2b7b098af08d92000ed7b1f04219f945ead7",
+        "source_head": "d486feb94f1368e3018d664fdf673bc4e989ac28"
+      },
+      {
+        "base_contract_sha256": "c97f51b33c34e65efe8300b9aeb83acbcb34a3dd9f4587095daefd271cb03c4a",
+        "date": "2026-09-17",
+        "previous_contract_revision": 8,
+        "reason": "Follow-up revision 9 from the rev 8 Codex check (revise): MeleeEnemyDefeatResponse also resets and disables EnemyLockedDoorAttack on defeat and re-enables it on ResetDefeatResponse; VAL-006 proves no door damage after defeat.",
+        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)",
+        "revised_contract_sha256": "ccaccbb1b12143244a265077f37212d3b1a4455eac3925b2a23b3e4ae9dd8f24",
+        "source_head": "3eb886805c9d6e10381afc67b6d6bd4ba2fe0d9a"
+      },
+      {
+        "base_contract_sha256": "36d8c04302048e83b97f82ccba0b2a5630560aafce30a90977cdc7108ee305e9",
+        "date": "2026-09-17",
+        "previous_contract_revision": 9,
+        "reason": "Mechanical follow-up revision 10: the notes sentence on Fireball target discovery now states the settled rule (flat horizontal distance against active, non-defeated EnemyHealth, no enemy colliders; SPELL_DECISIONS.md S4, NSC-007 AC-007) instead of pending approval, as the NSC-007 rev 3 Codex check flagged. No scope, resource, criterion or gate change.",
+        "review": "mechanical revision; grep review only (tiered rule, 2026-09-17)",
+        "revised_contract_sha256": "674f6a7a582fb28e67f5893adb4f9dc8c5a1001d19a02be4a545a214dc9eb2fc",
+        "source_head": "375754d3de18947ee463df221e2be343b09e8839"
+      },
+      {
+        "base_contract_sha256": "45b9f6aaf1fd06af915056dd1b3dffcdede9a72abfcc2d9b45282cb0b2332520",
+        "date": "2026-09-17",
+        "previous_contract_revision": 10,
+        "reason": "Follow-up revision 11 recording NSC-088 revision 4 INT-003 (GER Orchestrator, 2026-09-17): AC-002 requires MeleeEnemyAttack to handle a CurrentTarget without PlayerHealth, such as the Spectral Decoy phantom, with no damage, no exception and no change to the target; VAL-001 adds that case. Split 1 owns it; no scope, resource, dependency or split change.",
+        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)",
+        "revised_contract_sha256": "fb9aefc9c704bfe72aa874b14ea43648b8694270a32eefceff939db31b8d33fe",
+        "source_head": "4d4f25db18c587fa8718eaca0adc9c62644c3763"
+      },
+      {
+        "base_contract_sha256": "2e381054b1f6a781ecf642eab48965ad79c18a8d0b7ec369d13f506ede8283ea",
+        "date": "2026-09-18",
+        "previous_contract_revision": 11,
+        "reason": "Vincent answered the four open melee questions 2026-09-17, firing all three revision triggers revision 11 wrote into itself: AC-001's locomotion-owner approval (rooted wind-up), AC-006's two pending decisions (stylised death looks, no corpse collision), plus AC-008 for the living enemy's solid body and AC-009 taking ownership of the demo-leash removal and its three spawn re-clearances.",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)",
+        "revised_contract_sha256": "b044ceb93185848f454e1647510d154e07521370e8c607739b8728e0de95b9d1",
+        "source_head": "b7e46c320fcc937f6cda240379b3617dd3145d8c"
+      },
+      {
+        "base_contract_sha256": "0f7ac28768976290c6776b76c4a633336728d42e8edfbe2fbdf47685123016e6",
+        "date": "2026-09-18",
+        "previous_contract_revision": 12,
+        "reason": "Death-look selection changes from random to Vincent's ordered kill-history rule: one shot decapitated, multiple shots dismembered, fire burned, a heavy single blow blasted, and a zero-hit catch-all so a kill that never routes through TakeDamage still shows a corpse. Hits count over the enemy's life and damage-over-time ticks do not count; the look and variant are chosen once at death and cached so a displayed corpse never re-rolls its sprite. Requires EnemyHealth to expose a damaging-hit count reset by ResetHealth().",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)",
+        "revised_contract_sha256": "f5d247ecd2278bfe19dd8af59f99d70af81e083392b28a1a30952e04c8abb2df",
+        "source_head": "e595cc1626ddcc3040d68a88c3c8eb0ef4c5698b"
+      },
+      {
+        "base_contract_sha256": "ae081caedb0e3e503e6430464973bc1df6cd1395a800f1cc9f635a3a376d035c",
+        "date": "2026-09-18",
+        "previous_contract_revision": 13,
+        "reason": "Corpse presentation consequences of Vincent's persistence decision: sort by pivot ground point not sprite bounds (the art deliberately overhangs its footprint), persist for the level with no fade, never repeat the same VARIANT of a look back-to-back (variant level, so the kill-type rule is never overridden), and a world-space ground-plane jitter cached at death.",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)",
+        "revised_contract_sha256": "8557b71f5b50c8cd17a932b4cc51b1718ecd3caa5518cb80682fb2cbbfd4d5cf",
+        "source_head": "cb91d32a752e2bbdbd0b4559ab20a067990f4cdd"
+      },
+      {
+        "base_contract_sha256": "ee9cb3c3fe4bf13d575323bde9802073429c0fda5c2a23800d089bc308e9dad1",
+        "date": "2026-09-25",
+        "previous_contract_revision": 14,
+        "reason": "Rev 15 resolves the three internal contradictions a decompose reviewer stopped on (run decomp-nsc015-20260925a, needs_human). (1) Rev 14 required EnemyHealth to expose a hit count AND forbade editing EnemyHealth.cs; resolved with no EnemyHealth change - it already exposes public event Action<float> Damaged, so MeleeEnemyDefeatResponse counts hits itself and resets in ResetDefeatResponse(), which AC-006 already requires. (2) AC-001 required EnemyPursuitMovement to hold the NavMeshAgent during wind-up while the notes forbade editing that file; EnemyPursuitMovement.cs is added to exclusive_resources as a third claimant with a narrow grant (generic melee-agnostic hold/resume API only, existing NSC-092 and NSC-017 tests unchanged). NSC-092 and NSC-017 are NOT revised - both are conformant and revising either would un-deliver a delivered task. (3) AC-006 defines Lantern Wraith rules the notes call deliberately absent; they are different deliverables and new obligation INT-003 binds NSC-055 to the wraith looks, so a Dungeon-Brute-only split satisfies AC-006. taskcontrol state NSC-015 at c119b363c was aggregate, selected_record none, so nothing is un-delivered.",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)",
+        "revised_contract_sha256": "9e7304221841d09c7c91b06fddb7f9b8f2821a99a428e39d5cb9c711cc51a541",
+        "source_head": "c119b363cead9b5903fdac0a85292145b05d873b"
+      },
+      {
+        "base_contract_sha256": "61ec90b40fae58fb0ea2fac1c44bca7e7e4ae7a8f0be36a788d062cee24bc0eb",
+        "date": "2026-09-25",
+        "previous_contract_revision": 15,
+        "reason": "Rev 16 adds unity-scene:Assets/Scenes/DoorPrototype.unity to exclusive_resources, additively, and carves it out of the notes' 'room/scene assets' prohibition. Rejection in decompose run decomp-nsc015-20260925b: VAL-009 requires Play Mode proof that the COMMITTED scene no longer carries the demo pursuit leash, and rev 15 gave no split any way to write that scene - the fourth instance in this contract of a gate naming an outcome the resource list made unreachable. VAL-009 is NOT weakened and NOT deferred; deferring it to NSC-030 would break policy.py:209, which requires parent completion_gates to map to child completion_gates. Two measurements argue for the grant: the leash is EnemyPursuitLeashDistance = 5f, a const at DoorPrototypeGlobalSceneBuilder.cs:352 in a file this task already owns, so the scene write is a regeneration by the owned builder rather than a hand edit; and 32 active contracts already own this scene, so NSC-015 is the 33rd. The CRLF re-serialization hazard does not apply - DoorPrototype.unity is a binary scene with 437,825 NULs and zero CRLF pairs. The five room scenes stay forbidden to every split. taskcontrol state NSC-015 was aggregate with no selected_record, so nothing is un-delivered.",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)",
+        "revised_contract_sha256": "cfb0cb96403a85d468d186de4030c7fa6a2ca8ad9678abfcb9d8f5ed930621b1",
+        "source_head": "da942ab2a0167f07b74fa77ccd343ee6275f3581"
+      },
+      {
+        "base_contract_sha256": "ad2fdce694a5de1b31702f24c8ed9924a18e25e385986e3661732a85c33ccac1",
+        "date": "2026-09-25",
+        "previous_contract_revision": 16,
+        "reason": "AC-006 and VAL-008 still named EnemyHealth.ResetHealth() as the hit-count reset while the revision 15 notes had already established it resets in MeleeEnemyDefeatResponse.ResetDefeatResponse() and NOT in ResetHealth(), which raises no event and so cannot notify the subscriber that owns the count. Revision 15 fixed the notes and never propagated the change into the criterion and gate text, so a decompose run stopped needs_human on the contradiction - the same shape that stopped a reviewer at revision 13 to 14. This propagates it and weakens nothing: AC-006 still requires the count to reset and VAL-008 still requires it to return to its initial value; only the named mechanism changes to the one that can actually be implemented, and AC-006 now records why so it is not reverted. Verified at HEAD: EnemyHealth.cs:14 exposes public event Action<float> Damaged, the sole Damaged invoke is at :35, and ResetHealth() at :54 raises nothing. Also swept all nine gates and nine criteria against the resource list in one pass per the standing rule after four prior instances: zero name a file the notes forbid editing, so this is not a fifth instance of that shape.",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)",
+        "revised_contract_sha256": "0974a05956bd1e82c22a4584afb6fb61dab9af37a57e2628a2c3ea99f03df296",
+        "source_head": "da9d3a8f4576e97aa31d067b8704b08e36e10b21"
+      }
+    ],
     "contract_transfers": [
       {
         "from_entry_id": "INT-001",
@@ -206,12 +288,14 @@
     "origin": "verified_reconciliation_bootstrap",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
     "source_schema_version": "1.0",
-    "verification_run_id": "20260821T195959Z-43dba5de",
     "task_design_ger": [
       {
         "ger_run_id": "20260914-072839-NSC-015",
+        "owner_patch_contract_sha256": "3cede2c5debfd67c2de997d0bb62517f33e39d24e1bfbdd5b04ab93495a86302",
         "packet_source_head": "22c93fbc93cfab5ef3aa6fca54822274782d10b6",
         "previous_contract_revision": 5,
+        "reaudit_recommendation": "commit_contract_then_decompose",
+        "recheck_recommendation": "commit_contract_then_decompose",
         "round_output_sha256": {
           "01-codex-generate": "99981b7b6d0e3a0ac9eef6023c18dd04e666c515c36b4289d883c3091dcc6bdc",
           "02-claude-evaluate": "e8ccdd1a57624d57e41ffcf83390c8e0f6d4d58a6339df8d3597e07ee628e885",
@@ -219,113 +303,10 @@
           "04-claude-reaudit": "32bef8b84f2d17c11d48accdf890851ea8c680a1c3d38fdc1f4ac4c34b778e9b",
           "05-owner-patch": "7c1107260b4b20f42f48dd7f29da72e81b23f1dd57be24064128cf54af126328",
           "06-claude-recheck": "ed3d2b5176799877ab70ea60c4e4b53415c392b0feaa052c9a73e3077b6c8312"
-        },
-        "reaudit_recommendation": "commit_contract_then_decompose",
-        "owner_patch_contract_sha256": "3cede2c5debfd67c2de997d0bb62517f33e39d24e1bfbdd5b04ab93495a86302",
-        "recheck_recommendation": "commit_contract_then_decompose"
+        }
       }
     ],
-    "contract_followups": [
-      {
-        "date": "2026-09-17",
-        "reason": "Follow-up revision 7: NSC-094 is superseded by NSC-077 revision 3, which delivers EnemyAnimationController and MeleeEnemyAnimator.controller; the prefab reuses them, so the NSC-094 dependency and the conditional MeleeEnemyWalkDirection script are removed. Decomposition is still pending.",
-        "source_head": "588bfc03b7b88b159feec010325b0c1f83b5f612",
-        "previous_contract_revision": 6,
-        "base_contract_sha256": "50ff30f44f3b5e8d08c41d693de85b35f2f448b0cd1e93cb327e3ff7f54e986b",
-        "revised_contract_sha256": "4345f845266789afd35e4aa3cc3ba0dce0295c29257c8823cbfb26aabe879508",
-        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
-      },
-      {
-        "date": "2026-09-17",
-        "reason": "Follow-up revision 8 from the rev 7 contract check (revise): split 2 depends on NSC-017 and attaches and verifies EnemyLockedDoorAttack on the generated prefab; INT-002 submits instances through EncounterAdmissionController.RequestAdmission (from the NSC-030 check). Decomposition still pending.",
-        "source_head": "d486feb94f1368e3018d664fdf673bc4e989ac28",
-        "previous_contract_revision": 7,
-        "base_contract_sha256": "afa6886854c16ebd4d64701dce23c224bb32ac59fe35b948d8ac16d16699e768",
-        "revised_contract_sha256": "57b5d6908749709f11dfa985888e2b7b098af08d92000ed7b1f04219f945ead7",
-        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
-      },
-      {
-        "date": "2026-09-17",
-        "reason": "Follow-up revision 9 from the rev 8 Codex check (revise): MeleeEnemyDefeatResponse also resets and disables EnemyLockedDoorAttack on defeat and re-enables it on ResetDefeatResponse; VAL-006 proves no door damage after defeat.",
-        "source_head": "3eb886805c9d6e10381afc67b6d6bd4ba2fe0d9a",
-        "previous_contract_revision": 8,
-        "base_contract_sha256": "c97f51b33c34e65efe8300b9aeb83acbcb34a3dd9f4587095daefd271cb03c4a",
-        "revised_contract_sha256": "ccaccbb1b12143244a265077f37212d3b1a4455eac3925b2a23b3e4ae9dd8f24",
-        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
-      },
-      {
-        "date": "2026-09-17",
-        "reason": "Mechanical follow-up revision 10: the notes sentence on Fireball target discovery now states the settled rule (flat horizontal distance against active, non-defeated EnemyHealth, no enemy colliders; SPELL_DECISIONS.md S4, NSC-007 AC-007) instead of pending approval, as the NSC-007 rev 3 Codex check flagged. No scope, resource, criterion or gate change.",
-        "source_head": "375754d3de18947ee463df221e2be343b09e8839",
-        "previous_contract_revision": 9,
-        "base_contract_sha256": "36d8c04302048e83b97f82ccba0b2a5630560aafce30a90977cdc7108ee305e9",
-        "revised_contract_sha256": "674f6a7a582fb28e67f5893adb4f9dc8c5a1001d19a02be4a545a214dc9eb2fc",
-        "review": "mechanical revision; grep review only (tiered rule, 2026-09-17)"
-      },
-      {
-        "date": "2026-09-17",
-        "reason": "Follow-up revision 11 recording NSC-088 revision 4 INT-003 (GER Orchestrator, 2026-09-17): AC-002 requires MeleeEnemyAttack to handle a CurrentTarget without PlayerHealth, such as the Spectral Decoy phantom, with no damage, no exception and no change to the target; VAL-001 adds that case. Split 1 owns it; no scope, resource, dependency or split change.",
-        "source_head": "4d4f25db18c587fa8718eaca0adc9c62644c3763",
-        "previous_contract_revision": 10,
-        "base_contract_sha256": "45b9f6aaf1fd06af915056dd1b3dffcdede9a72abfcc2d9b45282cb0b2332520",
-        "revised_contract_sha256": "fb9aefc9c704bfe72aa874b14ea43648b8694270a32eefceff939db31b8d33fe",
-        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
-      },
-      {
-        "date": "2026-09-18",
-        "reason": "Vincent answered the four open melee questions 2026-09-17, firing all three revision triggers revision 11 wrote into itself: AC-001's locomotion-owner approval (rooted wind-up), AC-006's two pending decisions (stylised death looks, no corpse collision), plus AC-008 for the living enemy's solid body and AC-009 taking ownership of the demo-leash removal and its three spawn re-clearances.",
-        "source_head": "b7e46c320fcc937f6cda240379b3617dd3145d8c",
-        "previous_contract_revision": 11,
-        "base_contract_sha256": "2e381054b1f6a781ecf642eab48965ad79c18a8d0b7ec369d13f506ede8283ea",
-        "revised_contract_sha256": "b044ceb93185848f454e1647510d154e07521370e8c607739b8728e0de95b9d1",
-        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
-      },
-      {
-        "date": "2026-09-18",
-        "reason": "Death-look selection changes from random to Vincent's ordered kill-history rule: one shot decapitated, multiple shots dismembered, fire burned, a heavy single blow blasted, and a zero-hit catch-all so a kill that never routes through TakeDamage still shows a corpse. Hits count over the enemy's life and damage-over-time ticks do not count; the look and variant are chosen once at death and cached so a displayed corpse never re-rolls its sprite. Requires EnemyHealth to expose a damaging-hit count reset by ResetHealth().",
-        "source_head": "e595cc1626ddcc3040d68a88c3c8eb0ef4c5698b",
-        "previous_contract_revision": 12,
-        "base_contract_sha256": "0f7ac28768976290c6776b76c4a633336728d42e8edfbe2fbdf47685123016e6",
-        "revised_contract_sha256": "f5d247ecd2278bfe19dd8af59f99d70af81e083392b28a1a30952e04c8abb2df",
-        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
-      },
-      {
-        "date": "2026-09-18",
-        "reason": "Corpse presentation consequences of Vincent's persistence decision: sort by pivot ground point not sprite bounds (the art deliberately overhangs its footprint), persist for the level with no fade, never repeat the same VARIANT of a look back-to-back (variant level, so the kill-type rule is never overridden), and a world-space ground-plane jitter cached at death.",
-        "source_head": "cb91d32a752e2bbdbd0b4559ab20a067990f4cdd",
-        "previous_contract_revision": 13,
-        "base_contract_sha256": "ae081caedb0e3e503e6430464973bc1df6cd1395a800f1cc9f635a3a376d035c",
-        "revised_contract_sha256": "8557b71f5b50c8cd17a932b4cc51b1718ecd3caa5518cb80682fb2cbbfd4d5cf",
-        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
-      },
-      {
-        "date": "2026-09-25",
-        "reason": "Rev 15 resolves the three internal contradictions a decompose reviewer stopped on (run decomp-nsc015-20260925a, needs_human). (1) Rev 14 required EnemyHealth to expose a hit count AND forbade editing EnemyHealth.cs; resolved with no EnemyHealth change - it already exposes public event Action<float> Damaged, so MeleeEnemyDefeatResponse counts hits itself and resets in ResetDefeatResponse(), which AC-006 already requires. (2) AC-001 required EnemyPursuitMovement to hold the NavMeshAgent during wind-up while the notes forbade editing that file; EnemyPursuitMovement.cs is added to exclusive_resources as a third claimant with a narrow grant (generic melee-agnostic hold/resume API only, existing NSC-092 and NSC-017 tests unchanged). NSC-092 and NSC-017 are NOT revised - both are conformant and revising either would un-deliver a delivered task. (3) AC-006 defines Lantern Wraith rules the notes call deliberately absent; they are different deliverables and new obligation INT-003 binds NSC-055 to the wraith looks, so a Dungeon-Brute-only split satisfies AC-006. taskcontrol state NSC-015 at c119b363c was aggregate, selected_record none, so nothing is un-delivered.",
-        "source_head": "c119b363cead9b5903fdac0a85292145b05d873b",
-        "previous_contract_revision": 14,
-        "base_contract_sha256": "ee9cb3c3fe4bf13d575323bde9802073429c0fda5c2a23800d089bc308e9dad1",
-        "revised_contract_sha256": "9e7304221841d09c7c91b06fddb7f9b8f2821a99a428e39d5cb9c711cc51a541",
-        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
-      },
-      {
-        "date": "2026-09-25",
-        "reason": "Rev 16 adds unity-scene:Assets/Scenes/DoorPrototype.unity to exclusive_resources, additively, and carves it out of the notes' 'room/scene assets' prohibition. Rejection in decompose run decomp-nsc015-20260925b: VAL-009 requires Play Mode proof that the COMMITTED scene no longer carries the demo pursuit leash, and rev 15 gave no split any way to write that scene - the fourth instance in this contract of a gate naming an outcome the resource list made unreachable. VAL-009 is NOT weakened and NOT deferred; deferring it to NSC-030 would break policy.py:209, which requires parent completion_gates to map to child completion_gates. Two measurements argue for the grant: the leash is EnemyPursuitLeashDistance = 5f, a const at DoorPrototypeGlobalSceneBuilder.cs:352 in a file this task already owns, so the scene write is a regeneration by the owned builder rather than a hand edit; and 32 active contracts already own this scene, so NSC-015 is the 33rd. The CRLF re-serialization hazard does not apply - DoorPrototype.unity is a binary scene with 437,825 NULs and zero CRLF pairs. The five room scenes stay forbidden to every split. taskcontrol state NSC-015 was aggregate with no selected_record, so nothing is un-delivered.",
-        "source_head": "da942ab2a0167f07b74fa77ccd343ee6275f3581",
-        "previous_contract_revision": 15,
-        "base_contract_sha256": "61ec90b40fae58fb0ea2fac1c44bca7e7e4ae7a8f0be36a788d062cee24bc0eb",
-        "revised_contract_sha256": "cfb0cb96403a85d468d186de4030c7fa6a2ca8ad9678abfcb9d8f5ed930621b1",
-        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
-      },
-      {
-        "date": "2026-09-25",
-        "reason": "AC-006 and VAL-008 still named EnemyHealth.ResetHealth() as the hit-count reset while the revision 15 notes had already established it resets in MeleeEnemyDefeatResponse.ResetDefeatResponse() and NOT in ResetHealth(), which raises no event and so cannot notify the subscriber that owns the count. Revision 15 fixed the notes and never propagated the change into the criterion and gate text, so a decompose run stopped needs_human on the contradiction - the same shape that stopped a reviewer at revision 13 to 14. This propagates it and weakens nothing: AC-006 still requires the count to reset and VAL-008 still requires it to return to its initial value; only the named mechanism changes to the one that can actually be implemented, and AC-006 now records why so it is not reverted. Verified at HEAD: EnemyHealth.cs:14 exposes public event Action<float> Damaged, the sole Damaged invoke is at :35, and ResetHealth() at :54 raises nothing. Also swept all nine gates and nine criteria against the resource list in one pass per the standing rule after four prior instances: zero name a file the notes forbid editing, so this is not a fifth instance of that shape.",
-        "source_head": "da9d3a8f4576e97aa31d067b8704b08e36e10b21",
-        "previous_contract_revision": 16,
-        "base_contract_sha256": "ad2fdce694a5de1b31702f24c8ed9924a18e25e385986e3661732a85c33ccac1",
-        "revised_contract_sha256": "0974a05956bd1e82c22a4584afb6fb61dab9af37a57e2628a2c3ea99f03df296",
-        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
-      }
-    ]
+    "verification_run_id": "20260821T195959Z-43dba5de"
   },
   "reconciliation_key": "melee-enemy",
   "repository_evidence_at_bootstrap": [],

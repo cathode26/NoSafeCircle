@@ -4,22 +4,22 @@
     {
       "reconciliation_keys": [
         "enemy-status-effect-displacement",
-        "melee-enemy",
         "locked-door-enemy-attack",
         "ranged-enemy-keep-distance-movement",
         "ranged-enemy-projectile-attack",
         "ranged-enemy-prefab-wiring",
-        "enemy-pursuit-navmesh-movement"
+        "enemy-pursuit-navmesh-movement",
+        "melee-prefab-locomotion-defeat"
       ],
       "resource_key": "logical:enemy-locomotion-behavior-surface",
       "work_ids": [
         "NSC-013",
-        "NSC-015",
         "NSC-017",
         "NSC-053",
         "NSC-054",
         "NSC-055",
-        "NSC-092"
+        "NSC-092",
+        "NSC-125"
       ]
     },
     {
@@ -193,8 +193,8 @@
         "title-screen-transparent-layout-build",
         "spectral-decoy-cast-phantom-cooldown-ui",
         "fireball-input-scene-assembly",
-        "melee-enemy",
-        "floor-restart-full-closure-integration"
+        "floor-restart-full-closure-integration",
+        "melee-prefab-locomotion-defeat"
       ],
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
       "work_ids": [
@@ -229,8 +229,8 @@
         "NSC-108",
         "NSC-112",
         "NSC-119",
-        "NSC-015",
-        "NSC-123"
+        "NSC-123",
+        "NSC-125"
       ]
     },
     {
@@ -482,11 +482,11 @@
         "frost-field",
         "force-wave",
         "wizard-128-source-integration-switch",
-        "melee-enemy",
         "fireball-second-mint",
         "title-screen-transparent-layout-build",
         "spectral-decoy-cast-phantom-cooldown-ui",
-        "fireball-input-scene-assembly"
+        "fireball-input-scene-assembly",
+        "melee-prefab-locomotion-defeat"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
       "work_ids": [
@@ -498,11 +498,11 @@
         "NSC-008",
         "NSC-009",
         "NSC-096",
-        "NSC-015",
         "NSC-098",
         "NSC-108",
         "NSC-112",
-        "NSC-119"
+        "NSC-119",
+        "NSC-125"
       ]
     },
     {
@@ -1085,24 +1085,24 @@
       "reconciliation_keys": [
         "enemy-pursuit-navmesh-movement",
         "locked-door-enemy-attack",
-        "melee-enemy"
+        "melee-prefab-locomotion-defeat"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyPursuitMovement.cs",
       "work_ids": [
         "NSC-092",
         "NSC-017",
-        "NSC-015"
+        "NSC-125"
       ]
     },
     {
       "reconciliation_keys": [
         "enemy-pursuit-navmesh-movement",
-        "melee-enemy"
+        "melee-prefab-locomotion-defeat"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/EnemyPursuitPlayModeTests.cs",
       "work_ids": [
         "NSC-092",
-        "NSC-015"
+        "NSC-125"
       ]
     },
     {
@@ -1321,35 +1321,35 @@
     },
     {
       "reconciliation_keys": [
-        "melee-enemy",
-        "fireball-second-mint"
+        "fireball-second-mint",
+        "melee-prefab-locomotion-defeat"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs.meta",
       "work_ids": [
-        "NSC-015",
-        "NSC-098"
+        "NSC-098",
+        "NSC-125"
       ]
     },
     {
       "reconciliation_keys": [
-        "melee-enemy",
-        "enemy-death-look-art-integration"
+        "enemy-death-look-art-integration",
+        "melee-prefab-locomotion-defeat"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyDefeatResponse.cs",
       "work_ids": [
-        "NSC-015",
-        "NSC-099"
+        "NSC-099",
+        "NSC-125"
       ]
     },
     {
       "reconciliation_keys": [
-        "melee-enemy",
-        "enemy-death-look-art-integration"
+        "enemy-death-look-art-integration",
+        "melee-prefab-locomotion-defeat"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyDefeatResponse.cs.meta",
       "work_ids": [
-        "NSC-015",
-        "NSC-099"
+        "NSC-099",
+        "NSC-125"
       ]
     },
     {
