@@ -739,6 +739,19 @@ class ContinuationReviewTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "continues another run than its record names"):
             _verify_review(manager, dict(record, continue_from="some-other-run"))
 
+    def test_a_continuation_of_any_budget_must_match_its_recorded_proof(self):
+        from Pipeline.AssistantControl.decomposition import _require_pinned_proof
+        manager, record, _ = self.produce()
+        review = _verify_review(manager, record)
+        for budget in (1, 2, 4):
+            pinned = dict(record, max_calls=budget, review=review)
+            _require_pinned_proof(pinned, review)
+            changed = dict(review, artifact_sha256=dict(review["artifact_sha256"], extra="0" * 64))
+            with self.assertRaisesRegex(ValueError, "proof bytes changed since the review was recorded"):
+                _require_pinned_proof(pinned, changed)
+            with self.assertRaisesRegex(ValueError, "carries no recorded proof"):
+                _require_pinned_proof(dict(record, max_calls=budget), review)
+
     def test_only_the_stopped_runs_own_failed_record_is_archived(self):
         from Pipeline.AssistantControl.decomposition import _prepare_continuation, _record_path
         manager, record, output_root = self.produce()

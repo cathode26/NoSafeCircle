@@ -997,15 +997,15 @@ def _verify_three_call_run_binding(record: dict[str, Any], run_result: dict[str,
 
 
 def _require_pinned_proof(record: dict[str, Any], review: dict[str, Any]) -> None:
-    """A budget-3 review's proof bytes must still be the ones recorded."""
+    """A budget-3 or continuation review's proof bytes must still be the ones recorded."""
 
-    if record.get("max_calls") != 3:
+    if record.get("max_calls") != 3 and record.get("continue_from") is None:
         return
     recorded = (record.get("review") or {}).get("artifact_sha256")
     if not isinstance(recorded, Mapping) or not recorded:
-        raise ValueError("Three-call decomposition record carries no recorded proof to check against")
+        raise ValueError("Decomposition record carries no recorded proof to check against")
     if recorded != review.get("artifact_sha256"):
-        raise ValueError("Three-call decomposition proof bytes changed since the review was recorded")
+        raise ValueError("Decomposition proof bytes changed since the review was recorded")
 
 
 def _fresh_plan_proof(manager: Checkouts, decomposition: Any, plan: Any) -> Any:
