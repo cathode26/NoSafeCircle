@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="20" result="Skipped:Ignored" total="20" passed="15" failed="0" inconclusive="0" skipped="5" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.2590363">
+  <test-suite type="TestSuite" id="1000" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="308" result="Skipped" label="Ignored" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.259036" total="20" passed="15" failed="0" inconclusive="0" skipped="5" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <reason>
+      <message><![CDATA[One or more child tests were ignored]]></message>
+    </reason>
+    <test-suite type="Assembly" id="1355" name="NoSafeCircle.DoorPrototype.Tests.Editor.dll" fullname="C:/nscrev/doormeta/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.Editor.dll" runstate="Runnable" testcasecount="308" result="Skipped" label="Ignored" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.239777" total="20" passed="15" failed="0" inconclusive="0" skipped="5" asserts="0">
+      <properties>
+        <property name="_PID" value="59324" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <reason>
+        <message><![CDATA[One or more child tests were ignored]]></message>
+      </reason>
+      <test-suite type="TestSuite" id="1356" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="308" result="Skipped" label="Ignored" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.229449" total="20" passed="15" failed="0" inconclusive="0" skipped="5" asserts="0">
+        <properties />
+        <reason>
+          <message><![CDATA[One or more child tests were ignored]]></message>
+        </reason>
+        <test-suite type="TestSuite" id="1357" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="308" result="Skipped" label="Ignored" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.222322" total="20" passed="15" failed="0" inconclusive="0" skipped="5" asserts="0">
+          <properties />
+          <reason>
+            <message><![CDATA[One or more child tests were ignored]]></message>
+          </reason>
+          <test-suite type="TestSuite" id="1358" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="308" result="Skipped" label="Ignored" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.213734" total="20" passed="15" failed="0" inconclusive="0" skipped="5" asserts="0">
+            <properties />
+            <reason>
+              <message><![CDATA[One or more child tests were ignored]]></message>
+            </reason>
+            <test-suite type="TestSuite" id="1359" name="Editor" fullname="NoSafeCircle.DoorPrototype.Tests.Editor" runstate="Runnable" testcasecount="308" result="Skipped" label="Ignored" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.205133" total="20" passed="15" failed="0" inconclusive="0" skipped="5" asserts="0">
+              <properties />
+              <reason>
+                <message><![CDATA[One or more child tests were ignored]]></message>
+              </reason>
+              <test-suite type="TestSuite" id="1363" name="RoomDressing" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing" runstate="Runnable" testcasecount="20" result="Skipped" label="Ignored" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.187638" total="20" passed="15" failed="0" inconclusive="0" skipped="5" asserts="0">
+                <properties />
+                <reason>
+                  <message><![CDATA[One or more child tests were ignored]]></message>
+                </reason>
+                <test-suite type="TestFixture" id="1330" name="BoneArchiveDressingPrefabTests" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.BoneArchiveDressingPrefabTests" classname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.BoneArchiveDressingPrefabTests" runstate="Runnable" testcasecount="4" result="Skipped" label="Ignored" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.084241" total="4" passed="3" failed="0" inconclusive="0" skipped="1" asserts="0">
+                  <properties />
+                  <reason>
+                    <message><![CDATA[One or more child tests were ignored]]></message>
+                  </reason>
+                  <test-case id="1331" name="Builder_ReproducesEveryAuthoredPlacement" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.BoneArchiveDressingPrefabTests.Builder_ReproducesEveryAuthoredPlacement" methodname="Builder_ReproducesEveryAuthoredPlacement" classname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.BoneArchiveDressingPrefabTests" runstate="Runnable" seed="1129435425" result="Passed" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.057276" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1334" name="CaptureDressedBoneArchive" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.BoneArchiveDressingPrefabTests.CaptureDressedBoneArchive" methodname="CaptureDressedBoneArchive" classname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.BoneArchiveDressingPrefabTests" runstate="Explicit" seed="1276692359" result="Skipped" label="Ignored" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.004642" asserts="0">
+                    <properties>
+                      <property name="_SKIPREASON" value="Set NSC_DRESSING_CAPTURE_OUTPUT to photograph the dressed room." />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <reason>
+                      <message><![CDATA[Set NSC_DRESSING_CAPTURE_OUTPUT to run the explicit dressing capture.]]></message>
+                    </reason>
+                  </test-case>
+                  <test-case id="1332" name="Catalog_ObeysTheSortingRuleItDeclares" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.BoneArchiveDressingPrefabTests.Catalog_ObeysTheSortingRuleItDeclares" methodname="Catalog_ObeysTheSortingRuleItDeclares" classname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.BoneArchiveDressingPrefabTests" runstate="Runnable" seed="801546771" result="Passed" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.001273" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1333" name="EveryPlacement_LiesInsideTheRoom" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.BoneArchiveDressingPrefabTests.EveryPlacement_LiesInsideTheRoom" methodname="EveryPlacement_LiesInsideTheRoom" classname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.BoneArchiveDressingPrefabTests" runstate="Runnable" seed="2054683554" result="Passed" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.002149" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                </test-suite>
+                <test-suite type="TestFixture" id="1335" name="ChapelOfAshDressingPrefabTests" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.ChapelOfAshDressingPrefabTests" classname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.ChapelOfAshDressingPrefabTests" runstate="Runnable" testcasecount="4" result="Skipped" label="Ignored" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.033026" total="4" passed="3" failed="0" inconclusive="0" skipped="1" asserts="0">
+                  <properties />
+                  <reason>
+                    <message><![CDATA[One or more child tests were ignored]]></message>
+                  </reason>
+                  <test-case id="1336" name="Builder_ReproducesEveryAuthoredPlacement" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.ChapelOfAshDressingPrefabTests.Builder_ReproducesEveryAuthoredPlacement" methodname="Builder_ReproducesEveryAuthoredPlacement" classname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.ChapelOfAshDressingPrefabTests" runstate="Runnable" seed="757978040" result="Passed" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.026105" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1339" name="CaptureDressedChapelOfAsh" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.ChapelOfAshDressingPrefabTests.CaptureDressedChapelOfAsh" methodname="CaptureDressedChapelOfAsh" classname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.ChapelOfAshDressingPrefabTests" runstate="Explicit" seed="1874737802" result="Skipped" label="Ignored" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.000946" asserts="0">
+                    <properties>
+                      <property name="_SKIPREASON" value="Set NSC_DRESSING_CAPTURE_OUTPUT to photograph the dressed room." />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <reason>
+                      <message><![CDATA[Set NSC_DRESSING_CAPTURE_OUTPUT to run the explicit dressing capture.]]></message>
+                    </reason>
+                  </test-case>
+                  <test-case id="1337" name="Catalog_ObeysTheSortingRuleItDeclares" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.ChapelOfAshDressingPrefabTests.Catalog_ObeysTheSortingRuleItDeclares" methodname="Catalog_ObeysTheSortingRuleItDeclares" classname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.ChapelOfAshDressingPrefabTests" runstate="Runnable" seed="1095248028" result="Passed" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.001389" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1338" name="EveryPlacement_LiesInsideTheRoom" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.ChapelOfAshDressingPrefabTests.EveryPlacement_LiesInsideTheRoom" methodname="EveryPlacement_LiesInsideTheRoom" classname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.ChapelOfAshDressingPrefabTests" runstate="Runnable" seed="216797881" result="Passed" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.001601" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                </test-suite>
+                <test-suite type="TestFixture" id="1340" name="FinalRoomDressingPrefabTests" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.FinalRoomDressingPrefabTests" classname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.FinalRoomDressingPrefabTests" runstate="Runnable" testcasecount="4" result="Skipped" label="Ignored" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.022472" total="4" passed="3" failed="0" inconclusive="0" skipped="1" asserts="0">
+                  <properties />
+                  <reason>
+                    <message><![CDATA[One or more child tests were ignored]]></message>
+                  </reason>
+                  <test-case id="1341" name="Builder_ReproducesEveryAuthoredPlacement" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.FinalRoomDressingPrefabTests.Builder_ReproducesEveryAuthoredPlacement" methodname="Builder_ReproducesEveryAuthoredPlacement" classname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.FinalRoomDressingPrefabTests" runstate="Runnable" seed="177617075" result="Passed" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.015532" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1344" name="CaptureDressedFinalRoom" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.FinalRoomDressingPrefabTests.CaptureDressedFinalRoom" methodname="CaptureDressedFinalRoom" classname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.FinalRoomDressingPrefabTests" runstate="Explicit" seed="334519306" result="Skipped" label="Ignored" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.001129" asserts="0">
+                    <properties>
+                      <property name="_SKIPREASON" value="Set NSC_DRESSING_CAPTURE_OUTPUT to photograph the dressed room." />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <reason>
+                      <message><![CDATA[Set NSC_DRESSING_CAPTURE_OUTPUT to run the explicit dressing capture.]]></message>
+                    </reason>
+                  </test-case>
+                  <test-case id="1342" name="Catalog_ObeysTheSortingRuleItDeclares" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.FinalRoomDressingPrefabTests.Catalog_ObeysTheSortingRuleItDeclares" methodname="Catalog_ObeysTheSortingRuleItDeclares" classname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.FinalRoomDressingPrefabTests" runstate="Runnable" seed="603528719" result="Passed" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.001448" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1343" name="EveryPlacement_LiesInsideTheRoom" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.FinalRoomDressingPrefabTests.EveryPlacement_LiesInsideTheRoom" methodname="EveryPlacement_LiesInsideTheRoom" classname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.FinalRoomDressingPrefabTests" runstate="Runnable" seed="288546913" result="Passed" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.001406" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                </test-suite>
+                <test-suite type="TestFixture" id="1345" name="LowerVaultDressingPrefabTests" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.LowerVaultDressingPrefabTests" classname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.LowerVaultDressingPrefabTests" runstate="Runnable" testcasecount="4" result="Skipped" label="Ignored" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.024786" total="4" passed="3" failed="0" inconclusive="0" skipped="1" asserts="0">
+                  <properties />
+                  <reason>
+                    <message><![CDATA[One or more child tests were ignored]]></message>
+                  </reason>
+                  <test-case id="1346" name="Builder_ReproducesEveryAuthoredPlacement" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.LowerVaultDressingPrefabTests.Builder_ReproducesEveryAuthoredPlacement" methodname="Builder_ReproducesEveryAuthoredPlacement" classname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.LowerVaultDressingPrefabTests" runstate="Runnable" seed="2022664710" result="Passed" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.018141" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1349" name="CaptureDressedLowerVault" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.LowerVaultDressingPrefabTests.CaptureDressedLowerVault" methodname="CaptureDressedLowerVault" classname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.LowerVaultDressingPrefabTests" runstate="Explicit" seed="1223392577" result="Skipped" label="Ignored" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.000910" asserts="0">
+                    <properties>
+                      <property name="_SKIPREASON" value="Set NSC_DRESSING_CAPTURE_OUTPUT to photograph the dressed room." />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <reason>
+                      <message><![CDATA[Set NSC_DRESSING_CAPTURE_OUTPUT to run the explicit dressing capture.]]></message>
+                    </reason>
+                  </test-case>
+                  <test-case id="1347" name="Catalog_ObeysTheSortingRuleItDeclares" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.LowerVaultDressingPrefabTests.Catalog_ObeysTheSortingRuleItDeclares" methodname="Catalog_ObeysTheSortingRuleItDeclares" classname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.LowerVaultDressingPrefabTests" runstate="Runnable" seed="789888800" result="Passed" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.001289" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1348" name="EveryPlacement_LiesInsideTheRoom" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.LowerVaultDressingPrefabTests.EveryPlacement_LiesInsideTheRoom" methodname="EveryPlacement_LiesInsideTheRoom" classname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.LowerVaultDressingPrefabTests" runstate="Runnable" seed="1701043184" result="Passed" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.001402" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                </test-suite>
+                <test-suite type="TestFixture" id="1350" name="RuinedEntryDressingPrefabTests" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.RuinedEntryDressingPrefabTests" classname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.RuinedEntryDressingPrefabTests" runstate="Runnable" testcasecount="4" result="Skipped" label="Ignored" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.020004" total="4" passed="3" failed="0" inconclusive="0" skipped="1" asserts="0">
+                  <properties />
+                  <reason>
+                    <message><![CDATA[One or more child tests were ignored]]></message>
+                  </reason>
+                  <test-case id="1351" name="Builder_ReproducesEveryAuthoredPlacement" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.RuinedEntryDressingPrefabTests.Builder_ReproducesEveryAuthoredPlacement" methodname="Builder_ReproducesEveryAuthoredPlacement" classname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.RuinedEntryDressingPrefabTests" runstate="Runnable" seed="912442475" result="Passed" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.013178" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1354" name="CaptureDressedRuinedEntry" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.RuinedEntryDressingPrefabTests.CaptureDressedRuinedEntry" methodname="CaptureDressedRuinedEntry" classname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.RuinedEntryDressingPrefabTests" runstate="Explicit" seed="1661470975" result="Skipped" label="Ignored" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.001539" asserts="0">
+                    <properties>
+                      <property name="_SKIPREASON" value="Set NSC_DRESSING_CAPTURE_OUTPUT to photograph the dressed room." />
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <reason>
+                      <message><![CDATA[Set NSC_DRESSING_CAPTURE_OUTPUT to run the explicit dressing capture.]]></message>
+                    </reason>
+                  </test-case>
+                  <test-case id="1352" name="Catalog_ObeysTheSortingRuleItDeclares" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.RuinedEntryDressingPrefabTests.Catalog_ObeysTheSortingRuleItDeclares" methodname="Catalog_ObeysTheSortingRuleItDeclares" classname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.RuinedEntryDressingPrefabTests" runstate="Runnable" seed="1182581430" result="Passed" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.001372" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1353" name="EveryPlacement_LiesInsideTheRoom" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.RuinedEntryDressingPrefabTests.EveryPlacement_LiesInsideTheRoom" methodname="EveryPlacement_LiesInsideTheRoom" classname="NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing.RuinedEntryDressingPrefabTests" runstate="Runnable" seed="1309747255" result="Passed" start-time="2026-09-25 03:49:54Z" end-time="2026-09-25 03:49:54Z" duration="0.001016" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <output><![CDATA[Saving results to: C:/Users/VincentLiguori/AppData/LocalLow/DefaultCompany/NoSafeCircle\TestResults.xml
+]]></output>
+                  </test-case>
+                </test-suite>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>
