@@ -1,0 +1,84 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Art Director Agent 2026-09-25, decided from a rendered comparison of 8-cell runs (plain / every 4th / every 2nd); NSC-109 AC-001 one-unit wall grid",
+      "requirement": "A new helper at Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/WallPilasterRhythmPlacement.cs places wall_pilaster.png along straight wall runs at a SPARSE RHYTHM, and each of the five committed room builders calls it. THE RHYTHM IS EVERY FOURTH CELL, OR BAY ENDS AND DOOR FLANKS. PER-CELL AND ALTERNATING PLACEMENT ARE FORBIDDEN: the Art Director decided this from a render rather than from reasoning, and measured that at every second cell the wall stops being an articulated wall and becomes a COLONNADE, which is a different building. A denser rhythm does not satisfy this criterion even though every pilaster would be correctly positioned."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-126 AC-002; NSC-047 AC-002; NSC-044",
+      "requirement": "THE PILASTERS ARE VISUAL ONLY AND THIS TASK CHANGES NO WALKABILITY. It adds no collider, resizes or moves no existing collider, paints no Tilemap cell, and changes no room bounds, blockout footprint or any other geometry the NavMesh bake reads. A run that changes the baked walkable surface fails this criterion even if every pilaster is correctly placed."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Art Director Agent 2026-09-25: 'Do not write an alignment expectation into the pilaster's placement AC'",
+      "requirement": "NO VERTICAL ALIGNMENT EXPECTATION IS PINNED BY THIS CONTRACT, DELIBERATELY. Measured on main: the cropped wall_pilaster.png is 64x160 at PPU 64 with pivot y 0 and needs 159 of its 160 rows for art, while wall_straight.png is the same size at the same pivot but carries about 19 px of transparent pad beneath its masonry. So the pilaster's masonry base sits roughly 19 px BELOW the straight wall's, and the committed wall triple - width exactly 1.0, height exactly 2.5, pivot y exactly 0 - and matching that base line CANNOT BOTH HOLD for this sprite; no padding satisfies both. Which one is correct depends on where the floor plane lands and only an in-game render can settle it. THAT CALL IS THE ART DIRECTOR'S. This task places the pilaster by the same ground-contact rule as every other wall sprite and REPORTS the render; it does not choose."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "NSC-126 AC-006; CLAUDE.md: art goes to the Art Director",
+      "requirement": "NO VERTICAL OFFSET IS BAKED INTO THE BUILDER OR THE HELPER TO COMPENSATE FOR THE BASE-LINE DIFFERENCE IN AC-003, AND NO SPRITE PIVOT OR .meta IS EDITED BY THIS TASK. A builder-side nudge would hide an art question in code, put a second source of truth for ground contact into the builders, and destroy the very evidence AC-003 exists to produce. If the pilasters render misaligned against the straight wall, that is the expected result to REPORT with the render, not to correct here."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "NSC-126 AC-004",
+      "requirement": "Building a room twice produces the same pilasters: no duplicates, and none left behind from a previous build. The builders run repeatedly during authoring and in their own Edit Mode tests, so a helper that appends on every invocation would drift the committed scene silently."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "CLAUDE.md: assert the durable relation, not the value it has today; a green test can pass on a stub",
+      "requirement": "Edit Mode coverage in Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/WallPilasterRhythmPlacementTests.cs builds each of the five rooms through its own committed builder and asserts: that pilasters are placed on straight runs; that NO TWO PILASTERS ARE CLOSER THAN FOUR CELLS APART, which is the assertion that fails a per-cell or alternating rhythm and is the whole point of AC-001; that building the same room twice leaves the pilaster count unchanged; and that the room's collider count, each collider's bounds and the number of painted Tilemap cells are identical to a build of the same room with pilaster placement suppressed. THE PARITY COMPARISON IS BETWEEN TWO MEASURED BUILDS, NOT AGAINST HARD-CODED NUMBERS. The test asserts NOTHING about the pilaster's vertical position relative to wall_straight, because AC-003 leaves that open on purpose."
+    }
+  ],
+  "confidence": "medium",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "One bounded responsibility - place one sprite at one rhythm along existing wall runs - with a single measurable outcome per room.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-109",
+    "NSC-126"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/WallPilasterRhythmPlacement.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/WallPilasterRhythmPlacement.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/RuinedEntrySceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/BoneArchiveSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ChapelOfAshSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/LowerVaultSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/FinalRoomSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/WallPilasterRhythmPlacementTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/WallPilasterRhythmPlacementTests.cs.meta"
+  ],
+  "execution_reason": "One agent writes one placement helper, calls it from five builders and writes one Edit Mode test file. No art, no new scene ownership, no .meta edits.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD Environment Presentation and Authoring Direction (Docs/GDD/No_Safe_Circle_GDD.md); Docs/Art/Environment/DUNGEON_ART_DIRECTION.md",
+      "requirement": "The GDD requires the rooms to read as authored dungeon architecture rather than procedural blockout. NSC-064 delivered eleven architectural source assets; after NSC-109 binds the seven that are one world unit wide, these three remain applied by nothing. MEASURED 2026-09-25: NSC-109 was the only contract in the graph that mentioned them, so without this task they are delivered art with no owner - the same shape as the eleven tilesets that rendered every room while having zero references anywhere."
+    }
+  ],
+  "id": "NSC-127",
+  "kind": "implementation",
+  "notes": "Authored 2026-09-25 by the GER Agent, the same evening the Art Director landed the crop this task depends on. NSC-126 AC-005 excluded wall_pilaster because it was 2.750 units high with pivot y 0.068182 and could not be placed correctly by anyone; that premise is now FALSE - c864aaf5 cropped it to 64x160 = 1.000 x 2.500 with pivot (0.5, 0), verified at source (sha256 3d65fd93). THIS TASK IS SEPARATE FROM NSC-126 ON PURPOSE. NSC-126 creates no new capability - it calls a helper NSC-120 already delivered - and is ready to run today; pilaster rhythm is NEW placement logic. Folding it into NSC-126 would slow the part that is already ready and would contradict NSC-126's own decomposition_reason. The two contend on the five room builders and will therefore SERIALIZE, which is the collision guard working as designed and is the correct order: NSC-126's role accents first, then this. AC-003 is unusual and deliberate: it REFUSES to pin an alignment number, because the Art Director measured that the committed wall triple and matching wall_straight's masonry base line cannot both hold for this sprite, and said that only an in-game render can settle which is right. Pinning a number now would pin the wrong one.",
+  "parent": "NSC-022",
+  "provenance": {
+    "graph_delta_plan_id": null,
+    "origin": "ger_agent_contract_request",
+    "parent_contract_revision": null,
+    "parent_contract_sha256": null,
+    "parent_task_id": null
+  },
+  "reconciliation_key": "wall-pilaster-rhythm-placement",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Place Wall Pilasters at a Sparse Rhythm in the Five Rooms",
+  "type": "world_presentation"
+}
