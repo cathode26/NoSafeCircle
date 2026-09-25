@@ -845,6 +845,77 @@ def test_legacy_replay_keeps_the_old_whitespace_notes_behaviour() -> None:
     assert legacy == " Keep prefab inactive. \n\nKeep prefab inactive.", legacy
 
 
+def test_entry_references_survive_mislabelled_entry_ids() -> None:
+    """A bookkeeper that mis-numbers its entry IDs must not lose or misattribute references.
+
+    Reproduced from decomp-nsc015-20260925c: the model wrote every requirement
+    correctly but skipped two entry IDs and repeated a third, so the join by the
+    model's own ID blanked two references and attached a third to the wrong
+    requirement. Entry IDs are the model's free text - the sheet's requirement is
+    the structural key, and conformance already compares it exactly.
+    """
+    from TaskDecomposition.tests.test_support import task
+    parent = task("NSC-010", "selected-parent", "implementation", "NSC-002",
+                  "needs_execution_decomposition", "concrete", dependencies=("NSC-003",),
+                  resources=("repo-file:Assets/Shared.cs", "unity-scene:Assets/Synthetic.unity"))
+    sheet = sheet_from_result(decomposed_result(parent))
+    child = sheet["children"][0]
+    requirements = ["Child acceptance.", "Second acceptance.", "Third acceptance.", "Fourth acceptance."]
+    child["entries"] = [
+        {"entry_type": "acceptance_criteria", "requirement": text,
+         "covers": ["acceptance_criteria:AC-001"]} for text in requirements
+    ] + [entry for entry in child["entries"] if entry["entry_type"] != "acceptance_criteria"]
+    skeleton = result_skeleton(sheet)
+    planned = skeleton["children"][0]["acceptance_criteria"]
+    assert [entry["criterion_id"] for entry in planned] == ["AC-001", "AC-002", "AC-003", "AC-004"]
+
+    # The prose is right and in the planned order; only the ID labels are wrong.
+    # AC-002 and AC-003 are never emitted and AC-006 is emitted twice, exactly
+    # the shape the NSC-015 run produced.
+    mislabelled = ["AC-001", "AC-004", "AC-006", "AC-006"]
+    expected = {text: f"REF-{number}" for number, text in enumerate(requirements, start=1)}
+    output = {"children": [{"local_key": child["local_key"], "acceptance_criteria": [
+        {"criterion_id": label, "requirement": text, "reference": expected[text]}
+        for label, text in zip(mislabelled, requirements)]}]}
+
+    imposed = impose_skeleton(skeleton, output)["children"][0]["acceptance_criteria"]
+    lost = [entry["requirement"] for entry in imposed if not entry["reference"]]
+    assert not lost, f"references were lost for {lost}"
+    misattributed = {entry["requirement"]: entry["reference"] for entry in imposed
+                     if entry["reference"] != expected[entry["requirement"]]}
+    assert not misattributed, f"references were attached to the wrong requirement: {misattributed}"
+
+    # The pre-fix ID join is preserved for replaying evidence recorded before
+    # this change, so a retained attempt still replays to the candidate it
+    # recorded rather than to a better one.
+    legacy = impose_skeleton(skeleton, output, legacy_entry_ids=True)["children"][0]["acceptance_criteria"]
+    assert [entry["reference"] for entry in legacy] == ["REF-1", "", "", "REF-2"], legacy
+
+
+def test_repeated_requirements_pair_up_in_order() -> None:
+    """Two entries stating the same requirement take their own reference, in order.
+
+    The requirement join must consume each match once; taking the first match
+    every time would give both entries the same reference and silently drop one.
+    """
+    from TaskDecomposition.tests.test_support import task
+    parent = task("NSC-010", "selected-parent", "implementation", "NSC-002",
+                  "needs_execution_decomposition", "concrete", dependencies=("NSC-003",),
+                  resources=("repo-file:Assets/Shared.cs", "unity-scene:Assets/Synthetic.unity"))
+    sheet = sheet_from_result(decomposed_result(parent))
+    child = sheet["children"][0]
+    child["entries"] = [
+        {"entry_type": "acceptance_criteria", "requirement": "Same requirement.",
+         "covers": ["acceptance_criteria:AC-001"]} for _ in range(2)
+    ] + [entry for entry in child["entries"] if entry["entry_type"] != "acceptance_criteria"]
+    skeleton = result_skeleton(sheet)
+    output = {"children": [{"local_key": child["local_key"], "acceptance_criteria": [
+        {"criterion_id": "AC-001", "requirement": "Same requirement.", "reference": "REF-1"},
+        {"criterion_id": "AC-002", "requirement": "Same requirement.", "reference": "REF-2"}]}]}
+    imposed = impose_skeleton(skeleton, output)["children"][0]["acceptance_criteria"]
+    assert [entry["reference"] for entry in imposed] == ["REF-1", "REF-2"], imposed
+
+
 TESTS = (
     test_bookkeeper_continuation_protocol_requires_a_fresh_run,
     test_non_bookkeeper_bytes_match_legacy_goldens,
@@ -852,6 +923,8 @@ TESTS = (
     test_sheet_review_schema_and_policy_refuse_invalid_reviews,
     test_the_bookkeeper_gets_only_the_cited_gdd_lines,
     test_legacy_replay_keeps_the_old_whitespace_notes_behaviour,
+    test_entry_references_survive_mislabelled_entry_ids,
+    test_repeated_requirements_pair_up_in_order,
     test_rejected_attempt_cannot_be_relabelled_successful,
     test_revision_sheet_is_compiled_before_next_review,
     test_revision_bookkeeper_uses_fixed_provider_and_model,
