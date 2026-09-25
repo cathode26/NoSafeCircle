@@ -57,6 +57,7 @@
   .pipeline-title { min-width: 0; flex: 1; }
   #pipeline-body { overflow-y: auto; min-height: 0; flex: 1; padding: 0 12px 8px; }
   #pipeline-activity h2 { margin: 0 0 4px; color: var(--accent); }
+  .attention-stale { font-weight: 700; color: #f0a63c; }
   #pipeline-headline { font-size: 16px; line-height: 1.3; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .resize-handle { background: var(--line); touch-action: none; display: flex; align-items: center; justify-content: center; }
   .resize-handle:hover, .resize-handle:focus-visible { background: #38516c; }
@@ -1118,14 +1119,22 @@ function renderAssistantAttention(attention) {
     el.hidden = true;
     return;
   }
-  const parts = items.map(item => {
+  // Per-entry emphasis needs per-entry elements. Built with createElement and
+  // textContent, never from a markup string: a task id reaching this line came
+  // from the API, and nothing here may ever be parsed as HTML.
+  el.replaceChildren();
+  el.appendChild(document.createTextNode('Awaiting human review: '));
+  items.forEach((item, index) => {
+    if (index) el.appendChild(document.createTextNode(' · '));
     const id = String((item && item.task_id) || 'unknown task');
     const seconds = Number(item && item.waiting_seconds);
-    return Number.isFinite(seconds) && seconds >= 0
-      ? `${id} (${humaniseWait(seconds)})`
-      : id;
+    const known = Number.isFinite(seconds) && seconds >= 0;
+    const entry = document.createElement('span');
+    entry.textContent = known ? `${id} (${humaniseWait(seconds)})` : id;
+    // One day is the line between "in flight" and "nobody has looked".
+    if (known && seconds >= 86400) entry.className = 'attention-stale';
+    el.appendChild(entry);
   });
-  el.textContent = `Awaiting human review: ${parts.join(' · ')}`;
   el.hidden = false;
 }
 
