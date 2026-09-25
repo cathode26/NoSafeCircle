@@ -392,6 +392,10 @@ jobs:
         if: steps.scope.outputs.run_full_core == 'true'
         run: python Pipeline/ExecutionCrew/tests/dressing_prompt_delivery_test.py
 
+      - name: Run validator gate-row instruction test
+        if: steps.scope.outputs.run_full_core == 'true'
+        run: python Pipeline/ExecutionCrew/tests/validator_gate_row_instruction_test.py
+
       - name: Run Stage 4 contention-retry tests
         run: python Pipeline/TaskReviewAgent/tests/contention_retry_smoke_test.py
 
