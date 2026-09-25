@@ -32,6 +32,13 @@ def _wait_foreground_worker(manager, task_id: str, run_id: str,
             stop_sent = True
 
 
+def _add_graph_decomposition_options(parser) -> None:
+    """Opt-in options for the graph's background decompose tickets; omit all for today's proposal."""
+    parser.add_argument("--decomposition-max-calls", type=int, choices=(2, 3))
+    parser.add_argument("--decomposition-author-checklist", choices=("parent-contract-v1",))
+    parser.add_argument("--decomposition-bookkeeper-model")
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=Path.cwd())
@@ -369,6 +376,7 @@ def main(argv=None) -> int:
     graph_preflight.add_argument("--providers", default="claude,codex")
     graph_preflight.add_argument("--compose-project", default="nosafecircle")
     graph_preflight.add_argument("--authorize-provider-spend", action="store_true")
+    _add_graph_decomposition_options(graph_preflight)
     run_graph = commands.add_parser(
         "run-graph", help="Resume the bounded local graph until complete, blocked, or awaiting human review",
     )
@@ -393,6 +401,7 @@ def main(argv=None) -> int:
     run_graph.add_argument("--scope-dir", type=Path)
     run_graph.add_argument("--providers", default="claude,codex")
     run_graph.add_argument("--compose-project", default="nosafecircle")
+    _add_graph_decomposition_options(run_graph)
     run_graph.add_argument("--max-actions", type=int, default=100)
     run_graph.add_argument("--once", action="store_true",
                            help="Perform at most one durable graph transition")
@@ -478,6 +487,9 @@ def main(argv=None) -> int:
                     decomposition_providers=getattr(args, "providers", "claude,codex"),
                     compose_project=getattr(args, "compose_project", "nosafecircle"),
                     background_job_limit=args.background_jobs,
+                    decomposition_max_calls=getattr(args, "decomposition_max_calls", None),
+                    decomposition_author_checklist=getattr(args, "decomposition_author_checklist", None),
+                    decomposition_bookkeeper_model=getattr(args, "decomposition_bookkeeper_model", None),
                 )
                 config = {}
                 if args.command in {"graph-preflight", "run-graph"}:
