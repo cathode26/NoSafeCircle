@@ -47,6 +47,7 @@ from TaskDecomposition.author_checklist import (  # noqa: E402
 )
 from Pipeline.AgentRuntime.contracts import AGENT_INVOCATION_REQUEST_SCHEMA_VERSION  # noqa: E402
 from TaskDecomposition.context_builder import ContextPackage, DecompositionPreflightError  # noqa: E402
+from TaskDecomposition.review_chain import ReviewChainError, verify_three_call_chain  # noqa: E402
 from TaskDecomposition.run_diagnosis import (  # noqa: E402
     DiagnosisEvidenceError,
     confined,
@@ -59,12 +60,14 @@ from TaskDecomposition.live_decomposition import (  # noqa: E402
     resolve_provider_model_environment,
 )
 from TaskDecomposition.round_robin_decomposition import (  # noqa: E402
+    _normalize_empty_artifact_placeholder,
     candidate_sha256,
     same_provider_role_pair,
 )
 from apply_graph_delta import apply_graph_delta  # noqa: E402
 from graph_apply_plan import plan_graph_apply  # noqa: E402
-from graph_delta import GraphDeltaPlan  # noqa: E402
+from graph_delta import GraphDeltaPlan, plan_graph_delta  # noqa: E402
+from TaskDecomposition.policy import validate_decomposition_result  # noqa: E402
 from persistent_work_graph import load_persistent_work_graph  # noqa: E402
 
 
@@ -481,8 +484,22 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
                 f"{sorted(reserved_leases)}, not one lease per role"
             )
 
+    # The budget comes from the durable record the host wrote at launch, never
+    # from provider-produced artifacts. A record without one predates the
+    # option and is the two-call profile.
+    budget = record.get("max_calls", 2)
+    if type(budget) is not int or budget not in (2, 3):
+        raise ValueError(f"Decomposition record carries unsupported call budget {budget!r}")
+    if budget == 3 and pooled:
+        raise ValueError("A three-call decomposition budget requires two distinct providers")
+
     run_path, result_path, graph_path = _artifact_paths(record)
     run_result, run_bytes = _load_object(run_path, "Decomposition run result")
+    if budget == 3 and run_result.get("run_status") != "review_ready":
+        # A budget-3 run that stopped (a third revision, an authority stop)
+        # publishes no approved result; say so instead of a missing-file error.
+        raise ValueError(
+            f"Three-call decomposition run ended {run_result.get('run_status')!r}; it has no applicable result")
     result_payload, result_bytes = _load_object(result_path, "Decomposition result")
     graph_payload, graph_bytes = _load_object(graph_path, "Graph delta")
     decomposition = DecompositionResult.from_dict(result_payload)
@@ -500,8 +517,8 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
         "run_id": record["run_id"],
         "task_id": record["task_id"],
         "provider_order": record["providers"],
-        "max_calls": 2,
-        "calls_used": 2,
+        "max_calls": budget,
+        **({"calls_used": 2} if budget == 2 else {}),
         "run_status": "review_ready",
         "decision": "decomposed",
         # Two distinct providers are independent by provider identity; one
@@ -569,6 +586,13 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
     rounds = run_result.get("rounds")
     history = run_result.get("finding_history")
     corrections = run_result.get("author_corrections_used")
+    if budget == 3:
+        return _verify_three_call_review(
+            manager, record, run_result, decomposition, plan, task, digest,
+            head=head, tree=tree, source_advancement=source_advancement,
+            artifact_bytes=(run_bytes, result_bytes, graph_bytes),
+            checklist_evidence=checklist_evidence,
+        )
     # Exactly two round shapes may be applied and nothing else. Without a
     # correction the run is the author/reviewer pair it has always been. With
     # the one bounded author correction the rejected first round is retained,
@@ -678,6 +702,209 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
     }
 
 
+TIMEOUT_ENVIRONMENT = {
+    "task_decomposer": ("NSC_TASK_DECOMPOSER_TIMEOUT_SECONDS", 1440),
+    "decomposition_reviewer": ("NSC_DECOMPOSITION_REVIEWER_TIMEOUT_SECONDS", 1200),
+}
+THREE_CALL_OUTER_TIMEOUT_SECONDS = 6000
+THREE_CALL_OVERHEAD_SECONDS = 720
+
+
+def three_call_timeout_profile(environment: Mapping[str, str]) -> dict[str, int]:
+    """The author/reviewer timeouts a budget-3 run will be given, or refuse.
+
+    The host chooses them (its override or the engine default), passes them
+    to the container explicitly, and records them; review verification then
+    requires every round to have run with them. Two author calls (one may be
+    the correction) and two reviewer calls plus overhead must fit the outer
+    timeout, so a slow round cannot be killed by the host mid-chain.
+    """
+
+    profile: dict[str, int] = {}
+    for role, (name, default) in TIMEOUT_ENVIRONMENT.items():
+        raw = environment.get(name, "") or str(default)
+        try:
+            value = int(raw)
+        except ValueError as exc:
+            raise ValueError(f"{name} must be a whole number of seconds, not {raw!r}") from exc
+        if value <= 0:
+            raise ValueError(f"{name} must be positive, not {value}")
+        profile[role] = value
+    needed = 2 * profile["task_decomposer"] + 2 * profile["decomposition_reviewer"] + THREE_CALL_OVERHEAD_SECONDS
+    if needed > THREE_CALL_OUTER_TIMEOUT_SECONDS:
+        raise ValueError(
+            f"Three-call decomposition timeouts need {needed} s, over the "
+            f"{THREE_CALL_OUTER_TIMEOUT_SECONDS} s outer bound (2A + 2R + {THREE_CALL_OVERHEAD_SECONDS})")
+    return profile
+
+
+def _verify_three_call_run_binding(record: dict[str, Any], run_result: dict[str, Any]) -> dict[str, str]:
+    """Bind a budget-3 run's retained request and context to this record.
+
+    Returns the byte hashes of both files.
+    """
+
+    run_dir = Path(record["artifact_root"])
+    hashes: dict[str, str] = {}
+
+    def read(relative: str, label: str) -> dict[str, Any]:
+        path = confined(run_dir, relative)
+        if not path.is_file():
+            raise ValueError(f"Three-call run evidence is missing: {relative}")
+        data = path.read_bytes()
+        hashes[relative] = hashlib.sha256(data).hexdigest()
+        return parse_json_object(data, label)
+
+    try:
+        context = ContextPackage.from_payload(read("context.json", "retained context"))
+        request = read("decomposition_request.json", "decomposition request")
+    except DiagnosisEvidenceError as exc:
+        raise ValueError(f"Three-call run evidence refused: {exc}") from exc
+    payload = context.to_dict()
+    selected = payload.get("selected_task") or {}
+    bindings = {
+        "request run_id": (request.get("run_id"), record["run_id"]),
+        "request selected_task_id": (request.get("selected_task_id"), record["task_id"]),
+        "request provider_order": (request.get("provider_order"), record["providers"]),
+        "request max_calls": (request.get("max_calls"), 3),
+        "request context_sha256": (request.get("context_sha256"), run_result.get("context_sha256")),
+        "context hash": (context.semantic_sha256, run_result.get("context_sha256")),
+        "request source_identity": (request.get("source_identity"), run_result.get("source_identity")),
+        "context source_identity": (payload.get("source_identity"), run_result.get("source_identity")),
+        "request task identity": (request.get("task_execution_contract_identity"),
+                                  run_result.get("task_execution_contract_identity")),
+        "context task identity": (selected.get("task_execution_identity"),
+                                  run_result.get("task_execution_contract_identity")),
+        "request parent identity": (request.get("d1a_semantic_parent_identity"),
+                                    run_result.get("d1a_semantic_parent_identity")),
+        "context parent identity": (selected.get("d1a_semantic_parent_identity"),
+                                    run_result.get("d1a_semantic_parent_identity")),
+    }
+    for name, (got, wanted) in bindings.items():
+        if got != wanted or (name == "request max_calls" and type(got) is not int):
+            raise ValueError(f"Three-call run evidence disagrees: {name} is {got!r}, expected {wanted!r}")
+    return hashes
+
+
+def _require_pinned_proof(record: dict[str, Any], review: dict[str, Any]) -> None:
+    """A budget-3 review's proof bytes must still be the ones recorded."""
+
+    if record.get("max_calls") != 3:
+        return
+    recorded = (record.get("review") or {}).get("artifact_sha256")
+    if not isinstance(recorded, Mapping) or not recorded:
+        raise ValueError("Three-call decomposition record carries no recorded proof to check against")
+    if recorded != review.get("artifact_sha256"):
+        raise ValueError("Three-call decomposition proof bytes changed since the review was recorded")
+
+
+def _fresh_plan_proof(manager: Checkouts, decomposition: Any, plan: Any) -> Any:
+    fresh = plan_graph_apply(
+        load_persistent_work_graph(manager.source),
+        decomposition.parent_task,
+        decomposition,
+        plan,
+    )
+    if fresh.status != "fresh" or fresh.stored_plan_id != plan.plan_id:
+        raise ValueError(f"Reviewed decomposition plan is not fresh: {fresh.status}: {fresh.reason}")
+    if not (fresh.expected_parent_semantic_hash
+            == fresh.actual_parent_semantic_hash
+            == decomposition.parent_task.contract_sha256):
+        raise ValueError("Current parent contract differs from the reviewed semantic authorization")
+    return fresh
+
+
+def _verify_three_call_review(
+    manager: Checkouts, record: dict[str, Any], run_result: dict[str, Any],
+    decomposition: Any, plan: Any, task: dict[str, Any], digest: str, *,
+    head: str, tree: str, source_advancement: dict[str, Any],
+    artifact_bytes: tuple[bytes, bytes, bytes],
+    checklist_evidence: dict[str, str],
+) -> dict[str, Any]:
+    """The opt-in budget-3 profile: the whole review chain is replayed.
+
+    Every freshness guard is the same as in the two-call profile; only the
+    round-shape proof differs, and it comes from the pure chain verifier.
+    """
+
+    profile = record.get("timeout_profile")
+    if not (isinstance(profile, Mapping) and set(profile) == set(TIMEOUT_ENVIRONMENT)
+            and all(type(value) is int and value > 0 for value in profile.values())):
+        raise ValueError("Three-call decomposition record carries no valid timeout profile")
+    binding_evidence = _verify_three_call_run_binding(record, run_result)
+    graph = load_persistent_work_graph(manager.source)
+    parent_task = graph.tasks_by_id.get(record["task_id"])
+    if parent_task is None:
+        raise ValueError("Three-call decomposition parent is absent from the current graph")
+
+    def candidate_digest(raw: Mapping[str, Any]) -> tuple[str, str | None]:
+        # Exactly the producer's normalisation and validation
+        # (round_robin_decomposition._validate_candidate).
+        result = validate_decomposition_result(
+            _normalize_empty_artifact_placeholder(dict(raw)), parent_task=parent_task,
+            existing_reconciliation_keys=graph.plan.id_map.keys())
+        plan_id = (plan_graph_delta(graph, result.parent_task, result).plan_id
+                   if result.decision == "decomposed" else None)
+        return candidate_sha256(result), plan_id
+
+    try:
+        chain = verify_three_call_chain(
+            run_dir=Path(record["artifact_root"]), run_result=run_result,
+            providers=tuple(record["providers"]), candidate_digest=candidate_digest,
+            timeouts={role: float(value) for role, value in profile.items()},
+        )
+    except ReviewChainError as exc:
+        raise ValueError(f"Three-call decomposition review refused: {exc}") from exc
+    approved = chain["approved_candidate"]
+    if approved.get("sha256") != digest or approved.get("graph_delta_plan_id") != plan.plan_id:
+        raise ValueError("Three-call decomposition review refused: D3_FINAL_ARTIFACTS: "
+                         "the approved candidate is not this run's decomposition result")
+    history = run_result.get("finding_history")
+    if (not isinstance(history, list) or not history
+            or history[-1].get("verdict") != "pass"
+            or history[-1].get("reviewed_candidate_sha256") != digest
+            or _blocking_findings(history[-1])):
+        raise ValueError("Decomposition review history does not end with a clean pass")
+    fresh = _fresh_plan_proof(manager, decomposition, plan)
+    child_ids = sorted(plan.allocated_local_key_to_task_id.values())
+    if len(child_ids) != len(set(child_ids)) or not child_ids:
+        raise ValueError("Reviewed decomposition plan did not allocate unique children")
+    run_bytes, result_bytes, graph_bytes = artifact_bytes
+    return {
+        "status": "review_ready",
+        "task_id": record["task_id"],
+        "run_id": record["run_id"],
+        "plan_id": plan.plan_id,
+        "child_ids": child_ids,
+        "candidate_sha256": digest,
+        "artifact_sha256": {
+            "decomposition_run_result.json": hashlib.sha256(run_bytes).hexdigest(),
+            "decomposition_result.json": hashlib.sha256(result_bytes).hexdigest(),
+            "graph_delta.json": hashlib.sha256(graph_bytes).hexdigest(),
+            **binding_evidence,
+            **chain["evidence_sha256"],
+            **checklist_evidence,
+        },
+        "reviewer_provider": chain["approver_provider"],
+        "models": chain["models"],
+        "call_budget": 3,
+        "timeout_profile": dict(profile),
+        "calls_used": chain["calls_used"],
+        "author_corrections_used": chain["author_corrections_used"],
+        "apply_source_commit": head,
+        "reviewed_source_commit": record["source_commit"],
+        "source_advancement": {
+            **source_advancement,
+            "reviewed_source_tree": record["source_tree"],
+            "apply_source_tree": tree,
+            "parent_contract_exact_byte_sha256": task["task_contract_sha256"],
+            "reviewed_parent_semantic_sha256": fresh.expected_parent_semantic_hash,
+            "current_parent_semantic_sha256": fresh.actual_parent_semantic_hash,
+            "parent_contract_semantic_authorization_compatible": True,
+        },
+    }
+
+
 def run(
     manager: Checkouts,
     task_id: str,
@@ -689,6 +916,7 @@ def run(
     container_name: str | None = None,
     container_labels: Mapping[str, str] | None = None,
     author_checklist: str | None = None,
+    max_calls: int = 2,
 ) -> dict[str, Any]:
     """Run one two-call decomposition proposal: an author and an independent reviewer.
 
@@ -715,6 +943,14 @@ def run(
         raise ValueError("Decomposition container name contains unsupported characters")
     if author_checklist is not None and author_checklist not in CHECKLIST_VERSIONS:
         raise ValueError(f"Unknown decomposition author checklist {author_checklist!r}")
+    if type(max_calls) is not int or max_calls not in (2, 3):
+        raise ValueError(f"Decomposition call budget must be 2 or 3, not {max_calls!r}")
+    timeout_profile = None
+    if max_calls == 3:
+        requested = tuple(item.strip() for item in providers.split(",") if item.strip())
+        if len(requested) != 2 or len(set(requested)) != 2:
+            raise ValueError("A three-call decomposition budget requires two distinct providers")
+        timeout_profile = three_call_timeout_profile(os.environ)
     labels = dict(container_labels or {})
     for key, value in labels.items():
         if not _LABEL_KEY.fullmatch(str(key)) or not _LABEL_VALUE.fullmatch(str(value)):
@@ -762,7 +998,7 @@ def run(
             "source_branch": branch,
             "task_contract_sha256": task["task_contract_sha256"],
             "providers": provider_order,
-            "max_calls": 2,
+            "max_calls": max_calls,
             "compose_project": compose_project,
             "output_root": str(output_root),
             "artifact_root": str(artifact_root),
@@ -774,6 +1010,7 @@ def run(
             "started_at_utc": _now(),
             "preflight_source_commit": preflight.get("source_commit"),
             **({} if author_checklist is None else {"author_checklist": author_checklist}),
+            **({} if timeout_profile is None else {"timeout_profile": timeout_profile}),
         }
         write_record(path, record)
 
@@ -833,11 +1070,13 @@ def run(
             task_id=task_id,
             project=compose_project,
             providers=",".join(provider_order),
-            max_calls=2,
+            max_calls=max_calls,
             run_id=run_id,
             pool_assignment=pool_assignment,
             provider_environment=unpooled_environment,
             author_checklist=author_checklist,
+            timeout_environment=(None if timeout_profile is None else {
+                TIMEOUT_ENVIRONMENT[role][0]: seconds for role, seconds in timeout_profile.items()}),
         ))
         if container_name is not None:
             position = command.index("run") + 1
@@ -856,7 +1095,9 @@ def run(
                 env=environment,
                 stdout=stdout,
                 stderr=stderr,
-                timeout=3600,
+                # Three rounds plus the optional correction can outlast the
+                # two-call hour; only the opt-in profile gets the longer bound.
+                timeout=THREE_CALL_OUTER_TIMEOUT_SECONDS if max_calls == 3 else 3600,
                 creationflags=creationflags,
                 check=False,
             )
@@ -917,6 +1158,7 @@ def inspect(manager: Checkouts, task_id: str) -> dict[str, Any]:
     record = _read_record(manager, validate_task_id(task_id))
     if record.get("status") == "review_ready":
         review = _verify_review(manager, record)
+        _require_pinned_proof(record, review)
         return {**record, "review": review}
     return record
 
@@ -957,6 +1199,10 @@ def _apply_locked(
     if record.get("run_id") != run_id or record.get("status") != "review_ready":
         raise ValueError("Exact decomposition run is not awaiting local application")
     review = _verify_review(manager, record)
+    # The three-call chain is proven from more retained files than the
+    # two-call pair; its proof bytes are pinned when the run settles, and
+    # evidence that changed since is refused rather than re-accepted.
+    _require_pinned_proof(record, review)
     if review.get("apply_source_commit") != expected_source_commit:
         raise ValueError("Requested source commit differs from the current compatible Source")
     if git(manager.source, "branch", "--show-current").decode().strip() != target_branch:

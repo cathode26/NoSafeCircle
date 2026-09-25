@@ -38,6 +38,7 @@ def build_compose_command(
     run_id: str, pool_assignment: Mapping[str, Any] | None = None,
     provider_environment: Mapping[str, Any] | None = None,
     author_checklist: str | None = None,
+    timeout_environment: Mapping[str, int] | None = None,
 ) -> tuple[str, ...]:
     """Build the only decomposition transport AssistantControl supports.
 
@@ -51,8 +52,13 @@ def build_compose_command(
     provider_order = tuple(item.strip() for item in providers.split(",") if item.strip())
     if len(provider_order) != 2 or any(name not in {"claude", "codex"} for name in provider_order):
         raise ValueError("Assistant decomposition requires exactly two claude/codex roles")
-    if type(max_calls) is not int or max_calls != 2:
-        raise ValueError("Assistant decomposition requires exactly two provider calls")
+    # Two calls is the only profile a same-provider pooled run supports. The
+    # opt-in three-call budget needs two distinct providers, so an independent
+    # PASS of a reviewer revision comes from the other provider.
+    if type(max_calls) is not int or max_calls not in (2, 3):
+        raise ValueError("Assistant decomposition requires a two- or three-call budget")
+    if max_calls == 3 and (len(set(provider_order)) != 2 or pool_assignment is not None):
+        raise ValueError("A three-call decomposition budget requires two distinct providers and no pool")
     if not _SAFE_ID.fullmatch(project):
         raise ValueError("Compose project name is invalid")
     if not _SAFE_ID.fullmatch(run_id):
@@ -101,12 +107,21 @@ def build_compose_command(
         # disagreed with the reservation would make the container fail closed,
         # which is why this lives here and applies only when unpooled.
         command.extend(_model_environment_arguments(provider_environment))
+    # Only the budget-3 profile binds explicit role timeouts, and only these two.
+    if timeout_environment is not None:
+        if max_calls != 3 or set(timeout_environment) != set(TIMEOUT_ENVIRONMENT_NAMES):
+            raise ValueError("Explicit decomposition timeouts belong only to the three-call profile")
+        for name in sorted(timeout_environment):
+            value = timeout_environment[name]
+            if type(value) is not int or value <= 0:
+                raise ValueError(f"Decomposition timeout {name} must be a positive integer")
+            command.extend(("--env", f"{name}={value}"))
     command.extend((
         "round-robin-decompose", "python3",
         "Pipeline/TaskDecomposition/run_round_robin_decomposition.py",
         "--task-id", validate_task_id(task_id),
         "--providers", ",".join(provider_order),
-        "--max-calls", "2",
+        "--max-calls", str(max_calls),
         "--run-id", run_id,
     ))
     if pool_assignment is not None:
@@ -123,4 +138,10 @@ def build_compose_command(
     return tuple(command)
 
 
-__all__ = ["MODEL_ENVIRONMENT_NAMES", "POOL_LEASE_MOUNT", "build_compose_command"]
+TIMEOUT_ENVIRONMENT_NAMES = (
+    "NSC_DECOMPOSITION_REVIEWER_TIMEOUT_SECONDS",
+    "NSC_TASK_DECOMPOSER_TIMEOUT_SECONDS",
+)
+
+
+__all__ = ["MODEL_ENVIRONMENT_NAMES", "POOL_LEASE_MOUNT", "TIMEOUT_ENVIRONMENT_NAMES", "build_compose_command"]

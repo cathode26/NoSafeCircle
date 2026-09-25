@@ -566,6 +566,8 @@ def launch(
         raise BackgroundJobError("decomposition background job requires provider-spend authorization")
     if kind == "decompose" and not isinstance(identity.get("compose_project"), str):
         raise BackgroundJobError("decomposition background job requires a compose project")
+    if kind == "decompose" and "max_calls" in identity:
+        raise BackgroundJobError("background decomposition does not support max_calls yet")
     if kind == "decompose" and "author_checklist" in identity:
         # The ticket dispatch does not carry it yet; refusing is better than
         # silently running the proposal without the checklist that was asked for.
