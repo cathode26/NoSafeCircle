@@ -18,6 +18,7 @@ for module_root in (ROOT, ROOT / "Pipeline", ROOT / "Pipeline" / "TaskGraph"):
     if str(module_root) not in sys.path:
         sys.path.insert(0, str(module_root))
 
+from TaskDecomposition.bookkeeper_context import cited_gdd_lines, gdd_excerpt  # noqa: E402
 from TaskDecomposition.bookkeeping_evidence import BookkeepingEvidenceError, verify_bookkeeping  # noqa: E402
 from TaskDecomposition.bookkeeping_skeleton import impose_skeleton, result_skeleton  # noqa: E402
 from TaskDecomposition.ownership_sheet import sheet_from_result  # noqa: E402
@@ -126,6 +127,11 @@ def test_a_conforming_bookkeeper_reaches_the_independent_review() -> None:
         designer_prompt = run.claude.requests[0].prompt
         bookkeeper_prompt = run.claude.requests[1].prompt
         assert "DESIGN MODE" in designer_prompt and "BOOKKEEPING MODE" in bookkeeper_prompt
+        # The designer reads the whole committed context; the bookkeeper a reduced copy of it.
+        for marker in ("full_committed_utf8_text", "\"graph_neighborhood\"", "sibling_contracts"):
+            assert marker in designer_prompt and marker not in bookkeeper_prompt, marker
+        for marker in ("canonical_gdd_excerpt", "graph_neighborhood_summary", "task_catalog"):
+            assert marker in bookkeeper_prompt, marker
         verified = run.verify()
         assert verified["attempts"] == 1 and verified["conformed"]
         assert "rounds/01/ownership_sheet.json" in verified["evidence_sha256"]
@@ -247,6 +253,19 @@ def test_the_three_call_chain_accepts_a_corrected_designer() -> None:
         assert chain["author_corrections_used"] == 1 and chain["bookkeeping"]["attempts"] == 1
 
 
+def test_the_bookkeeper_gets_only_the_cited_gdd_lines() -> None:
+    path = "Docs/GDD/No_Safe_Circle_GDD.md"
+    text = "\n".join(["# Title", *[f"line {n}" for n in range(2, 30)], "## Section", "line 31"])
+    ranges = cited_gdd_lines([f"see {path}:5-6,20", f"{path}:31", "Docs/Other.md:9"])
+    assert ranges == [(5, 6), (20, 20), (31, 31)], ranges
+    excerpt = gdd_excerpt(text, ranges)
+    lines = excerpt["cited_lines"].splitlines()
+    assert lines[0] == "3: line 3" and "8: line 8" in lines and "9: line 9" not in lines
+    assert "..." in lines and "22: line 22" in lines and "31: line 31" in lines
+    assert excerpt["headings"] == ["1: # Title", "30: ## Section"]
+    assert gdd_excerpt(text, [])["cited_lines"] == ""
+
+
 TESTS = (
     test_the_three_call_chain_accepts_a_corrected_designer,
     test_a_refused_sheet_gets_one_designer_correction,
@@ -258,6 +277,7 @@ TESTS = (
     test_a_sheet_refused_twice_stops_before_any_bookkeeping,
     test_tampered_bookkeeping_evidence_is_refused,
     test_the_three_call_chain_accepts_a_bookkeeper_run,
+    test_the_bookkeeper_gets_only_the_cited_gdd_lines,
 )
 
 if __name__ == "__main__":

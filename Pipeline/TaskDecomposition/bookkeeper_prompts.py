@@ -1,8 +1,8 @@
 """Prompts for the opt-in designer/bookkeeper split of the D1B.2 author round.
 
 The designer receives the ordinary author prompt and writes only an ownership
-sheet. The bookkeeper receives the same prompt plus the frozen sheet and
-writes the complete decomposition result that states it. A bookkeeper retry
+sheet. The bookkeeper receives the same instructions over a reduced committed context
+(``bookkeeper_context``), plus the frozen sheet, and writes the complete decomposition result that states it. A bookkeeper retry
 receives only the sheet, its rejected result and the exact problems found.
 """
 from __future__ import annotations
@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 from typing import Any, Iterable, Mapping
 
+from .bookkeeper_context import compact_bookkeeper_context
 from .context_builder import ContextPackage
 from .bookkeeping_skeleton import result_skeleton
 from .prompts import build_decomposer_prompt
@@ -100,7 +101,8 @@ was sound. This is the only correction.
 
 
 def build_bookkeeper_prompt(context: ContextPackage, sheet: Mapping[str, Any]) -> str:
-    return (build_decomposer_prompt(context) + _BOOKKEEPER_MODE + _sheet_json(sheet)
+    embedded = compact_bookkeeper_context(context, sheet)
+    return (build_decomposer_prompt(context, embedded=embedded) + _BOOKKEEPER_MODE + _sheet_json(sheet)
             + "\n```\n\n### Result skeleton\n```json\n" + _sheet_json(result_skeleton(sheet)) + "\n```\n")
 
 
