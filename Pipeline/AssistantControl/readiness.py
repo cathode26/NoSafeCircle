@@ -167,9 +167,20 @@ def inspect_readiness(
             )
             resources = admission._reservation_resources(task, scope)
         except Exception as exc:
-            if "task_checkout_has_work_or_review_state" not in problems:
-                problems.append("checkout_or_scope_not_ready")
             checkout_error = str(exc)
+            if "task_checkout_has_work_or_review_state" not in problems:
+                # NAME THE CAUSE WHERE THE READER IS LOOKING. This label is
+                # appended from an exception handler, and on its own it says
+                # only the CATEGORY -- the actual reason ("task checkout is not
+                # at current source HEAD", for instance) sits in the separate
+                # `checkout_error` field, which a reader of `problems` has no
+                # pointer to. Reported from the floor by the Pipeline Runner,
+                # which lost a detour to it while diagnosing why NSC-118 was
+                # prepared, dependency-clear, resource-free and still
+                # undispatchable. The stable code is kept as a PREFIX so a
+                # machine match on it still works.
+                problems.append(
+                    f"checkout_or_scope_not_ready: {checkout_error}")
             checkout_view = checkout_view or {"task_id": task_id, "error": checkout_error}
 
     edited = []
