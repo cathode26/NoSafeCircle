@@ -374,7 +374,15 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
         {
             new Vector3(1.25f, 0f, 10f),// BoneArchive: 1.75 from the D1-D2 midpoint (3,10), centred in the BA-1-to-ShelfC lane
             new Vector3(-2f, 0f, 36f),  // ChapelOfAsh: ~1.4 units from the D2-D3 midpoint (-1,37)
-            new Vector3(-2f, 0f, 66f),  // LowerVault: 1 unit from the D3-D4 midpoint (-2,65)
+            // LowerVault: 2.51 from the D3-D4 midpoint (-2,65), on the room's FLAT floor.
+            // AC-006 needs NavMesh.SamplePosition to succeed within 0.1 of the authored y=0, and
+            // the old (-2,0,66) measured 0.129 away - purely vertical, same X and Z. NSC-047
+            // AC-002 specifies LV-H1 as 0.5-unit-high spans and the project agent's climb is
+            // 0.75, so those spans are CLIMBABLE: the bake rides up onto them (0.51-0.58 measured
+            // on top) and ramps the floor around them to 0.10-0.19, where Chapel of Ash reads a
+            // flat 0.083 across its whole room. This point measures 0.0833 - the same height as
+            // every other room's floor - so it passes on flat ground rather than by a hundredth.
+            new Vector3(-4.5f, 0f, 64.75f),
             new Vector3(-2f, 0f, 86f),  // FinalRoom west flank of FR-1, ~5.7 from midpoint (2,90)
             new Vector3(4f, 0f, 95f),   // FinalRoom east flank of FR-1, opposite side of D4-D5 line
         };
@@ -394,7 +402,18 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
         {
             new Vector3(9f, 0f, 16f),   // BoneArchive, opposite side from melee (1.25,10), north of E-1; sees D2
             new Vector3(0f, 0f, 45f),   // ChapelOfAsh, opposite side from melee (-2,36); sees D3
-            new Vector3(4f, 0f, 73f),   // LowerVault, opposite side from melee (-2,66); sees D4
+            // LowerVault, opposite side of the D3-D4 line from its melee partner, 10.9 units
+            // clear of it, with a Linecast sight line to the D4 approach (4,74.5) that passes
+            // OVER the 0.5-high LV-H1 spans at the 1.0 test height. The old (4,0,73) measured
+            // 0.123 off the navmesh for the same LV-H1 ramp described above.
+            //
+            // It moved SOUTH rather than staying beside D4, and that is a real change to the
+            // encounter: among all 521 AC-006-legal partners, every point that still covers D4
+            // from the north band measures ~0.098 against a 0.1 gate - a pass by 0.002 that the
+            // next rebake could flip. The southern flat band is the only place a robust legal
+            // partner exists while LV-H1 ramps this room. Worth revisiting if LV-H1 is ever made
+            // unclimbable, which would also restore its stated job as a walking boundary.
+            new Vector3(2f, 0f, 56f),
             new Vector3(10f, 0f, 80f),  // FinalRoom, within 12 units of D4 (4,76); sees D4
         };
 
