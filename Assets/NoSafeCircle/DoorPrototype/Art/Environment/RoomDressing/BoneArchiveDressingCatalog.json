@@ -209,7 +209,7 @@
       "prop_id": "ba_book_and_scroll_stack",
       "footprint": "ShelfA",
       "position": {
-        "x": -5.75,
+        "x": -6.75,
         "y": 0.0,
         "z": 6.0
       },
@@ -222,7 +222,7 @@
       "prop_id": "ba_book_and_scroll_stack",
       "footprint": "ShelfA",
       "position": {
-        "x": -5.75,
+        "x": -6.75,
         "y": 0.0,
         "z": 11.5
       },
@@ -235,7 +235,7 @@
       "prop_id": "ba_comedy_skull_with_spectacles",
       "footprint": "ShelfA",
       "position": {
-        "x": -5.75,
+        "x": -6.75,
         "y": 0.0,
         "z": 10.2
       },
@@ -248,7 +248,7 @@
       "prop_id": "ba_shelf_bank_z_end",
       "footprint": "ShelfA",
       "position": {
-        "x": -5.75,
+        "x": -6.75,
         "y": 0.0,
         "z": 15.141
       },
@@ -261,7 +261,7 @@
       "prop_id": "ba_shelf_bank_z_middle",
       "footprint": "ShelfA",
       "position": {
-        "x": -5.75,
+        "x": -6.75,
         "y": 0.0,
         "z": 6.324
       },
@@ -274,7 +274,7 @@
       "prop_id": "ba_shelf_bank_z_middle",
       "footprint": "ShelfA",
       "position": {
-        "x": -5.75,
+        "x": -6.75,
         "y": 0.0,
         "z": 7.788
       },
@@ -287,7 +287,7 @@
       "prop_id": "ba_shelf_bank_z_middle",
       "footprint": "ShelfA",
       "position": {
-        "x": -5.75,
+        "x": -6.75,
         "y": 0.0,
         "z": 9.252
       },
@@ -300,7 +300,7 @@
       "prop_id": "ba_shelf_bank_z_middle",
       "footprint": "ShelfA",
       "position": {
-        "x": -5.75,
+        "x": -6.75,
         "y": 0.0,
         "z": 10.717
       },
@@ -313,7 +313,7 @@
       "prop_id": "ba_shelf_bank_z_middle",
       "footprint": "ShelfA",
       "position": {
-        "x": -5.75,
+        "x": -6.75,
         "y": 0.0,
         "z": 12.181
       },
@@ -326,7 +326,7 @@
       "prop_id": "ba_shelf_bank_z_middle",
       "footprint": "ShelfA",
       "position": {
-        "x": -5.75,
+        "x": -6.75,
         "y": 0.0,
         "z": 13.645
       },
@@ -339,7 +339,7 @@
       "prop_id": "ba_shelf_bank_z_start",
       "footprint": "ShelfA",
       "position": {
-        "x": -5.75,
+        "x": -6.75,
         "y": 0.0,
         "z": 4.844
       },
@@ -352,7 +352,7 @@
       "prop_id": "ba_book_and_scroll_stack",
       "footprint": "ShelfB",
       "position": {
-        "x": -0.75,
+        "x": -1.75,
         "y": 0.0,
         "z": 5.5
       },
@@ -365,7 +365,7 @@
       "prop_id": "ba_book_and_scroll_stack",
       "footprint": "ShelfB",
       "position": {
-        "x": -0.75,
+        "x": -1.75,
         "y": 0.0,
         "z": 12.2
       },
@@ -378,7 +378,7 @@
       "prop_id": "ba_shelf_bank_z_end",
       "footprint": "ShelfB",
       "position": {
-        "x": -0.75,
+        "x": -1.75,
         "y": 0.0,
         "z": 13.141
       },
@@ -391,7 +391,7 @@
       "prop_id": "ba_shelf_bank_z_middle",
       "footprint": "ShelfB",
       "position": {
-        "x": -0.75,
+        "x": -1.75,
         "y": 0.0,
         "z": 5.401
       },
@@ -404,7 +404,7 @@
       "prop_id": "ba_shelf_bank_z_middle",
       "footprint": "ShelfB",
       "position": {
-        "x": -0.75,
+        "x": -1.75,
         "y": 0.0,
         "z": 6.943
       },
@@ -417,7 +417,7 @@
       "prop_id": "ba_shelf_bank_z_middle",
       "footprint": "ShelfB",
       "position": {
-        "x": -0.75,
+        "x": -1.75,
         "y": 0.0,
         "z": 8.484
       },
@@ -430,7 +430,7 @@
       "prop_id": "ba_shelf_bank_z_middle",
       "footprint": "ShelfB",
       "position": {
-        "x": -0.75,
+        "x": -1.75,
         "y": 0.0,
         "z": 10.026
       },
@@ -443,7 +443,7 @@
       "prop_id": "ba_shelf_bank_z_middle",
       "footprint": "ShelfB",
       "position": {
-        "x": -0.75,
+        "x": -1.75,
         "y": 0.0,
         "z": 11.568
       },
@@ -456,7 +456,7 @@
       "prop_id": "ba_shelf_bank_z_start",
       "footprint": "ShelfB",
       "position": {
-        "x": -0.75,
+        "x": -1.75,
         "y": 0.0,
         "z": 3.844
       },
@@ -469,7 +469,7 @@
       "prop_id": "ba_book_and_scroll_stack",
       "footprint": "ShelfC",
       "position": {
-        "x": 4.25,
+        "x": 3.25,
         "y": 0.0,
         "z": 8.0
       },
@@ -482,7 +482,7 @@
       "prop_id": "ba_book_and_scroll_stack",
       "footprint": "ShelfC",
       "position": {
-        "x": 4.25,
+        "x": 3.25,
         "y": 0.0,
         "z": 14.8
       },
@@ -495,7 +495,7 @@
       "prop_id": "ba_shelf_bank_z_end",
       "footprint": "ShelfC",
       "position": {
-        "x": 4.25,
+        "x": 3.25,
         "y": 0.0,
         "z": 16.141
       },
@@ -508,7 +508,7 @@
       "prop_id": "ba_shelf_bank_z_middle",
       "footprint": "ShelfC",
       "position": {
-        "x": 4.25,
+        "x": 3.25,
         "y": 0.0,
         "z": 8.401
       },
@@ -521,7 +521,7 @@
       "prop_id": "ba_shelf_bank_z_middle",
       "footprint": "ShelfC",
       "position": {
-        "x": 4.25,
+        "x": 3.25,
         "y": 0.0,
         "z": 9.943
       },
@@ -534,7 +534,7 @@
       "prop_id": "ba_shelf_bank_z_middle",
       "footprint": "ShelfC",
       "position": {
-        "x": 4.25,
+        "x": 3.25,
         "y": 0.0,
         "z": 11.484
       },
@@ -547,7 +547,7 @@
       "prop_id": "ba_shelf_bank_z_middle",
       "footprint": "ShelfC",
       "position": {
-        "x": 4.25,
+        "x": 3.25,
         "y": 0.0,
         "z": 13.026
       },
@@ -560,7 +560,7 @@
       "prop_id": "ba_shelf_bank_z_middle",
       "footprint": "ShelfC",
       "position": {
-        "x": 4.25,
+        "x": 3.25,
         "y": 0.0,
         "z": 14.568
       },
@@ -573,7 +573,7 @@
       "prop_id": "ba_shelf_bank_z_start",
       "footprint": "ShelfC",
       "position": {
-        "x": 4.25,
+        "x": 3.25,
         "y": 0.0,
         "z": 6.844
       },
