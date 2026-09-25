@@ -1037,6 +1037,27 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 + "restart that component owns, so its absence is a failure of the scene rather "
                 + "than a reason to skip.");
 
+            // THE COMMITTED SCENE STARTS AT THE TITLE SCREEN WITH GAMEPLAY INPUT SUSPENDED.
+            // TitleScreenController.Awake calls SuspendGameplayInput on both PlayerMovement and
+            // PlayerInteractionController, so a fixture that drove the wizard straight out of a
+            // freshly loaded scene would be driving suspended controllers, and every approach
+            // click would be refused by the IsGameplayEnabled guard at the top of
+            // TryBeginDoorApproach. That is not a bug in the scene - it is the title screen doing
+            // its job, and it is invisible until something tries to play the scene.
+            //
+            // So this enters gameplay the way a player does: start the game, pick a wizard,
+            // confirm, and let WizardGameEntryController spawn the wizard and re-enable input.
+            // Writing the flag directly would be shorter and would let this test pass against a
+            // committed scene no player could actually get moving in.
+            yield return EnterGameplayThroughRunEntry();
+
+            Assert.IsTrue(movement.IsGameplayEnabled,
+                "PlayerMovement gameplay input must be enabled once the production run-entry flow "
+                + "has completed; the committed scene starts it suspended behind the title screen.");
+            Assert.IsTrue(interaction.IsGameplayEnabled,
+                "PlayerInteractionController gameplay input must be enabled once the production "
+                + "run-entry flow has completed.");
+
             Transform doorTransform = d1.transform;
 
             Transform triggerTransform = doorTransform.Find("ForwardCrossingTrigger");
@@ -1161,6 +1182,42 @@ namespace NoSafeCircle.DoorPrototype.Tests
             {
                 d1.CrossedForward -= countCrossing;
             }
+        }
+
+
+        // Walks the committed scene from its title screen into gameplay exactly as a player does.
+        // TitleScreenController.StartGame raises WizardSelectionRequested, WizardSelectionController
+        // shows its panel in response, and SelectOption plus ConfirmSelection hand a confirmed
+        // selection to WizardGameEntryController, which applies the presentation, spawns the wizard
+        // at the world spawn point and re-enables gameplay input on both player controllers.
+        //
+        // Tolerant of a scene with no title screen on purpose: such a scene is already in gameplay,
+        // and the CALLER asserts the end state either way, so this can never pass vacuously.
+        private static IEnumerator EnterGameplayThroughRunEntry()
+        {
+            var title = Object.FindFirstObjectByType<TitleScreenController>();
+            if (title == null) yield break;
+
+            title.StartGame();
+            yield return null;
+
+            var selection = Object.FindFirstObjectByType<WizardSelectionController>();
+            Assert.IsNotNull(selection,
+                "The committed scene shows a title screen, so it must also hold the "
+                + "WizardSelectionController that the title screen hands off to.");
+            Assert.IsTrue(selection.IsSelectionVisible,
+                "Starting the game must show the wizard selection panel; without it no wizard can "
+                + "be confirmed and gameplay input is never re-enabled.");
+
+            selection.SelectOption(0);
+            Assert.IsTrue(selection.IsConfirmationAvailable,
+                "Selecting a wizard option must make confirmation available.");
+
+            selection.ConfirmSelection();
+
+            // One frame for WizardGameEntryController to receive WizardSelectionConfirmed, move the
+            // wizard to the world spawn and re-enable input before anything drives movement.
+            yield return null;
         }
 
         // Drives the wizard to a point expressed in DOOR-LOCAL Z through PlayerMovement's public
