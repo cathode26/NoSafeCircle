@@ -41,6 +41,7 @@ def build_compose_command(
     author_checklist: str | None = None,
     timeout_environment: Mapping[str, int] | None = None,
     bookkeeper_model: str | None = None,
+    continue_from: str | None = None,
 ) -> tuple[str, ...]:
     """Build the only decomposition transport AssistantControl supports.
 
@@ -57,9 +58,16 @@ def build_compose_command(
     # Two calls is the only profile a same-provider pooled run supports. The
     # opt-in three-call budget needs two distinct providers, so an independent
     # PASS of a reviewer revision comes from the other provider.
-    if type(max_calls) is not int or max_calls not in (2, 3):
+    if continue_from is not None:
+        if not _SAFE_ID.fullmatch(continue_from):
+            raise ValueError("Continued run id is invalid")
+        if (type(max_calls) is not int or not 1 <= max_calls <= 4 or len(set(provider_order)) != 2
+                or pool_assignment is not None or author_checklist is not None or bookkeeper_model is not None
+                or timeout_environment is not None):
+            raise ValueError("A continuation takes two distinct providers, 1..4 review calls, and nothing else")
+    elif type(max_calls) is not int or max_calls not in (2, 3):
         raise ValueError("Assistant decomposition requires a two- or three-call budget")
-    if max_calls == 3 and (len(set(provider_order)) != 2 or pool_assignment is not None):
+    if continue_from is None and max_calls == 3 and (len(set(provider_order)) != 2 or pool_assignment is not None):
         raise ValueError("A three-call decomposition budget requires two distinct providers and no pool")
     if not _SAFE_ID.fullmatch(project):
         raise ValueError("Compose project name is invalid")
@@ -137,6 +145,8 @@ def build_compose_command(
         if type(author_checklist) is not str or not re.fullmatch(r"[a-z0-9][a-z0-9.-]{0,63}", author_checklist):
             raise ValueError("Assistant decomposition author checklist must be a version name")
         command.extend(("--author-checklist", author_checklist))
+    if continue_from is not None:
+        command.extend(("--continue-from", continue_from))
     # Opt-in only, and never pooled: the bookkeeper runs in its own conversation.
     if bookkeeper_model is not None:
         if pool_assignment is not None:

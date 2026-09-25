@@ -72,6 +72,11 @@ def main() -> int:
         help=("Opt-in designer/bookkeeper split: the author writes an ownership sheet and a call on the "
               "same provider at this model writes the result from it; omit for the unchanged author round."),
     )
+    parser.add_argument(
+        "--continue-from",
+        help=("Continue this retained run, which stopped right after a revision, with --max-calls "
+              "(1..4) more independent review rounds instead of a new design."),
+    )
     args = parser.parse_args()
     output_root = args.output_root or default_output_root(args.source)
     lease_bundle = None
@@ -91,6 +96,23 @@ def main() -> int:
         except DecompositionSessionError as exc:
             print(f"Decomposition blocked: {exc}", file=sys.stderr)
             return 2
+    if args.continue_from is not None:
+        if args.bookkeeper_model or args.author_checklist or args.role_session_leases or not args.run_id:
+            print("Continuation blocked: it takes --run-id and --max-calls only; the checklist is inherited",
+                  file=sys.stderr)
+            return 2
+        from TaskDecomposition.continuation import run_continuation
+        try:
+            result = run_continuation(
+                source=args.source, output_root=output_root, task_id=args.task_id,
+                continue_from=args.continue_from, provider_order=_provider_order(args.providers),
+                max_calls=args.max_calls or 4, run_id=args.run_id,
+            )
+        except (DecompositionPreflightError, ContractValidationError, OSError) as exc:
+            print(f"Continuation blocked: {exc}", file=sys.stderr)
+            return 2
+        print(json.dumps(result, ensure_ascii=False, allow_nan=False, indent=2, sort_keys=True))
+        return 0 if result["run_status"] == "review_ready" else 1
     try:
         result = run_round_robin_decomposition(
             source=args.source,

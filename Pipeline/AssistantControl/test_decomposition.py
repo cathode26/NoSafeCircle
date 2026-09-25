@@ -658,6 +658,105 @@ class BookkeeperReviewTests(unittest.TestCase):
             _verify_review(manager, record)
 
 
+class ContinuationReviewTests(unittest.TestCase):
+    """A continuation is applicable only when its whole chain verifies."""
+
+    def produce(self):
+        from copy import deepcopy
+        from TaskDecomposition.continuation import run_continuation
+        from TaskDecomposition.round_robin_decomposition import run_round_robin_decomposition
+        from TaskDecomposition.tests.review_chain_smoke_test import factory
+        from TaskDecomposition.tests.round_robin_decomposition_smoke_test import (
+            QueueProvider, pass_review, revise_review, validated_candidate,
+        )
+        from TaskDecomposition.tests.test_support import decomposed_result
+
+        temporary = tempfile.TemporaryDirectory(prefix="assistant-continuation-")
+        self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name)
+        source = root / "source"
+        source.mkdir()
+        tasks = create_repository(source)
+        manager = Checkouts(source, root / "checkouts")
+        output_root = (manager.records / "decomposition-runs").resolve()
+        output_root.mkdir(parents=True)
+        parent = tasks["NSC-010"]
+        versions = [decomposed_result(parent)]
+        for index in (1, 2):
+            revised = deepcopy(versions[0])
+            revised["children"][0]["notes"] = f"Reviewer revision {index}."
+            versions.append(revised)
+        hashes = [candidate_sha256(validated_candidate(v, parent, tasks)) for v in versions]
+        resolved = lambda finding: [{"finding_id": finding, "status": "resolved", "explanation": "Replaced."}]
+        order = ("claude", "codex")
+        prior = run_round_robin_decomposition(
+            source=source, output_root=output_root, task_id="NSC-010", provider_order=order, max_calls=3,
+            run_id="stopped-run", _require_physical_read_only_source=False,
+            provider_factory=factory({
+                "claude": QueueProvider([versions[0], revise_review(
+                    hashes[1], versions[2], round_number=3, suffix="b", resolutions=resolved("round-02-a"))]),
+                "codex": QueueProvider([revise_review(hashes[0], versions[1], round_number=2, suffix="a")]),
+            }))
+        self.assertEqual("needs_human", prior["run_status"])
+        result = run_continuation(
+            source=source, output_root=output_root, task_id="NSC-010", continue_from="stopped-run",
+            provider_order=order, max_calls=4, run_id="continued-run", _require_physical_read_only_source=False,
+            provider_factory=factory({
+                "codex": QueueProvider([pass_review(hashes[2], resolutions=resolved("round-03-b"))]),
+                "claude": QueueProvider([])}))
+        self.assertEqual("review_ready", result["run_status"], result["rejection_reasons"])
+        head = _git(source, "rev-parse", "HEAD")
+        record = {
+            "schema_version": "assistant-decomposition/v1", "task_id": "NSC-010", "run_id": "continued-run",
+            "source": str(source.resolve()), "source_commit": head,
+            "source_tree": _git(source, "rev-parse", "HEAD^{tree}"),
+            "source_branch": _git(source, "branch", "--show-current"),
+            "task_contract_sha256": load_committed_task(source, "NSC-010", commit=head)["task_contract_sha256"],
+            "providers": list(order), "max_calls": 4, "continue_from": "stopped-run",
+            "output_root": str(output_root), "artifact_root": str(output_root / "continued-run"),
+            "status": "review_ready",
+        }
+        return manager, record, output_root
+
+    def test_a_continuation_verifies_across_the_whole_chain(self):
+        manager, record, _ = self.produce()
+        review = _verify_review(manager, record)
+        self.assertEqual(["stopped-run"], review["continued_runs"])
+        self.assertEqual("codex", review["reviewer_provider"])
+        self.assertIn("stopped-run/decomposition_run_result.json", review["artifact_sha256"])
+
+    def test_an_edited_prior_run_breaks_the_chain(self):
+        manager, record, output_root = self.produce()
+        path = output_root / "stopped-run" / "decomposition_run_result.json"
+        value = json.loads(path.read_text(encoding="utf-8"))
+        value["duration_seconds"] = 1.0
+        path.write_text(json.dumps(value), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "does not continue exactly the verified prior run"):
+            _verify_review(manager, record)
+
+    def test_a_continuation_record_naming_another_prior_is_refused(self):
+        manager, record, _ = self.produce()
+        with self.assertRaisesRegex(ValueError, "continues another run than its record names"):
+            _verify_review(manager, dict(record, continue_from="some-other-run"))
+
+    def test_only_the_stopped_runs_own_failed_record_is_archived(self):
+        from Pipeline.AssistantControl.decomposition import _prepare_continuation, _record_path
+        manager, record, output_root = self.produce()
+        head = record["source_commit"]
+        path = _record_path(manager, "NSC-010")
+        ident = {"schema_version": record["schema_version"], "task_id": "NSC-010", "source": str(manager.source)}
+        path.write_text(json.dumps(dict(ident, run_id="stopped-run", status="failed")), encoding="utf-8")
+        _prepare_continuation(manager, "NSC-010", "stopped-run", ["claude", "codex"], output_root, head)
+        self.assertFalse(path.exists())
+        self.assertTrue(path.with_name("NSC-010.decomposition.stopped-run.failed.archived.json").is_file())
+        path.write_text(json.dumps(dict(ident, run_id="someone-else", status="running")), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "it was preserved"):
+            _prepare_continuation(manager, "NSC-010", "stopped-run", ["claude", "codex"], output_root, head)
+        self.assertTrue(path.exists())
+        with self.assertRaisesRegex(ValueError, "cannot be continued"):
+            _prepare_continuation(manager, "NSC-010", "continued-run", ["claude", "codex"], output_root, head)
+
+
 class ThreeCallBudgetTests(unittest.TestCase):
     """The opt-in budget-3 profile, verified from producer-shaped runs."""
 
