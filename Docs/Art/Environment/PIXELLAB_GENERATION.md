@@ -193,3 +193,81 @@ left alone rather than resized on a guess.
 **HOW TO CHECK THESE, because the obvious instrument is the wrong one:** they are bound from C# by
 PATH STRING, not by GUID. A GUID grep returns each PNG's own `.meta` and nothing else, which reads
 exactly like "unused". Grep the path for a C# binding, the GUID for a scene or prefab binding.
+
+## 2026-09-25 - five FLOOR tiles resized to the cell, with ZERO generations
+
+**Same root cause as the walls, different fix.** The floors were authored as 128x128 sheets of
+**16 square Wang tiles of 32 px**, and the builder paints a **1.0 x 0.5** cell. At PPU 64 a 32 px
+square is 0.5 x 0.5, and **a square cannot be 1.0 x 0.5 at any single PPU**, so unlike the walls
+no crop of the existing sheet is a correct tile on its own.
+
+| room | was | now | world at PPU 64 | source cell |
+|---|---|---|---|---|
+| Ruined Entry | 128x128 | **64x32** | 1.0 x 0.5 | Wang cell r0c2, doubled |
+| Bone Archive | 128x128 | **64x32** | 1.0 x 0.5 | Wang cell r2c2, doubled |
+| Chapel of Ash | 128x128 | **64x32** | 1.0 x 0.5 | Wang cell r2c1, doubled |
+| Lower Vault | 128x128 | **64x32** | 1.0 x 0.5 | Wang cell r2c1, doubled |
+| Final Room | 128x128 | **64x32** | 1.0 x 0.5 | Wang cell r2c1, doubled |
+
+**A 64x32 tile is exactly TWO 32 px Wang cells wide, so each tile is one cell placed twice with NO
+scaling and NO distortion** - every pixel is the committed kit's own and the palette is unchanged
+by construction. **Zero PixelLab generations.** Metas already carried `spritePivot {x: 0.5, y: 0}`
+and PPU 64, so no import setting changed.
+
+### FLAT TOP-DOWN, NOT A DIAMOND - DECIDED FROM A RENDER, NOT FROM REASONING
+
+**The camera supplies the isometric projection.** `IsometricCameraEulerAngles = (30, -45, 0)`,
+orthographic, with the floor tilemap at `Quaternion.Euler(-90, 0, 0)` lying flat in world XZ. A
+flat axis-aligned square on that ground already reads as a rhombus on screen, **so a pre-drawn
+diamond would be projected twice.** Confirmed by the Game Agent's `CaptureComposedFloor` run
+against main - the first time anyone had looked at a rendered room in this work.
+
+**AND THE CAPTURE ANSWERED A SECOND QUESTION THAT DECIDED THE PALETTE.** The rendered floor read
+as a featureless slab, which could mean the tile was not reaching the renderer at all. Measured
+from the capture: the floor patch's dominant colour is **#504c46 at 49%, V 0.314** - an exact
+match to the procedural `FloorTile` fill (80,76,70) unlit, against **V 0.502** for an untextured
+default material. **So the tile WAS displaying; its diamond scoring is simply too low-contrast to
+read at ~20x10 screen px per cell** - fill (80,76,70) against border (49,46,43), with the corners
+also set to the fill tone by the floor-holes fix. **The committed floor art sits at V 0.322, the
+same brightness, but carries ~30 distinct colours against the procedural 14. Surface variation is
+exactly what was missing.**
+
+### THE CELL CHOICE IS AN ART DECISION AND THE FIRST PASS GOT IT WRONG
+
+Selecting each room's **most tileable** cell produced **three byte-identical floors** - Ruined
+Entry, Bone Archive and Final Room - because this kit deliberately chains all five rooms off one
+shared base flagstone, so the plainest cell is common to them. **That would have erased the
+per-room identity this kit exists to create.** Re-scored on **representativeness** (cell V/S
+against the sheet's own V/S) with tileability as a tiebreak: all five are now distinct, and each
+tracks its own room (Chapel of Ash stays dark at V 0.10, Lower Vault keeps its green-tinged
+S 0.33).
+
+**Self-seam ranges 3-19 of 32 rows and that is accepted deliberately:** the capture measures
+roughly **20x10 screen pixels per cell**, so a 64x32 texture is downsampled about 3x and
+per-pixel seam detail cannot survive, while palette character plainly does.
+
+**NOT PROVEN: no one has seen these five in a rendered room.** The capture that informed them
+photographed the PROCEDURAL floor on main, which is what they replace.
+
+### THE FLOOR PIVOT WAS ALSO WRONG, AND ONLY A UNITY RUN FOUND IT
+
+**I predicted the resize alone would fix the floor alignment test. It did not, and the failure
+value is what diagnosed it:**
+
+    candidate alone, floors 128x128        visual-vs-gameplay offset  -0.999999
+    with the 64x32 tiles, pivot y 0.0      offset                     -0.249999
+    0.25 is exactly HALF the new 0.5-unit tile depth
+
+The committed floor metas carried `spritePivot {x: 0.5, y: 0.0}` - the WALL convention, where a
+bottom pivot is correct because *"wall visual sorting must originate at the wall/floor contact"*.
+**A floor lying flat has no contact edge; it IS the ground.** The builder agrees and says so in
+code: `LoadOrCreateArchitecturalTile`'s default overload passes **`new Vector2(0.5f, 0.5f)`**, and
+`FloorTile` takes that default while `WallTile` explicitly passes `(0.5f, 0f)`. **So the generated
+floor tile every room renders today is CENTRE-pivoted and the authored metas were not.**
+
+**All five floor metas are now `{x: 0.5, y: 0.5}`.** PPU stays 64, GUIDs untouched.
+
+**THE LESSON IS THE SAME ONE THE WALLS TAUGHT, one level down: a size fix is not a placement fix.**
+Both halves of this task needed a pivot correction that no amount of measuring the PNG would have
+revealed - the walls' came from reading the test, the floors' came from a failure value that only
+appeared after the resize.
