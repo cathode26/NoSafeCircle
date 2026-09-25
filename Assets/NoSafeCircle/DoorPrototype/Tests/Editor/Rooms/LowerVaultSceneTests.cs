@@ -151,8 +151,35 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             GameObject gameplay = GameObject.Find("Room_LowerVault/GameplayGeometry");
             Assert.IsNotNull(visible);
             Assert.IsNotNull(gameplay);
-            Assert.AreEqual(12, visible.GetComponentsInChildren<Renderer>().Length,
-                "Expected 5 wall/floor TilemapRenderers and 7 blockout obstacle proxy SpriteRenderers.");
+            // This test exists for SEPARATION -- visuals carry no collider, gameplay carries no
+            // renderer -- and a frozen grand total of 12 was never part of that. NSC-126 adds
+            // wall-accent SpriteRenderers under Visuals, which the total froze out. So assert the
+            // families that must be PRESENT and the one that must be ABSENT, never a census.
+            // FinalRoomSceneTests and RuinedEntrySceneTests already assert their equivalent with
+            // Assert.Greater(..., 0), and line 968 below already asserts proxies by NAME.
+            //
+            // The 5 is derived from the builder, not from this file: LowerVaultSceneBuilder makes
+            // exactly five CreateVisualTilemap calls (floor, north, west, south, east) and that
+            // helper adds a TilemapRenderer. Accents are SpriteRenderers and cannot change it.
+            Assert.AreEqual(5, visible.GetComponentsInChildren<TilemapRenderer>().Length,
+                "Expected 5 wall/floor TilemapRenderers: the floor plus the four wall runs.");
+            Assert.GreaterOrEqual(visible.GetComponentsInChildren<SpriteRenderer>().Length, 7,
+                "Expected at least the 7 named blockout obstacle proxy SpriteRenderers; "
+                + "NSC-126 wall accents legitimately add more.");
+
+            // THE ASSERTION THE GREY BOXES GOT PAST, added here because this is the fixture that
+            // was counting renderers when it happened. Seven blockout cubes rendered in the Bone
+            // Archive for hours behind a green suite, because every fixture asserted its renderers
+            // were CORRECT rather than that the wrong KIND was absent. Lower Vault's proxies are
+            // SpriteRenderers and it makes no blockout cubes at all, so a MeshRenderer under
+            // Visuals here is a grey box that escaped hiding.
+            //
+            // DO NOT COPY THIS LINE TO BoneArchiveSceneTests UNCHANGED: that builder hides its
+            // cubes with renderer.enabled = false rather than destroying them, and
+            // GetComponentsInChildren returns disabled components, so the count there is 7 by
+            // design. Assert on .enabled there instead.
+            Assert.AreEqual(0, visible.GetComponentsInChildren<MeshRenderer>().Length,
+                "Visuals must carry no MeshRenderer; one here is an un-hidden grey-box cube.");
             Assert.AreEqual(0, visible.GetComponentsInChildren<Collider>().Length);
             Assert.AreEqual(14, gameplay.GetComponentsInChildren<BoxCollider>().Length,
                 "Expected floor + 6 wall pieces + 4 named obstacles + 3 LV-H1 spans.");
