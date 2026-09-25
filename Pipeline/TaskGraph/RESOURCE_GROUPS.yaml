@@ -237,13 +237,15 @@
       "reconciliation_keys": [
         "ruined-entry-blockout",
         "world-sprite-sorting-layer-adoption",
-        "apply-authored-architectural-tilesets-to-room-builders"
+        "apply-authored-architectural-tilesets-to-room-builders",
+        "room-builder-wall-accent-calls"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/RuinedEntrySceneBuilder.cs",
       "work_ids": [
         "NSC-044",
         "NSC-100",
-        "NSC-109"
+        "NSC-109",
+        "NSC-126"
       ]
     },
     {
@@ -278,12 +280,14 @@
     {
       "reconciliation_keys": [
         "bone-archive-blockout",
-        "apply-authored-architectural-tilesets-to-room-builders"
+        "apply-authored-architectural-tilesets-to-room-builders",
+        "room-builder-wall-accent-calls"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/BoneArchiveSceneBuilder.cs",
       "work_ids": [
         "NSC-045",
-        "NSC-109"
+        "NSC-109",
+        "NSC-126"
       ]
     },
     {
@@ -327,12 +331,14 @@
     {
       "reconciliation_keys": [
         "chapel-of-ash-blockout",
-        "apply-authored-architectural-tilesets-to-room-builders"
+        "apply-authored-architectural-tilesets-to-room-builders",
+        "room-builder-wall-accent-calls"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ChapelOfAshSceneBuilder.cs",
       "work_ids": [
         "NSC-046",
-        "NSC-109"
+        "NSC-109",
+        "NSC-126"
       ]
     },
     {
@@ -378,12 +384,14 @@
     {
       "reconciliation_keys": [
         "lower-vault-blockout",
-        "apply-authored-architectural-tilesets-to-room-builders"
+        "apply-authored-architectural-tilesets-to-room-builders",
+        "room-builder-wall-accent-calls"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/LowerVaultSceneBuilder.cs",
       "work_ids": [
         "NSC-047",
-        "NSC-109"
+        "NSC-109",
+        "NSC-126"
       ]
     },
     {
@@ -418,12 +426,14 @@
     {
       "reconciliation_keys": [
         "final-room-blockout",
-        "apply-authored-architectural-tilesets-to-room-builders"
+        "apply-authored-architectural-tilesets-to-room-builders",
+        "room-builder-wall-accent-calls"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/FinalRoomSceneBuilder.cs",
       "work_ids": [
         "NSC-048",
-        "NSC-109"
+        "NSC-109",
+        "NSC-126"
       ]
     },
     {
