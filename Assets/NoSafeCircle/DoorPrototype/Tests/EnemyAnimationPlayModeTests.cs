@@ -509,7 +509,15 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.That(meleeAnimation.CurrentState, Does.StartWith("MeleeEnemy_idle_"));
             Assert.AreEqual(stoppedTargetDirection, meleeAnimation.LastDirection);
 
-            TeleportPlayer(player, playerController, new Vector3(9f, 0f, 13f));
+            // Third and last of the same stale-literal shape in this fixture: (9,0,13) was two
+            // units east of the PRE-AC-005 wraith spawn (7,0,13). The wraith is a stationary
+            // caster, so a wizard parked at the old coordinate simply is not the nearest visible
+            // target any more and the wraith correctly does not face it.
+            //
+            // The relative form is this file's OWN existing pattern - the melee stop-and-face
+            // check above already uses stoppedMeleePosition + Vector3.left * 2f - so the literals
+            // were the outliers here, not the fix.
+            TeleportPlayer(player, playerController, boneArchiveWraithSpawn + new Vector3(2f, 0f, 0f));
             EnemyLanternWispCaster caster = wraith.GetComponent<EnemyLanternWispCaster>();
             EnemyAnimationController wraithAnimation =
                 wraith.GetComponent<EnemyAnimationController>();
