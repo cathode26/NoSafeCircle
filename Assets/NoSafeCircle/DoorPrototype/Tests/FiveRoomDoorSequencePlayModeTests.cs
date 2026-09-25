@@ -557,6 +557,68 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Debug.Log($"TEMP agent settings: radius {settings.agentRadius} height {settings.agentHeight} " +
                       $"climb {settings.agentClimb} slope {settings.agentSlope}");
 
+            // Is AC-006 satisfiable at all in the Lower Vault, or does LV-H1's ramp cover every
+            // point AC-005 allows? Searched rather than argued: enumerate the whole melee-legal
+            // disc and report which points pass all three AC-006 conditions.
+            var d3 = new Vector2(-8f, 54f);
+            var d4 = new Vector2(4f, 76f);
+            var midpoint = (d3 + d4) * 0.5f;
+            var meleeLegal = new List<Vector3>();
+            for (var x = -18.5f; x <= 18.5f; x += 0.25f)
+            {
+                for (var z = 55.5f; z <= 74.5f; z += 0.25f)
+                {
+                    if (Vector2.Distance(new Vector2(x, z), midpoint) > 4.0f) continue;
+
+                    var candidate = new Vector3(x, 0f, z);
+                    if (!NavMesh.SamplePosition(candidate, out _, 0.1f, NavMesh.AllAreas)) continue;
+                    if (Physics.CheckSphere(candidate + Vector3.up, 0.5f, Physics.AllLayers,
+                            QueryTriggerInteraction.Ignore)) continue;
+
+                    meleeLegal.Add(candidate);
+                }
+            }
+
+            Debug.Log($"TEMP AC-005(a)+AC-006 legal MELEE points in Lower Vault: {meleeLegal.Count}");
+            foreach (var point in meleeLegal.OrderBy(p => Vector2.Distance(new Vector2(p.x, p.z), midpoint)).Take(12))
+            {
+                Debug.Log($"TEMP   melee candidate {point} (d(mid) {Vector2.Distance(new Vector2(point.x, point.z), midpoint):F2})");
+            }
+
+            // Same question for the ranged partner, independent of which melee point wins: every
+            // AC-006-legal point anywhere in the room, so a pair can be chosen from the two sets.
+            var rangedLegal = new List<Vector3>();
+            for (var x = -18.5f; x <= 18.5f; x += 0.5f)
+            {
+                for (var z = 55.5f; z <= 74.5f; z += 0.5f)
+                {
+                    var candidate = new Vector3(x, 0f, z);
+                    if (!NavMesh.SamplePosition(candidate, out _, 0.1f, NavMesh.AllAreas)) continue;
+                    if (Physics.CheckSphere(candidate + Vector3.up, 0.5f, Physics.AllLayers,
+                            QueryTriggerInteraction.Ignore)) continue;
+
+                    rangedLegal.Add(candidate);
+                }
+            }
+
+            Debug.Log($"TEMP AC-006-legal points anywhere in Lower Vault: {rangedLegal.Count}");
+            var lineDirection = d4 - d3;
+            foreach (var melee in meleeLegal.OrderBy(p => Vector2.Distance(new Vector2(p.x, p.z), midpoint)).Take(3))
+            {
+                var meleeFlat = new Vector2(melee.x, melee.z);
+                var meleeSide = Cross(lineDirection, meleeFlat - d3);
+                var partners = rangedLegal.Where(r =>
+                {
+                    var flat = new Vector2(r.x, r.z);
+                    if (Cross(lineDirection, flat - d3) * meleeSide >= 0f) return false;
+                    if (Vector2.Distance(flat, meleeFlat) < 6.0f) return false;
+                    return HasClearLinecast(r, new Vector2(-8f, 55.5f)) || HasClearLinecast(r, new Vector2(4f, 74.5f));
+                }).ToList();
+
+                Debug.Log($"TEMP   melee {melee} has {partners.Count} legal ranged partner(s)" +
+                          (partners.Count > 0 ? $", e.g. {partners[0]}, {partners[partners.Count / 2]}" : ""));
+            }
+
             // Both rooms' FloorCollision boxes are byte-identical in height, so a room-wide offset
             // would have to come from the bake rather than the floor. This maps it: if the whole
             // Lower Vault reads high the cause is room-wide, and if only the band near the 0.5-high
