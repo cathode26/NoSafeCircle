@@ -549,6 +549,22 @@ def pre_mutation_lock_contention(exc: BaseException) -> str | None:
     return marked if type(marked) is str else None
 
 
+def _require_decompose_options(identity: Mapping[str, Any]) -> None:
+    """Refuse a malformed opt-in decomposition option before any ticket exists.
+
+    decomposition.run makes the full checks (checklist version, two distinct
+    providers for a bookkeeper); these only keep a wrong type out of the ticket.
+    """
+    if "max_calls" in identity and (type(identity["max_calls"]) is not int
+                                    or identity["max_calls"] not in (2, 3)):
+        raise BackgroundJobError("background decomposition max_calls must be 2 or 3")
+    for key in ("author_checklist", "bookkeeper_model"):
+        if key in identity and (type(identity[key]) is not str or not identity[key].strip()):
+            raise BackgroundJobError(f"background decomposition {key} must be a non-blank string")
+    if "continue_from" in identity:
+        raise BackgroundJobError("background decomposition does not support continue_from")
+
+
 def launch(
     manager: Checkouts, *, kind: str, task_id: str, identity: Mapping[str, Any],
     config: Mapping[str, Any] | None, invocation_id: str,
@@ -566,14 +582,8 @@ def launch(
         raise BackgroundJobError("decomposition background job requires provider-spend authorization")
     if kind == "decompose" and not isinstance(identity.get("compose_project"), str):
         raise BackgroundJobError("decomposition background job requires a compose project")
-    if kind == "decompose" and "max_calls" in identity:
-        raise BackgroundJobError("background decomposition does not support max_calls yet")
-    if kind == "decompose" and "author_checklist" in identity:
-        # The ticket dispatch does not carry it yet; refusing is better than
-        # silently running the proposal without the checklist that was asked for.
-        raise BackgroundJobError("background decomposition does not support author_checklist yet")
-    if kind == "decompose" and "bookkeeper_model" in identity:
-        raise BackgroundJobError("background decomposition does not support bookkeeper_model yet")
+    if kind == "decompose":
+        _require_decompose_options(identity)
     manager.records.mkdir(parents=True, exist_ok=True)
     lock_path = manager.records / "checkouts.lock"
     with contextlib.ExitStack() as transaction:
@@ -2344,6 +2354,7 @@ def _run_kind(manager: Checkouts, request: Mapping[str, Any], watch: _StopWatch)
         head = git(manager.source, "rev-parse", "HEAD").decode().strip()
         if head != identity.get("source_commit"):
             raise BackgroundJobError("Source HEAD moved before the decomposition proposal started")
+        _require_decompose_options(identity)
         from Pipeline.AssistantControl import decomposition
         return decomposition.run(
             manager, task_id, str(identity["run_id"]),
@@ -2352,6 +2363,9 @@ def _run_kind(manager: Checkouts, request: Mapping[str, Any], watch: _StopWatch)
             execution_authorized=True,
             container_name=container_name,
             container_labels=_ticket_container_labels(request),
+            max_calls=identity.get("max_calls", 2),
+            author_checklist=identity.get("author_checklist"),
+            bookkeeper_model=identity.get("bookkeeper_model"),
         )
     if kind == "post_crew":
         from Pipeline.AssistantControl.post_crew_workflow import run_post_crew_workflow

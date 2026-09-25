@@ -2943,25 +2943,51 @@ class BackgroundJobMechanismTests(unittest.TestCase):
         host.docker_cli = self.host.docker_cli  # one Docker daemon, two checkouts
         return other, host
 
-    def test_a_decompose_ticket_asking_for_an_author_checklist_is_refused(self):
-        self.prepare()
-        identity = dict(self.DECOMPOSE_IDENTITY, author_checklist="parent-contract-v1")
-        with self.assertRaisesRegex(background_jobs.BackgroundJobError, "does not support author_checklist"):
-            background_jobs.launch(
-                self.manager, kind="decompose", task_id="NSC-898", identity=identity,
-                config=None, invocation_id="inv-checklist", provider_spend_authorized=True,
-                host=self.host,
-            )
+    OPT_IN = {"max_calls": 3, "author_checklist": "parent-contract-v1", "bookkeeper_model": "gpt-5.6-luna"}
 
-    def test_a_decompose_ticket_asking_for_a_call_budget_is_refused(self):
+    def test_a_decompose_ticket_carries_its_opt_in_options_to_the_proposal(self):
         self.prepare()
-        identity = dict(self.DECOMPOSE_IDENTITY, max_calls=3)
-        with self.assertRaisesRegex(background_jobs.BackgroundJobError, "does not support max_calls"):
-            background_jobs.launch(
-                self.manager, kind="decompose", task_id="NSC-898", identity=identity,
-                config=None, invocation_id="inv-budget", provider_spend_authorized=True,
-                host=self.host,
-            )
+        index = self.launch(kind="decompose", task_id="NSC-898", duration=100.0,
+                            identity=dict(self.DECOMPOSE_IDENTITY, **self.OPT_IN), config=None)
+        request = _read(Path(index["request"]))
+        self.assertEqual(self.OPT_IN, {key: request["identity"][key] for key in self.OPT_IN})
+        calls = []
+        with patch.object(background_jobs, "git", return_value=b"abc123\n"), \
+                patch("Pipeline.AssistantControl.decomposition.run",
+                      side_effect=lambda *args, **kwargs: calls.append(kwargs) or {"status": "ok"}):
+            background_jobs._run_kind(self.manager, request, watch=None)
+        self.assertEqual(1, len(calls))
+        self.assertEqual(self.OPT_IN, {key: calls[0][key] for key in self.OPT_IN})
+
+    def test_a_decompose_ticket_without_options_runs_todays_two_call_proposal(self):
+        self.prepare()
+        index = self.launch(kind="decompose", task_id="NSC-898", duration=100.0,
+                            identity=dict(self.DECOMPOSE_IDENTITY), config=None)
+        request = _read(Path(index["request"]))
+        self.assertFalse(set(self.OPT_IN) & set(request["identity"]))
+        calls = []
+        with patch.object(background_jobs, "git", return_value=b"abc123\n"), \
+                patch("Pipeline.AssistantControl.decomposition.run",
+                      side_effect=lambda *args, **kwargs: calls.append(kwargs) or {"status": "ok"}):
+            background_jobs._run_kind(self.manager, request, watch=None)
+        self.assertEqual({"max_calls": 2, "author_checklist": None, "bookkeeper_model": None},
+                         {key: calls[0][key] for key in self.OPT_IN})
+
+    def test_a_malformed_decompose_option_is_refused_before_any_ticket_exists(self):
+        self.prepare()
+        for bad, message in (({"max_calls": 4}, "max_calls must be 2 or 3"),
+                             ({"max_calls": "3"}, "max_calls must be 2 or 3"),
+                             ({"bookkeeper_model": " "}, "bookkeeper_model must be a non-blank string"),
+                             ({"author_checklist": 1}, "author_checklist must be a non-blank string"),
+                             ({"continue_from": "prior-run"}, "does not support continue_from")):
+            with self.subTest(bad=bad):
+                with self.assertRaisesRegex(background_jobs.BackgroundJobError, message):
+                    background_jobs.launch(
+                        self.manager, kind="decompose", task_id="NSC-898",
+                        identity=dict(self.DECOMPOSE_IDENTITY, **bad), config=None,
+                        invocation_id="inv-bad", provider_spend_authorized=True, host=self.host,
+                    )
+                self.assertIsNone(background_jobs.read_index(self.manager, "NSC-898"))
 
     def test_two_checkouts_of_the_same_task_never_share_a_container_identity(self):
         """Finding 1: two checkouts (or two clones) running the same task with the
