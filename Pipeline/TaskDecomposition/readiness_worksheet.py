@@ -179,7 +179,7 @@ def render_worksheet_markdown(sheet: Mapping[str, Any]) -> str:
         "## Parent requirements",
         "",
         "Each needs one coverage record. An AC maps to child acceptance criteria, a VAL to child "
-        "completion gates, and distinct parent obligations map distinctly; one obligation may still "
+        "completion gates, and distinct parent AC or VAL obligations map distinctly; one obligation may still "
         "have several child targets or shared integration coverage.",
         "",
     ]
