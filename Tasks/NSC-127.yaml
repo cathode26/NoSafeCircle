@@ -36,7 +36,7 @@
   ],
   "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "decomposition_reason": "One bounded responsibility - place one sprite at one rhythm along existing wall runs - with a single measurable outcome per room.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -51,8 +51,8 @@
     },
     {
       "obligation_id": "INT-002",
-      "reference": "Game Agent 2026-09-25, from NSC-126's candidate a0dbfb62 file list; NSC-049 notes: the committed room scenes are immutable composition inputs; NSC-009 execution_reason: Unity scene materialization remains a controller step",
-      "requirement": "THIS TASK LANDS BUILDER CODE. NOTHING IT PLACES APPEARS IN THE GAME UNTIL THE FIVE ROOM SOURCE SCENES UNDER Assets/Scenes/Rooms/ ARE REBUILT AND THE CANONICAL SCENE IS RECOMPOSED, AND THIS TASK OWNS NEITHER. Measured on NSC-126, whose candidate a0dbfb62 contains seven files - five Editor/Rooms/*SceneBuilder.cs, one test and one meta - and ZERO room scenes: a rebake from the committed room scenes produced a frame BYTE-IDENTICAL to main, 0 changed pixels of 480000, because the composed scene is built FROM those committed scenes and they contain no accents. SO A GREEN BUILDER TEST IS NOT A VISIBLE ROOM. This obligation exists so nobody records this task, or NSC-126, as having put art in the rooms on the strength of builder coverage alone. Materialization is a controller step and belongs to whoever owns those scenes and runs Unity; this task must not hand-edit them. The task is not DONE in the sense Vincent means until a rendered room shows the placement."
+      "reference": "Game Agent 2026-09-25, from NSC-126's candidate a0dbfb62 file list; NSC-049 notes: the committed room scenes are immutable composition inputs; NSC-009 execution_reason: Unity scene materialization remains a controller step; Producer Agent 2026-09-25 23:4xZ (room-scene detector finding, premise corrected at source); twelve CommittedScene_* tests measured across the five Tests/Editor/Rooms/*SceneTests.cs at main bb750a2c; precedent 7357df5c",
+      "requirement": "THIS TASK LANDS BUILDER CODE. NOTHING IT PLACES APPEARS IN THE GAME UNTIL THE FIVE ROOM SOURCE SCENES UNDER Assets/Scenes/Rooms/ ARE REBUILT AND THE CANONICAL SCENE IS RECOMPOSED, AND THIS TASK OWNS NEITHER. Measured on NSC-126, whose candidate a0dbfb62 contains seven files - five Editor/Rooms/*SceneBuilder.cs, one test and one meta - and ZERO room scenes: a rebake from the committed room scenes produced a frame BYTE-IDENTICAL to main, 0 changed pixels of 480000, because the composed scene is built FROM those committed scenes and they contain no accents. SO A GREEN BUILDER TEST IS NOT A VISIBLE ROOM. This obligation exists so nobody records this task, or NSC-126, as having put art in the rooms on the strength of builder coverage alone. Materialization is a controller step and belongs to whoever owns those scenes and runs Unity; this task must not hand-edit them. The task is not DONE in the sense Vincent means until a rendered room shows the placement. AND THE DETECTOR FOR THIS ALREADY EXISTS, WHICH IS THE OTHER HALF OF THE OBLIGATION. Every one of the five rooms has Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/<Room>SceneTests.cs, and between them they carry TWELVE CommittedScene_* tests that open <Room>SceneBuilder.ScenePath - the committed file - and assert on what is inside it: RuinedEntry 2, BoneArchive 2, ChapelOfAsh 5, LowerVault 2, FinalRoom 1, and LowerVault's set includes CommittedScene_BytesRemainUnchangedAfterValidation. ZERO OF THE TWELVE MENTION AN ACCENT OR A PILASTER, measured at main bb750a2c, so none of them would catch this task's output failing to reach the committed scene. THE WORKED PRECEDENT IS 7357df5c (Game Agent, 2026-09-25 19:09Z, 'NSC-045: materialize the widened room and assert it in the COMMITTED scene'), which added CommittedScene_ContainsEveryApprovedBlockoutAtItsAuthoredFootprint in the SAME commit as the re-bake. SO WHOEVER RE-BAKES THE ROOMS ADDS THE MATCHING CommittedScene_ CASE FOR THE PILASTER FAMILY IN THAT SAME COMMIT, following that precedent; a new committed-scene test TASK is not needed and would duplicate twelve existing tests. THIS IS RECORDED AS AN OBLIGATION AND NOT AS AN ACCEPTANCE CRITERION ON PURPOSE: this task must not touch those scenes, so it could never satisfy it, and a criterion this task cannot discharge would be an unsatisfiable gate rather than a stronger one. Written down because a careful reader went looking for this detector on 2026-09-25 and concluded it did not exist - the obligation above was true but named nothing, and an obligation that names no artifact is not checkable."
     }
   ],
   "exclusive_resources": [
@@ -92,6 +92,15 @@
         "previous_contract_revision": 1,
         "base_contract_sha256": "064b5a2b884262639618be7d184c9c1a9ff16e9be0b42b14e5521e113955cc1f",
         "revised_contract_sha256": "3afcc86e0683a0ce255433837e6ec906824c5c029987f8eeab5fad5381d4be36",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-25",
+        "reason": "INT-002 names the committed-scene detector that already exists in all five rooms and the 7357df5c precedent, so the obligation is checkable rather than aspirational; recorded as an obligation and not an acceptance criterion because this task must not touch those scenes.",
+        "source_head": "bb750a2c58881eaffe781c0a36b90433785c43e1",
+        "previous_contract_revision": 2,
+        "base_contract_sha256": "39e16989853a6a50e30c53efe68633fbb2c8927a4dfa9f5eb02a2ec845dee65a",
+        "revised_contract_sha256": "e1b74b3ce7af6b94980762006b53f34737eb308e1207840cf151cf2743c13027",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
