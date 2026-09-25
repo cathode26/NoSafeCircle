@@ -20,6 +20,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         private const string VisualRootName = "Visuals";
         private const string GameplayRootName = "GameplayGeometry";
         private const string DoorMarkerName = "D1Opening";
+        private const string WallAccentsRootName = "WallAccents";
         private const string ArchitecturalTileFolder =
             "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles";
         private const string FloorTileName = "RuinedEntryFloorTile";
@@ -95,6 +96,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
                 roomRoot.transform, "Authoring", RoomContentCategory.Authoring);
 
             BuildVisibleBlockout(visibleRoot, floorTile, lowWallTile);
+            BuildWallAccents(visibleRoot);
             BuildGameplayGeometry(gameplayRoot);
             CreateDoorAnchor(
                 anchorsRoot,
@@ -173,6 +175,29 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             renderer.sortingLayerName = "Default";
             renderer.sortingOrder = sortingOrder;
             return tilemap;
+        }
+
+        // NSC-126 AC-001/AC-003/AC-004: places the corner/jamb/end-cap accents NSC-120 delivered,
+        // from this room's own committed RoomBounds, floor Y and D1 door opening -- no new door
+        // coordinates or bounds are introduced here. Nested under Visuals rather than as a direct
+        // child of the room root because RoomSceneComposer.ValidateContentCategories requires
+        // every direct room-root child to carry a RoomContentMarker for one of its four
+        // categories; the whole room is rebuilt from scratch on every call, so this is idempotent
+        // for free.
+        private static void BuildWallAccents(Transform visuals)
+        {
+            Bounds roomBounds = RuinedEntryLayout.RoomBounds;
+            var doorOpenings = new List<WallAccentDoorOpening>
+            {
+                new WallAccentDoorOpening(
+                    WallSide.North, RuinedEntryLayout.DoorCenterX, RuinedEntryLayout.DoorOpeningWidth)
+            };
+            WallAccentRoomGeometry geometry = ArchitecturalWallAccentPlacement.BuildRectangularRoomGeometry(
+                roomBounds, roomBounds.center.y, doorOpenings);
+
+            GameObject accentsRoot = new GameObject(WallAccentsRootName);
+            accentsRoot.transform.SetParent(visuals, false);
+            ArchitecturalWallAccentPlacement.Place(accentsRoot.transform, geometry);
         }
 
         // NSC-109 wall-floor gap: paint every cell whose FULL FOOTPRINT lies inside the room

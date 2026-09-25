@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using NoSafeCircle.DoorPrototype.Editor;
 using NoSafeCircle.DoorPrototype.World;
@@ -30,6 +31,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         private const string FloorTilePath = ArchitecturalTileFolder + "/" + FloorTileName + ".asset";
         private const string FloorSpriteSourcePath =
             "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors/floor_FinalRoom.png";
+        private const string WallAccentsRootName = "WallAccents";
 
         [MenuItem("No Safe Circle/Rooms/Build Final Room Authoring Scene")]
         public static void BuildAndSave()
@@ -52,6 +54,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             Transform dressing = dressingObject.transform;
 
             BuildTilemapVisuals(visuals);
+            BuildWallAccents(visuals);
 
             CreateBox("FloorCollision", geometry,
                 FinalRoomLayout.RoomBounds.center + Vector3.down * 0.05f,
@@ -174,6 +177,29 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
                     }
                 }
             }
+        }
+
+        // NSC-126 AC-001/AC-003/AC-004: places the corner/jamb/end-cap accents NSC-120 delivered,
+        // from this room's own committed RoomBounds, floor Y and D4/D5 door openings -- no new
+        // door coordinates or bounds are introduced here. Nested under Visuals rather than as a
+        // direct child of the room root because RoomSceneComposer.ValidateContentCategories
+        // requires every direct room-root child to carry a RoomContentMarker for one of its four
+        // categories; the whole room is rebuilt from scratch on every call, so this is idempotent
+        // for free.
+        private static void BuildWallAccents(Transform visuals)
+        {
+            Bounds roomBounds = FinalRoomLayout.RoomBounds;
+            var doorOpenings = new List<WallAccentDoorOpening>
+            {
+                new WallAccentDoorOpening(WallSide.South, FinalRoomLayout.D4X, FinalRoomLayout.DoorOpeningWidth),
+                new WallAccentDoorOpening(WallSide.North, FinalRoomLayout.D5X, FinalRoomLayout.DoorOpeningWidth)
+            };
+            WallAccentRoomGeometry geometry = ArchitecturalWallAccentPlacement.BuildRectangularRoomGeometry(
+                roomBounds, roomBounds.center.y, doorOpenings);
+
+            GameObject accentsRoot = new GameObject(WallAccentsRootName);
+            accentsRoot.transform.SetParent(visuals, false);
+            ArchitecturalWallAccentPlacement.Place(accentsRoot.transform, geometry);
         }
 
         public static void PaintStraightWallRun(Tilemap wallTilemap, TileBase wallTile, int centerCell, int cellCount)
