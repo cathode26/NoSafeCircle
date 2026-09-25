@@ -47,6 +47,8 @@ from TaskDecomposition.author_checklist import (  # noqa: E402
 )
 from Pipeline.AgentRuntime.contracts import AGENT_INVOCATION_REQUEST_SCHEMA_VERSION  # noqa: E402
 from TaskDecomposition.context_builder import ContextPackage, DecompositionPreflightError  # noqa: E402
+from TaskDecomposition.bookkeeping_evidence import BookkeepingEvidenceError, verify_bookkeeping  # noqa: E402
+from TaskDecomposition.live_decomposition import _model_value_problem  # noqa: E402
 from TaskDecomposition.review_chain import ReviewChainError, verify_three_call_chain  # noqa: E402
 from TaskDecomposition.run_diagnosis import (  # noqa: E402
     DiagnosisEvidenceError,
@@ -544,6 +546,7 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
     checklist_evidence = (
         _verify_checklist_delivery(record, run_result) if "author_checklist" in record else {}
     )
+    _verify_bookkeeping_binding(record, run_result)
     if pooled:
         sessions = run_result.get("pooled_sessions")
         if not isinstance(sessions, Mapping) or sorted(sessions) != sorted(reserved_leases):
@@ -654,6 +657,18 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
             or history[-1].get("reviewed_candidate_sha256") != digest
             or _blocking_findings(history[-1])):
         raise ValueError("Decomposition review history does not end with a clean pass")
+    bookkeeping = None
+    if "bookkeeper_model" in record:
+        if len(rounds) != 2:
+            raise ValueError("A designer/bookkeeper decomposition carries an author correction")
+        candidate_digest, parent_task = _graph_candidate_digest(manager, record["task_id"])
+        try:
+            bookkeeping = verify_bookkeeping(
+                run_dir=Path(record["artifact_root"]), run_result=run_result, author_entry=author,
+                first_provider=record["providers"][0], parent_contract=parent_task,
+                candidate_digest=candidate_digest)
+        except BookkeepingEvidenceError as exc:
+            raise ValueError(f"Decomposition bookkeeping refused: {exc}") from exc
 
     fresh = plan_graph_apply(
         load_persistent_work_graph(manager.source),
@@ -685,7 +700,10 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
             "decomposition_result.json": hashlib.sha256(result_bytes).hexdigest(),
             "graph_delta.json": hashlib.sha256(graph_bytes).hexdigest(),
             **checklist_evidence,
+            **({} if bookkeeping is None else bookkeeping["evidence_sha256"]),
         },
+        **({} if bookkeeping is None else {"bookkeeping": {
+            key: value for key, value in bookkeeping.items() if key != "evidence_sha256"}}),
         "reviewer_provider": record["providers"][1],
         "models": [author.get("actual_model"), reviewer.get("actual_model")],
         "apply_source_commit": head,
@@ -707,6 +725,8 @@ TIMEOUT_ENVIRONMENT = {
     "decomposition_reviewer": ("NSC_DECOMPOSITION_REVIEWER_TIMEOUT_SECONDS", 1200),
 }
 THREE_CALL_OUTER_TIMEOUT_SECONDS = 6000
+# Each bookkeeping attempt runs at the author's timeout, and there are at most two.
+BOOKKEEPER_ATTEMPTS = 2
 THREE_CALL_OVERHEAD_SECONDS = 720
 
 
@@ -814,6 +834,39 @@ def _fresh_plan_proof(manager: Checkouts, decomposition: Any, plan: Any) -> Any:
     return fresh
 
 
+def _graph_candidate_digest(manager: Checkouts, task_id: str) -> tuple[Any, dict[str, Any]]:
+    """The producer's own candidate normalisation and validation against the current graph."""
+
+    graph = load_persistent_work_graph(manager.source)
+    parent_task = graph.tasks_by_id.get(task_id)
+    if parent_task is None:
+        raise ValueError("Decomposition parent is absent from the current graph")
+
+    def candidate_digest(raw: Mapping[str, Any]) -> tuple[str, str | None]:
+        # Exactly the producer's normalisation and validation
+        # (round_robin_decomposition._validate_candidate).
+        result = validate_decomposition_result(
+            _normalize_empty_artifact_placeholder(dict(raw)), parent_task=parent_task,
+            existing_reconciliation_keys=graph.plan.id_map.keys())
+        plan_id = (plan_graph_delta(graph, result.parent_task, result).plan_id
+                   if result.decision == "decomposed" else None)
+        return candidate_sha256(result), plan_id
+    return candidate_digest, parent_task
+
+
+def _verify_bookkeeping_binding(record: dict[str, Any], run_result: dict[str, Any]) -> None:
+    """A designer/bookkeeper run is exactly the one this record launched, and vice versa."""
+
+    recorded = record.get("bookkeeper_model")
+    evidence = run_result.get("designer_bookkeeper")
+    if recorded is None and "designer_bookkeeper" not in run_result:
+        return
+    if recorded is None or not isinstance(evidence, Mapping) or evidence.get("bookkeeper_model") != recorded:
+        raise ValueError(
+            f"Decomposition bookkeeper model is {evidence.get('bookkeeper_model') if isinstance(evidence, Mapping) else evidence!r}, "
+            f"the record launched {recorded!r}")
+
+
 def _verify_three_call_review(
     manager: Checkouts, record: dict[str, Any], run_result: dict[str, Any],
     decomposition: Any, plan: Any, task: dict[str, Any], digest: str, *,
@@ -832,26 +885,14 @@ def _verify_three_call_review(
             and all(type(value) is int and value > 0 for value in profile.values())):
         raise ValueError("Three-call decomposition record carries no valid timeout profile")
     binding_evidence = _verify_three_call_run_binding(record, run_result)
-    graph = load_persistent_work_graph(manager.source)
-    parent_task = graph.tasks_by_id.get(record["task_id"])
-    if parent_task is None:
-        raise ValueError("Three-call decomposition parent is absent from the current graph")
-
-    def candidate_digest(raw: Mapping[str, Any]) -> tuple[str, str | None]:
-        # Exactly the producer's normalisation and validation
-        # (round_robin_decomposition._validate_candidate).
-        result = validate_decomposition_result(
-            _normalize_empty_artifact_placeholder(dict(raw)), parent_task=parent_task,
-            existing_reconciliation_keys=graph.plan.id_map.keys())
-        plan_id = (plan_graph_delta(graph, result.parent_task, result).plan_id
-                   if result.decision == "decomposed" else None)
-        return candidate_sha256(result), plan_id
+    candidate_digest, parent_task = _graph_candidate_digest(manager, record["task_id"])
 
     try:
         chain = verify_three_call_chain(
             run_dir=Path(record["artifact_root"]), run_result=run_result,
             providers=tuple(record["providers"]), candidate_digest=candidate_digest,
             timeouts={role: float(value) for role, value in profile.items()},
+            parent_contract=parent_task,
         )
     except ReviewChainError as exc:
         raise ValueError(f"Three-call decomposition review refused: {exc}") from exc
@@ -891,6 +932,7 @@ def _verify_three_call_review(
         "timeout_profile": dict(profile),
         "calls_used": chain["calls_used"],
         "author_corrections_used": chain["author_corrections_used"],
+        **({} if chain.get("bookkeeping") is None else {"bookkeeping": chain["bookkeeping"]}),
         "apply_source_commit": head,
         "reviewed_source_commit": record["source_commit"],
         "source_advancement": {
@@ -917,8 +959,13 @@ def run(
     container_labels: Mapping[str, str] | None = None,
     author_checklist: str | None = None,
     max_calls: int = 2,
+    bookkeeper_model: str | None = None,
 ) -> dict[str, Any]:
     """Run one two-call decomposition proposal: an author and an independent reviewer.
+
+    ``bookkeeper_model`` opts into the designer/bookkeeper split: the author
+    writes an ownership sheet and a call on the same provider at that model
+    writes the result from it (at most two attempts). Mixed providers only.
 
     ``providers`` names two Claude/Codex roles. Two distinct providers are
     independent by provider identity and run exactly as they always have. One
@@ -945,6 +992,13 @@ def run(
         raise ValueError(f"Unknown decomposition author checklist {author_checklist!r}")
     if type(max_calls) is not int or max_calls not in (2, 3):
         raise ValueError(f"Decomposition call budget must be 2 or 3, not {max_calls!r}")
+    if bookkeeper_model is not None:
+        problem = _model_value_problem(bookkeeper_model)
+        if problem:
+            raise ValueError(f"Bookkeeper model {problem}: {bookkeeper_model!r}")
+        requested = tuple(item.strip() for item in providers.split(",") if item.strip())
+        if len(set(requested)) != 2:
+            raise ValueError("The designer/bookkeeper split requires two distinct providers")
     timeout_profile = None
     if max_calls == 3:
         requested = tuple(item.strip() for item in providers.split(",") if item.strip())
@@ -1011,6 +1065,7 @@ def run(
             "preflight_source_commit": preflight.get("source_commit"),
             **({} if author_checklist is None else {"author_checklist": author_checklist}),
             **({} if timeout_profile is None else {"timeout_profile": timeout_profile}),
+            **({} if bookkeeper_model is None else {"bookkeeper_model": bookkeeper_model}),
         }
         write_record(path, record)
 
@@ -1077,6 +1132,7 @@ def run(
             author_checklist=author_checklist,
             timeout_environment=(None if timeout_profile is None else {
                 TIMEOUT_ENVIRONMENT[role][0]: seconds for role, seconds in timeout_profile.items()}),
+            bookkeeper_model=bookkeeper_model,
         ))
         if container_name is not None:
             position = command.index("run") + 1
@@ -1097,7 +1153,10 @@ def run(
                 stderr=stderr,
                 # Three rounds plus the optional correction can outlast the
                 # two-call hour; only the opt-in profile gets the longer bound.
-                timeout=THREE_CALL_OUTER_TIMEOUT_SECONDS if max_calls == 3 else 3600,
+                timeout=(THREE_CALL_OUTER_TIMEOUT_SECONDS if max_calls == 3 else 3600) + (
+                    0 if bookkeeper_model is None else BOOKKEEPER_ATTEMPTS * (
+                        timeout_profile["task_decomposer"] if timeout_profile is not None
+                        else TIMEOUT_ENVIRONMENT["task_decomposer"][1])),
                 creationflags=creationflags,
                 check=False,
             )

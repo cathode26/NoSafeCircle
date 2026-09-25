@@ -28,6 +28,7 @@ returns the verified chain or raises ReviewChainError with a code:
     D3_FINDING_RESOLUTION      the reviews' findings and resolutions do not replay
     D3_TIMEOUT                 a round ran with a timeout other than the recorded one
     D3_FINAL_ARTIFACTS         the approved candidate is not the run's result
+    D3_BOOKKEEPING             a designer/bookkeeper run does not prove its sheet and bookkeeping
 
 The spec is C:/nscrev/reports/handoffs/three-call-budget-SPEC-20260924.md,
 section 3.A.
@@ -39,6 +40,7 @@ from pathlib import Path
 from typing import Any, Callable, Mapping
 
 from Pipeline.AgentRuntime.contracts import AGENT_INVOCATION_REQUEST_SCHEMA_VERSION
+from TaskDecomposition.bookkeeping_evidence import BookkeepingEvidenceError, verify_bookkeeping
 from TaskDecomposition.review_contracts import DecompositionReviewResult
 from TaskDecomposition.review_policy import validate_decomposition_review
 from TaskDecomposition.run_diagnosis import (
@@ -202,6 +204,7 @@ def _candidate_summary(value: Any, *, label: str) -> Mapping[str, Any]:
 def verify_three_call_chain(
     *, run_dir: Path, run_result: Mapping[str, Any], providers: tuple[str, str],
     candidate_digest: CandidateDigest, timeouts: Mapping[str, float] | None = None,
+    parent_contract: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Return the verified chain of a budget-3 run, or raise ReviewChainError.
 
@@ -247,9 +250,23 @@ def verify_three_call_chain(
              f"round 1 candidate names author {latest.get('author_provider')!r} version {latest.get('version')!r}")
     _published_candidate(
         evidence, "01-correction" if corrections else "01", latest, candidate_digest, label="round 1 candidate")
-    _require(_digest(candidate_digest, author_output, "D3_PROVIDER_IDENTITY", "round 1 runtime output")
-             == (latest["sha256"], latest["graph_delta_plan_id"]), "D3_PROVIDER_IDENTITY",
-             "round 1's runtime output is not the published candidate")
+    bookkeeping = None
+    if "designer_bookkeeper" in run_result:
+        # Round 1's own output is the design; the candidate is the last
+        # bookkeeping attempt's, bound to that design.
+        _require(not corrections and parent_contract is not None, "D3_BOOKKEEPING",
+                 "a designer/bookkeeper run carries an author correction or no parent contract to check")
+        try:
+            bookkeeping = verify_bookkeeping(
+                run_dir=run_dir, run_result=run_result, author_entry=author, first_provider=first,
+                parent_contract=parent_contract, candidate_digest=candidate_digest,
+                designer_timeout=None if timeouts is None else timeouts[AUTHOR_ROLE])
+        except BookkeepingEvidenceError as exc:
+            raise ReviewChainError("D3_BOOKKEEPING", str(exc)) from exc
+    else:
+        _require(_digest(candidate_digest, author_output, "D3_PROVIDER_IDENTITY", "round 1 runtime output")
+                 == (latest["sha256"], latest["graph_delta_plan_id"]), "D3_PROVIDER_IDENTITY",
+                 "round 1's runtime output is not the published candidate")
 
     unresolved: dict[str, Any] = {}
     seen_ids: set[str] = set()
@@ -344,5 +361,7 @@ def verify_three_call_chain(
         "calls_used": calls,
         "author_corrections_used": corrections,
         "models": [entry.get("actual_model") for entry in rounds],
-        "evidence_sha256": dict(evidence.hashes),
+        "evidence_sha256": {**evidence.hashes, **({} if bookkeeping is None else bookkeeping["evidence_sha256"])},
+        "bookkeeping": None if bookkeeping is None else {
+            key: value for key, value in bookkeeping.items() if key != "evidence_sha256"},
     }

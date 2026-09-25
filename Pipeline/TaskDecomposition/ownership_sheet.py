@@ -31,18 +31,18 @@ class OwnershipSheetError(ValueError):
 OWNERSHIP_SHEET_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["schema_version", "children", "inbound_dependency_rewrites"],
+    "required": ["schema_version", "rationale", "children", "inbound_dependency_rewrites"],
     "properties": {
-        "schema_version": {"const": SHEET_SCHEMA_VERSION},
+        "schema_version": {"type": "string", "enum": [SHEET_SCHEMA_VERSION]},
+        "rationale": {"type": "string"},
         "children": {
             "type": "array",
-            "minItems": 1,
             "items": {
                 "type": "object",
                 "additionalProperties": False,
                 "required": ["local_key", "title", "purpose", "kind", "type", "execution_scope",
                              "exclusive_resources", "existing_task_dependencies", "local_dependencies",
-                             "entries"],
+                             "design_notes", "entries"],
                 "properties": {
                     "local_key": {"type": "string"},
                     "title": {"type": "string"},
@@ -53,6 +53,7 @@ OWNERSHIP_SHEET_SCHEMA: dict[str, Any] = {
                     "exclusive_resources": {"type": "array", "items": {"type": "string"}},
                     "existing_task_dependencies": {"type": "array", "items": {"type": "string"}},
                     "local_dependencies": {"type": "array", "items": {"type": "string"}},
+                    "design_notes": {"type": "string"},
                     "entries": {
                         "type": "array",
                         "items": {
@@ -60,7 +61,7 @@ OWNERSHIP_SHEET_SCHEMA: dict[str, Any] = {
                             "additionalProperties": False,
                             "required": ["entry_type", "requirement", "covers"],
                             "properties": {
-                                "entry_type": {"enum": list(ENTRY_TYPES)},
+                                "entry_type": {"type": "string", "enum": list(ENTRY_TYPES)},
                                 "requirement": {"type": "string"},
                                 "covers": {"type": "array", "items": {"type": "string"}},
                             },
@@ -94,12 +95,23 @@ def _parent_ref(entry_type: str, entry_id: str) -> str:
     return f"{entry_type}:{entry_id}"
 
 
-def validate_sheet(sheet: Mapping[str, Any], parent_contract: Mapping[str, Any]) -> None:
+def validate_sheet(sheet: Any, parent_contract: Mapping[str, Any]) -> None:
     """Refuse a sheet that cannot describe a complete split of the parent."""
 
+    try:
+        _validate_sheet(sheet, parent_contract)
+    except OwnershipSheetError:
+        raise
+    except (AttributeError, KeyError, TypeError) as exc:
+        raise OwnershipSheetError(f"the sheet is malformed: {type(exc).__name__}: {exc}") from exc
+
+
+def _validate_sheet(sheet: Mapping[str, Any], parent_contract: Mapping[str, Any]) -> None:
     if sheet.get("schema_version") != SHEET_SCHEMA_VERSION:
         raise OwnershipSheetError(f"schema_version must be {SHEET_SCHEMA_VERSION!r}")
     keys = [child["local_key"] for child in sheet["children"]]
+    if not keys:
+        raise OwnershipSheetError("the sheet proposes no children")
     if len(set(keys)) != len(keys):
         raise OwnershipSheetError("child local_key values repeat")
     parent_refs = {
@@ -164,10 +176,12 @@ def sheet_from_result(result: Mapping[str, Any]) -> dict[str, Any]:
             "exclusive_resources": list(child["exclusive_resources"]),
             "existing_task_dependencies": list(child["existing_task_dependencies"]),
             "local_dependencies": list(child["local_dependencies"]),
+            "design_notes": child.get("notes", ""),
             "entries": entries,
         })
     return {
         "schema_version": SHEET_SCHEMA_VERSION,
+        "rationale": result.get("reason", ""),
         "children": children,
         "inbound_dependency_rewrites": [
             {"dependent_task_id": r["dependent_task_id"], "replacement_local_keys": list(r["replacement_local_keys"])}

@@ -67,6 +67,11 @@ def main() -> int:
         choices=sorted(CHECKLIST_VERSIONS),
         help="Opt-in author checklist given to the author, correction and reviewer; omit for unchanged prompts.",
     )
+    parser.add_argument(
+        "--bookkeeper-model",
+        help=("Opt-in designer/bookkeeper split: the author writes an ownership sheet and a call on the "
+              "same provider at this model writes the result from it; omit for the unchanged author round."),
+    )
     args = parser.parse_args()
     output_root = args.output_root or default_output_root(args.source)
     lease_bundle = None
@@ -97,6 +102,7 @@ def main() -> int:
             lease_bundle=lease_bundle,
             scheduler_repository_identity=args.scheduler_repository_identity,
             author_checklist=args.author_checklist,
+            bookkeeper_model=args.bookkeeper_model,
         )
     except (DecompositionPreflightError, ContractValidationError, OSError) as exc:
         print(f"Round-robin decomposition blocked: {exc}", file=sys.stderr)

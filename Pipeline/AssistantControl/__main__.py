@@ -301,6 +301,10 @@ def main(argv=None) -> int:
     decompose.add_argument(
         "--author-checklist", choices=("parent-contract-v1",),
         help="Opt-in author checklist for the author, correction and reviewer; omit for unchanged prompts")
+    decompose.add_argument(
+        "--bookkeeper-model",
+        help=("Opt-in designer/bookkeeper split: the author writes an ownership sheet and a call on the "
+              "author's provider at this model writes the result from it; two distinct providers only"))
     inspect_decomposition = commands.add_parser("inspect-decomposition", help="Recheck the exact retained decomposition review")
     inspect_decomposition.add_argument("task")
     readiness = commands.add_parser(
@@ -800,6 +804,7 @@ def main(argv=None) -> int:
                         execution_authorized=args.authorize_provider_spend,
                         author_checklist=args.author_checklist,
                         max_calls=args.max_calls,
+                        bookkeeper_model=args.bookkeeper_model,
                     )
                 elif args.command == "inspect-decomposition":
                     result = decomposition.inspect(manager, args.task)

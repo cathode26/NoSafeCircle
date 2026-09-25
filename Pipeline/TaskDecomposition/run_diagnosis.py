@@ -155,12 +155,16 @@ def _int(value: Any) -> bool:
 
 
 def expected_invocation_id(task_id: str, run_id: str, round_number: int, role: str,
-                           *, correction: bool) -> str:
+                           *, correction: bool, bookkeeping_attempt: int | None = None) -> str:
     """The engine's deterministic invocation id (round_robin_decomposition._round_invocation_id)."""
 
-    scope = f"{round_number}-correction" if correction else f"{round_number}"
+    if bookkeeping_attempt is not None:
+        scope = f"{round_number}-bookkeeper-{bookkeeping_attempt}"
+        marker = f"b{bookkeeping_attempt}"
+    else:
+        scope = f"{round_number}-correction" if correction else f"{round_number}"
+        marker = "c" if correction else ""
     suffix = hashlib.sha256(f"{run_id}:{scope}:{role}".encode("utf-8")).hexdigest()[:12]
-    marker = "c" if correction else ""
     return f"{task_id.lower()}-d1b2-r{round_number:02d}{marker}-{role.replace('_', '-')}-{suffix}"
 
 

@@ -17,6 +17,7 @@ for _module_root in (ROOT, ROOT / "Pipeline", ROOT / "Pipeline" / "TaskGraph"):
 from TaskDecomposition.round_robin_decomposition import same_provider_role_pair  # noqa: E402
 from TaskDecomposition.live_decomposition import (  # noqa: E402
     MODEL_ENVIRONMENT_NAMES,
+    _model_value_problem,
     model_environment_arguments,
 )
 
@@ -39,6 +40,7 @@ def build_compose_command(
     provider_environment: Mapping[str, Any] | None = None,
     author_checklist: str | None = None,
     timeout_environment: Mapping[str, int] | None = None,
+    bookkeeper_model: str | None = None,
 ) -> tuple[str, ...]:
     """Build the only decomposition transport AssistantControl supports.
 
@@ -135,6 +137,14 @@ def build_compose_command(
         if type(author_checklist) is not str or not re.fullmatch(r"[a-z0-9][a-z0-9.-]{0,63}", author_checklist):
             raise ValueError("Assistant decomposition author checklist must be a version name")
         command.extend(("--author-checklist", author_checklist))
+    # Opt-in only, and never pooled: the bookkeeper runs in its own conversation.
+    if bookkeeper_model is not None:
+        if pool_assignment is not None:
+            raise ValueError("The designer/bookkeeper split runs only without a role-session pool")
+        problem = _model_value_problem(bookkeeper_model)
+        if problem:
+            raise ValueError(f"Bookkeeper model {problem}: {bookkeeper_model!r}")
+        command.extend(("--bookkeeper-model", bookkeeper_model))
     return tuple(command)
 
 

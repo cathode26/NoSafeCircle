@@ -569,6 +569,88 @@ class ChecklistDeliveryTests(unittest.TestCase):
             _verify_review(manager, record)
 
 
+class BookkeeperReviewTests(unittest.TestCase):
+    """A designer/bookkeeper run is accepted only with its sheet and bookkeeping proven."""
+
+    MODEL = "fixture-bookkeeper"
+
+    def produce(self, *, budget: int = 2, record_model: str | None = MODEL):
+        from TaskDecomposition.ownership_sheet import sheet_from_result
+        from TaskDecomposition.round_robin_decomposition import run_round_robin_decomposition
+        from TaskDecomposition.tests.review_chain_smoke_test import factory
+        from TaskDecomposition.tests.round_robin_decomposition_smoke_test import (
+            QueueProvider, pass_review, validated_candidate,
+        )
+        from TaskDecomposition.tests.test_support import decomposed_result
+
+        temporary = tempfile.TemporaryDirectory(prefix="assistant-bookkeeper-")
+        self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name)
+        source = root / "source"
+        source.mkdir()
+        tasks = create_repository(source)
+        manager = Checkouts(source, root / "checkouts")
+        output_root = (manager.records / "decomposition-runs").resolve()
+        output_root.mkdir(parents=True)
+        parent = tasks["NSC-010"]
+        result_raw = decomposed_result(parent)
+        digest = candidate_sha256(validated_candidate(result_raw, parent, tasks))
+        run_id = "bookkeeper-review"
+        result = run_round_robin_decomposition(
+            source=source, output_root=output_root, task_id="NSC-010",
+            provider_order=("claude", "codex"), max_calls=budget, run_id=run_id,
+            provider_factory=factory({
+                "claude": QueueProvider([sheet_from_result(result_raw), result_raw]),
+                "codex": QueueProvider([pass_review(digest)]),
+            }),
+            _require_physical_read_only_source=False, bookkeeper_model=self.MODEL,
+        )
+        self.assertEqual("review_ready", result["run_status"], result["rejection_reasons"])
+        head = _git(source, "rev-parse", "HEAD")
+        record = {
+            "schema_version": "assistant-decomposition/v1", "task_id": "NSC-010", "run_id": run_id,
+            "source": str(source.resolve()), "source_commit": head,
+            "source_tree": _git(source, "rev-parse", "HEAD^{tree}"),
+            "source_branch": _git(source, "branch", "--show-current"),
+            "task_contract_sha256": load_committed_task(source, "NSC-010", commit=head)["task_contract_sha256"],
+            "providers": ["claude", "codex"], "max_calls": budget,
+            "output_root": str(output_root), "artifact_root": str(output_root / run_id),
+            "status": "review_ready",
+            **({"timeout_profile": {"task_decomposer": 1440, "decomposition_reviewer": 1200}}
+               if budget == 3 else {}),
+            **({} if record_model is None else {"bookkeeper_model": record_model}),
+        }
+        return manager, record, output_root / run_id
+
+    def test_a_two_call_bookkeeper_run_is_accepted_with_its_evidence(self):
+        manager, record, _ = self.produce()
+        review = _verify_review(manager, record)
+        self.assertEqual(1, review["bookkeeping"]["attempts"])
+        self.assertIn("rounds/01/ownership_sheet.json", review["artifact_sha256"])
+
+    def test_a_three_call_bookkeeper_run_is_accepted_with_its_evidence(self):
+        manager, record, _ = self.produce(budget=3)
+        review = _verify_review(manager, record)
+        self.assertEqual(self.MODEL, review["bookkeeping"]["bookkeeper_model"])
+        self.assertIn("rounds/01/ownership_sheet.json", review["artifact_sha256"])
+
+    def test_a_record_and_run_that_disagree_about_the_bookkeeper_are_refused(self):
+        for model in (None, "another-model"):
+            with self.subTest(model=model):
+                manager, record, _ = self.produce(record_model=model)
+                with self.assertRaisesRegex(ValueError, "Decomposition bookkeeper model is"):
+                    _verify_review(manager, record)
+
+    def test_a_bookkeeper_output_that_is_not_the_candidate_is_refused(self):
+        manager, record, run_dir = self.produce()
+        result_path = next((run_dir / "rounds" / "01-bookkeeper-1" / "agent_runtime").glob("*/result.json"))
+        value = json.loads(result_path.read_text(encoding="utf-8"))
+        value["structured_output"]["children"][0]["title"] = "Changed after the fact"
+        result_path.write_text(json.dumps(value), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "Decomposition bookkeeping refused"):
+            _verify_review(manager, record)
+
+
 class ThreeCallBudgetTests(unittest.TestCase):
     """The opt-in budget-3 profile, verified from producer-shaped runs."""
 
