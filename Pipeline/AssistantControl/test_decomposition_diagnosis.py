@@ -8,6 +8,11 @@ import subprocess
 import tempfile
 import unittest
 
+try:
+    import _winapi
+except ImportError:  # not Windows
+    _winapi = None
+
 from Pipeline.AssistantControl.checkouts import Checkouts
 from Pipeline.AssistantControl.decomposition_diagnosis import diagnose
 
@@ -29,8 +34,9 @@ class DiagnoseDecompositionTests(unittest.TestCase):
         self.manager = Checkouts(source, root / "checkouts")
         self.manager.records.mkdir(parents=True, exist_ok=True)
         self.run_dir = self.manager.records / "decomposition-runs" / RUN
-        self.run_dir.mkdir(parents=True)
-        shutil.copyfile(FIXTURES / f"{RUN}.json", self.run_dir / "decomposition_run_result.json")
+        self.run_dir.parent.mkdir(parents=True)
+        shutil.copytree(FIXTURES / RUN, self.run_dir)
+        self.outside = root / "outside"
 
     def receipt(self, name: str = "NSC-088.decomposition.json", **changes) -> Path:
         value = {
@@ -80,6 +86,32 @@ class DiagnoseDecompositionTests(unittest.TestCase):
         for run_id in ("../escape", "a/b", ""):
             with self.subTest(run_id=run_id), self.assertRaisesRegex(ValueError, "plain identifier"):
                 diagnose(self.manager, "NSC-088", run_id=run_id)
+
+    def test_a_duplicate_key_receipt_is_refused(self):
+        (self.manager.records / "NSC-088.decomposition.json").write_text(
+            '{"run_id": "%s", "run_id": "%s"}' % (RUN, RUN), encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "duplicate JSON key"):
+            diagnose(self.manager, "NSC-088", run_id=RUN)
+
+    def junction(self, link: Path, target: Path) -> None:
+        if not hasattr(_winapi, "CreateJunction"):
+            self.skipTest("junctions are Windows-only")
+        _winapi.CreateJunction(str(target), str(link))
+
+    def test_a_run_directory_junction_is_refused(self):
+        shutil.move(str(self.run_dir), str(self.outside))
+        self.junction(self.run_dir, self.outside)
+        self.receipt()
+        with self.assertRaisesRegex(ValueError, "link or junction"):
+            diagnose(self.manager, "NSC-088", run_id=RUN)
+
+    def test_a_redirected_ancestor_is_refused(self):
+        runs = self.manager.records / "decomposition-runs"
+        shutil.move(str(runs), str(self.outside))
+        self.junction(runs, self.outside)
+        self.receipt()
+        with self.assertRaisesRegex(ValueError, "link or junction"):
+            diagnose(self.manager, "NSC-088", run_id=RUN)
 
     def test_a_run_result_that_names_another_run_is_refused(self):
         result = json.loads((self.run_dir / "decomposition_run_result.json").read_text(encoding="utf-8"))

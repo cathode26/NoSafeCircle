@@ -1,7 +1,8 @@
 """Decomposition failure diagnosis routes real retained runs to their cause.
 
-The fixtures are unmodified ``decomposition_run_result.json`` files from real
-runs (see fixtures/failure_diagnosis/MANIFEST.json for their origin and hashes).
+The fixtures are unmodified retained files from real runs, laid out as run
+directories (see fixtures/failure_diagnosis/MANIFEST.json for origin and
+hashes). Negative cases start from a real run and change one thing.
 """
 from __future__ import annotations
 
@@ -9,8 +10,10 @@ from copy import deepcopy
 import hashlib
 import json
 from pathlib import Path
+import shutil
 import sys
 import tempfile
+from typing import Any, Callable
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -25,23 +28,45 @@ from TaskDecomposition.run_diagnosis import (  # noqa: E402
 )
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "failure_diagnosis"
+BUDGET_TEXT = "call limit ended immediately after a revision; the latest author may not approve its own candidate"
+UNRESOLVED = ("initial candidate deterministic validation failed: Accepted decomposition output "
+              "may not contain unsupported assumptions or unresolved questions.")
 
 
-def fixture(name: str) -> dict:
-    return json.loads((FIXTURES / f"{name}.json").read_text(encoding="utf-8"))
-
-
-def diagnose(result: dict | bytes) -> dict:
+def diagnose(run: str, *, mutate: Callable[[dict], None] | None = None,
+             runtime: Callable[[dict], None] | None = None,
+             receipt: dict | None = None, raw: bytes | None = None) -> dict[str, Any]:
     with tempfile.TemporaryDirectory(prefix="nsc-diagnosis-") as text:
-        run_dir = Path(text)
-        data = result if isinstance(result, bytes) else json.dumps(result).encode("utf-8")
-        (run_dir / RUN_RESULT_NAME).write_bytes(data)
-        return diagnose_run(run_dir)
+        run_dir = Path(text) / run
+        shutil.copytree(FIXTURES / run, run_dir)
+        result_path = run_dir / RUN_RESULT_NAME
+        if raw is not None:
+            result_path.write_bytes(raw)
+        elif mutate is not None:
+            result = json.loads(result_path.read_text(encoding="utf-8"))
+            mutate(result)
+            result_path.write_text(json.dumps(result), encoding="utf-8")
+        if runtime is not None:
+            last = json.loads(result_path.read_text(encoding="utf-8"))["rounds"][-1]
+            runtime_path = run_dir / last["agent_runtime_result_path"]
+            value = json.loads(runtime_path.read_text(encoding="utf-8"))
+            runtime(value)
+            runtime_path.write_text(json.dumps(value), encoding="utf-8")
+        return diagnose_run(run_dir, receipt=receipt)
 
 
-def route(result: dict) -> tuple[str, str]:
-    primary = diagnose(result)["primary"]
+def route(run: str, **kwargs) -> tuple[str, str]:
+    primary = diagnose(run, **kwargs)["primary"]
     return primary["route"], primary["reason_code"]
+
+
+def refused(action: Callable[[], Any], fragment: str) -> None:
+    try:
+        action()
+    except DiagnosisEvidenceError as exc:
+        assert fragment in str(exc), str(exc)
+    else:
+        raise AssertionError(f"expected a refusal containing {fragment!r}")
 
 
 def test_the_fixtures_are_the_recorded_bytes() -> None:
@@ -58,128 +83,161 @@ def test_real_runs_route_to_their_known_cause() -> None:
         "decomp-nsc007-20260922a": ("STOP", "source_changed_during_run"),
         "decomp-nsc015-20260917c": ("STOP", "source_changed_during_run"),
         "nsc015-d1b2-20260915b": ("CONTRACT", "output_requested_authority"),
-        "decomp-nsc066-20260924c": ("STOP", "not_a_failure"),
         "decomp-nsc088-clone-20260924a": ("SETUP", "prompt_too_long"),
         "decomp-nsc088-clone-20260924b": ("SETUP", "unrecognized_model"),
         "decomp-nsc088-clone-20260924c": ("BUDGET", "revision_used_last_call"),
     }
-    for name, want in expected.items():
-        got = route(fixture(name))
-        assert got == want, f"{name}: {got} != {want}"
+    for run, want in expected.items():
+        got = route(run)
+        assert got == want, f"{run}: {got} != {want}"
 
 
-def test_a_budget_stop_keeps_the_reviewer_findings_as_a_secondary_cause() -> None:
-    result = diagnose(fixture("decomp-nsc088-clone-20260924c"))
-    assert result["retry_authorized"] is False
-    secondary = result["secondary"]
-    assert [entry["route"] for entry in secondary] == ["AUTHOR"], secondary
-    assert "round-02-builder-facade-edit-authority" in secondary[0]["finding_ids"], secondary
+def test_an_engine_success_is_only_a_success_if_the_host_accepted_it() -> None:
+    host_refused = {"status": "failed",
+                    "error": "ValueError: Decomposition review history does not end with a clean pass"}
+    assert route("decomp-nsc066-20260924b", receipt=host_refused) == ("STOP", "host_verification_failed")
+    assert route("decomp-nsc066-20260924c", receipt={"status": "applied"}) == ("STOP", "not_a_failure")
+    assert route("decomp-nsc066-20260924c") == ("STOP", "engine_review_ready_unverified")
 
-
-def test_setup_words_inside_findings_never_route_to_setup() -> None:
-    budget = fixture("decomp-nsc088-clone-20260924c")
-    budget["finding_history"][0]["findings"][0]["problem"] = (
-        "Prompt is too long; unrecognized_model; PromptCapacityError; hit your usage limit")
-    assert route(budget) == ("BUDGET", "revision_used_last_call")
-    author = fixture("decomp-nsc007-20260918a")
-    author["rejection_reasons"] = [
-        author["rejection_reasons"][0] + " (the child notes mention Prompt is too long)"]
-    assert route(author) == ("AUTHOR", "initial_candidate_invalid")
-
-
-def test_a_setup_failure_never_routes_to_contract() -> None:
-    for name in ("decomp-nsc088-clone-20260924a", "decomp-nsc088-clone-20260924b"):
-        result = fixture(name)
+    def reviewed_needs_human(result: dict) -> None:
         result["decision"] = "needs_human"
-        assert route(result)[0] == "SETUP", name
+    assert route("decomp-nsc066-20260924c", mutate=reviewed_needs_human,
+                 receipt={"status": "review_ready"}) == ("CONTRACT", "reviewed_decision_needs_human")
+
+
+def test_a_setup_runtime_result_is_read_hashed_and_must_agree() -> None:
+    result = diagnose("decomp-nsc088-clone-20260924a")
+    runtime = [path for path in result["input_manifest"] if "agent_runtime" in path]
+    assert len(runtime) == 1 and result["primary"]["evidence"][0]["artifact"] == runtime[0], result
+
+    def disagree(value: dict) -> None:
+        value["failure_classification"] = "timeout"
+    refused(lambda: diagnose("decomp-nsc088-clone-20260924a", runtime=disagree), "disagrees with the round")
+
+
+def test_model_text_in_a_provider_error_never_routes_to_setup() -> None:
+    def appended(value: dict) -> None:
+        value["failure_message"] += " -- and the model then wrote: Prompt is too long"
+    assert route("decomp-nsc088-clone-20260924a", runtime=appended) == ("STOP", "unrecognised_provider_failure")
+
+    def budget_with_quote(value: dict) -> None:
+        value["failure_classification"] = "budget_exhausted"
+        value["failure_message"] = "Claude Code reported: Prompt is too long"
+
+    def budget_summary(result: dict) -> None:
+        result["rounds"][-1]["agent_failure_classification"] = "budget_exhausted"
+    assert route("decomp-nsc088-clone-20260924a", mutate=budget_summary,
+                 runtime=budget_with_quote) == ("STOP", "unrecognised_provider_failure")
+
+    def findings(result: dict) -> None:
+        result["finding_history"][0]["findings"][0]["problem"] = (
+            "Prompt is too long; unrecognized_model; PromptCapacityError")
+    assert route("decomp-nsc088-clone-20260924c", mutate=findings) == ("BUDGET", "revision_used_last_call")
+
+
+def test_a_structured_quota_failure_is_setup() -> None:
+    def quota(value: dict) -> None:
+        value["failure_classification"] = "quota_exhausted"
+
+    def quota_summary(result: dict) -> None:
+        result["rounds"][-1]["agent_failure_classification"] = "quota_exhausted"
+    assert route("decomp-nsc088-clone-20260924a", mutate=quota_summary, runtime=quota) == (
+        "SETUP", "quota_exhausted")
+
+
+def test_the_terminal_stage_is_the_last_round_reached() -> None:
+    def corrected_then_budget(result: dict) -> None:
+        author, reviewer = result["rounds"]
+        rejected = deepcopy(author)
+        rejected.update(status="rejected", rejection_reasons=[UNRESOLVED], candidate_after=None)
+        correction = deepcopy(author)
+        correction.update(correction_of_round=1, status="correction_candidate_valid", rejection_reasons=[])
+        result["rounds"] = [rejected, correction, reviewer]
+        result["author_corrections_used"] = 1
+        result["rejection_reasons"] = [f"round 1: {UNRESOLVED}", BUDGET_TEXT]
+    assert route("decomp-nsc088-clone-20260924c", mutate=corrected_then_budget) == (
+        "BUDGET", "revision_used_last_call")
+
+    def failed_correction(result: dict) -> None:
+        author = result["rounds"][0]
+        correction = deepcopy(author)
+        correction.update(correction_of_round=1, rejection_reasons=[
+            "corrected candidate deterministic validation failed: still not injective"])
+        result["rounds"] = [author, correction]
+        result["author_corrections_used"] = 1
+    assert route("decomp-nsc007-20260918a", mutate=failed_correction) == ("AUTHOR", "correction_invalid")
 
 
 def test_a_correction_refused_for_capacity_is_setup_with_the_author_error_kept() -> None:
-    result = fixture("decomp-nsc007-20260918a")
-    initial = result["rejection_reasons"][0]
-    result["rejection_reasons"] = [
-        initial,
-        "round 1 correction: task-associated invocation failed: PromptCapacityError: "
-        "provider_started=false: prompt is 900000 bytes",
-    ]
-    result["author_corrections_used"] = 1
-    diagnosis = diagnose(result)
+    def capacity_correction(result: dict) -> None:
+        author = result["rounds"][0]
+        correction = deepcopy(author)
+        correction.update(
+            correction_of_round=1, agent_status="failed", agent_failure_classification="internal_error",
+            agent_runtime_result_path=None, rejection_reasons=[
+                "task-associated invocation failed: PromptCapacityError: provider_started=false: "
+                "prompt is 900000 bytes"])
+        result["rounds"] = [author, correction]
+        result["author_corrections_used"] = 1
+    diagnosis = diagnose("decomp-nsc007-20260918a", mutate=capacity_correction)
     assert (diagnosis["primary"]["route"], diagnosis["primary"]["reason_code"]) == (
         "SETUP", "capacity_refused_before_call"), diagnosis["primary"]
     assert [(e["route"], e["reason_code"]) for e in diagnosis["secondary"]] == [
         ("AUTHOR", "initial_candidate_invalid")], diagnosis["secondary"]
 
 
-def test_unknown_provider_failures_and_unrecognised_runs_stop() -> None:
-    result = fixture("decomp-nsc088-clone-20260924a")
-    result["rejection_reasons"] = ["round 1: AgentResult failed (provider_error): something new"]
-    assert route(result) == ("STOP", "unrecognised_provider_failure")
-    result = fixture("decomp-nsc007-20260918a")
-    result["rejection_reasons"] = ["round 1: a reason this classifier has never seen"]
-    assert route(result) == ("STOP", "unrecognised_failure")
-    result["mode"] = "d1b1"
-    assert route(result) == ("STOP", "unrecognised_run_evidence")
-
-
-def test_an_explicit_reviewer_stop_is_contract_review_not_budget() -> None:
-    result = fixture("decomp-nsc088-clone-20260924c")
-    result["rounds"][-1]["verdict"] = "needs_human"
-    result["rounds"][-1]["status"] = "needs_human"
-    result["rejection_reasons"] = ["reviewer requested a human decision"]
-    assert route(result) == ("CONTRACT", "provider_requested_human_decision")
-
-
-def test_an_unproven_session_stops_before_anything_else() -> None:
-    result = fixture("decomp-nsc088-clone-20260924c")
-    result["rejection_reasons"] = [
-        "round 2: provider session identity unproven: round 2 asked for a session",
-        "call limit ended immediately after a revision; the latest author may not approve its own candidate",
-    ]
-    assert route(result) == ("STOP", "provider_session_unproven")
-
-
-def test_malformed_or_unsafe_evidence_is_refused() -> None:
-    for data, fragment in (
+def test_malformed_or_inconsistent_evidence_is_not_diagnosed_confidently() -> None:
+    cases: dict[str, Callable[[dict], None]] = {
+        "schema": lambda r: r.update(schema_version="999"),
+        "scalar rounds": lambda r: r.update(rounds="many"),
+        "scalar finding_history": lambda r: r.update(finding_history=7),
+        "boolean calls": lambda r: r.update(calls_used=True),
+        "rounds disagree with accounting": lambda r: r.update(calls_used=1),
+    }
+    for name, mutate in cases.items():
+        got = route("decomp-nsc088-clone-20260924c", mutate=mutate)
+        assert got == ("STOP", "malformed_evidence"), f"{name}: {got}"
+    unspent = route("decomp-nsc088-clone-20260924c", mutate=lambda r: r.update(max_calls=3))
+    assert unspent[0] != "BUDGET", f"a budget stop needs the last call spent: {unspent}"
+    for raw, fragment in (
         (b'{"run_status": "rejected", "run_status": "review_ready"}', "duplicate JSON key"),
         (b"[]", "not a JSON object"),
         (b"\xff\xfe", "not valid UTF-8 JSON"),
     ):
-        try:
-            diagnose(data)
-        except DiagnosisEvidenceError as exc:
-            assert fragment in str(exc), str(exc)
-        else:
-            raise AssertionError(f"expected refusal containing {fragment!r}")
-    with tempfile.TemporaryDirectory(prefix="nsc-diagnosis-") as text:
-        try:
-            diagnose_run(Path(text))
-        except DiagnosisEvidenceError as exc:
-            assert "missing" in str(exc), str(exc)
-        else:
-            raise AssertionError("a missing run result must be refused")
+        refused(lambda raw=raw: diagnose("decomp-nsc007-20260918a", raw=raw), fragment)
 
 
-def test_the_manifest_binds_the_bytes_read() -> None:
-    raw = (FIXTURES / "decomp-nsc088-clone-20260924b.json").read_bytes()
-    diagnosis = diagnose(raw)
-    assert diagnosis["input_manifest"] == {RUN_RESULT_NAME: hashlib.sha256(raw).hexdigest()}
-    changed = deepcopy(json.loads(raw))
-    changed["duration_seconds"] = 0
-    assert diagnose(changed)["input_manifest"] != diagnosis["input_manifest"]
+def test_unproven_sessions_and_unknown_failures_stop() -> None:
+    def unproven(result: dict) -> None:
+        result["rejection_reasons"] = ["round 2: provider session identity unproven: never confirmed",
+                                       BUDGET_TEXT]
+    assert route("decomp-nsc088-clone-20260924c", mutate=unproven) == ("STOP", "provider_session_unproven")
+
+    def unknown(result: dict) -> None:
+        result["rounds"][0]["rejection_reasons"] = ["a reason this classifier has never seen"]
+        result["rejection_reasons"] = ["round 1: a reason this classifier has never seen"]
+    assert route("decomp-nsc007-20260918a", mutate=unknown) == ("STOP", "unrecognised_failure")
+
+
+def test_every_diagnosis_withholds_retry_authority_and_binds_its_inputs() -> None:
+    result = diagnose("decomp-nsc088-clone-20260924b")
+    assert result["retry_authorized"] is False
+    raw = (FIXTURES / "decomp-nsc088-clone-20260924b" / RUN_RESULT_NAME).read_bytes()
+    assert result["input_manifest"][RUN_RESULT_NAME] == hashlib.sha256(raw).hexdigest()
 
 
 TESTS = (
     test_the_fixtures_are_the_recorded_bytes,
     test_real_runs_route_to_their_known_cause,
-    test_a_budget_stop_keeps_the_reviewer_findings_as_a_secondary_cause,
-    test_setup_words_inside_findings_never_route_to_setup,
-    test_a_setup_failure_never_routes_to_contract,
+    test_an_engine_success_is_only_a_success_if_the_host_accepted_it,
+    test_a_setup_runtime_result_is_read_hashed_and_must_agree,
+    test_model_text_in_a_provider_error_never_routes_to_setup,
+    test_a_structured_quota_failure_is_setup,
+    test_the_terminal_stage_is_the_last_round_reached,
     test_a_correction_refused_for_capacity_is_setup_with_the_author_error_kept,
-    test_unknown_provider_failures_and_unrecognised_runs_stop,
-    test_an_explicit_reviewer_stop_is_contract_review_not_budget,
-    test_an_unproven_session_stops_before_anything_else,
-    test_malformed_or_unsafe_evidence_is_refused,
-    test_the_manifest_binds_the_bytes_read,
+    test_malformed_or_inconsistent_evidence_is_not_diagnosed_confidently,
+    test_unproven_sessions_and_unknown_failures_stop,
+    test_every_diagnosis_withholds_retry_authority_and_binds_its_inputs,
 )
 
 
