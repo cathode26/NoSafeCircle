@@ -129,3 +129,67 @@ Wall pieces were quantized by canvas group. Staged colour counts: floors 24-31, 
 Metered as the subtraction between two empty-queue readings, never as a sum of per-call estimates.
 **3770 remaining / 1229 used at the first call.** `create_topdown_tileset` costs 1-4 generations and
 usually 3 or 4, not 1 — six tilesets is about eighteen generations, not six.
+
+## 2026-09-25 - two wall pieces resized to ONE world unit for NSC-109
+
+**The kit above was authored as TWO-unit runs** - this document's own words, *"a two-unit run is
+128 px"* - **while the builders paint ONE-unit cells.** NSC-109 binds these committed sprites to
+the architectural Tiles instead of generating them, which turned that mismatch into a test
+failure. **The heights were always right. The widths were not.**
+
+| piece | was | now | world at PPU 64 | how |
+|---|---|---|---|---|
+| straight run | 128x160 | **64x160** | 1.0 x 2.5 | **crop of the approved art**, window x0=32 |
+| broken stub | 128x128 | **64x32** | 1.0 x 0.5 | regenerated, `3f888fa6-f9a3-4a66-8512-2b257240bed6` |
+
+### TWO GENERATED WALLS WERE REJECTED ON COLOUR BEFORE THE CROP WAS CHOSEN
+
+`create_object_pro_flash` was tried twice for the straight run, **both times carrying the
+anti-cyan clause verbatim, and both came back blue-cast.** Measured as the fraction of opaque
+pixels in hue 150-250 deg **AND** saturation > 0.20 - the saturation term is required, because
+this document's own colour section records that a hue relation without one is not a band:
+
+    committed original 128x160     19.1%   sat median 0.537   the approved reference
+    generated v1       64x160      55.5%   sat median 0.206   REJECTED, and only 52% h-fill
+    generated v2       64x160      42.7%   sat median 0.457   REJECTED, a 36%-coverage lattice
+    generated stub     64x32        1.1%   sat median 0.072   ACCEPTED, neutral grey
+    CROP x0=32         64x160      18.1%   sat median 0.549   ACCEPTED, it IS the kit's pixels
+
+**v1 was landed and committed before it was colour-measured, and that was the error** - a preview
+thumbnail read as grey and the measurement says 55.5%. **Measure the colour before you commit the
+art, not after.** Cost: 2 generations spent and discarded.
+
+### WHY A CROP AND NOT A UNIFORM SLICE
+
+A uniform 64 px grid over the 128 px sheet was proposed on the basis that the sprite is *"two of
+the required tiles side by side"*. **Measured, it is not:** the two halves differ in **71.5%** of
+their pixels, and the seam at x=64 is **continuous masonry** - 15 of 160 rows change across it,
+against 116 of 160 between col0 and col63. It is one two-unit run, and a 64-grid slice cuts
+through blocks.
+
+**All 65 candidate windows were searched.** x0=16..51 are solid (minimum column fill 0.97-0.98);
+**x0=32 has the best edge match and is dead centre.** No window tiles perfectly against itself,
+which is expected of a continuous run and reads as ordinary irregularity in rough masonry rather
+than as a seam.
+
+**The crop is baked into the PNG rather than expressed as `spriteMode Multiple` + a sub-rect**, so
+`AssetDatabase.LoadAssetAtPath<Sprite>` keeps returning the single main sprite and no builder code
+has to change.
+
+### PIVOTS WERE ALSO WRONG, AND A SIZE FIX ALONE WOULD HAVE MISSED THEM
+
+The tests require `pivot.y == 0` - *"Wall visual sorting must originate at the wall/floor
+contact"* - and the generated Tile being replaced used `new Vector2(0.5f, 0f)`. The committed
+metas carried `y: 0.11875` (19 px up) and `y: 0.0625` (8 px up). **Both are now `{x: 0.5, y: 0}`.**
+PPU stays 64 on every piece and no other import setting changed. The `.meta` GUIDs are untouched,
+so every existing reference still resolves.
+
+**`wall_corner` IS DELIBERATELY UNCHANGED** - the candidate uses it only as a deliberately-stale
+sprite in a rebuild-repair regression test, so nothing asserts its dimensions.
+**`wall_door_jamb`, `wall_end_cap` and `wall_pilaster` have ZERO references in the candidate's
+C#**; whether they are dead weight or staged for later rooms was NOT established, and they were
+left alone rather than resized on a guess.
+
+**HOW TO CHECK THESE, because the obvious instrument is the wrong one:** they are bound from C# by
+PATH STRING, not by GUID. A GUID grep returns each PNG's own `.meta` and nothing else, which reads
+exactly like "unused". Grep the path for a C# binding, the GUID for a scene or prefab binding.
