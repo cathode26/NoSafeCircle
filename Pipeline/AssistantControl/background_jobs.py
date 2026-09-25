@@ -566,6 +566,10 @@ def launch(
         raise BackgroundJobError("decomposition background job requires provider-spend authorization")
     if kind == "decompose" and not isinstance(identity.get("compose_project"), str):
         raise BackgroundJobError("decomposition background job requires a compose project")
+    if kind == "decompose" and "author_checklist" in identity:
+        # The ticket dispatch does not carry it yet; refusing is better than
+        # silently running the proposal without the checklist that was asked for.
+        raise BackgroundJobError("background decomposition does not support author_checklist yet")
     manager.records.mkdir(parents=True, exist_ok=True)
     lock_path = manager.records / "checkouts.lock"
     with contextlib.ExitStack() as transaction:

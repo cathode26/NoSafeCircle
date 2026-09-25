@@ -40,7 +40,18 @@ for module_root in (ROOT, ROOT / "Pipeline", TASK_GRAPH_ROOT):
     if str(module_root) not in sys.path:
         sys.path.insert(0, str(module_root))
 
-from TaskDecomposition.author_checklist import CHECKLIST_VERSIONS  # noqa: E402
+from TaskDecomposition.author_checklist import (  # noqa: E402
+    CHECKLIST_VERSIONS,
+    render_author_checklist,
+    verify_author_checklist,
+)
+from TaskDecomposition.context_builder import ContextPackage, DecompositionPreflightError  # noqa: E402
+from TaskDecomposition.run_diagnosis import (  # noqa: E402
+    DiagnosisEvidenceError,
+    confined,
+    expected_invocation_id,
+    parse_json_object,
+)
 from TaskDecomposition.contracts import DecompositionResult  # noqa: E402
 from TaskDecomposition.live_decomposition import (  # noqa: E402
     provider_configuration,
@@ -347,6 +358,62 @@ def _blocking_findings(entry: Any) -> list[Any]:
     return blocking
 
 
+def _verify_checklist_delivery(
+    record: dict[str, Any], run_result: dict[str, Any],
+) -> dict[str, str]:
+    """Prove an opted-in checklist actually reached every invocation.
+
+    Matching labels on the record and the run result are not evidence. The
+    retained context must carry an intact checklist of the recorded version
+    and hash to the run's context_sha256; the run request must agree; and each
+    round's retained invocation request must contain the exact rendered
+    checklist for its role. Returns the byte hashes of everything consumed.
+    """
+
+    version = record["author_checklist"]
+    run_dir = Path(record["artifact_root"])
+    hashes: dict[str, str] = {}
+
+    def read(relative: str, label: str) -> dict[str, Any]:
+        path = confined(run_dir, relative)
+        if not path.is_file():
+            raise ValueError(f"Author checklist evidence is missing: {relative}")
+        data = path.read_bytes()
+        hashes[relative] = hashlib.sha256(data).hexdigest()
+        return parse_json_object(data, label)
+
+    try:
+        context = ContextPackage.from_payload(read("context.json", "retained context"))
+        if verify_author_checklist(context) != version:
+            raise ValueError(f"Retained context does not carry the {version!r} author checklist")
+        request = read("decomposition_request.json", "decomposition request")
+        if (context.semantic_sha256 != run_result.get("context_sha256")
+                or request.get("context_sha256") != run_result.get("context_sha256")
+                or request.get("author_checklist") != version):
+            raise ValueError("Retained context, request and result disagree about the author checklist")
+        rendered = {
+            "task_decomposer": render_author_checklist(context, audience="author"),
+            "decomposition_reviewer": render_author_checklist(context, audience="reviewer"),
+        }
+        for entry in run_result.get("rounds") or []:
+            role = entry.get("role") if isinstance(entry, Mapping) else None
+            if role not in rendered or type(entry.get("round_number")) is not int:
+                raise ValueError("A decomposition round has no recognised role for checklist delivery")
+            correction = entry.get("correction_of_round") is not None
+            invocation = expected_invocation_id(
+                record["task_id"], record["run_id"], entry["round_number"], role, correction=correction)
+            directory = f"{entry['round_number']:02d}" + ("-correction" if correction else "")
+            invocation_request = read(
+                f"rounds/{directory}/agent_runtime/{invocation}/request.json", "invocation request")
+            prompt = invocation_request.get("prompt")
+            if not isinstance(prompt, str) or rendered[role] not in prompt:
+                raise ValueError(
+                    f"Round {entry['round_number']} {role} prompt did not carry the author checklist")
+    except (DecompositionPreflightError, DiagnosisEvidenceError) as exc:
+        raise ValueError(f"Author checklist evidence refused: {exc}") from exc
+    return hashes
+
+
 def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]:
     head, tree, branch = _require_clean_source(manager)
     if branch != record.get("source_branch"):
@@ -425,6 +492,9 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
             "Decomposition review author checklist is "
             f"{run_result.get('author_checklist')!r}, expected {record.get('author_checklist')!r}"
         )
+    checklist_evidence = (
+        _verify_checklist_delivery(record, run_result) if "author_checklist" in record else {}
+    )
     if pooled:
         sessions = run_result.get("pooled_sessions")
         if not isinstance(sessions, Mapping) or sorted(sessions) != sorted(reserved_leases):
@@ -558,6 +628,7 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
             "decomposition_run_result.json": hashlib.sha256(run_bytes).hexdigest(),
             "decomposition_result.json": hashlib.sha256(result_bytes).hexdigest(),
             "graph_delta.json": hashlib.sha256(graph_bytes).hexdigest(),
+            **checklist_evidence,
         },
         "reviewer_provider": record["providers"][1],
         "models": [author.get("actual_model"), reviewer.get("actual_model")],

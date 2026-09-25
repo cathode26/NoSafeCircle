@@ -106,6 +106,16 @@ def test_tampered_or_unknown_checklists_are_refused() -> None:
             lambda p: p["selected_task"]["contract"].update(notes="changed after enrichment"))),
             "bound to a different context")
 
+        refused(lambda: verify_author_checklist(altered(
+            lambda p: p[CHECKLIST_KEY].update(version="unknown-v1", instruction_text=None))),
+            "unsupported version")
+        refused(lambda: verify_author_checklist(altered(
+            lambda p: p.update({CHECKLIST_KEY: {}}))), "unsupported version")
+        refused(lambda: verify_author_checklist(altered(
+            lambda p: p.update({CHECKLIST_KEY: None}))), "is not an object")
+        refused(lambda: verify_author_checklist(altered(
+            lambda p: p[CHECKLIST_KEY]["parent_field_pointers"].pop())), "parent's current fields")
+
         payload = context.to_dict()
         payload["selected_task"]["contract"]["completion_gates"][0].pop("gate_id")
         refused(lambda: with_author_checklist(ContextPackage.from_payload(payload), VERSION), "has no gate_id")

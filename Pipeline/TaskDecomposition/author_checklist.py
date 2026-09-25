@@ -120,13 +120,15 @@ def verify_author_checklist(context: ContextPackage) -> str | None:
     """Return the checklist version after proving it intact, or None when absent."""
 
     payload = context.to_dict()
-    checklist = payload.get(CHECKLIST_KEY)
-    if checklist is None:
+    if CHECKLIST_KEY not in payload:
         return None
+    checklist = payload[CHECKLIST_KEY]
     if not isinstance(checklist, dict):
         raise DecompositionPreflightError("author checklist is not an object")
     version = checklist.get("version")
-    if CHECKLIST_VERSIONS.get(version) != checklist.get("instruction_text"):
+    if not isinstance(version, str) or version not in CHECKLIST_VERSIONS:
+        raise DecompositionPreflightError(f"author checklist names an unsupported version {version!r}")
+    if checklist.get("instruction_text") != CHECKLIST_VERSIONS[version]:
         raise DecompositionPreflightError(
             "author checklist text does not match its checked-in version"
         )
@@ -136,6 +138,13 @@ def verify_author_checklist(context: ContextPackage) -> str | None:
         raise DecompositionPreflightError(
             "author checklist does not point at exactly the parent's current entries"
         )
+    expected_fields = [f"{_CONTRACT_POINTER}/{field}" for field in _PARENT_FIELDS if field in contract]
+    if checklist.get("parent_field_pointers") != expected_fields:
+        raise DecompositionPreflightError(
+            "author checklist does not point at exactly the parent's current fields"
+        )
+    for pointer in expected_fields:
+        _resolve(payload, pointer)
     for entry in expected:
         target = _resolve(payload, entry["pointer"])
         id_field = dict(_ENTRY_COLLECTIONS)[entry["collection"]]
