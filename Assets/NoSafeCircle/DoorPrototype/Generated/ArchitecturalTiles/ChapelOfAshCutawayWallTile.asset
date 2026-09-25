@@ -12,7 +12,7 @@ MonoBehaviour:
   m_Script: {fileID: 13312, guid: 0000000000000000e000000000000000, type: 0}
   m_Name: ChapelOfAshCutawayWallTile
   m_EditorClassIdentifier: 
-  m_Sprite: {fileID: 179651351618984106}
+  m_Sprite: {fileID: 21300000, guid: 2080d27da4d94c51808934c2718eef00, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_Transform:
     e00: 1
@@ -55,7 +55,7 @@ Sprite:
   m_IsPolygon: 0
   m_PackingTag: 
   m_RenderDataKey:
-    00000000000000000000000000000000: 0
+    e5bc2d8b71ebae14e9167dffb1cc188d: 179651351618984106
   m_AtlasTags: []
   m_SpriteAtlas: {fileID: 0}
   m_RD:
