@@ -835,7 +835,10 @@ namespace NoSafeCircle.DoorPrototype.Tests
         // the step is fixed rather than taken from Time.deltaTime.
         private const float SimulationStepSeconds = 1f / 60f;
 
-        private const int MaxDriveFrames = 1200;
+        // Physics steps, not rendered frames: each one is Time.fixedDeltaTime of real time,
+        // so this bound is a wall-clock budget. The longest drive here is about 5 units at
+        // 4 units/second, well under 200 steps; the rest is headroom for a blocked drive.
+        private const int MaxDriveFixedSteps = 600;
 
         // Backstop only: the door timer is bounded by the door own clock, not by frames.
         private const int MaxDoorTimerFrames = 60000;
@@ -1258,16 +1261,26 @@ namespace NoSafeCircle.DoorPrototype.Tests
         {
             movement.RequestDestination(door.TransformPoint(new Vector3(0f, 0f, localZ)));
 
-            for (int frame = 0; frame < MaxDriveFrames && movement.HasActiveDestination; frame++)
+            // ONE MOVEMENT STEP PER PHYSICS STEP, which is what VAL-001 means by "a fixed
+            // simulation step and bounded WaitForFixedUpdate waits", and it is load-bearing rather
+            // than stylistic. OnTriggerEnter is dispatched by the physics step; yielding rendered
+            // frames instead lets the wizard travel a long way between two physics steps, because
+            // batchmode frames are sub-millisecond. The crossing is then reported at wherever the
+            // wizard has got to by the next step rather than where it actually crossed.
+            //
+            // MEASURED, and it is why this loop is written this way: driving on rendered frames put
+            // the wizard at door-local Z 2.420 - already stopped against room geometry well beyond
+            // the door - at the instant CrossedForward fired, when the capsule leading edge reaches
+            // the trigger near face at 1.25 with the centre still back at 0.75. Stepping with
+            // physics reports the crossing where it happens.
+            for (int step = 0; step < MaxDriveFixedSteps && movement.HasActiveDestination; step++)
             {
-                movement.Tick(SimulationStepSeconds);
-                yield return null;
+                movement.Tick(Time.fixedDeltaTime);
+                yield return new WaitForFixedUpdate();
             }
 
-            // CharacterController.Move can settle a destination before Unity's next physics step
-            // dispatches the real OnTriggerEnter, so allow a small BOUNDED number of fixed steps
-            // for the crossing trigger to be delivered rather than demanding it in the same
-            // rendered frame.
+            // A small bounded tail so a trigger dispatched by the final step is delivered before
+            // the caller asserts on it.
             for (int step = 0; step < TriggerSettleFixedSteps; step++)
             {
                 yield return new WaitForFixedUpdate();
@@ -1304,10 +1317,10 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             // PHASE 1 - the approach.
             int approachFrames = 0;
-            for (; approachFrames < MaxDriveFrames && movement.HasActiveDestination; approachFrames++)
+            for (; approachFrames < MaxDriveFixedSteps && movement.HasActiveDestination; approachFrames++)
             {
-                movement.Tick(SimulationStepSeconds);
-                yield return null;
+                movement.Tick(Time.fixedDeltaTime);
+                yield return new WaitForFixedUpdate();
             }
 
             // PHASE 2 - the opening timer, at the door's real production speed. The frame cap is
