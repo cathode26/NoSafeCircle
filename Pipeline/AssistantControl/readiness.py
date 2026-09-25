@@ -154,6 +154,28 @@ def inspect_readiness(
             baseline = admission._revision_baseline(
                 checkouts, record, task_id, source_head,
             )
+            if baseline is None:
+                # ASK THE SAME QUESTION `reserve` ASKS, OR REPORT A TASK
+                # UNREADY THAT `reserve` WOULD ADMIT. `admission.reserve`
+                # falls back to this at admission.py:454; readiness did not,
+                # so a record sitting on a `revise-on-source` reconciliation
+                # was measured against current Source HEAD instead of against
+                # its own baseline and came back
+                # "checkout_or_scope_not_ready: task checkout is not at
+                # current source HEAD" -- a WRONG ANSWER, not a missing
+                # feature. NSC-118 read exactly that at 2026-09-25 23:1xZ
+                # while every precondition `reserve` has was satisfied.
+                #
+                # Found by Astra reviewing the seam-1 branch: "admission
+                # recognizes reconciled baselines, but readiness checks only
+                # ordinary revisions before falling back to current Source
+                # HEAD. Consequently, a reconciled merge can fail readiness
+                # even before main advances." Re-reconciling cannot satisfy
+                # that equality either, which is why the remedy had to be
+                # this function and not another merge.
+                baseline = admission._revise_on_source_baseline(
+                    checkouts, record, source_head,
+                )
             checkout_head = baseline or source_head
             if record.get("status") not in {"prepared", "planned"}:
                 problems.append("task_checkout_has_work_or_review_state")
