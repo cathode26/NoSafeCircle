@@ -347,12 +347,14 @@
     {
       "reconciliation_keys": [
         "chapel-of-ash-blockout",
-        "apply-authored-architectural-tilesets-to-room-builders"
+        "apply-authored-architectural-tilesets-to-room-builders",
+        "world-sprite-sorting-layer-adoption"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/ChapelOfAshSceneTests.cs",
       "work_ids": [
         "NSC-046",
-        "NSC-109"
+        "NSC-109",
+        "NSC-100"
       ]
     },
     {
@@ -1394,6 +1396,17 @@
       "work_ids": [
         "NSC-069",
         "NSC-105"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "world-sprite-sorting-layer-adoption",
+        "title-screen-transparent-layout-build"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/TitleScreenSceneBuilderTests.cs",
+      "work_ids": [
+        "NSC-100",
+        "NSC-108"
       ]
     }
   ],
