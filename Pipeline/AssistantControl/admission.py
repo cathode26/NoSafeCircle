@@ -175,6 +175,13 @@ _GENERATED_CACHE_DIRECTORIES = frozenset(
 _GENERATED_IDE_PROJECT_SUFFIXES = frozenset(
     {".csproj", ".unityproj", ".sln", ".slnx"})
 
+# Python's own bytecode cache. Allowed at ANY depth, unlike the Unity caches
+# above, which are root-only: CPython writes `__pycache__` beside every package
+# it imports, so the depth is decided by the tree's shape and not by a policy
+# anyone here chose. Matched EXACTLY rather than case-folded -- CPython always
+# writes this name in lower case, and a differently-cased directory is not its.
+_BYTECODE_CACHE_DIRECTORY = "__pycache__"
+
 
 def _allowed_ignored_checkout_path(checkout: Path, value: str) -> bool:
     """Allow only owned generated caches and verified crew output files.
@@ -190,12 +197,39 @@ def _allowed_ignored_checkout_path(checkout: Path, value: str) -> bool:
     and every checkout whose crew has run Unity carries them, so admission
     refused the whole class rather than a defect. Deleting them per task is not a
     remedy either -- the next Unity run recreates them.
+
+    ``__pycache__`` WAS THE SAME OMISSION FOR PYTHON, AND IT IS WHAT BLOCKED
+    NSC-118. Measured 2026-09-25 23:1xZ across all 51 live task checkouts: nine
+    were refused here, and FIVE of them -- NSC-009, NSC-044, NSC-101, NSC-118,
+    NSC-126 -- were refused for nothing but seven ``Pipeline/*/__pycache__``
+    directories each. NSC-118 passed every other precondition ``reserve`` has
+    (reconciled baseline resolved, scope pinned to it, contract active,
+    dependencies satisfied) and failed only here. The other four refusals are
+    real local changes and stay refused.
+
+    The mtimes span 2026-09-22 to 2026-09-25 across five checkouts at five
+    different times, so this is the ordinary consequence of Python running in a
+    task checkout, not one stray process. WHAT CREATED THEM IS NOT IDENTIFIED
+    and deliberately not guessed at: the remedy does not depend on it, because
+    the next import recreates them exactly as the next Unity run recreates
+    ``Library/``.
+
+    WHY A BYTECODE CACHE CANNOT LAUNDER CODE INTO A CHECKOUT, proven on this
+    host rather than reasoned about: a ``.pyc`` inside ``__pycache__`` is used
+    only when its source sits beside it and the header matches. With the source
+    removed, importing raises ``ModuleNotFoundError`` -- verified against a
+    positive control that imported the same module while its source was present.
+    So a stale or planted entry here cannot shadow a tracked ``.py``. The
+    repository's own .gitignore declares the directory generated at line 113,
+    which is the same standard the .csproj family was admitted on, and it has
+    never been tracked on main (0 paths).
     """
     relative = value.replace("\\", "/").strip().strip("/")
     parts = PurePosixPath(relative).parts
     if not parts or any(part in {"", ".", ".."} for part in parts):
         return False
     if not (parts[0] in _GENERATED_CACHE_DIRECTORIES
+            or _BYTECODE_CACHE_DIRECTORY in parts
             or parts[:3] == ("Pipeline", "ExecutionCrew", "outputs")
             or (len(parts) == 1
                 and PurePosixPath(parts[0]).suffix.casefold()
