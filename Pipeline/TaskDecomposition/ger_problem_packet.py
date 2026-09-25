@@ -114,13 +114,27 @@ def _parsed_review(value: Any, label: str) -> dict[str, Any]:
 
 
 def _questions(candidate: Any) -> dict[str, list]:
+    """Questions and assumptions an output raised, keeping malformed ones as evidence.
+
+    Rejected outputs are included on purpose, so a field may be malformed (a
+    number, a bare string, an object). It is kept verbatim as malformed rather
+    than dropped, split into characters, or allowed to stop the packet.
+    """
+
     candidate = candidate if isinstance(candidate, Mapping) else {}
-    return {
-        "unresolved_questions": [str(q) for q in candidate.get("unresolved_questions") or []],
-        "unsupported_assumptions": [
-            q if isinstance(q, str) else json.dumps(q, sort_keys=True)
-            for q in candidate.get("unsupported_assumptions") or []],
-    }
+    found: dict[str, list] = {"unresolved_questions": [], "unsupported_assumptions": [], "malformed_fields": []}
+    for field in ("unresolved_questions", "unsupported_assumptions"):
+        value = candidate.get(field)
+        if value is None:
+            continue
+        if not isinstance(value, list):
+            found["malformed_fields"].append(
+                {"field": field, "value": json.dumps(value, sort_keys=True, ensure_ascii=False)})
+            continue
+        for item in value:
+            found[field].append(item if isinstance(item, str)
+                                else json.dumps(item, sort_keys=True, ensure_ascii=False))
+    return found
 
 
 def _parent_clauses(contract: Mapping[str, Any]) -> dict[str, dict[str, str]]:
@@ -196,7 +210,7 @@ def build_problem_packet(run_dir: Path, diagnosis: Mapping[str, Any],
             _require(digest == after.get("sha256"),
                      f"round {entry['round_number']} published candidate does not hash to its identity")
         found = _questions(candidate)
-        if found["unresolved_questions"] or found["unsupported_assumptions"]:
+        if found["unresolved_questions"] or found["unsupported_assumptions"] or found["malformed_fields"]:
             raised.append({"round_number": entry["round_number"], "stage": stage,
                            "round_status": entry.get("status"),
                            "decision": candidate.get("decision") if isinstance(candidate, Mapping) else None,
@@ -276,6 +290,7 @@ def render_problem_markdown(packet: Mapping[str, Any]) -> str:
                   f"decision {entry['decision']})", ""]
         lines += [f"- Question: {q}" for q in entry["unresolved_questions"]]
         lines += [f"- Unsupported assumption: {q}" for q in entry["unsupported_assumptions"]]
+        lines += [f"- Malformed `{m['field']}` (kept verbatim): {m['value']}" for m in entry["malformed_fields"]]
         lines.append("")
     for review in packet["reviews"]:
         lines += [f"## Round {review['round_number']} review ({review['reviewer_provider']}, {review['verdict']})",

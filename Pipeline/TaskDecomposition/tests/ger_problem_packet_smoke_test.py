@@ -151,6 +151,39 @@ def test_questions_from_rejected_outputs_reach_the_packet() -> None:
             "Does the parent allow a shared test fixture?"], packet["questions_and_assumptions_raised"]
 
 
+def test_a_malformed_earlier_output_does_not_lose_the_later_questions() -> None:
+    for field in ("unresolved_questions", "unsupported_assumptions"):
+        for bad in (42, "a bare string", {"q": 1}):
+            with tempfile.TemporaryDirectory(prefix="nsc-ger-packet-") as text:
+                base = Path(text)
+                tasks = create_repository(base / "source")
+                parent = tasks["NSC-010"]
+                # A normal two-stage run: the author is rejected for asking,
+                # the correction asks again. The runtime schema would refuse a
+                # malformed field, so it is placed in the author's retained
+                # output afterwards, as a provider with a laxer schema could
+                # leave it: the packet must not depend on that enforcement.
+                first = decomposed_result(parent)
+                first["unresolved_questions"] = ["An earlier question."]
+                asking = decomposed_result(parent)
+                asking["unresolved_questions"] = ["Which child owns the builder wiring?"]
+                run_dir = run(base, [first, asking], [])
+                rewrite(runtime_result(run_dir, "01"),
+                        lambda r, field=field, bad=bad: r["structured_output"].update({field: bad}))
+                diagnosis = diagnose_run(run_dir)
+                assert diagnosis["primary"]["route"] == "CONTRACT", (field, bad, diagnosis["primary"])
+                packet = packet_for(run_dir)
+                entries = {e["stage"]: e for e in packet["questions_and_assumptions_raised"]}
+                label = (field, bad)
+                assert entries["correction"]["unresolved_questions"] == [
+                    "Which child owns the builder wiring?"], label
+                assert entries["author"]["malformed_fields"] == [
+                    {"field": field, "value": json.dumps(bad, sort_keys=True, ensure_ascii=False)}], label
+                assert entries["author"][field] == [], label
+                publish_problem_packet(base / "packet", packet)
+                assert "Malformed `" + field + "`" in (base / "packet" / "GER_PROBLEM.md").read_text(encoding="utf-8")
+
+
 def test_only_a_contract_diagnosis_gets_a_packet() -> None:
     with tempfile.TemporaryDirectory(prefix="nsc-ger-packet-") as text:
         base = Path(text)
@@ -205,6 +238,7 @@ def test_every_emitted_value_is_bound_to_its_source() -> None:
 TESTS = (
     test_a_reviewer_stop_renders_quoted_evidence_only,
     test_questions_from_rejected_outputs_reach_the_packet,
+    test_a_malformed_earlier_output_does_not_lose_the_later_questions,
     test_only_a_contract_diagnosis_gets_a_packet,
     test_every_emitted_value_is_bound_to_its_source,
 )
