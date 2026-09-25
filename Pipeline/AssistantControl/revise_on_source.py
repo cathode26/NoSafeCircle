@@ -172,7 +172,13 @@ def _resume_interrupted(
 
     merged = journal.get("reconciled_commit")
     archive = Path(str(journal.get("archived_record", "")))
-    checkout = Path(str(record.get("checkout", "")))
+    recorded_checkout = str(record.get("checkout", ""))
+    if not recorded_checkout:
+        # An empty path resolves to the CWD, and this tool is run from
+        # canonical: without this the probe below would read CANONICAL's HEAD
+        # and report on the wrong repository entirely.
+        raise ReviseOnSourceError("task record names no checkout to recover")
+    checkout = Path(recorded_checkout)
     if not isinstance(merged, str) or not _COMMIT.fullmatch(merged):
         raise ReviseOnSourceError(
             f"the reconciliation journal at {journal_path} names no reconciled commit")
