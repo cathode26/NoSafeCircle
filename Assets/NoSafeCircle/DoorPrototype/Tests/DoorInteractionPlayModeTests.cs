@@ -827,6 +827,31 @@ namespace NoSafeCircle.DoorPrototype.Tests
     {
         private const string CommittedScenePath = "Assets/Scenes/DoorPrototype.unity";
 
+        private const string CommittedSceneName = "DoorPrototype";
+
+        // PlayModeSceneCleanupConventionTests caught this fixture the moment it was written, and
+        // the guard was right: loading in LoadSceneMode.Single without restoring leaves the
+        // committed five-room scene loaded for every fixture that runs AFTER this one, and the
+        // only symptom is unrelated tests failing somewhere else. Same shape as the incident that
+        // test records - one missing unload turned seven innocent tests red.
+        //
+        // A cleanup scene is made active first because Unity refuses to unload the last loaded
+        // scene. Nothing is ever saved: the committed scene is opened read-only and discarded.
+        [UnityTearDown]
+        public IEnumerator UnloadCommittedSceneWithoutSaving()
+        {
+            UnityEngine.SceneManagement.Scene scene =
+                UnityEngine.SceneManagement.SceneManager.GetSceneByName(CommittedSceneName);
+            if (!scene.IsValid() || !scene.isLoaded) yield break;
+
+            UnityEngine.SceneManagement.Scene cleanupScene =
+                UnityEngine.SceneManagement.SceneManager.CreateScene(
+                    "DoorCrossingConformanceCleanup");
+            UnityEngine.SceneManagement.SceneManager.SetActiveScene(cleanupScene);
+            yield return UnityEngine.SceneManagement.SceneManager.UnloadSceneAsync(scene);
+        }
+
+
         // VAL-001 requires the blocker extent to come from the BoxCollider own center, size and
         // Transform rather than Collider.bounds, because the blocker GameObject is INACTIVE
         // while a door is open and bounds on an inactive collider is not meaningful.
