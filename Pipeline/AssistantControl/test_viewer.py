@@ -321,7 +321,12 @@ class ViewerTests(unittest.TestCase):
         rows = {row["id"]: row for row in state["tasks"]}
         self.assertEqual("ready", rows["NSC-1104"]["state"])
         self.assertEqual("ready", rows["NSC-1105"]["state"])
-        self.assertEqual("assistant_idle", rows["NSC-9999"]["state"])
+        # eab9bad93 "Show out-of-scope assistant tasks as excluded": a task the
+        # controller does not name is EXCLUDED, not left idle. Assert the phase
+        # too, so this cannot pass on some other route to the same label.
+        self.assertEqual("excluded", rows["NSC-9999"]["state"])
+        self.assertEqual("excluded_from_current_run",
+                         rows["NSC-9999"]["progress"]["phase"])
         self.assertFalse(rows["NSC-9999"]["in_scope"])
 
     def test_preflight_projects_ready_decomposition_and_dependency_states(self):
@@ -860,8 +865,12 @@ class CandidateViewTests(unittest.TestCase):
         self.assertEqual(commit, row()["candidate_commit"])
         state = reader.build()
         self.assertEqual("🐴 Vincent needed", state["pipeline_activity"]["headline"])
-        self.assertEqual({"kind": "human_review", "task_ids": ["NSC-042"]},
-                         state["assistant_attention"])
+        # assertEqual on the whole dict cannot pass on any schedule: the
+        # `candidates` entry carries waiting_since_epoch, a wall-clock float.
+        # Assert the durable relation, not the value it has today.
+        attention = state["assistant_attention"]
+        self.assertEqual("human_review", attention["kind"])
+        self.assertEqual(["NSC-042"], attention["task_ids"])
         self.approve(gate, commit)
         self.assertEqual("approved", row()["progress"]["phase"])
         self.assertNotEqual("local_accepted", row()["state"])
@@ -1434,9 +1443,10 @@ class GraphControllerTimingEndToEndTests(unittest.TestCase):
         return Path(temp.name) / "Checkouts"
 
     def test_build_projects_timing_for_the_in_scope_task_named_by_the_controller(self):
-        # The bare InventoryTests fixture contract has no contract_disposition,
-        # so it is never in_scope; commit an executable revision so this test
-        # actually exercises the in-scope projection path.
+        # 692adcb9c "clarify viewer focus" made in_scope false by default and
+        # set it only from a checkout or the controller's targets, so an
+        # executable contract alone no longer puts a row in scope. Commit one
+        # anyway: the row must be EXECUTABLE for the controller to scope it.
         self.contract.write_text(json.dumps({
             "schema_version": "2.0", "id": "NSC-042", "title": "Committed wall task", "depends_on": [],
             "contract_disposition": "active", "execution_scope": "single_agent",
@@ -1446,7 +1456,7 @@ class GraphControllerTimingEndToEndTests(unittest.TestCase):
         self.run_git("commit", "-m", "Make NSC-042 executable")
         root = self.viewer_root()
         reader = AssistantSnapshot(self.root, root)
-        task_id = next(row["id"] for row in reader.build()["tasks"] if row["in_scope"])
+        task_id = "NSC-042"  # this test wrote that contract two statements ago
         action = {"kind": "prepare", "task_id": task_id, "source_commit": "c" * 40}
         controller = {
             "schema_version": "assistant-graph-controller/v1", "status": "running",
@@ -1458,7 +1468,17 @@ class GraphControllerTimingEndToEndTests(unittest.TestCase):
         records = root / ".assistant-control"
         records.mkdir(parents=True, exist_ok=True)
         (records / "graph-controller.json").write_text(json.dumps(controller), encoding="utf-8")
-        row = next(row for row in reader.build()["tasks"] if row["id"] == task_id)
+        # viewer.py:441 downgrades a "running" controller to "unknown" when its
+        # OWNER PROCESS IS NOT ALIVE, and only a running/preflight controller
+        # scopes the view -- "a stopped controller's targets are historical
+        # [and] must not hide a worker started directly in this checkout root".
+        # This fixture's controller is a file with no live owner, so without
+        # this patch neither the scope nor the timing projection runs at all.
+        with unittest.mock.patch.object(reader, "_controller_owner_active", return_value=True):
+            row = next(row for row in reader.build()["tasks"] if row["id"] == task_id)
+        # The controller naming a task is now the ONLY thing that scopes it on a
+        # build with no checkout; assert that rather than assuming it.
+        self.assertTrue(row["in_scope"], "controller targets must put their task in scope")
         self.assertGreaterEqual(row["progress"]["stage_elapsed_seconds"], 42.0)
         self.assertIn("phase", row["progress"])
 
