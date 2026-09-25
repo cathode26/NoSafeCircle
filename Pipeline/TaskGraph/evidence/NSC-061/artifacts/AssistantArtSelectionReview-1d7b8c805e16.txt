@@ -1,0 +1,108 @@
+NSC-061 assistant art-selection review (VAL-002)
+Validated commit: 1d7b8c805e165c3a0ec62689a80e1c412f234921
+
+Scope note: NSC-061's own exclusive_resources owns the whole Source directory, and VAL-001
+(separate artifact) shows both the PixelLab/ (180px) and PixelLab128/ (128px) trees under it
+are independently structurally complete. This gate is narrower: it verifies representation
+equality across NSC-061's own four combinations, and it names the exact source-art files
+this task authorizes for NSC-062 specifically. Structural completeness under VAL-001 is not
+the same claim as "authorized for NSC-062" and the two are not conflated here.
+
+== Clause 1: equally intentional representation across all four combinations (measured) ==
+
+Representation equality is measured, not judged. Within the PixelLab/ (180px) tree that this
+task authorizes (see Clause 2), every one of the four combinations -- feminine-dark,
+feminine-light, masculine-dark, masculine-light -- has an identical structure: the same two
+poses (standing, walk), the same eight PixelLab base directions in each pose, and the same
+56 frames per combination (8 standing + 8 directions x 6 walk frames). This is deterministic
+and was re-verified in this session (see VAL-001 artifact): all four combos, both trees,
+8/8 directions, 4/4 diagonal walk facings, identical frame counts. No combination has fewer
+frames, a missing direction, or a lower-resolution/lower-frame-count substitute than any
+other. This structural symmetry is what "equally intentional representation" means for this
+gate and it is fully deterministic; it says nothing about subjective art quality, which is
+addressed narrowly in Clause 3 below.
+
+== Clause 2: exact source-art files authorized for NSC-062 ==
+
+NSC-062 AC-001 requires importing "only the exact PixelLab source-art candidates approved in
+NSC-061." Docs/Art/Wizard/PIXELLAB_GENERATION.md is explicit on scope: "Each 'selected'
+directory is authorized input to NSC-062" (line 78), and separately, of an earlier, different,
+rejected 128x128 generation, "It is not authorized input to NSC-062" (line 19).
+
+The Source/PixelLab128/ tree now present on main is NOT that earlier rejected generation --
+it is a later, different, approved remake produced under a separate task, NSC-095 ("PixelLab
+128 px Eight-Direction Wizard Source Remake"), which depends_on NSC-061/073/074 and owns its
+own nested exclusive_resources entry
+repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128, its own VAL-001/
+VAL-002 gates, and its own Vincent-approval requirement (NSC-095 VAL-002, human review,
+required before NSC-096 starts). NSC-096 ("Wizard 128 px Source Integration Switch") is the
+task that points the scene builder's WizardSourceRoot at PixelLab128, and NSC-096 depends_on
+NSC-095, not NSC-061. NSC-062 depends_on NSC-039 and NSC-061 only. So PixelLab128/ is
+authorized (pending its own gate) for NSC-096 via NSC-095, not for NSC-062 via NSC-061.
+Confirmed directly against the current committed contract text of NSC-062, NSC-095 and
+NSC-096 at this commit, not inferred from prose alone.
+
+Therefore the exact source-art files this record authorizes for NSC-062 are the contents of
+each combination's 'selected/' subdirectory under Source/PixelLab/ -- the PNGs plus their
+Unity .meta companions plus the pose/direction folder .meta files -- and nothing else. This
+excludes each combination's raw/ subfolder (retained for provenance/reproducibility per
+PIXELLAB_GENERATION.md, not itself "selected") and PixelLab/source-inventory.json (a
+provenance/review record, not a source-art file).
+
+Per combination, 122 files (56 PNGs + 56 PNG .meta companions + 10 pose/direction folder
+.meta files: standing.meta, walk.meta, and one .meta per of the 8 walk-direction folders).
+Four combinations: 488 files total, of which 224 are PNGs (56 x 4).
+
+  Source/PixelLab/feminine-dark/selected/   122 files (56 PNG + 66 companion/.meta)
+  Source/PixelLab/feminine-light/selected/  122 files (56 PNG + 66 companion/.meta)
+  Source/PixelLab/masculine-dark/selected/  122 files (56 PNG + 66 companion/.meta)
+  Source/PixelLab/masculine-light/selected/ 122 files (56 PNG + 66 companion/.meta)
+  TOTAL                                     488 files (224 PNG + 264 companion/.meta)
+
+Each combination's selected/ subtree layout (identical across all four):
+  selected/standing/{east,north,north-east,north-west,south,south-east,south-west,west}.png (+.meta)
+  selected/walk/{east,north,north-east,north-west,south,south-east,south-west,west}/frame_000.png .. frame_005.png (+.meta each)
+  plus selected.meta, standing.meta, walk.meta, and one .meta per walk-direction folder.
+
+The complete 488-path list is recorded as the delivery record's conformance_surfaces (role
+selected_wizard_source_or_unity_identity for these paths); this artifact states the count and
+the rule that generated it rather than re-printing all 488 lines twice.
+
+Supporting review-reference documents, tracked as part of this task's own deliverable (role
+pixellab_generation_inventory_or_review_reference), not authorized "source art" themselves:
+  Docs/Art/Wizard/PIXELLAB_GENERATION.md
+  Docs/Art/Wizard/PIXELLAB_WIZARD_FAMILY_CONTACT_SHEET.png
+  Docs/Art/Wizard/PIXELLAB_WIZARD_WALK_PREVIEW.gif
+  Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/source-inventory.json (+.meta)
+
+== Clause 3: dark-but-cute horror-comedy direction (assessed, with an explicit limit) ==
+
+NOT independently visually re-inspected pixel-by-pixel in this session: the assistant did not
+open and compare all 224 authorized frames (or the further 224 in PixelLab128, which is out
+of this gate's scope per Clause 2) against the art bible by eye, and makes no pixel-level
+art-direction judgment of its own here. This gate's assessment rests on two things only:
+  (1) this is the same family PIXELLAB_GENERATION.md already selected and documented against
+      AC-002/AC-003 -- shared low top-down camera, proportions, clothing, palette, and the
+      "dark-but-cute horror-comedy" prompt language quoted in that file, applied identically
+      across all four option-specific opening traits (masculine-dark, feminine-dark,
+      masculine-light, feminine-light) with none preferred or downgraded; and
+  (2) the deterministic structural completeness re-verified in this session under VAL-001 and
+      Clause 1 above (equal frame counts, no missing direction, no lower-resolution
+      substitute for any one combination).
+
+No claim is made here that goes beyond those two things. In particular: no claim that any
+frame is free of a visual defect, no re-diff of any individual frame's pixels (unlike the
+NSC-063 precedent's pixel-diff re-verification, which does not apply here since NSC-061 has
+no known reported visual regression to re-check), and no claim about the PixelLab128 tree's
+art direction, which belongs to NSC-095's own VAL-002.
+
+== Human approval ==
+
+No Vincent review is claimed for this gate. Vincent has not reviewed this exact source-art
+selection and none is required by NSC-061's contract: VAL-002's own text requires only that
+"the assistant verifies" the selection, matching the assistant-only review precedent set by
+NSC-063 (human_approval.required: false, decision: not_required). Vincent's separate,
+downstream in-Unity visual approval belongs to NSC-062 AC-006 (idle/walk integration) and, for
+the 128px family, to NSC-095 VAL-002 / NSC-077 playtest review -- neither is this gate.
+
+Result: PASS for task completion gate VAL-002.
