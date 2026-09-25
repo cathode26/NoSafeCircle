@@ -1,4 +1,5 @@
 """Component/HTTP regressions: reuse graph, reject mutations, retain children."""
+import ast
 import hashlib
 import json
 import os
@@ -1460,6 +1461,48 @@ class GraphControllerTimingEndToEndTests(unittest.TestCase):
         row = next(row for row in reader.build()["tasks"] if row["id"] == task_id)
         self.assertGreaterEqual(row["progress"]["stage_elapsed_seconds"], 42.0)
         self.assertIn("phase", row["progress"])
+
+
+class DeferredImportConsistencyTests(unittest.TestCase):
+    """A viewer that outlives a commit must not mix module generations.
+
+    A long-lived process caches modules from the HEAD it started on. A DEFERRED
+    ``Pipeline.*`` import then loads NEW code expecting symbols the cached OLD
+    modules do not have, and /api/state dies with ImportError on every request.
+    The bug is not staleness -- a process running entirely old code works -- it
+    is INCONSISTENT staleness, so the remedy is to load one generation at start.
+    """
+
+    def _nested_imports(self, source):
+        tree = ast.parse(source)
+        top_level = {id(node) for node in tree.body}
+        return [node for node in ast.walk(tree)
+                if isinstance(node, (ast.Import, ast.ImportFrom))
+                and id(node) not in top_level]
+
+    @staticmethod
+    def _names(node):
+        if isinstance(node, ast.ImportFrom):
+            return [node.module or ""]
+        return [alias.name for alias in node.names]
+
+    def test_viewer_defers_no_pipeline_imports(self):
+        source = Path(viewer_module.__file__).read_text(encoding="utf-8")
+        nested = self._nested_imports(source)
+        # Sanity probe: viewer.py:357 imports current_conformance AFTER putting
+        # Pipeline/TaskGraph on sys.path, so it cannot be hoisted and must stay
+        # nested. If this probe stops matching, the scan is broken rather than
+        # the file clean, and the assertion below would pass vacuously.
+        self.assertIn("current_conformance",
+                      [name for node in nested for name in self._names(node)],
+                      "nested-import scan found nothing it should have found")
+        deferred = sorted(
+            "%s (line %d)" % (name, node.lineno)
+            for node in nested for name in self._names(node)
+            if name.startswith("Pipeline.")
+        )
+        self.assertEqual(deferred, [], "deferred Pipeline imports load a NEWER "
+                         "generation into a process holding OLDER cached modules")
 
 
 if __name__ == "__main__":
