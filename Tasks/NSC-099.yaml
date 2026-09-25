@@ -46,11 +46,11 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 3,
+  "contract_revision": 4,
   "decomposition_reason": "One bounded import-and-wire responsibility over a fixed set of eight sprites that were colour-locked and ground-line aligned together as one batch.",
   "decomposition_state": "concrete",
   "depends_on": [
-    "NSC-015"
+    "NSC-125"
   ],
   "downstream_integration_obligations": [
     {
@@ -105,32 +105,32 @@
   "notes": "Created 2026-09-18 at Vincent's request (\"We need a task to add them in\"). The art is already generated and approved, so this task spends nothing: the batch cost 72 generations of his approved cap of 90, verified from both recorded reading pairs - remaining 4381 -> 4309 and used 618 -> 690, each giving 72. The eight are one look per kind after the Art Director compared round 1 with round 2 on the four contested looks; round 2 won three and round 1 won one, and that single reversal (brute dismembered) came from measuring the colour-locked files rather than assuming the newer re-roll was better - round 2 had lost the severed arm entirely and read as a dropped weapon. Those are the Art Director's measured recommendations; if Vincent picks differently on any contested look before this dispatches, the remedy is a revision naming the other file, not a crew substituting one. Scope boundary that matters: NSC-015 owns the death-look MECHANISM - selection rule, alignment requirement, no-collision-once-defeated - and this task owns only the identity of the sprites and their assignment. The wraith four land committed-but-unwired on purpose, with NSC-055 named as owner in INT-001, because all twelve candidates were colour-locked and ground-line aligned as one batch and splitting the import across two tasks would risk two palettes and two pivots. Revision 2, 2026-09-18: Vincent replaced the one-look-per-kind selection with \"So we want all of the art\" plus a kill-history rule, so all twelve import and the four contested looks become variants rather than discarded alternatives. The destination path and filenames follow the Art Director's restaged package (Art/Enemies/Source/Death, death_brute_* and death_wraith_*), replacing the r1/r2 names an earlier draft of this revision used. The wraith's two upright-cloak looks were renamed for what they show - hollowed and draining - rather than for the round they came from, and they are the rarer variants because an upright cloak can read as a live wraith for a beat at gameplay scale. The selection rule itself lives in NSC-015 revision 13; this task owns identity, tags and weights. ART LANDED, IMPORT STEP RETIRED, 2026-09-23: AC-001 told a crew to import sprites from a location no contract named and no container could reach - for NSC-098 no source at all, for NSC-099 the Art Director's staging tree under C:/nscrev/. The art is now committed at the path this criterion already named, so the criterion becomes a verification of the committed bytes against the recorded hashes. WHY IT SAT FOR FIVE DAYS: the Art Director had declined to commit it, on the reading that committing files a task expects to create is what made NSC-045 unrecoverable. Measured, that did not apply - NSC-045 died of an internal-const compile failure across an assembly boundary, and the pipeline supports a claimed path that already exists, since a scope plan carries existing_implementation_paths alongside new_implementation_paths and unity_materialization.py:103 reads both. Whoever scopes this task puts these paths in the EXISTING list. The bytes were verified 28/28 and 12/12 with a passing negative probe before the commit, and import-verified in Unity afterwards at 64 ppu, Point, Clamp with zero meta churn.",
   "parent": "NSC-010",
   "provenance": {
+    "contract_followups": [
+      {
+        "base_contract_sha256": "4f368440505edaa3e321ef7844940f6922317821394a71a8cffccaaa8d35e961",
+        "date": "2026-09-18",
+        "previous_contract_revision": 1,
+        "reason": "Vincent 2026-09-18: 'So we want all of the art' plus his one-shot/multi-shot rule. Imports all twelve staged death sprites at the Art Director's restaged path and names, tags each with look/variant/weight, and gates that every brute look is reachable. Four Art Director review passes fixed four real defects in my text: unreachable looks, undefined precedence, an absolute heavy-blow threshold that inverted Vincent's own rule, and a zero-hit hole plus a mid-display variant re-roll.",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)",
+        "revised_contract_sha256": "c3e0005feb9587e8a561e9875c22a23c7bb614038d9bfaeec5ae24cdd8effea7",
+        "source_head": "3cbea24bdf5d21b3b50ef6269537a0979af18f72"
+      },
+      {
+        "base_contract_sha256": "9b070b8a2e9b9d5523fb7495f91ff433c1ae097d737f241d3e1d91e5149380b7",
+        "date": "2026-09-23",
+        "previous_contract_revision": 2,
+        "reason": "the art is committed at the path AC-001 already named, so the import step - which pointed a crew at a staging tree its container cannot reach - is retired and the criterion becomes a verification of committed bytes against recorded hashes",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)",
+        "revised_contract_sha256": "6fe66c0247117ad1b9b13b6560162c97f402ed761386dee1c6323eb92e439a12",
+        "source_head": "baf9c5786e383e6cfc0be88b9a54e0465a5efe77"
+      }
+    ],
     "graph_delta_plan_id": null,
     "origin": "ger_agent_contract_request",
     "parent_contract_revision": null,
     "parent_contract_sha256": null,
     "parent_task_id": null,
-    "task_design_ger": "Vincent 2026-09-18: \"NSC-015 death looks: the eight I recommend, the two contested brute pairs, and the set at gameplay scale - 72 generations of your 90. We need a task to add them in.\" NSC-015 revision 12 AC-006 had already deferred visual identity to a separate art task; this is it.",
-    "contract_followups": [
-      {
-        "date": "2026-09-18",
-        "reason": "Vincent 2026-09-18: 'So we want all of the art' plus his one-shot/multi-shot rule. Imports all twelve staged death sprites at the Art Director's restaged path and names, tags each with look/variant/weight, and gates that every brute look is reachable. Four Art Director review passes fixed four real defects in my text: unreachable looks, undefined precedence, an absolute heavy-blow threshold that inverted Vincent's own rule, and a zero-hit hole plus a mid-display variant re-roll.",
-        "source_head": "3cbea24bdf5d21b3b50ef6269537a0979af18f72",
-        "previous_contract_revision": 1,
-        "base_contract_sha256": "4f368440505edaa3e321ef7844940f6922317821394a71a8cffccaaa8d35e961",
-        "revised_contract_sha256": "c3e0005feb9587e8a561e9875c22a23c7bb614038d9bfaeec5ae24cdd8effea7",
-        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
-      },
-      {
-        "date": "2026-09-23",
-        "reason": "the art is committed at the path AC-001 already named, so the import step - which pointed a crew at a staging tree its container cannot reach - is retired and the criterion becomes a verification of committed bytes against recorded hashes",
-        "source_head": "baf9c5786e383e6cfc0be88b9a54e0465a5efe77",
-        "previous_contract_revision": 2,
-        "base_contract_sha256": "9b070b8a2e9b9d5523fb7495f91ff433c1ae097d737f241d3e1d91e5149380b7",
-        "revised_contract_sha256": "6fe66c0247117ad1b9b13b6560162c97f402ed761386dee1c6323eb92e439a12",
-        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
-      }
-    ]
+    "task_design_ger": "Vincent 2026-09-18: \"NSC-015 death looks: the eight I recommend, the two contested brute pairs, and the set at gameplay scale - 72 generations of your 90. We need a task to add them in.\" NSC-015 revision 12 AC-006 had already deferred visual identity to a separate art task; this is it."
   },
   "reconciliation_key": "enemy-death-look-art-integration",
   "repository_evidence_at_bootstrap": [],

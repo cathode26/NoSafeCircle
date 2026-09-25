@@ -1,0 +1,91 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Tasks/NSC-015.yaml: acceptance_criteria AC-001; Docs/GDD/No_Safe_Circle_GDD.md:511-520, 526-532",
+      "requirement": "Create MeleeEnemyAttack.cs and its Unity sidecar. MeleeEnemyAttack starts one serialized wind-up, impact, and cooldown cycle only while EnemyTargetKnowledge is Pursuing, its CurrentTarget is inside the serialized close attack range, and EnemyHealth is not defeated. At impact, recheck the same target, Pursuing state, range, and defeat state; an invalid impact completes without damage. Expose the current cycle phase through read-only state so EnemyPursuitMovement can hold translation during wind-up. MeleeEnemyAttack must not move the enemy or modify locomotion state directly."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Tasks/NSC-015.yaml: acceptance_criteria AC-002; Docs/GDD/No_Safe_Circle_GDD.md:522, 686-693",
+      "requirement": "For one valid impact, call PlayerHealth.TakeDamage exactly once with a serialized positive damage value on EnemyTargetKnowledge.CurrentTarget. Do not maintain duplicate player-health state or apply per-frame contact damage. If CurrentTarget has no PlayerHealth, allow the readable swipe to complete without damage, exceptions, destruction, disabling, or other modification of that target."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Tasks/NSC-015.yaml: acceptance_criteria AC-003; Docs/GDD/No_Safe_Circle_GDD.md:687-695",
+      "requirement": "Expose public ResetAttack(), which cancels an early or late wind-up and any pending impact, clears cooldown, returns MeleeEnemyAttack to its initial idle state, prevents delayed damage from the cancelled cycle, and permits a later valid cycle to begin normally."
+    }
+  ],
+  "basis": "The ownership sheet assigns the close-range attack state, PlayerHealth damage request, read-only attack phase, and local reset behavior to one bounded Unity component child. Existing target knowledge, enemy health, NavMesh configuration, and pursuit behavior remain owned by the exact existing task contracts listed in existing_task_dependencies.",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "Tasks/NSC-015.yaml: completion_gates VAL-001; Unity Testing Policy",
+      "requirement": "Create MeleeEnemyAttackPlayModeTests.cs and its Unity sidecar. In a temporary Play Mode fixture, use the production NavMeshAgent, EnemyTargetKnowledge, EnemyPursuitMovement, EnemyHealth, MeleeEnemyAttack, and PlayerHealth components. Initialize the target through EnemyTargetKnowledge.Initialize, let the production target, pursuit, and attack updates run, and verify no damage outside range; exactly one PlayerHealth.Damaged notification and one configured health reduction for a valid impact; no per-frame contact damage; no impact after target, range, pursuit state, or defeat becomes invalid; and no attack start or impact while EnemyHealth.IsDefeated is true. Also verify that a close current target without PlayerHealth remains active and unchanged and produces no exception or damage."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "Tasks/NSC-015.yaml: completion_gates VAL-002; Docs/GDD/No_Safe_Circle_GDD.md:687-695",
+      "requirement": "In MeleeEnemyAttackPlayModeTests, call ResetAttack during early wind-up, immediately before a scheduled impact, and during cooldown. Verify idle state, cleared cooldown and pending impact, no delayed PlayerHealth damage, and a complete later attack cycle. Do not set attack, target, or health internals directly."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "This child is a concrete, single-owner Unity implementation bundle for the MeleeEnemyAttack component and its focused real-component Play Mode tests. Its public attack phase is the explicit handoff consumed by the dependent locomotion and prefab child.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-004",
+    "NSC-012",
+    "NSC-089",
+    "NSC-091",
+    "NSC-092"
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "Tasks/NSC-015.yaml: downstream_integration_obligations INT-001; Docs/GDD/No_Safe_Circle_GDD.md:687-695",
+      "requirement": "The Floor Run/Restart work must call MeleeEnemyAttack.ResetAttack during the real PlayerHealth zero-health restart and verify that no wind-up, pending impact, cooldown, or delayed damage survives. This child proves ResetAttack locally and does not edit the restart orchestrator."
+    }
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyAttack.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/MeleeEnemyAttack.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyAttackPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/MeleeEnemyAttackPlayModeTests.cs.meta"
+  ],
+  "execution_reason": "One Unity programmer can implement and test the MeleeEnemyAttack wind-up, impact, cooldown, PlayerHealth damage, read-only phase, and ResetAttack behavior without changing prefab generation or enemy locomotion.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:511-520",
+      "requirement": "The Melee Enemy runs at the wizard, attacks at close range, prevents long stationary casts, becomes dangerous in groups, and applies successful damage through the shared Player Health system."
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:522, 686-693",
+      "requirement": "Enemy damage uses owner-controlled health interfaces, while enemy movement and navigation remain separate shared systems."
+    },
+    {
+      "reference": "Docs/GDD/No_Safe_Circle_GDD.md:526-532",
+      "requirement": "Enemy target acquisition, pursuit, target loss, and search state are owned by the target-knowledge and pursuit components consumed by this attack component."
+    }
+  ],
+  "id": "NSC-124",
+  "kind": "implementation",
+  "notes": "NSC-091 owns EnemyTargetKnowledge and the current-target state; NSC-092 owns EnemyPursuitMovement and NavMesh destination updates; NSC-089 owns the configured NavMeshAgent settings used by the real-component fixture; NSC-012 owns EnemyHealth and its IsDefeated state; NSC-004 owns PlayerHealth.TakeDamage. This child adds no art, prefab generation, scene wiring, Collider, encounter content, target-selection logic, or direct locomotion mutation. MeleeEnemyAttack exposes read-only wind-up state for the later prefab/locomotion child. A Spectral Decoy or any other current target without PlayerHealth must remain unchanged and cause no exception. The required existing-task references establish ownership of every production Component this child reads or calls.",
+  "parent": "NSC-015",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-3a8f425799968e2f4af157126829502c7abfd6e9712f9090a9d46c5e823fe7f9",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 17,
+    "parent_contract_sha256": "eccaaf878e02994638f535ad429f85a8ca6a773524d8a283c099ddd3c61b03a9",
+    "parent_task_id": "NSC-015"
+  },
+  "reconciliation_key": "melee-close-range-attack",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "Tasks/NSC-015.yaml AC-001 through AC-003 and VAL-001 through VAL-002; the cited GDD behavior and the existing owner contracts",
+  "title": "Melee Enemy Close-Range Attack, Wind-Up State, and Reset",
+  "type": "enemy_behavior"
+}

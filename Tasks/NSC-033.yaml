@@ -61,7 +61,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 15,
+  "contract_revision": 16,
   "decomposition_children": [
     "NSC-122",
     "NSC-123"
@@ -85,7 +85,8 @@
     "NSC-119",
     "NSC-008",
     "NSC-009",
-    "NSC-015",
+    "NSC-124",
+    "NSC-125",
     "NSC-054",
     "NSC-017",
     "NSC-041",
