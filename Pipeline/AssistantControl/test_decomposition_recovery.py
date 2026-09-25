@@ -85,6 +85,20 @@ class FixtureRuns(unittest.TestCase):
         with self.assertRaisesRegex(RetryPlanError, "call budget 3 disagrees with the run's 2"):
             self.plan("NSC-088", run, "budget-3")
 
+    def test_an_unknown_failed_route_does_not_qualify(self):
+        # A pooled capacity refusal: no AgentResult, no recorded environment.
+        run = "decomp-nsc088-clone-20260924a"
+        refusal = ("task-associated invocation failed: PromptCapacityError: provider_started=false: "
+                   "prompt is 900000 bytes")
+        fixture = json.loads((FIXTURES / run / "decomposition_run_result.json").read_text(encoding="utf-8"))
+        author = dict(fixture["rounds"][0], agent_status="failed", agent_failure_classification="internal_error",
+                      agent_runtime_result_path=None, actual_model=None, actual_provider=None,
+                      rejection_reasons=[refusal])
+        self.install(run, "NSC-088", provider_environment={},
+                     run_changes={"rounds": [author], "rejection_reasons": [f"round 1: {refusal}"]})
+        with self.assertRaisesRegex(RetryPlanError, "is not recorded; confirm the route by hand"):
+            self.plan("NSC-088", run, "provider-route", models={"NSC_CLAUDE_MODEL": "claude-opus-5-5[1m]"})
+
     def test_the_route_that_already_failed_is_not_a_repair(self):
         run = "decomp-nsc088-clone-20260924a"
         self.install(run, "NSC-088", provider_environment={})

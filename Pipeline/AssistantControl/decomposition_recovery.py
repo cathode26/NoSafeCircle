@@ -137,6 +137,11 @@ def plan_retry(
             raise RetryPlanError(f"model value {new_model!r} {problem}")
         recorded = prior["provider_environment"].get(variable)
         observed = (diagnosis.get("rounds") or [{}])[-1].get("actual_model")
+        if recorded is None and observed is None:
+            # A pooled pre-call refusal records neither: without the failed
+            # route, "different" cannot be shown, so nothing qualifies.
+            raise RetryPlanError(
+                f"the failed round's {variable} is not recorded; confirm the route by hand before retrying")
         if new_model in {recorded, observed}:
             raise RetryPlanError(f"{new_model!r} is the route the failed round already used")
         if code in _CAPACITY_CODES:
