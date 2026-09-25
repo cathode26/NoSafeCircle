@@ -1,0 +1,186 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "657411f9b8464cb945c517d24b3bede297400cf8",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/RangedEnemyAttack.cs",
+      "role": "The ranged attack cycle under test: wind-up, launch, frost-scaled timing, reset and owner teardown."
+    },
+    {
+      "blob_sha": "70aa617a9eb5d2105bd6bb7c81f6cc8562186a61",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/RangedEnemyProjectile.cs",
+      "role": "The projectile whose real flight, cover collision and post-launch behaviour the gates assert."
+    },
+    {
+      "blob_sha": "ed556932490842909420783f9a51e3f1fc073493",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/RangedEnemyAttackPlayModeTests.cs",
+      "role": "The Play Mode fixture every one of the nine gates names by path."
+    }
+  ],
+  "delivery": {
+    "base_commit": "7bd75a9be912f7b0ef6d8a9e35a13610cf41e071",
+    "candidate_commit": "ec58134cdbe07e45c8c39ef5cd459278b12d82ec",
+    "integrated_commit": "ec58134cdbe07e45c8c39ef5cd459278b12d82ec",
+    "integrated_tree": "56b55f4493d3888de0a0fffc32f2916d02df68b1"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "c02574ccbe8eb07e68946fb0cf38085c355877cb",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/Unity-PlayMode-01-ec58134cdbe0.xml"
+        },
+        {
+          "blob_sha": "68c84f8b5a377ea8c6d236c23fa778fdcdc1a704",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/Unity-PlayMode-01-ec58134cdbe0.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Satisfied at validated commit ec58134cdbe07e45c8c39ef5cd459278b12d82ec by the bound Play Mode run in unity_01_results and unity_01_log: RangedEnemyAttackPlayModeTests, 14 of 14 passed, 0 failed, 0 skipped, repository clean before and after. This gate's clauses are exercised by that fixture, which is the single Play Mode fixture NSC-054 owns and the one every gate names: target acquisition through EnemyTargetKnowledge.Initialize/UpdateTargetKnowledge and the attack cycle it gates. NOT PROVEN: I did not map individual test cases to individual gate clauses; the evidence is the whole owned fixture passing at this commit. No other fixture was run and no human review is claimed or implied.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "c02574ccbe8eb07e68946fb0cf38085c355877cb",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/Unity-PlayMode-01-ec58134cdbe0.xml"
+        },
+        {
+          "blob_sha": "68c84f8b5a377ea8c6d236c23fa778fdcdc1a704",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/Unity-PlayMode-01-ec58134cdbe0.log"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "Satisfied at validated commit ec58134cdbe07e45c8c39ef5cd459278b12d82ec by the bound Play Mode run in unity_01_results and unity_01_log: RangedEnemyAttackPlayModeTests, 14 of 14 passed, 0 failed, 0 skipped, repository clean before and after. This gate's clauses are exercised by that fixture, which is the single Play Mode fixture NSC-054 owns and the one every gate names: a real RangedEnemyProjectile launched at a flight height against pew-like cover. NOT PROVEN: I did not map individual test cases to individual gate clauses; the evidence is the whole owned fixture passing at this commit. No other fixture was run and no human review is claimed or implied.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "c02574ccbe8eb07e68946fb0cf38085c355877cb",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/Unity-PlayMode-01-ec58134cdbe0.xml"
+        },
+        {
+          "blob_sha": "68c84f8b5a377ea8c6d236c23fa778fdcdc1a704",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/Unity-PlayMode-01-ec58134cdbe0.log"
+        }
+      ],
+      "gate_id": "VAL-003",
+      "notes": "Satisfied at validated commit ec58134cdbe07e45c8c39ef5cd459278b12d82ec by the bound Play Mode run in unity_01_results and unity_01_log: RangedEnemyAttackPlayModeTests, 14 of 14 passed, 0 failed, 0 skipped, repository clean before and after. This gate's clauses are exercised by that fixture, which is the single Play Mode fixture NSC-054 owns and the one every gate names: unfrosted versus frosted attack cycles at identical serialized timings and identical fixed Tick increments. NOT PROVEN: I did not map individual test cases to individual gate clauses; the evidence is the whole owned fixture passing at this commit. No other fixture was run and no human review is claimed or implied.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "c02574ccbe8eb07e68946fb0cf38085c355877cb",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/Unity-PlayMode-01-ec58134cdbe0.xml"
+        },
+        {
+          "blob_sha": "68c84f8b5a377ea8c6d236c23fa778fdcdc1a704",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/Unity-PlayMode-01-ec58134cdbe0.log"
+        }
+      ],
+      "gate_id": "VAL-004",
+      "notes": "Satisfied at validated commit ec58134cdbe07e45c8c39ef5cd459278b12d82ec by the bound Play Mode run in unity_01_results and unity_01_log: RangedEnemyAttackPlayModeTests, 14 of 14 passed, 0 failed, 0 skipped, repository clean before and after. This gate's clauses are exercised by that fixture, which is the single Play Mode fixture NSC-054 owns and the one every gate names: ResetAttack during a real wind-up and with a launched projectile in flight. NOT PROVEN: I did not map individual test cases to individual gate clauses; the evidence is the whole owned fixture passing at this commit. No other fixture was run and no human review is claimed or implied.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "c02574ccbe8eb07e68946fb0cf38085c355877cb",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/Unity-PlayMode-01-ec58134cdbe0.xml"
+        },
+        {
+          "blob_sha": "68c84f8b5a377ea8c6d236c23fa778fdcdc1a704",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/Unity-PlayMode-01-ec58134cdbe0.log"
+        }
+      ],
+      "gate_id": "VAL-005",
+      "notes": "Satisfied at validated commit ec58134cdbe07e45c8c39ef5cd459278b12d82ec by the bound Play Mode run in unity_01_results and unity_01_log: RangedEnemyAttackPlayModeTests, 14 of 14 passed, 0 failed, 0 skipped, repository clean before and after. This gate's clauses are exercised by that fixture, which is the single Play Mode fixture NSC-054 owns and the one every gate names: the fixture containing no Melee Enemy component or GameObject. NOT PROVEN: I did not map individual test cases to individual gate clauses; the evidence is the whole owned fixture passing at this commit. No other fixture was run and no human review is claimed or implied.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "c02574ccbe8eb07e68946fb0cf38085c355877cb",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/Unity-PlayMode-01-ec58134cdbe0.xml"
+        },
+        {
+          "blob_sha": "68c84f8b5a377ea8c6d236c23fa778fdcdc1a704",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/Unity-PlayMode-01-ec58134cdbe0.log"
+        }
+      ],
+      "gate_id": "VAL-006",
+      "notes": "Satisfied at validated commit ec58134cdbe07e45c8c39ef5cd459278b12d82ec by the bound Play Mode run in unity_01_results and unity_01_log: RangedEnemyAttackPlayModeTests, 14 of 14 passed, 0 failed, 0 skipped, repository clean before and after. This gate's clauses are exercised by that fixture, which is the single Play Mode fixture NSC-054 owns and the one every gate names: qualifying non-trigger cover placed in the projectile path inside LoseTargetDistance. NOT PROVEN: I did not map individual test cases to individual gate clauses; the evidence is the whole owned fixture passing at this commit. No other fixture was run and no human review is claimed or implied.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "c02574ccbe8eb07e68946fb0cf38085c355877cb",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/Unity-PlayMode-01-ec58134cdbe0.xml"
+        },
+        {
+          "blob_sha": "68c84f8b5a377ea8c6d236c23fa778fdcdc1a704",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/Unity-PlayMode-01-ec58134cdbe0.log"
+        }
+      ],
+      "gate_id": "VAL-007",
+      "notes": "Satisfied at validated commit ec58134cdbe07e45c8c39ef5cd459278b12d82ec by the bound Play Mode run in unity_01_results and unity_01_log: RangedEnemyAttackPlayModeTests, 14 of 14 passed, 0 failed, 0 skipped, repository clean before and after. This gate's clauses are exercised by that fixture, which is the single Play Mode fixture NSC-054 owns and the one every gate names: the player moving sideways after launch on an initially unobstructed path. NOT PROVEN: I did not map individual test cases to individual gate clauses; the evidence is the whole owned fixture passing at this commit. No other fixture was run and no human review is claimed or implied.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "c02574ccbe8eb07e68946fb0cf38085c355877cb",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/Unity-PlayMode-01-ec58134cdbe0.xml"
+        },
+        {
+          "blob_sha": "68c84f8b5a377ea8c6d236c23fa778fdcdc1a704",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/Unity-PlayMode-01-ec58134cdbe0.log"
+        }
+      ],
+      "gate_id": "VAL-008",
+      "notes": "Satisfied at validated commit ec58134cdbe07e45c8c39ef5cd459278b12d82ec by the bound Play Mode run in unity_01_results and unity_01_log: RangedEnemyAttackPlayModeTests, 14 of 14 passed, 0 failed, 0 skipped, repository clean before and after. This gate's clauses are exercised by that fixture, which is the single Play Mode fixture NSC-054 owns and the one every gate names: the wizard moving beyond LoseTargetDistance during a real wind-up. NOT PROVEN: I did not map individual test cases to individual gate clauses; the evidence is the whole owned fixture passing at this commit. No other fixture was run and no human review is claimed or implied.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "c02574ccbe8eb07e68946fb0cf38085c355877cb",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/Unity-PlayMode-01-ec58134cdbe0.xml"
+        },
+        {
+          "blob_sha": "68c84f8b5a377ea8c6d236c23fa778fdcdc1a704",
+          "path": "Pipeline/TaskGraph/evidence/NSC-054/artifacts/Unity-PlayMode-01-ec58134cdbe0.log"
+        }
+      ],
+      "gate_id": "VAL-009",
+      "notes": "Satisfied at validated commit ec58134cdbe07e45c8c39ef5cd459278b12d82ec by the bound Play Mode run in unity_01_results and unity_01_log: RangedEnemyAttackPlayModeTests, 14 of 14 passed, 0 failed, 0 skipped, repository clean before and after. This gate's clauses are exercised by that fixture, which is the single Play Mode fixture NSC-054 owns and the one every gate names: disabling RangedEnemyAttack during wind-up and in flight, and destroying the launching owner. NOT PROVEN: I did not map individual test cases to individual gate clauses; the evidence is the whole owned fixture passing at this commit. No other fixture was run and no human review is claimed or implied.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "No human approval is claimed. All nine of NSC-054's completion gates are automated Play Mode assertions and none contains a human review clause. THIS RECORD EXISTS TO CORRECT A MISBINDING: the prior record DEL-NSC-054-633cc78be73f binds validated_state.commit 633cc78be73fba6d17949665c6c30b00702dd8bd, which is NOT an ancestor of main - verified with git merge-base --is-ancestor, which returns non-zero. Its sibling 60d874f2 carries identical content and is on main. All three owned source files are byte-identical between 633cc78b and this commit, so the code never changed; the task read needs_testing with finding evidence_stale because later tracked changes moved HEAD. This record re-binds the same evidence to a main-reachable commit and re-runs the fixture there rather than asserting the old run still applies. Hand authored rather than via generate_delivery_spec finalize because that tool's non-required path demands a pipeline validation event id and this Unity run was performed by hand; citing one the pipeline never issued would overstate the evidence. Recorded by the Game Agent on 2026-09-25.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-054-ec58134cdbe0",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-25T19:53:08Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-054.yaml",
+    "revision": 3,
+    "sha256": "c32263d8fcddc8b093e08efaca4b094770f5696be65029544d8b6e86bb1d9dc2"
+  },
+  "task_id": "NSC-054",
+  "validated_state": {
+    "commit": "ec58134cdbe07e45c8c39ef5cd459278b12d82ec",
+    "tree": "56b55f4493d3888de0a0fffc32f2916d02df68b1"
+  }
+}
