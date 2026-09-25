@@ -602,6 +602,16 @@
         "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.RuinedEntrySceneTests;NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.BoneArchiveSceneTests;NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.ChapelOfAshSceneTests;NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.LowerVaultSceneTests;NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.FinalRoomSceneTests;NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-019": {
+      "task_contract_sha256": "b215bcd3579c7d184aa5e6b2b344ff4ca60f374b8dfbcfd1a7d92da96e4c1bfa",
+      "required_test_platforms": [
+        "PlayMode"
+      ],
+      "test_filters": {
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.PlayerMovementPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}
