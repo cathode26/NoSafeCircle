@@ -193,7 +193,8 @@
         "fireball-second-mint",
         "title-screen-transparent-layout-build",
         "spectral-decoy-cast-phantom-cooldown-ui",
-        "fireball-input-scene-assembly"
+        "fireball-input-scene-assembly",
+        "melee-enemy"
       ],
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
       "work_ids": [
@@ -228,7 +229,8 @@
         "NSC-098",
         "NSC-108",
         "NSC-112",
-        "NSC-119"
+        "NSC-119",
+        "NSC-015"
       ]
     },
     {
