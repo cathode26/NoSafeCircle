@@ -95,7 +95,8 @@ jobs:
             "Pipeline/TaskDecomposition/tests/live_decomposition_smoke_test.py",
             "Pipeline/TaskDecomposition/tests/round_robin_decomposition_smoke_test.py",
             "Pipeline/TaskDecomposition/tests/prompt_capacity_smoke_test.py",
-            "Pipeline/TaskDecomposition/tests/run_diagnosis_smoke_test.py"
+            "Pipeline/TaskDecomposition/tests/run_diagnosis_smoke_test.py",
+            "Pipeline/TaskDecomposition/tests/author_checklist_smoke_test.py"
           )
           foreach ($test in $tests) {
             python $test
