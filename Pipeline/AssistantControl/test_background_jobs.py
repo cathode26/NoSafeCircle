@@ -2943,6 +2943,16 @@ class BackgroundJobMechanismTests(unittest.TestCase):
         host.docker_cli = self.host.docker_cli  # one Docker daemon, two checkouts
         return other, host
 
+    def test_a_decompose_ticket_asking_for_an_author_checklist_is_refused(self):
+        self.prepare()
+        identity = dict(self.DECOMPOSE_IDENTITY, author_checklist="parent-contract-v1")
+        with self.assertRaisesRegex(background_jobs.BackgroundJobError, "does not support author_checklist"):
+            background_jobs.launch(
+                self.manager, kind="decompose", task_id="NSC-898", identity=identity,
+                config=None, invocation_id="inv-checklist", provider_spend_authorized=True,
+                host=self.host,
+            )
+
     def test_two_checkouts_of_the_same_task_never_share_a_container_identity(self):
         """Finding 1: two checkouts (or two clones) running the same task with the
         same identity must derive different job ids and container names, and a stop

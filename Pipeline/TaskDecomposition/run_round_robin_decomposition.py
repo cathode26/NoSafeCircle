@@ -18,6 +18,7 @@ for _module_root in (ROOT, PIPELINE_ROOT, TASK_GRAPH_ROOT):
         sys.path.insert(0, str(_module_root))
 
 from Pipeline.AgentRuntime.contracts import ContractValidationError
+from TaskDecomposition.author_checklist import CHECKLIST_VERSIONS
 from TaskDecomposition.context_builder import DecompositionPreflightError
 from TaskDecomposition.round_robin_decomposition import (
     run_round_robin_decomposition,
@@ -61,6 +62,11 @@ def main() -> int:
         "--scheduler-repository-identity",
         help="The scheduler-proven repository identity every lease must name.",
     )
+    parser.add_argument(
+        "--author-checklist",
+        choices=sorted(CHECKLIST_VERSIONS),
+        help="Opt-in author checklist given to the author, correction and reviewer; omit for unchanged prompts.",
+    )
     args = parser.parse_args()
     output_root = args.output_root or default_output_root(args.source)
     lease_bundle = None
@@ -90,6 +96,7 @@ def main() -> int:
             run_id=args.run_id,
             lease_bundle=lease_bundle,
             scheduler_repository_identity=args.scheduler_repository_identity,
+            author_checklist=args.author_checklist,
         )
     except (DecompositionPreflightError, ContractValidationError, OSError) as exc:
         print(f"Round-robin decomposition blocked: {exc}", file=sys.stderr)

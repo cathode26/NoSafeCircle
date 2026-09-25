@@ -679,6 +679,19 @@ the older mixed-case and dotted run id.
 `apply-decomposition` creates the canonical local D1C commit only while the reviewed
 source, contract and plan are still exact. These commands never push.
 
+### Author checklist (opt-in)
+
+`decompose ... --author-checklist parent-contract-v1` gives the author, the
+author correction and the independent reviewer a fixed checklist before the
+committed context: preserve every parent requirement and prohibition, treat a
+resource lock as a lock and not edit permission, and include the dependencies
+a child's own tests need. The checklist adds verified JSON pointers to every
+parent acceptance criterion, completion gate and downstream obligation; it
+never summarises or replaces the parent contract. It is bound into the
+context hash, recorded in the Assistant record and the run request/result,
+and a review whose run used a different checklist (or none) is refused.
+Omitting the flag leaves the command, context and prompts unchanged.
+
 ### Diagnosing a stopped decomposition
 
 `diagnose-decomposition TASK --run-id RUN` reads that run's retained

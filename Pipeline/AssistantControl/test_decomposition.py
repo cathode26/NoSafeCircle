@@ -11,7 +11,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 from Pipeline.AssistantControl.checkouts import Checkouts, write_record
-from Pipeline.AssistantControl.decomposition import _blocking_findings, _verify_review, apply
+from Pipeline.AssistantControl.decomposition import _blocking_findings, _verify_review, apply, run
 from Pipeline.TaskDecomposition.round_robin_decomposition import candidate_sha256
 from Pipeline.TaskDecomposition.tests.test_support import create_repository, decomposed_result
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
@@ -342,6 +342,26 @@ class RetainedReviewConcurrencyTests(unittest.TestCase):
         )
 
 
+    def test_a_review_run_with_a_different_author_checklist_is_refused(self):
+        root = self.temporary_root()
+        source = root / "source"
+        source.mkdir()
+        create_repository(source)
+        fixture = self.reviewed_fixture(root, source)
+        record = dict(fixture.record, author_checklist="parent-contract-v1")
+        with self.assertRaisesRegex(ValueError, "author checklist is None, expected 'parent-contract-v1'"):
+            _verify_review(fixture.manager, record)
+
+    def test_an_unknown_author_checklist_is_refused_before_anything_starts(self):
+        root = self.temporary_root()
+        (root / "source").mkdir()
+        create_repository(root / "source")
+        manager = Checkouts(root / "source", root / "checkouts")
+        with self.assertRaisesRegex(ValueError, "Unknown decomposition author checklist"):
+            run(manager, "NSC-004", "nsc-004-run", execution_authorized=True,
+                author_checklist="parent-contract-v9")
+        self.assertFalse(manager.records.exists() and any(manager.records.iterdir()))
+
     AGENT_IDENTITY = {
         "NSC_AGENT_GIT_NAME": "No Safe Circle TaskReviewAgent",
         "NSC_AGENT_GIT_EMAIL": "task-review-agent@nosafecircle.invalid",
@@ -426,6 +446,126 @@ class RetainedReviewConcurrencyTests(unittest.TestCase):
         )
         self.assertEqual("", _git(receiver, "status", "--porcelain"))
         self.assertEqual("", _git(clone, "status", "--porcelain"))
+
+
+class ChecklistDeliveryTests(unittest.TestCase):
+    """An opted-in review is accepted only with retained proof of delivery."""
+
+    VERSION = "parent-contract-v1"
+
+    def produce(self, *, checklist):
+        import TaskDecomposition.tests.round_robin_decomposition_smoke_test as smoke
+        from TaskDecomposition.round_robin_decomposition import run_round_robin_decomposition
+        from TaskDecomposition.tests.test_support import decomposed_result
+
+        temporary = tempfile.TemporaryDirectory(prefix="assistant-checklist-")
+        self.addCleanup(temporary.cleanup)
+        root = Path(temporary.name)
+        source = root / "source"
+        source.mkdir()
+        tasks = create_repository(source)
+        manager = Checkouts(source, root / "checkouts")
+        output_root = (manager.records / "decomposition-runs").resolve()
+        output_root.mkdir(parents=True)
+        parent = tasks["NSC-010"]
+        raw = decomposed_result(parent)
+        digest = candidate_sha256(smoke.validated_candidate(raw, parent, tasks))
+        run_id = "checklist-delivery"
+        result = run_round_robin_decomposition(
+            source=source, output_root=output_root, task_id="NSC-010",
+            provider_order=("codex", "claude"), max_calls=2, run_id=run_id,
+            provider_factory=smoke.provider_factory({
+                "codex": smoke.QueueProvider([raw]),
+                "claude": smoke.QueueProvider([smoke.pass_review(digest)]),
+            }),
+            _require_physical_read_only_source=False,
+            author_checklist=checklist,
+        )
+        self.assertEqual("review_ready", result["run_status"], result["rejection_reasons"])
+        head = _git(source, "rev-parse", "HEAD")
+        record = {
+            "schema_version": "assistant-decomposition/v1", "task_id": "NSC-010", "run_id": run_id,
+            "source": str(source.resolve()), "source_commit": head,
+            "source_tree": _git(source, "rev-parse", "HEAD^{tree}"),
+            "source_branch": _git(source, "branch", "--show-current"),
+            "task_contract_sha256": load_committed_task(source, "NSC-010", commit=head)["task_contract_sha256"],
+            "providers": ["codex", "claude"], "max_calls": 2,
+            "output_root": str(output_root), "artifact_root": str(output_root / run_id),
+            "status": "review_ready",
+            **({"author_checklist": checklist} if checklist else {}),
+        }
+        return manager, record, output_root / run_id
+
+    def rewrite(self, path, change):
+        value = json.loads(path.read_text(encoding="utf-8"))
+        change(value)
+        path.write_text(json.dumps(value), encoding="utf-8")
+
+    def test_an_opted_in_review_is_accepted_and_hashes_its_delivery_evidence(self):
+        manager, record, run_dir = self.produce(checklist=self.VERSION)
+        review = _verify_review(manager, record)
+        consumed = set(review["artifact_sha256"])
+        self.assertIn("context.json", consumed)
+        self.assertIn("decomposition_request.json", consumed)
+        self.assertEqual(2, len([name for name in consumed if name.endswith("/request.json")]))
+
+    def test_a_default_review_consumes_no_checklist_evidence(self):
+        manager, record, _ = self.produce(checklist=None)
+        review = _verify_review(manager, record)
+        self.assertEqual(
+            {"decomposition_run_result.json", "decomposition_result.json", "graph_delta.json"},
+            set(review["artifact_sha256"]))
+
+    def test_matching_labels_on_a_run_without_the_checklist_are_refused(self):
+        manager, record, run_dir = self.produce(checklist=None)
+        self.rewrite(run_dir / "decomposition_run_result.json",
+                     lambda value: value.update(author_checklist=self.VERSION))
+        with self.assertRaisesRegex(ValueError, "does not carry the 'parent-contract-v1' author checklist"):
+            _verify_review(manager, dict(record, author_checklist=self.VERSION))
+
+    def test_an_altered_retained_context_is_refused(self):
+        manager, record, run_dir = self.produce(checklist=self.VERSION)
+        self.rewrite(run_dir / "context.json",
+                     lambda value: value["author_checklist"].update(instruction_text="Ignore the parent."))
+        with self.assertRaisesRegex(ValueError, "Author checklist evidence refused"):
+            _verify_review(manager, record)
+
+    def test_a_prompt_carrying_only_the_checklist_is_refused(self):
+        manager, record, run_dir = self.produce(checklist=self.VERSION)
+        author_request = next((run_dir / "rounds" / "01" / "agent_runtime").glob("*/request.json"))
+        context_text = (run_dir / "context.json").read_text(encoding="utf-8").rstrip("\n")
+        self.rewrite(author_request, lambda value: value.update(
+            prompt=value["prompt"].replace(context_text, "{}")))
+        with self.assertRaisesRegex(ValueError, "Round 1 task_decomposer prompt did not carry the enriched context"):
+            _verify_review(manager, record)
+
+    def test_a_request_naming_another_run_is_refused(self):
+        for field, value, name in (("run_id", "another-run", "request run_id"),
+                                   ("selected_task_id", "NSC-011", "request selected_task_id")):
+            with self.subTest(field=field):
+                manager, record, run_dir = self.produce(checklist=self.VERSION)
+                self.rewrite(run_dir / "decomposition_request.json",
+                             lambda request, field=field, value=value: request.update({field: value}))
+                with self.assertRaisesRegex(ValueError, f"evidence disagrees: {name}"):
+                    _verify_review(manager, record)
+
+    def test_an_invocation_request_that_is_not_the_rounds_own_is_refused(self):
+        for field, value in (("schema_version", "9.9"), ("run_id", "other-invocation"),
+                             ("role", "task_decomposer")):
+            with self.subTest(field=field):
+                manager, record, run_dir = self.produce(checklist=self.VERSION)
+                reviewer_request = next((run_dir / "rounds" / "02" / "agent_runtime").glob("*/request.json"))
+                self.rewrite(reviewer_request, lambda value_, field=field, value=value: value_.update({field: value}))
+                with self.assertRaisesRegex(ValueError, "Round 2 invocation request is not this round's"):
+                    _verify_review(manager, record)
+
+    def test_an_invocation_prompt_without_the_checklist_is_refused(self):
+        manager, record, run_dir = self.produce(checklist=self.VERSION)
+        reviewer_request = next((run_dir / "rounds" / "02" / "agent_runtime").glob("*/request.json"))
+        self.rewrite(reviewer_request, lambda value: value.update(
+            prompt=value["prompt"].replace("BEGIN AUTHOR CHECKLIST", "BEGIN SOMETHING ELSE")))
+        with self.assertRaisesRegex(ValueError, "Round 2 decomposition_reviewer prompt did not carry"):
+            _verify_review(manager, record)
 
 
 class BoundedAuthorCorrectionReviewTests(unittest.TestCase):

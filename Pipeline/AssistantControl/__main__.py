@@ -295,6 +295,9 @@ def main(argv=None) -> int:
     decompose.add_argument("--providers", default="claude,codex")
     decompose.add_argument("--compose-project", default="nosafecircle")
     decompose.add_argument("--authorize-provider-spend", action="store_true")
+    decompose.add_argument(
+        "--author-checklist", choices=("parent-contract-v1",),
+        help="Opt-in author checklist for the author, correction and reviewer; omit for unchanged prompts")
     inspect_decomposition = commands.add_parser("inspect-decomposition", help="Recheck the exact retained decomposition review")
     inspect_decomposition.add_argument("task")
     diagnose_decomposition = commands.add_parser(
@@ -755,6 +758,7 @@ def main(argv=None) -> int:
                         providers=args.providers,
                         compose_project=args.compose_project,
                         execution_authorized=args.authorize_provider_spend,
+                        author_checklist=args.author_checklist,
                     )
                 elif args.command == "inspect-decomposition":
                     result = decomposition.inspect(manager, args.task)

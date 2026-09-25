@@ -37,6 +37,7 @@ def build_compose_command(
     *, task_id: str, project: str, providers: str, max_calls: int,
     run_id: str, pool_assignment: Mapping[str, Any] | None = None,
     provider_environment: Mapping[str, Any] | None = None,
+    author_checklist: str | None = None,
 ) -> tuple[str, ...]:
     """Build the only decomposition transport AssistantControl supports.
 
@@ -113,6 +114,12 @@ def build_compose_command(
             "--role-session-leases", POOL_LEASE_MOUNT,
             "--scheduler-repository-identity", str(pool_assignment["repository_identity"]),
         ))
+    # Opt-in only: omitting it leaves the command, and so the prompts, unchanged.
+    # The container's own argparse choices refuse an unknown version.
+    if author_checklist is not None:
+        if type(author_checklist) is not str or not re.fullmatch(r"[a-z0-9][a-z0-9.-]{0,63}", author_checklist):
+            raise ValueError("Assistant decomposition author checklist must be a version name")
+        command.extend(("--author-checklist", author_checklist))
     return tuple(command)
 
 

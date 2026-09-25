@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any, Iterable
 
+from TaskDecomposition.author_checklist import render_author_checklist
 from TaskDecomposition.context_builder import ContextPackage
 from TaskDecomposition.contracts import DecompositionResult
 from TaskDecomposition.review_contracts import ReviewFinding
@@ -59,6 +60,7 @@ def build_decomposition_reviewer_prompt(
 
     history = list(review_history)
     unresolved = [finding.to_dict() for finding in unresolved_findings]
+    checklist = render_author_checklist(context, audience="reviewer")
     finding_prefix = f"round-{round_number:02d}-"
     graph_view = graph_delta_review_view(graph_delta)
 
@@ -178,7 +180,7 @@ Reviewed candidate SHA-256 (copy exactly into `reviewed_candidate_sha256`):
 
 {candidate_sha256}
 
-BEGIN IMMUTABLE ORIGINAL CONTEXT
+{checklist}BEGIN IMMUTABLE ORIGINAL CONTEXT
 {context.canonical_json()}
 END IMMUTABLE ORIGINAL CONTEXT
 
