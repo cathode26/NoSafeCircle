@@ -575,7 +575,8 @@ class BookkeeperReviewTests(unittest.TestCase):
 
     MODEL = "fixture-bookkeeper"
 
-    def produce(self, *, budget: int = 2, record_model: str | None = MODEL, revision: bool = False):
+    def produce(self, *, budget: int = 2, record_model: str | None = MODEL,
+                revision: bool = False, stopped: bool = False):
         from TaskDecomposition.ownership_sheet import sheet_from_result, sheet_sha256
         from TaskDecomposition.round_robin_decomposition import run_round_robin_decomposition
         from TaskDecomposition.tests.review_chain_smoke_test import factory
@@ -617,13 +618,22 @@ class BookkeeperReviewTests(unittest.TestCase):
             final.update(schema_version="1.1", revised_sheet=None,
                          reviewed_sheet_sha256=sheet_sha256(revised_sheet))
             outputs = {"claude": [sheet_from_result(result_raw), result_raw, revised, final], "codex": [review]}
+            if stopped:
+                latest = deepcopy(revised)
+                latest["children"][0]["notes"] += " Name the scene's component test."
+                final = revise_review(revised_hash, latest, round_number=3, suffix="b", resolutions=[
+                    {"finding_id": "round-02-a", "status": "resolved", "explanation": "Owner clarified."}])
+                final.pop("revised_decomposition")
+                final.update(schema_version="1.1", revised_sheet=sheet_from_result(latest),
+                             reviewed_sheet_sha256=sheet_sha256(revised_sheet))
+                outputs["claude"] = [sheet_from_result(result_raw), result_raw, revised, final, latest]
         result = run_round_robin_decomposition(
             source=source, output_root=output_root, task_id="NSC-010",
             provider_order=("claude", "codex"), max_calls=budget, run_id=run_id,
             provider_factory=factory({name: QueueProvider(items) for name, items in outputs.items()}),
             _require_physical_read_only_source=False, bookkeeper_model=self.MODEL,
         )
-        self.assertEqual("review_ready", result["run_status"], result["rejection_reasons"])
+        self.assertEqual("needs_human" if stopped else "review_ready", result["run_status"], result["rejection_reasons"])
         head = _git(source, "rev-parse", "HEAD")
         record = {
             "schema_version": "assistant-decomposition/v1", "task_id": "NSC-010", "run_id": run_id,
@@ -633,7 +643,7 @@ class BookkeeperReviewTests(unittest.TestCase):
             "task_contract_sha256": load_committed_task(source, "NSC-010", commit=head)["task_contract_sha256"],
             "providers": ["claude", "codex"], "max_calls": budget,
             "output_root": str(output_root), "artifact_root": str(output_root / run_id),
-            "status": "review_ready",
+            "status": "failed" if stopped else "review_ready",
             "timeout_profile": {"task_decomposer": 1440, "decomposition_reviewer": 1200},
             "bookkeeper_provider": "claude", "designer_bookkeeper_version": "2.0",
             "ownership_sheet_review_version": "1.1",
@@ -644,6 +654,9 @@ class BookkeeperReviewTests(unittest.TestCase):
     def test_the_outer_timeout_covers_every_call_a_bookkeeper_run_may_make(self):
         from Pipeline.AssistantControl.decomposition import bookkeeper_outer_timeout, continuation_outer_timeout
         self.assertEqual(3 * 1200 + 720, continuation_outer_timeout(3))
+        self.assertEqual(6 * 1440 + 3 * 1200 + 720, continuation_outer_timeout(3, bookkeeper=True))
+        self.assertEqual(8 * 100 + 4 * 50 + 720, continuation_outer_timeout(
+            4, {"task_decomposer": 100, "decomposition_reviewer": 50}, bookkeeper=True))
         self.assertEqual(6 * 1440 + 1200 + 720, bookkeeper_outer_timeout(2, None))
         self.assertEqual(8 * 100 + 2 * 50 + 720,
                          bookkeeper_outer_timeout(3, {"task_decomposer": 100, "decomposition_reviewer": 50}))
@@ -740,21 +753,221 @@ class BookkeeperReviewTests(unittest.TestCase):
             with self.subTest(marker=key):
                 self.assertIn("fresh run is required", continuable_problem(prior, request={key: value}))
 
-    def test_bookkeeper_continuation_is_refused_before_archiving(self):
+    def continued(self, *, revision: bool = False, stopped: bool = False):
+        from TaskDecomposition.continuation import run_continuation
+        from TaskDecomposition.ownership_sheet import sheet_from_result, sheet_sha256
+        from Pipeline.AssistantControl.decomposition import _graph_candidate_digest
+        from TaskDecomposition.tests.review_chain_smoke_test import factory
+        from TaskDecomposition.tests.round_robin_decomposition_smoke_test import QueueProvider, pass_review, revise_review
+        manager, prior_record, run_dir = self.produce(budget=3, revision=True, stopped=True)
+        prior = json.loads((run_dir / "decomposition_run_result.json").read_text(encoding="utf-8"))
+        candidate = json.loads((run_dir / "rounds/03/candidate.json").read_text(encoding="utf-8"))
+        latest_sheet = prior["designer_bookkeeper"]["latest_sheet"]
+        final = pass_review(prior["latest_candidate"]["sha256"], resolutions=[
+            {"finding_id": "round-03-b", "status": "resolved", "explanation": "Test named."}])
+        final.pop("revised_decomposition")
+        final.update(schema_version="1.1", revised_sheet=None, reviewed_sheet_sha256=latest_sheet["sheet_sha256"])
+        outputs = {"claude": [], "codex": [final]}
+        if revision:
+            candidate["children"][0]["notes"] += " Continue the component test review."
+            sheet = sheet_from_result(candidate)
+            revised = revise_review(prior["latest_candidate"]["sha256"], candidate,
+                                    round_number=4, suffix="c", resolutions=final["prior_finding_resolutions"])
+            revised.pop("revised_decomposition")
+            revised.update(schema_version="1.1", revised_sheet=sheet,
+                           reviewed_sheet_sha256=latest_sheet["sheet_sha256"])
+            digest, _ = _graph_candidate_digest(manager, "NSC-010")[0](candidate)
+            final = pass_review(digest, resolutions=[
+                {"finding_id": "round-04-c", "status": "resolved", "explanation": "Test reviewed."}])
+            final.pop("revised_decomposition")
+            final.update(schema_version="1.1", revised_sheet=None, reviewed_sheet_sha256=sheet_sha256(sheet))
+            outputs = {"claude": [candidate, final], "codex": [revised]}
+        result = run_continuation(
+            source=manager.source, output_root=run_dir.parent, task_id="NSC-010", continue_from=prior_record["run_id"],
+            provider_order=tuple(prior_record["providers"]), max_calls=1 if stopped else 2, run_id="bookkeeper-continued",
+            provider_factory=factory({name: QueueProvider(items) for name, items in outputs.items()}),
+            _require_physical_read_only_source=False)
+        self.assertEqual("needs_human" if stopped else "review_ready", result["run_status"], result["rejection_reasons"])
+        record = dict(prior_record, run_id="bookkeeper-continued", max_calls=1 if stopped else 2,
+                      status="failed" if stopped else "review_ready",
+                      continue_from=prior_record["run_id"], artifact_root=str(run_dir.parent / "bookkeeper-continued"))
+        return manager, record, run_dir.parent
+
+    def test_v2_continuation_immediate_pass_has_complete_prior_proof(self):
+        manager, record, output_root = self.continued()
+        review = _verify_review(manager, record)
+        self.assertEqual("codex", review["reviewer_provider"])
+        self.assertEqual(0, review["bookkeeping"]["bookkeeping_calls_used"])
+        self.assertEqual("bookkeeper-review", review["bookkeeping"]["latest_sheet"]["run_id"])
+        for relative in ("bookkeeper-review/rounds/01/ownership_sheet.json",
+                         "bookkeeper-review/rounds/02/bookkeeping_input.json",
+                         "bookkeeper-review/rounds/03-bookkeeper-1/bookkeeping_attempt.json",
+                         "rounds/04/review.json", "decomposition_request.json"):
+            self.assertIn(relative, review["artifact_sha256"])
+
+    def test_v2_continued_revision_includes_its_compilation_proof(self):
+        manager, record, _ = self.continued(revision=True)
+        review = _verify_review(manager, record)
+        self.assertEqual("claude", review["reviewer_provider"])
+        self.assertEqual(1, review["bookkeeping"]["bookkeeping_calls_used"])
+        self.assertEqual(4, review["bookkeeping"]["latest_sheet"]["round_number"])
+        self.assertIn("rounds/04-bookkeeper-1/bookkeeping_attempt.json", review["artifact_sha256"])
+
+    def test_v2_continuation_of_continuation_verifies_every_prior_compilation(self):
+        from TaskDecomposition.continuation import run_continuation
+        from TaskDecomposition.tests.review_chain_smoke_test import factory
+        from TaskDecomposition.tests.round_robin_decomposition_smoke_test import QueueProvider, pass_review
+        manager, prior_record, output_root = self.continued(revision=True, stopped=True)
+        prior = json.loads((Path(prior_record["artifact_root"]) / "decomposition_run_result.json").read_text(encoding="utf-8"))
+        final = pass_review(prior["latest_candidate"]["sha256"], resolutions=[
+            {"finding_id": "round-04-c", "status": "resolved", "explanation": "Test reviewed."}])
+        final.pop("revised_decomposition")
+        final.update(schema_version="1.1", revised_sheet=None,
+                     reviewed_sheet_sha256=prior["designer_bookkeeper"]["latest_sheet"]["sheet_sha256"])
+        result = run_continuation(
+            source=manager.source, output_root=output_root, task_id="NSC-010", continue_from=prior_record["run_id"],
+            provider_order=tuple(prior_record["providers"]), max_calls=1, run_id="bookkeeper-final",
+            provider_factory=factory({"claude": QueueProvider([final]), "codex": QueueProvider([])}),
+            _require_physical_read_only_source=False)
+        self.assertEqual("review_ready", result["run_status"], result["rejection_reasons"])
+        record = dict(prior_record, run_id="bookkeeper-final", status="review_ready",
+                      continue_from=prior_record["run_id"], artifact_root=str(output_root / "bookkeeper-final"))
+        review = _verify_review(manager, record)
+        self.assertEqual(["bookkeeper-review", "bookkeeper-continued"], review["continued_runs"])
+        for relative in ("bookkeeper-review/rounds/03-bookkeeper-1/bookkeeping_attempt.json",
+                         "bookkeeper-continued/rounds/04-bookkeeper-1/bookkeeping_attempt.json",
+                         "rounds/05/review.json"):
+            self.assertIn(relative, review["artifact_sha256"])
+
+    def test_v2_continuation_settings_and_seed_sheet_cannot_be_changed(self):
+        for target in ("record_model", "record_timeouts", "request_protocol", "seed_sheet"):
+            with self.subTest(target=target):
+                manager, record, output_root = self.continued()
+                if target == "record_model":
+                    record["bookkeeper_model"] = "different-model"
+                elif target == "record_timeouts":
+                    record["timeout_profile"]["task_decomposer"] += 1
+                else:
+                    filename = ("decomposition_request.json" if target == "request_protocol"
+                                else "decomposition_run_result.json")
+                    path = Path(record["artifact_root"]) / filename
+                    value = json.loads(path.read_text(encoding="utf-8"))
+                    if target == "request_protocol":
+                        value["ownership_sheet_review_version"] = "1.0"
+                    else:
+                        value["continued_from"]["seed_sheet"]["sheet_sha256"] = "f" * 64
+                    _write_json(path, value)
+                with self.assertRaises(ValueError):
+                    _verify_review(manager, record)
+
+    def test_v2_continuation_settings_are_verified_before_archiving(self):
+        from Pipeline.AssistantControl.decomposition import _prepare_continuation, _record_path
+        manager, record, run_dir = self.produce(budget=3, revision=True, stopped=True)
+        path = _record_path(manager, "NSC-010")
+        write_record(path, record)
+        inherited = _prepare_continuation(manager, "NSC-010", record["run_id"], record["providers"],
+                                         run_dir.parent, record["source_commit"])
+        self.assertEqual(self.MODEL, inherited["bookkeeper_model"])
+        self.assertEqual(record["timeout_profile"], inherited["timeout_profile"])
+        self.assertFalse(path.exists())
+        self.assertTrue(path.with_name("NSC-010.decomposition.bookkeeper-review.failed.archived.json").is_file())
+
+    def test_legacy_bookkeeper_continuation_is_refused_before_archiving(self):
         from Pipeline.AssistantControl.decomposition import _prepare_continuation, _record_path
         from TaskDecomposition.continuation import continuable_problem
-        manager, record, run_dir = self.produce()
+        manager, record, run_dir = self.produce(budget=3, revision=True, stopped=True)
+        run_path = run_dir / "decomposition_run_result.json"
+        value = json.loads(run_path.read_text(encoding="utf-8"))
+        value["designer_bookkeeper"] = {"bookkeeper_model": self.MODEL}
+        _write_json(run_path, value)
         path = _record_path(manager, "NSC-010")
-        record["status"] = "failed"
         write_record(path, record)
         before = path.read_bytes()
-        for evidence in ({}, {"schema_version": "2.0"}):
-            self.assertIn("fresh run is required", continuable_problem({"designer_bookkeeper": evidence}))
+        self.assertIn("fresh run is required", continuable_problem(value))
         with self.assertRaisesRegex(ValueError, "fresh run is required"):
             _prepare_continuation(manager, "NSC-010", record["run_id"], record["providers"],
                                   run_dir.parent, record["source_commit"])
         self.assertEqual(before, path.read_bytes())
         self.assertFalse(list(path.parent.glob("*.failed.archived.json")))
+
+    def test_v2_seed_and_host_settings_tampering_refuses_archival(self):
+        from Pipeline.AssistantControl.decomposition import _prepare_continuation, _record_path
+        for target in ("sheet", "host_model", "host_timeouts"):
+            with self.subTest(target=target):
+                manager, record, run_dir = self.produce(budget=3, revision=True, stopped=True)
+                if target == "sheet":
+                    path = run_dir / "rounds/03/ownership_sheet.json"
+                    value = json.loads(path.read_text(encoding="utf-8"))
+                    value["children"][0]["design_notes"] += " Edited after compilation."
+                    _write_json(path, value)
+                elif target == "host_model":
+                    record["bookkeeper_model"] = "different-model"
+                else:
+                    record["timeout_profile"]["task_decomposer"] += 1
+                path = _record_path(manager, "NSC-010")
+                write_record(path, record)
+                before = path.read_bytes()
+                with self.assertRaises(ValueError):
+                    _prepare_continuation(manager, "NSC-010", record["run_id"], record["providers"],
+                                          run_dir.parent, record["source_commit"])
+                self.assertEqual(before, path.read_bytes())
+                self.assertFalse(list(path.parent.glob("*.failed.archived.json")))
+
+    def test_v2_continuation_launch_pins_inherited_settings_and_timeout_environment(self):
+        from Pipeline.AssistantControl import decomposition as decomposition_module
+        manager, prior, run_dir = self.produce(budget=3, revision=True, stopped=True)
+        write_record(decomposition_module._record_path(manager, "NSC-010"), prior)
+        real_run = subprocess.run
+        launches = []
+
+        def fake_run(command, *args, **kwargs):
+            if list(command)[:2] == ["docker", "compose"]:
+                launches.append((list(command), kwargs))
+                return subprocess.CompletedProcess(command, 1)
+            return real_run(command, *args, **kwargs)
+
+        with patch.dict(os.environ, {"NSC_TASK_DECOMPOSER_TIMEOUT_SECONDS": "9999",
+                                     "NSC_DECOMPOSITION_REVIEWER_TIMEOUT_SECONDS": "8888"}), \
+                patch.object(decomposition_module, "decomposition_preflight",
+                             return_value={"source_commit": prior["source_commit"]}), \
+                patch.object(decomposition_module, "build_compose_command",
+                             wraps=decomposition_module.build_compose_command) as build, \
+                patch.object(decomposition_module.subprocess, "run", side_effect=fake_run):
+            record = run(manager, "NSC-010", "host-continued", continue_from=prior["run_id"],
+                         max_calls=4, execution_authorized=True)
+        for field in ("bookkeeper_model", "bookkeeper_provider", "designer_bookkeeper_version",
+                      "ownership_sheet_review_version", "timeout_profile"):
+            self.assertEqual(prior[field], record[field])
+        self.assertEqual({"NSC_TASK_DECOMPOSER_TIMEOUT_SECONDS": 1440,
+                          "NSC_DECOMPOSITION_REVIEWER_TIMEOUT_SECONDS": 1200},
+                         build.call_args.kwargs["timeout_environment"])
+        self.assertIsNone(build.call_args.kwargs["bookkeeper_model"])
+        self.assertEqual(1, len(launches))
+        self.assertEqual(8 * 1440 + 4 * 1200 + 720, launches[0][1]["timeout"])
+
+    def test_continuation_transport_accepts_only_finite_pinned_role_timeouts(self):
+        from Pipeline.AssistantControl.decomposition_transport import build_compose_command
+        kwargs = {"task_id": "NSC-010", "project": "nsc-fixture", "providers": "claude,codex",
+                  "max_calls": 4, "run_id": "continued", "continue_from": "stopped"}
+        profile = {"NSC_TASK_DECOMPOSER_TIMEOUT_SECONDS": 1440.5,
+                   "NSC_DECOMPOSITION_REVIEWER_TIMEOUT_SECONDS": 1200.0}
+        command = build_compose_command(**kwargs, timeout_environment=profile)
+        self.assertIn("NSC_TASK_DECOMPOSER_TIMEOUT_SECONDS=1440.5", command)
+        self.assertIn("NSC_DECOMPOSITION_REVIEWER_TIMEOUT_SECONDS=1200.0", command)
+        self.assertNotIn("--bookkeeper-model", command)
+        for value in (True, "1200", 0, -1, float("inf"), float("nan")):
+            with self.subTest(value=value), self.assertRaises(ValueError):
+                build_compose_command(**kwargs, timeout_environment={
+                    **profile, "NSC_TASK_DECOMPOSER_TIMEOUT_SECONDS": value})
+        with self.assertRaises(ValueError):
+            build_compose_command(**kwargs, timeout_environment={**profile, "PATH": 1})
+
+    def test_continuation_bookkeeper_override_is_refused_before_any_host_work(self):
+        with patch("Pipeline.AssistantControl.decomposition._ensure_owner") as ensure_owner:
+            with self.assertRaisesRegex(ValueError, "provider/model.*inherited"):
+                run(None, "NSC-010", "continued", continue_from="stopped", bookkeeper_model="override",
+                    execution_authorized=True)
+        ensure_owner.assert_not_called()
 
 
 class ContinuationReviewTests(unittest.TestCase):

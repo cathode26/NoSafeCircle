@@ -338,6 +338,119 @@ def test_last_call_successful_recompilation_is_a_review_budget_stop() -> None:
     assert (primary["route"], primary["reason_code"]) == ("BUDGET", "revision_used_last_call"), primary
 
 
+def continuation_bookkeeping_snapshot(*, outcome: str = "quota") -> MemorySnapshot:
+    """An inherited round-3 candidate, reviewed in round 4 without provider calls."""
+
+    snapshot = bookkeeping_snapshot(capacity=outcome == "capacity", valid_revision=outcome == "revision")
+    result, files = snapshot.result, snapshot.files
+    record = result["designer_bookkeeper"]
+    seed = {"sha256": "a" * 64, "version": 3, "author_provider": "claude"}
+    inherited = {"run_id": "prior-run", "round_number": 3,
+                 "sheet_path": "rounds/03/ownership_sheet.json", "sheet_sha256": "c" * 64,
+                 "candidate_sha256": seed["sha256"]}
+    continued = {"run_id": "prior-run", "run_result_sha256": "f" * 64,
+                 "seed_round": 3, "seed_candidate": seed, "seed_sheet": inherited}
+    last, compilation = result["rounds"][-1], record["compilations"][-1]
+    old_invocation = compilation["attempts"][0]["invocation_id"]
+    invocation = expected_invocation_id(
+        "NSC-010", "bookkeeping", 4, "decomposition_bookkeeper", correction=False, bookkeeping_attempt=1)
+    # Preserve the same retained runtime fixture, rebinding its global round.
+    serialized = json.dumps(files).replace(old_invocation, invocation).replace("02-bookkeeper-1", "04-bookkeeper-1")
+    snapshot.files = json.loads(serialized)
+    attempt = compilation["attempts"][0]
+    attempt.update(directory="04-bookkeeper-1", invocation_id=invocation,
+                   agent_runtime_result_path=f"rounds/04-bookkeeper-1/agent_runtime/{invocation}/result.json")
+    snapshot.files["rounds/04-bookkeeper-1/bookkeeping_attempt.json"] = deepcopy(attempt)
+    compilation.update(round_number=4, candidate_before=deepcopy(seed), sheet_path="rounds/04/ownership_sheet.json")
+    last.update(round_number=4, candidate_before=deepcopy(seed), requested_provider="codex")
+    result.update(mode="round_robin_d1b2_continuation", continued_from=continued,
+                  calls_used=1, max_calls=1, rounds=[last], latest_candidate=deepcopy(seed))
+    record.update(compilations=[compilation], bookkeeping_calls_used=1, latest_sheet=deepcopy(inherited))
+    if "terminal_stage" in record:
+        record["terminal_stage"].update(round_number=4, invocation_id=invocation,
+                                        agent_runtime_result_path=attempt["agent_runtime_result_path"])
+    request = snapshot.files["decomposition_request.json"]
+    request.update(mode=result["mode"], selected_task_id=result["task_id"], max_calls=1,
+                   continued_from=deepcopy(continued), reviewer_timeout_seconds=1200)
+    if outcome == "revision":
+        revised = {"sha256": "b" * 64, "version": 4, "author_provider": "codex"}
+        compilation.update(compiled_candidate=revised, accepted_candidate=revised)
+        last["candidate_after"] = revised
+        result["latest_candidate"] = revised
+        record["latest_sheet"] = {"run_id": "bookkeeping", "round_number": 4,
+                                  "sheet_path": compilation["sheet_path"], "sheet_sha256": compilation["sheet_sha256"],
+                                  "candidate_sha256": revised["sha256"]}
+    elif outcome == "pass":
+        record.update(compilations=[], bookkeeping_calls_used=0)
+        record.pop("terminal_stage")
+        result.update(run_status="review_ready", rejection_reasons=[])
+        last.update(status="independent_pass", verdict="pass", candidate_after=None, rejection_reasons=[])
+    elif outcome == "identical":
+        record.pop("terminal_stage")
+        result["run_status"] = "rejected"
+        compilation.update(status="identical_candidate", compiled_candidate={**seed, "version": 4,
+                                                                             "author_provider": "codex"})
+    return snapshot
+
+
+def test_v2_continuation_diagnosis_uses_global_rounds_and_inherited_sheet() -> None:
+    expected = {"quota": ("SETUP", "quota_exhausted"), "capacity": ("SETUP", "capacity_refused_before_call"),
+                "revision": ("BUDGET", "revision_used_last_call"),
+                "pass": ("STOP", "engine_review_ready_unverified"), "identical": ("AUTHOR", "identical_candidate")}
+    for outcome, wanted in expected.items():
+        snapshot = continuation_bookkeeping_snapshot(outcome=outcome)
+        diagnosis = classify_run_snapshot(snapshot)
+        primary = diagnosis["primary"]
+        assert (primary["route"], primary["reason_code"]) == wanted, diagnosis
+        assert diagnosis["classifier_version"] == "5" and diagnosis["retry_authorized"] is False
+        assert [entry["round_number"] for entry in diagnosis["rounds"]] == [4]
+        assert "decomposition_request.json" in diagnosis["input_manifest"]
+        if outcome in ("quota", "capacity"):
+            assert "rounds/04-bookkeeper-1/bookkeeping_attempt.json" in diagnosis["input_manifest"]
+    success = classify_run_snapshot(continuation_bookkeeping_snapshot(outcome="pass"), receipt={"status": "review_ready"})
+    assert success["primary"]["reason_code"] == "not_a_failure", success
+    nested = continuation_bookkeeping_snapshot(outcome="pass")
+    continued = nested.result["continued_from"]
+    continued.update(run_id="continued-prior", seed_round=4)
+    continued["seed_candidate"].update(version=4, author_provider="codex")
+    continued["seed_sheet"].update(run_id="continued-prior", round_number=4, sheet_path="rounds/04/ownership_sheet.json")
+    nested.result["latest_candidate"] = deepcopy(continued["seed_candidate"])
+    nested.result["designer_bookkeeper"]["latest_sheet"] = deepcopy(continued["seed_sheet"])
+    nested.result["rounds"][0].update(round_number=5, candidate_before=deepcopy(continued["seed_candidate"]))
+    nested.files["decomposition_request.json"]["continued_from"] = deepcopy(continued)
+    assert classify_run_snapshot(nested)["primary"]["reason_code"] == "engine_review_ready_unverified"
+
+
+def test_v2_continuation_diagnosis_rejects_seed_and_setting_tampering() -> None:
+    for change in (
+        lambda s: s.result["continued_from"].update(seed_round=True),
+        lambda s: s.result["continued_from"].update(run_id="../prior-run"),
+        lambda s: s.result["continued_from"]["seed_sheet"].update(sheet_path="rounds/01/ownership_sheet.json"),
+        lambda s: s.result["continued_from"]["seed_sheet"].update(candidate_sha256="b" * 64),
+        lambda s: s.result["designer_bookkeeper"]["latest_sheet"].update(sheet_sha256="b" * 64),
+        lambda s: s.result["rounds"][0].update(round_number=1),
+        lambda s: s.result["rounds"][0].update(candidate_before=None),
+        lambda s: s.files["decomposition_request.json"].update(bookkeeper_model="another-model"),
+        lambda s: s.files["decomposition_request.json"].update(reviewer_timeout_seconds=0),
+        lambda s: s.files["decomposition_request.json"]["continued_from"]["seed_sheet"].update(sheet_sha256="b" * 64),
+        lambda s: s.result["designer_bookkeeper"].update(schema_version="1.0"),
+    ):
+        snapshot = continuation_bookkeeping_snapshot(outcome="pass")
+        change(snapshot)
+        primary = classify_run_snapshot(snapshot)["primary"]
+        assert (primary["route"], primary["reason_code"]) == ("STOP", "malformed_evidence"), primary
+
+
+def test_non_bookkeeper_diagnosis_version_and_continuation_behavior_are_unchanged() -> None:
+    snapshot = bookkeeping_snapshot(valid_revision=True)
+    snapshot.result.pop("designer_bookkeeper")
+    ordinary = classify_run_snapshot(snapshot)
+    assert ordinary["classifier_version"] == "4"
+    snapshot.result["mode"] = "round_robin_d1b2_continuation"
+    primary = classify_run_snapshot(snapshot)["primary"]
+    assert (primary["route"], primary["reason_code"]) == ("STOP", "malformed_evidence"), primary
+
+
 def test_a_revised_request_for_human_authority_is_contract_not_budget() -> None:
     def revised_needs_human(result: dict) -> None:
         result["decision"] = "needs_human"
@@ -456,6 +569,9 @@ TESTS = (
     test_compilation_candidate_status_contradictions_stop,
     test_exhausted_bookkeeping_validation_is_an_author_failure,
     test_last_call_successful_recompilation_is_a_review_budget_stop,
+    test_v2_continuation_diagnosis_uses_global_rounds_and_inherited_sheet,
+    test_v2_continuation_diagnosis_rejects_seed_and_setting_tampering,
+    test_non_bookkeeper_diagnosis_version_and_continuation_behavior_are_unchanged,
     test_a_revised_request_for_human_authority_is_contract_not_budget,
     test_a_structured_quota_failure_is_setup,
     test_the_terminal_stage_is_the_last_round_reached,

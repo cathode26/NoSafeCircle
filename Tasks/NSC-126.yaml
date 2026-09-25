@@ -1,0 +1,98 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-120 ArchitecturalWallAccentPlacement.Place and BuildRectangularRoomGeometry; NSC-109 AC-001",
+      "requirement": "Each of the five committed room builders - RuinedEntrySceneBuilder.cs, BoneArchiveSceneBuilder.cs, ChapelOfAshSceneBuilder.cs, LowerVaultSceneBuilder.cs and FinalRoomSceneBuilder.cs - calls ArchitecturalWallAccentPlacement.BuildRectangularRoomGeometry with that room's own committed room bounds, its floor Y and its committed door openings, then calls ArchitecturalWallAccentPlacement.Place, parenting every returned accent under one named child object of that room's root. THE DOOR OPENINGS PASSED ARE THE ROOM'S EXISTING AUTHORED DOOR DATA. This task introduces no new literal door coordinates, no new room bounds and no second source of truth for either; where a builder does not already expose its openings in those terms, it converts what it already has rather than restating it."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "ArchitecturalWallAccentPlacement.Place summary: 'Visual only: adds no collider, resizes no existing collider and paints no Tilemap cell'; NSC-047 AC-002; NSC-044",
+      "requirement": "THE ACCENTS ARE VISUAL ONLY AND THIS TASK CHANGES NO WALKABILITY. It adds no collider, resizes or moves no existing collider, paints no Tilemap cell, and changes no room bounds, blockout footprint or any other geometry the NavMesh bake reads. The placement helper already states this about itself; this criterion makes it the CALLER's obligation as well, because NSC-047 AC-002 and NSC-044 derive walking-boundary and circuit invariants from their blockout colliders and a decorative accent must not perturb them. A run that changes the baked walkable surface fails this criterion even if every accent is correctly placed."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "ArchitecturalWallAccentPlacement.ComputeGroundContactAnchorY; NSC-109 AC-001 pivot measurements",
+      "requirement": "Every placed accent sits at the world Y that ArchitecturalWallAccentPlacement.ComputeGroundContactAnchorY returns for its own sprite and the room's floor Y, so its rendered bottom edge lands exactly on the floor. THE PIVOTS ARE NOT ASSUMED TO BE ZERO: NSC-109 AC-001 measured these sprites importing at pivot y 0.1, 0.147727 and 0.1125, which is why that helper exists. A caller that uses the floor Y directly as the transform Y does not satisfy this criterion even though the accents would look approximately right."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "NSC-109 AC-001 idempotence of the committed builders",
+      "requirement": "Building a room twice produces the same accents: no duplicates, and no accent objects left behind from a previous build. The builders are run repeatedly during authoring and by their own Edit Mode tests, so a caller that appends on every invocation would accumulate silently and would be visible only as a slow drift in the committed scene."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "NSC-109 INT-001; CLAUDE.md: art goes to the Art Director",
+      "requirement": "THIS TASK PLACES ONLY THE THREE ROLES NSC-120 BINDS - corner, door jamb and end cap - AND DOES NOT PLACE wall_pilaster.png. NSC-109 INT-001 records that the pilaster is one unit wide but 2.750 high with pivot y 0.068182 against a required 2.5 and 0, and assigns that art-geometry question to the Art Director. Until the sprite changes it cannot be placed correctly by anyone, and adding it here would create a criterion no crew could satisfy. It is excluded deliberately, not overlooked."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "Art Director Agent, 2026-09-25, ART-wall-pilaster-and-the-pivot-split-20260925.md; CLAUDE.md: art goes to the Art Director",
+      "requirement": "NO VERTICAL OFFSET IS BAKED INTO THE BUILDER TO COMPENSATE FOR ART MISALIGNMENT, AND NO SPRITE PIVOT IS EDITED BY THIS TASK. AC-003 already fixes each accent's Y as whatever ArchitecturalWallAccentPlacement.ComputeGroundContactAnchorY returns for that sprite; this criterion forbids adding any further constant, per-role nudge or hand-tuned correction on top of it. THE REASON IS MEASURED AND IT IS NOT HYPOTHETICAL: the Art Director measured on main 7c9c290e that wall_straight.png carries pivot y 0 with transparent padding beneath its masonry while wall_corner.png, wall_door_jamb.png and wall_end_cap.png carry ground-line pivots of 0.100000, 0.147727 and 0.112500 - each sprite's pivot being exactly its own ground line. Against the same cell origin all three therefore land in the SAME place, a uniform 19.00 px (0.297 world unit) LOWER than the straight wall they abut, and the entire seam comes from wall_straight.png's own 19 px of transparent pad rather than from any difference among the accents. That is an ART defect and its fix is a crop plus a .meta pivot, which is the Art Director's and is already precedented on main at 55bd6f32. A builder-side offset would hide it, make the art unfixable without breaking the builder, and put a second source of truth for ground contact into code. If the accents render misaligned, that is the expected result to REPORT, with the render, not to correct here."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "CLAUDE.md: a green test can pass on a stub, and assert the durable relation rather than the value it has today",
+      "requirement": "Edit Mode coverage in Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/RoomWallAccentIntegrationTests.cs builds EACH of the five rooms through its own committed builder and asserts, per room: that at least one accent of each role the room's geometry calls for exists; that every accent's rendered bottom edge lands on that room's floor Y within one ten-thousandth of a world unit; that building the same room a second time leaves the accent count unchanged (AC-004); and that the room's collider count, each collider's bounds, and the number of painted Tilemap cells are identical to a build of the same room with accent placement suppressed (AC-002). THE COMPARISON IS BETWEEN TWO MEASURED BUILDS, NOT AGAINST HARD-CODED EXPECTED NUMBERS, so retuning room geometry elsewhere does not break this test. A test that asserts only that Place returned a non-empty list does not satisfy this gate."
+    }
+  ],
+  "confidence": "medium",
+  "contract_disposition": "active",
+  "contract_revision": 2,
+  "decomposition_reason": "One bounded responsibility - call an existing, delivered placement helper from five existing, delivered builders - with a single measurable outcome per room. No new capability is created.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-109",
+    "NSC-120"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/RuinedEntrySceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/BoneArchiveSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ChapelOfAshSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/LowerVaultSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/FinalRoomSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/RoomWallAccentIntegrationTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/RoomWallAccentIntegrationTests.cs.meta"
+  ],
+  "execution_reason": "One agent adds the same five-line call to five builders and writes one Edit Mode test file. No art, no new scene ownership, no new placement logic - NSC-120 already delivered all of it.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD Environment Presentation and Authoring Direction (Docs/GDD/No_Safe_Circle_GDD.md); Docs/Art/Environment/DUNGEON_ART_DIRECTION.md",
+      "requirement": "The GDD requires the rooms to read as authored dungeon architecture rather than procedural blockout. NSC-064 delivered eleven architectural source assets; after NSC-109 binds the seven that are one world unit wide, these three remain applied by nothing. MEASURED 2026-09-25: NSC-109 was the only contract in the graph that mentioned them, so without this task they are delivered art with no owner - the same shape as the eleven tilesets that rendered every room while having zero references anywhere."
+    }
+  ],
+  "id": "NSC-126",
+  "kind": "implementation",
+  "notes": "Authored 2026-09-25 by the GER Agent after the Producer Agent measured that ArchitecturalWallAccentPlacement has ZERO production callers and zero menu entry points - the only one of 21 Editor classes with neither - so wall_corner, wall_door_jamb and wall_end_cap are placed only inside NSC-120's own test. Confirmed independently by resolving each sprite's .meta guid and sweeping every .cs, .asset, .unity and .prefab on main: zero non-source references each. NSC-120 IS CORRECTLY CONFORMANT and so is NSC-109; neither is defective and this is not evidence debt. The gap is that a capability was contracted without naming its caller, which can pass every gate and change nothing the player sees. AUTHORED AS A NEW CONTRACT RATHER THAN AS AN ADDED CRITERION because both candidate hosts are delivered - NSC-109 is conformant on DEL-NSC-109-b44a34ce481e and NSC-120 on DEL-NSC-120-ea5ec3af4f96 - and adding a criterion to either would void its delivery record. This task claims the five builders as a SECOND claimant. Four of the five carry only conformant claimants (NSC-044/045/046/047/048 and NSC-109), where the lock has nothing to exclude because a conformant task is never dispatched again. RuinedEntrySceneBuilder.cs IS DIFFERENT AND IS STATED HERE RATHER THAN GLOSSED: NSC-100 also claims it and is not_delivered, so this task and NSC-100 genuinely contend on that one file and will serialize. That is the collision guard doing its job, not a defect, and it is the reason this contract does not claim NSC-100 cannot run.",
+  "parent": "NSC-022",
+  "provenance": {
+    "graph_delta_plan_id": null,
+    "origin": "ger_agent_contract_request",
+    "parent_contract_revision": null,
+    "parent_contract_sha256": null,
+    "parent_task_id": null,
+    "contract_followups": [
+      {
+        "date": "2026-09-25",
+        "reason": "Adds AC-006 at the Art Director's request: no vertical offset may be baked into the builder to compensate for art misalignment, and this task edits no sprite pivot. Measured reason, corrected to the Art Director's own revised figure: wall_straight.png has pivot y 0 with 19 px of transparent pad under its masonry, while wall_corner, wall_door_jamb and wall_end_cap carry ground-line pivots of 0.100000, 0.147727 and 0.112500, so all three land a UNIFORM 19.00 px (0.297 unit) lower than the straight wall they abut and the seam comes from wall_straight's pad, not from differences among the accents. The fix is a crop plus a .meta pivot, which is the Art Director's and is precedented at 55bd6f32. A builder-side offset would hide the defect and put a second source of truth for ground contact into code. AC-006 is ADDED only: the five existing acceptance criteria, the completion gate and all seven resources are byte-identical to revision 1, and NSC-126 has no control record whose pin this could break.",
+        "source_head": "2facf17fc534cfcfe3ee4e5b4207d3e7ddfec506",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "a827991ec1c05f7545f19bd6cb79ae6963ddf70a41958c19321dcc8b6ca39794",
+        "revised_contract_sha256": "a28f5c7e651f55119470716f7d7176557236f9429cc2344621a80911eef5cb19",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
+  },
+  "reconciliation_key": "room-builder-wall-accent-calls",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Call the Architectural Wall Accent Placement from the Five Room Builders",
+  "type": "world_presentation"
+}

@@ -55,6 +55,7 @@ from TaskDecomposition.continuation import (  # noqa: E402
     continuable_problem,
     source_descends,
 )
+from TaskDecomposition.continuation_seed import verify_continuation_seed  # noqa: E402
 from TaskDecomposition.review_chain import (  # noqa: E402
     ReviewChainError,
     verify_continuation_chain,
@@ -774,16 +775,36 @@ def three_call_timeout_profile(
 CONTINUATION_MAX_CALLS = 4
 
 
-def continuation_outer_timeout(max_calls: int) -> int:
-    """Every review call a continuation may make, plus overhead."""
+def continuation_outer_timeout(
+    max_calls: int, profile: Mapping[str, int | float] | None = None, *, bookkeeper: bool = False,
+) -> int | float:
+    """Every review and optional compilation a continuation may make, plus overhead."""
 
+    if bookkeeper:
+        profile = profile or {role: default for role, (_, default) in TIMEOUT_ENVIRONMENT.items()}
+        return (BOOKKEEPER_ATTEMPTS * max_calls * profile["task_decomposer"]
+                + max_calls * profile["decomposition_reviewer"] + THREE_CALL_OVERHEAD_SECONDS)
     return max_calls * TIMEOUT_ENVIRONMENT["decomposition_reviewer"][1] + THREE_CALL_OVERHEAD_SECONDS
+
+
+def _verify_inherited_settings(record: Mapping[str, Any], settings: Mapping[str, Any]) -> None:
+    """The host must retain the exact compiler protocol and timeouts proved by the prior run."""
+
+    profile = record.get("timeout_profile")
+    if not (isinstance(profile, Mapping) and set(profile) == set(TIMEOUT_ENVIRONMENT)
+            and all(type(value) in (int, float) and value > 0 for value in profile.values())):
+        raise ValueError("Continuation record carries no valid inherited timeout profile")
+    for name, wanted in settings.items():
+        if record.get(name) != wanted:
+            raise ValueError(
+                f"Continuation inherited {name} is {record.get(name)!r}, expected {wanted!r}; "
+                "bookkeeper settings cannot be overridden")
 
 
 def _prepare_continuation(
     manager: Checkouts, task_id: str, continue_from: str, provider_order: Sequence[str],
     output_root: Path, head: str,
-) -> None:
+) -> dict[str, Any] | None:
     """Refuse a continuation that cannot proceed; archive the stopped run's own record.
 
     Runs under the decomposition lock. Only the record of exactly the run being
@@ -807,22 +828,49 @@ def _prepare_continuation(
         problem = problem or "its source is not an ancestor of the current source; start a fresh run"
     if problem:
         raise ValueError(f"Decomposition run {continue_from} cannot be continued: {problem}")
+    settings = None
+    if isinstance(prior.get("designer_bookkeeper"), Mapping):
+        candidate_digest, parent_task = _graph_candidate_digest(manager, task_id)
+        task = load_committed_task(manager.source, task_id, commit=head)
+        contract = prior.get("task_execution_contract_identity") or {}
+        if (contract.get("sha256") != task["task_contract_sha256"]
+                or contract.get("revision") != task.get("contract_revision")):
+            raise ValueError("Continuation used another parent contract; a fresh run is required")
+        try:
+            seed = verify_continuation_seed(
+                output_root, prior, parent_contract=parent_task, candidate_digest=candidate_digest)
+        except DecompositionPreflightError as exc:
+            raise ValueError(f"Decomposition run {continue_from} cannot be continued: {exc}") from exc
+        settings = seed["settings"]
+        for run_id, value, _ in _continuation_chain(output_root, prior):
+            if not source_descends(manager.source, (value.get("source_identity") or {}).get("head_commit"), head):
+                raise ValueError(f"Continuation chain run {run_id} reviewed a source that is not an ancestor")
+            if value.get("task_execution_contract_identity") != contract:
+                raise ValueError(f"Continuation chain run {run_id} reviewed another parent contract")
     path = _record_path(manager, task_id)
     if path.exists():
         current = _read_record(manager, task_id)
-        if any(key in current for key in ("bookkeeper_model", "bookkeeper_provider",
-                                          "designer_bookkeeper_version", "ownership_sheet_review_version")):
-            raise ValueError(
-                f"Decomposition run {continue_from} cannot be continued: "
-                f"{BOOKKEEPER_CONTINUATION_PROBLEM}")
+        # Name the wrong record first: the settings checks below would otherwise
+        # report another run's record as an evidence mismatch.
         if current.get("run_id") != continue_from or current.get("status") != "failed":
             raise ValueError(
                 f"Decomposition record for {current.get('run_id')} ({current.get('status')}) is not the "
                 f"stopped run {continue_from}; it was preserved")
+        if any(key in current for key in ("bookkeeper_model", "bookkeeper_provider",
+                                          "designer_bookkeeper_version", "ownership_sheet_review_version")):
+            if settings is None:
+                raise ValueError(
+                    f"Decomposition run {continue_from} cannot be continued: "
+                    f"{BOOKKEEPER_CONTINUATION_PROBLEM}")
+        if settings is not None:
+            _verify_inherited_settings(current, settings)
+            _verify_bookkeeping_binding(current, prior)
+            _verify_three_call_run_binding(current, prior)
         archived = path.with_name(f"{task_id}.decomposition.{continue_from}.failed.archived.json")
         if archived.exists():
             raise ValueError(f"Archive already exists and was preserved: {archived.name}")
         path.rename(archived)
+    return settings
 
 
 def _continuation_chain(output_root: Path, run_result: Mapping[str, Any]) -> list[tuple[str, dict[str, Any], bytes]]:
@@ -882,9 +930,14 @@ def _verify_continuation_review(
     candidate_digest, parent_task = _graph_candidate_digest(manager, record["task_id"])
     providers = tuple(record["providers"])
     hashes: dict[str, str] = {}
+    settings = None
+    _verify_bookkeeping_binding(record, run_result)
+    bookkeeper = "designer_bookkeeper" in run_result
     try:
+        if not chain:
+            raise ValueError("Continuation has no retained prior run")
         base_id, base, base_bytes = chain[0]
-        if base.get("mode") != "round_robin_d1b2" or base.get("max_calls") != 3:
+        if not bookkeeper and (base.get("mode") != "round_robin_d1b2" or base.get("max_calls") != 3):
             raise ValueError(f"Continuation chain starts at {base_id}, which is not a three-call run")
         for run_id, value, _ in chain:
             if not source_descends(manager.source, (value.get("source_identity") or {}).get("head_commit"),
@@ -892,23 +945,34 @@ def _verify_continuation_review(
                 raise ValueError(f"Continuation chain run {run_id} reviewed a source that is not an ancestor")
             if value.get("task_execution_contract_identity") != run_result.get("task_execution_contract_identity"):
                 raise ValueError(f"Continuation chain run {run_id} reviewed another parent contract")
-        prior = verify_three_call_chain(
-            run_dir=output_root / base_id, run_result=base, providers=providers,
-            candidate_digest=candidate_digest, parent_contract=parent_task, open_end=True)
-        hashes.update({f"{base_id}/{key}": value for key, value in prior["evidence_sha256"].items()})
-        previous_bytes = base_bytes
-        for run_id, value, data in chain[1:]:
-            prior = verify_continuation_chain(
-                run_dir=output_root / run_id, run_result=value, prior=prior,
-                prior_run_result_sha256=hashlib.sha256(previous_bytes).hexdigest(), providers=providers,
-                candidate_digest=candidate_digest, open_end=True)
-            hashes.update({f"{run_id}/{key}": digest for key, digest in prior["evidence_sha256"].items()})
-            previous_bytes = data
+        if bookkeeper:
+            seed = verify_continuation_seed(
+                output_root, chain[-1][1], parent_contract=parent_task, candidate_digest=candidate_digest)
+            settings = seed["settings"]
+            _verify_inherited_settings(record, settings)
+            hashes.update(_verify_three_call_run_binding(record, run_result))
+            hashes.update(seed["evidence_sha256"])
+            prior = seed["proof"]
+            previous_bytes = chain[-1][2]
+        else:
+            prior = verify_three_call_chain(
+                run_dir=output_root / base_id, run_result=base, providers=providers,
+                candidate_digest=candidate_digest, parent_contract=parent_task, open_end=True)
+            hashes.update({f"{base_id}/{key}": value for key, value in prior["evidence_sha256"].items()})
+            previous_bytes = base_bytes
+            for run_id, value, data in chain[1:]:
+                prior = verify_continuation_chain(
+                    run_dir=output_root / run_id, run_result=value, prior=prior,
+                    prior_run_result_sha256=hashlib.sha256(previous_bytes).hexdigest(), providers=providers,
+                    candidate_digest=candidate_digest, open_end=True)
+                hashes.update({f"{run_id}/{key}": digest for key, digest in prior["evidence_sha256"].items()})
+                previous_bytes = data
         final = verify_continuation_chain(
             run_dir=Path(record["artifact_root"]), run_result=run_result, prior=prior,
             prior_run_result_sha256=hashlib.sha256(previous_bytes).hexdigest(), providers=providers,
-            candidate_digest=candidate_digest)
-    except ReviewChainError as exc:
+            candidate_digest=candidate_digest, parent_contract=parent_task,
+            timeouts=None if settings is None else settings["timeout_profile"])
+    except (ReviewChainError, DecompositionPreflightError) as exc:
         raise ValueError(f"Continuation review refused: {exc}") from exc
     digest = candidate_sha256(decomposition)
     approved = final["approved_candidate"]
@@ -938,6 +1002,8 @@ def _verify_continuation_review(
         "reviewer_provider": final["approver_provider"],
         "models": final["models"],
         "calls_used": final["calls_used"],
+        **({} if settings is None else {"timeout_profile": dict(settings["timeout_profile"])}),
+        **({} if final.get("bookkeeping") is None else {"bookkeeping": final["bookkeeping"]}),
         "apply_source_commit": head,
         "reviewed_source_commit": record["source_commit"],
         "source_advancement": {
@@ -1225,7 +1291,8 @@ def run(
         raise ValueError(f"Decomposition call budget must be 2 or 3, not {max_calls!r}")
     if continue_from is not None:
         if not _RUN_ID.fullmatch(continue_from) or bookkeeper_model is not None or author_checklist is not None:
-            raise ValueError("A continuation takes a run id and review budget only; the checklist is inherited")
+            raise ValueError("A continuation takes a run id and review budget only; the checklist, "
+                             "bookkeeper provider/model, protocols, and timeouts are inherited")
         if type(max_calls) is not int or not 1 <= max_calls <= CONTINUATION_MAX_CALLS:
             raise ValueError(f"A continuation runs 1..{CONTINUATION_MAX_CALLS} review calls, not {max_calls!r}")
     if bookkeeper_model is not None:
@@ -1272,9 +1339,13 @@ def run(
     if artifact_root.exists():
         raise ValueError(f"Decomposition run already exists and was preserved: {artifact_root}")
     path = _record_path(manager, task_id)
+    inherited_settings = None
     with _exclusive_file_lock(manager.records / "decomposition.lock", timeout_seconds=10):
         if continue_from is not None:
-            _prepare_continuation(manager, task_id, continue_from, provider_order, output_root, head)
+            inherited_settings = _prepare_continuation(
+                manager, task_id, continue_from, provider_order, output_root, head)
+            if inherited_settings is not None:
+                timeout_profile = dict(inherited_settings["timeout_profile"])
         if path.exists():
             prior = _read_record(manager, task_id)
             raise ValueError(
@@ -1309,6 +1380,7 @@ def run(
                 "bookkeeper_model": bookkeeper_model, "bookkeeper_provider": provider_order[0],
                 "designer_bookkeeper_version": "2.0", "ownership_sheet_review_version": "1.1"}),
             **({} if continue_from is None else {"continue_from": continue_from}),
+            **({} if inherited_settings is None else inherited_settings),
         }
         write_record(path, record)
 
@@ -1398,7 +1470,8 @@ def run(
                 # Three rounds plus the optional correction can outlast the
                 # two-call hour; only the opt-in profile gets the longer bound.
                 timeout=(
-                    continuation_outer_timeout(max_calls) if continue_from is not None
+                    continuation_outer_timeout(max_calls, timeout_profile, bookkeeper=inherited_settings is not None)
+                    if continue_from is not None
                     else (THREE_CALL_OUTER_TIMEOUT_SECONDS if max_calls == 3 else 3600) if bookkeeper_model is None
                     else bookkeeper_outer_timeout(max_calls, timeout_profile)),
                 creationflags=creationflags,

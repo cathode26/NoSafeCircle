@@ -70,12 +70,15 @@ def main() -> int:
     parser.add_argument(
         "--bookkeeper-model",
         help=("Opt-in designer/bookkeeper split: the author writes an ownership sheet and a call on the "
-              "same provider at this model writes the result from it; omit for the unchanged author round."),
+              "same provider at this model writes the result from it; omit for the unchanged author round. "
+              "Forbidden with --continue-from: the verified prior bookkeeper provider/model are inherited."),
     )
     parser.add_argument(
         "--continue-from",
         help=("Continue this retained run, which stopped right after a revision, with --max-calls "
-              "(1..4) more independent review rounds instead of a new design."),
+              "(1..4) more independent review rounds instead of a new design. The checklist is inherited; "
+              "v2 bookkeeper continuations also inherit the verified provider/model, protocol versions, "
+              "and timeouts. Legacy or unsupported bookkeeper protocols require a fresh run."),
     )
     args = parser.parse_args()
     output_root = args.output_root or default_output_root(args.source)
@@ -97,7 +100,12 @@ def main() -> int:
             print(f"Decomposition blocked: {exc}", file=sys.stderr)
             return 2
     if args.continue_from is not None:
-        if args.bookkeeper_model or args.author_checklist or args.role_session_leases or not args.run_id:
+        if args.bookkeeper_model is not None:
+            print("Continuation blocked: --bookkeeper-model cannot override the verified prior run; "
+                  "v2 continuations inherit the bookkeeper provider/model, protocol versions, and timeouts",
+                  file=sys.stderr)
+            return 2
+        if args.author_checklist or args.role_session_leases or not args.run_id:
             print("Continuation blocked: it takes --run-id and --max-calls only; the checklist is inherited",
                   file=sys.stderr)
             return 2

@@ -137,7 +137,8 @@ class RevisionRun:
     def __init__(self, base: Path, *, attempts: tuple[str, ...] = ("good",),
                  same_sheet: bool = False, refused_sheet: bool = False,
                  initial_correction: bool = False, identical: bool = False,
-                 revisions: int = 1, max_calls: int = 3, terminal: str = "pass") -> None:
+                 revisions: int = 1, max_calls: int = 3, terminal: str = "pass",
+                 author_checklist: str | None = None) -> None:
         self.source = base / "source"
         self.tasks = create_repository(self.source)
         self.parent = self.tasks["NSC-010"]
@@ -189,7 +190,7 @@ class RevisionRun:
             source=self.source, output_root=base / "output", task_id="NSC-010",
             provider_order=("claude", "codex"), max_calls=max_calls, run_id=self.run_id,
             provider_factory=factory(self.providers), _require_physical_read_only_source=False,
-            bookkeeper_model=BOOKKEEPER_MODEL,
+            bookkeeper_model=BOOKKEEPER_MODEL, author_checklist=author_checklist,
         )
         self.run_dir = base / "output" / self.run_id
 
@@ -622,7 +623,7 @@ def test_sheet_review_schema_and_policy_refuse_invalid_reviews() -> None:
         raise AssertionError("PASS accepted a still-blocking finding")
 
 
-def test_bookkeeper_continuation_protocol_requires_a_fresh_run() -> None:
+def test_unsupported_bookkeeper_continuation_protocol_requires_a_fresh_run() -> None:
     candidate = {"sha256": "0" * 64}
     ordinary = {"run_status": "needs_human", "latest_candidate": candidate,
                 "rounds": [{"status": "revised_candidate_valid", "candidate_after": candidate}],
@@ -636,9 +637,13 @@ def test_bookkeeper_continuation_protocol_requires_a_fresh_run() -> None:
         assert "fresh run" in continuable_problem(ordinary, request={key: value})
 
 
-def test_bookkeeper_continuation_is_refused_before_provider_spend() -> None:
+def test_legacy_bookkeeper_continuation_is_refused_before_provider_spend() -> None:
     with tempfile.TemporaryDirectory(prefix="nsc-bk-") as text:
         run = RevisionRun(Path(text), max_calls=2)
+        # A historical round-1-only record cannot gain reviewer-sheet provenance.
+        legacy = deepcopy(run.result)
+        legacy["designer_bookkeeper"] = {"bookkeeper_model": BOOKKEEPER_MODEL, "attempts": []}
+        (run.run_dir / "decomposition_run_result.json").write_text(json.dumps(legacy), encoding="utf-8")
         called = []
         try:
             run_continuation(
@@ -917,7 +922,7 @@ def test_repeated_requirements_pair_up_in_order() -> None:
 
 
 TESTS = (
-    test_bookkeeper_continuation_protocol_requires_a_fresh_run,
+    test_unsupported_bookkeeper_continuation_protocol_requires_a_fresh_run,
     test_non_bookkeeper_bytes_match_legacy_goldens,
     test_revision_context_includes_citations_from_review_feedback,
     test_sheet_review_schema_and_policy_refuse_invalid_reviews,
@@ -939,7 +944,7 @@ TESTS = (
     test_last_call_revision_compiles_then_stops_needs_human,
     test_pass_and_needs_human_do_not_run_bookkeeper,
     test_repeated_revisions_have_unique_attempt_ids_and_directories,
-    test_bookkeeper_continuation_is_refused_before_provider_spend,
+    test_legacy_bookkeeper_continuation_is_refused_before_provider_spend,
     test_compilation_record_tampering_is_refused,
     test_compilation_file_tampering_is_refused,
     test_legacy_round_one_bookkeeping_evidence_remains_readable,
