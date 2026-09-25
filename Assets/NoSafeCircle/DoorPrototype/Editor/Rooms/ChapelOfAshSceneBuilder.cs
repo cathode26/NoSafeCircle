@@ -237,21 +237,30 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         // AC-003: paints every cell whose center lies inside the wall-collider interior faces.
         // The loop range is intentionally wider than the painted area; GetCellCenterWorld decides
         // membership, so the exact cell indices never need to be hand-derived.
+        // NSC-109 wall-floor gap: paint every cell whose FULL FOOTPRINT lies inside the room
+        // bounds, which is the convention FinalRoomSceneBuilder and BoneArchiveSceneBuilder
+        // already use and the only two rooms with no visible gap. Testing the anchor against
+        // the wall-collider INNER faces stopped the floor short of the wall's visual plane,
+        // which sits at MaximumX - WallVisualOffset (0.151) rather than at the collider face.
+        // The overshoot is hidden: walls render at sortingOrder 0 over the floor's -100.
+        public static bool FloorCellIsInsideRoom(Vector3 cellCorner, Vector3 cellSize)
+        {
+            const float tolerance = 0.001f;
+            return cellCorner.x >= ChapelOfAshLayout.MinimumX - tolerance
+                && cellCorner.x + cellSize.x <= ChapelOfAshLayout.MaximumX + tolerance
+                && cellCorner.z - cellSize.y >= ChapelOfAshLayout.MinimumZ - tolerance
+                && cellCorner.z <= ChapelOfAshLayout.MaximumZ + tolerance;
+        }
+
         private static void PaintFloor(Tilemap tilemap, TileBase floorTile)
         {
-            float innerMinimumX = ChapelOfAshLayout.MinimumX + ChapelOfAshLayout.WallThickness * 0.5f;
-            float innerMaximumX = ChapelOfAshLayout.MaximumX - ChapelOfAshLayout.WallThickness * 0.5f;
-            float innerMinimumZ = ChapelOfAshLayout.MinimumZ + ChapelOfAshLayout.WallThickness * 0.5f;
-            float innerMaximumZ = ChapelOfAshLayout.MaximumZ - ChapelOfAshLayout.WallThickness * 0.5f;
-
             for (int x = -20; x <= 20; x++)
             {
                 for (int row = -120; row <= -30; row++)
                 {
                     Vector3Int cell = new Vector3Int(x, row, 0);
-                    Vector3 center = tilemap.GetCellCenterWorld(cell);
-                    if (center.x >= innerMinimumX && center.x <= innerMaximumX &&
-                        center.z >= innerMinimumZ && center.z <= innerMaximumZ)
+                    Vector3 corner = tilemap.GetCellCenterWorld(cell);
+                    if (FloorCellIsInsideRoom(corner, tilemap.layoutGrid.cellSize))
                     {
                         tilemap.SetTile(cell, floorTile);
                     }

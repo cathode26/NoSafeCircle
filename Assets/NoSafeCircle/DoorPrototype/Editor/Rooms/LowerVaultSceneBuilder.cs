@@ -235,13 +235,23 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         // Paints FloorTile in every cell whose GetCellCenterWorld lies inside the wall-collider
         // inner faces. Bounds are resolved through WorldToCell so the loop range is correct
         // regardless of the Tilemap's own rotation.
+        // NSC-109 wall-floor gap: paint every cell whose FULL FOOTPRINT lies inside the room
+        // bounds, which is the convention FinalRoomSceneBuilder and BoneArchiveSceneBuilder
+        // already use and the only two rooms with no visible gap. Testing the anchor against
+        // the wall-collider INNER faces stopped the floor short of the wall's visual plane,
+        // which sits at MaximumX - WallVisualOffset (0.151) rather than at the collider face.
+        // The overshoot is hidden: walls render at sortingOrder 0 over the floor's -100.
+        public static bool FloorCellIsInsideRoom(Vector3 cellCorner, Vector3 cellSize)
+        {
+            const float tolerance = 0.001f;
+            return cellCorner.x >= LowerVaultLayout.MinimumX - tolerance
+                && cellCorner.x + cellSize.x <= LowerVaultLayout.MaximumX + tolerance
+                && cellCorner.z - cellSize.y >= LowerVaultLayout.MinimumZ - tolerance
+                && cellCorner.z <= LowerVaultLayout.MaximumZ + tolerance;
+        }
+
         private static void PaintFloor(Tilemap tilemap, TileBase floorTile)
         {
-            float innerMinimumX = LowerVaultLayout.MinimumX + LowerVaultLayout.WallThickness * 0.5f;
-            float innerMaximumX = LowerVaultLayout.MaximumX - LowerVaultLayout.WallThickness * 0.5f;
-            float innerMinimumZ = LowerVaultLayout.MinimumZ + LowerVaultLayout.WallThickness * 0.5f;
-            float innerMaximumZ = LowerVaultLayout.MaximumZ - LowerVaultLayout.WallThickness * 0.5f;
-
             Vector3Int cornerA = tilemap.WorldToCell(new Vector3(LowerVaultLayout.MinimumX, 0f, LowerVaultLayout.MinimumZ));
             Vector3Int cornerB = tilemap.WorldToCell(new Vector3(LowerVaultLayout.MaximumX, 0f, LowerVaultLayout.MaximumZ));
             Vector3Int cornerC = tilemap.WorldToCell(new Vector3(LowerVaultLayout.MinimumX, 0f, LowerVaultLayout.MaximumZ));
@@ -257,9 +267,8 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
                 for (int y = minCellY; y <= maxCellY; y++)
                 {
                     Vector3Int cell = new Vector3Int(x, y, 0);
-                    Vector3 center = tilemap.GetCellCenterWorld(cell);
-                    if (center.x >= innerMinimumX && center.x <= innerMaximumX &&
-                        center.z >= innerMinimumZ && center.z <= innerMaximumZ)
+                    Vector3 corner = tilemap.GetCellCenterWorld(cell);
+                    if (FloorCellIsInsideRoom(corner, tilemap.layoutGrid.cellSize))
                     {
                         tilemap.SetTile(cell, floorTile);
                     }

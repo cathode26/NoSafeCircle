@@ -264,10 +264,13 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
                 for (int row = -120; row <= -30; row++)
                 {
                     Vector3Int cell = new Vector3Int(x, row, 0);
-                    Vector3 center = floor.GetCellCenterWorld(cell);
-                    bool shouldPaint = center.x >= -17.75f && center.x <= 17.75f &&
-                                       center.z >= 20.25f && center.z <= 53.75f;
-                    Assert.AreEqual(shouldPaint, floor.HasTile(cell), $"Floor cell {cell} violates the wall-collider interior face.");
+                    Vector3 corner = floor.GetCellCenterWorld(cell);
+                    // NSC-109 wall-floor gap: assert the SAME rule the builder paints by, taken
+                    // from the builder rather than restated here, so the two cannot drift. The
+                    // literals this replaced encoded the wall-collider inner faces, which left
+                    // the floor short of the wall's visual plane in every room that used them.
+                    bool shouldPaint = ChapelOfAshSceneBuilder.FloorCellIsInsideRoom(corner, floor.layoutGrid.cellSize);
+                    Assert.AreEqual(shouldPaint, floor.HasTile(cell), $"Floor cell {cell} at world {corner} violates RoomBounds.");
                     if (shouldPaint)
                     {
                         Assert.AreSame(floorTile, floor.GetTile(cell));
@@ -280,10 +283,21 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
                 }
             }
 
-            Assert.AreEqual(2345, paintedCount, "AC-003 requires exactly 2,345 floor cells.");
-            Assert.AreEqual(-17, minPaintedX);
+            // NSC-109 wall-floor gap: 2,448 = 36 columns x 68 rows, derived INDEPENDENTLY of
+            // the loop above so this stays a witness rather than a restatement of it.
+            // Columns: corner.x from -18 to 17 inclusive (corner.x + 1 <= MaximumX = 18).
+            // Rows: corner.z from 20.5 to 54.0 in 0.5 steps (corner.z - 0.5 >= MinimumZ = 20).
+            // Was 2,345 = 35 x 67, one column and one row short, which is the gap.
+            Assert.AreEqual(2448, paintedCount, "AC-003 requires every cell whose footprint lies inside RoomBounds.");
+            // NSC-109 wall-floor gap: the extent grows on exactly ONE side of each axis, which
+            // is what the rule predicts and is worth pinning rather than just the total. The
+            // point GetCellCenterWorld returns is the cell's LOW-X / HIGH-Z corner, and the rule
+            // is corner.x >= MinimumX with corner.x + cellSize.x <= MaximumX, so the low-x side
+            // gains a column (-17 -> -18) and the high-x side cannot. Rows mirror it: the
+            // negated-z axis gains one at -108 while -41 is unchanged.
+            Assert.AreEqual(-18, minPaintedX);
             Assert.AreEqual(17, maxPaintedX);
-            Assert.AreEqual(-107, minPaintedRow);
+            Assert.AreEqual(-108, minPaintedRow);
             Assert.AreEqual(-41, maxPaintedRow);
         }
 
