@@ -125,7 +125,9 @@
     "world-sprite-sorting-layer-adoption": "NSC-100",
     "world-visual-foundation": "NSC-026",
     "room-builder-wall-accent-calls": "NSC-126",
-    "wall-pilaster-rhythm-placement": "NSC-127"
+    "wall-pilaster-rhythm-placement": "NSC-127",
+    "hold-shift-suppress-movement": "NSC-128",
+    "enemy-cursor-hover-highlight": "NSC-129"
   },
   "reconciliation_run_id": "20260821T193541Z-998ee7b5",
   "schema_version": "1.0",
