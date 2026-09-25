@@ -42,19 +42,49 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "The composed long wall must retain separate gameplay collision.");
             Assert.IsNotNull(door);
 
-            TileBase sharedTile = wall.GetTile(new Vector3Int(-8, 0, 0));
+            // This used to read cell (-8,0,0) and require an unbroken run of twelve cells -14..-3.
+            // NSC-049 AC-004's shared-boundary exclusion removes the SOUTHERN room's
+            // NorthFullWallTilemap cells that fall inside the NORTHERN room's X span, so the
+            // northern room's own south wall is the visible one where two rooms adjoin - NSC-046
+            // records the same pattern at Z 54. Bone Archive spans X [-12,+12] and Ruined Entry
+            // spans [-14,+14], so what survives here is the stretch at each END that no adjoining
+            // room covers, and cell (-8,0,0) is now deliberately empty.
+            //
+            // Asserting the SHAPE rather than a cell list: a cell index is not a world X on this
+            // isometric grid (cell n sits at n + 0.5), and hardcoding the survivors would go stale
+            // the next time a room's width changes - which is exactly how the twelve-cell
+            // expectation above came to be wrong.
+            Vector3Int[] painted = wall.cellBounds.allPositionsWithin
+                .Cast<Vector3Int>()
+                .Where(candidate => wall.HasTile(candidate))
+                .OrderBy(candidate => candidate.x)
+                .ToArray();
+
+            Assert.IsNotEmpty(painted,
+                "Ruined Entry must keep the parts of its north wall that no adjoining room covers.");
+
+            TileBase sharedTile = wall.GetTile(painted[0]);
             Assert.IsNotNull(sharedTile, "Use the Tile actually serialized in the saved room wall.");
             Assert.AreEqual("WallTile", sharedTile.name);
-            for (int cell = -14; cell <= -3; cell++)
+            foreach (Vector3Int cell in painted)
             {
-                Assert.AreSame(sharedTile, wall.GetTile(new Vector3Int(cell, 0, 0)));
+                Assert.AreSame(sharedTile, wall.GetTile(cell),
+                    "Every surviving north-wall cell must share the one serialized WallTile.");
             }
+
+            Assert.IsFalse(wall.HasTile(new Vector3Int(0, 0, 0)),
+                "AC-004 must clear this wall across the D1 opening so the doorway is passable.");
+            Assert.IsTrue(painted.Any(cell => cell.x < 0) && painted.Any(cell => cell.x > 0),
+                "The wall must survive at BOTH ends, beyond the adjoining room's width.");
             Assert.AreEqual(TilemapRenderer.Mode.Individual, wall.GetComponent<TilemapRenderer>().mode);
             Assert.AreEqual(wall.GetComponent<TilemapRenderer>().sortingOrder, wizard.sortingOrder);
             Assert.AreEqual(wall.GetComponent<TilemapRenderer>().sortingLayerName, wizard.sortingLayerName);
 
-            // This is the committed twelve-cell north wall, with its own separate
-            // gameplay collider. D1 provides the opening for the crossing route.
+            // The wall LINE, not a painted cell: GetCellCenterWorld returns a coordinate whether or
+            // not that cell carries a tile, and everything below measures the wizard's depth key
+            // against that line as it moves around and through it. The gameplay collider is
+            // unchanged by AC-004, which removes visual cells only, and D1 still provides the
+            // opening for the crossing route.
             Vector3 center = wall.GetCellCenterWorld(new Vector3Int(-8, 0, 0));
             Assert.That(collision.bounds.size.x, Is.GreaterThan(10f));
             door.StartInteraction();

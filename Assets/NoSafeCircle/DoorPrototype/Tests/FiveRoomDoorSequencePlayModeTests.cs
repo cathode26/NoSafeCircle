@@ -516,34 +516,6 @@ namespace NoSafeCircle.DoorPrototype.Tests
             method.Invoke(target, new object[] { other });
         }
 
-        // TEMPORARY DIAGNOSTIC - REVERT BEFORE HANDBACK. Asserts nothing.
-        // LongWallTraversalPlayModeTests asserts the Ruined Entry's NorthFullWallTilemap carries a
-        // WallTile in every cell -14..-3. AC-004's shared-boundary exclusion is new on this branch
-        // (0 occurrences on main, 4 here) and removes exactly the cells inside the NORTHERN room's
-        // X span, so most of that run is now deliberately empty. Printing what actually survives,
-        // rather than deriving it from cell indices that are not world X on an isometric grid.
-        [UnityTest]
-        public IEnumerator TEMP_DIAGNOSTIC_RuinedEntryNorthWallSurvivingCells()
-        {
-            yield return SceneManager.LoadSceneAsync("DoorPrototype", LoadSceneMode.Single);
-            yield return null;
-
-            var room = SceneManager.GetSceneByName("DoorPrototype").GetRootGameObjects()
-                .Single(root => root.name == "World").transform
-                .Find("ComposedRooms/Room_RuinedEntry");
-            var wall = room.Find("Visuals/IsometricZAsY/NorthFullWallTilemap")
-                .GetComponent<UnityEngine.Tilemaps.Tilemap>();
-
-            Debug.Log($"TEMPWALL cellBounds {wall.cellBounds}");
-            for (var x = -16; x <= 16; x++)
-            {
-                var cell = new Vector3Int(x, 0, 0);
-                var tile = wall.GetTile(cell);
-                var world = wall.GetCellCenterWorld(cell);
-                Debug.Log($"TEMPWALL cell x={x,4} worldX {world.x,8:F3} tile {(tile == null ? "NULL" : tile.name)}");
-            }
-        }
-
         [UnityTearDown]
         public IEnumerator UnloadCanonicalSceneWithoutSaving()
         {

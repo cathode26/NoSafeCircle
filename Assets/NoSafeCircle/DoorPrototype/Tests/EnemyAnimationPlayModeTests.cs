@@ -410,9 +410,15 @@ namespace NoSafeCircle.DoorPrototype.Tests
             yield return WaitForCondition(
                 () => agent.isOnNavMesh,
                 5f,
-                "Chapel of Ash MeleeEnemy at (7, 0, 31) did not join the baked NavMesh.");
+                $"Chapel of Ash MeleeEnemy at {chapelMeleeSpawn} did not join the baked NavMesh.");
 
-            TeleportPlayer(player, playerController, new Vector3(9f, 0f, 31f));
+            // The wizard used to be teleported to the literal (9,0,31), which was chosen as two
+            // units east of the PRE-AC-005 enemy spawn (7,0,31). Once the spawn moves, that
+            // literal stops being "just across the gap" and becomes an arbitrary point most of a
+            // room away - the enemy then legitimately fails to acquire it and the failure reads
+            // like an awareness defect rather than a stale fixture. Keeping the OFFSET is what
+            // preserves this test's intent; keeping the coordinate does not.
+            TeleportPlayer(player, playerController, chapelMeleeSpawn + new Vector3(2f, 0f, 0f));
             yield return WaitForCondition(
                 () => knowledge.HasTarget,
                 5f,
