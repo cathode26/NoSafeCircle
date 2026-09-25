@@ -36,7 +36,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 4,
+  "contract_revision": 5,
   "decomposition_children": [
     "NSC-086",
     "NSC-087"
@@ -48,7 +48,7 @@
     "NSC-020",
     "NSC-003",
     "NSC-019",
-    "NSC-007",
+    "NSC-118",
     "NSC-008",
     "NSC-009"
   ],
@@ -72,22 +72,22 @@
   "parent": "NSC-034",
   "provenance": {
     "bootstrap_status_observation": "open",
+    "contract_followups": [
+      {
+        "base_contract_sha256": "944f6353550c8af71069c63ae870488b40d028189074906aaa65688eecb97808",
+        "date": "2026-09-17",
+        "previous_contract_revision": 3,
+        "reason": "Mechanical follow-up revision 4 (notes only; NSC-087 rev 2 and NSC-086 rev 2 checks, downstream debt): records that the Spectral Decoy is a sixth owner-controlled suspend entry point carried by children NSC-087 revision 3 and NSC-086 revision 3 per NSC-088 INT-002. Criteria and gates unchanged.",
+        "review": "mechanical revision; grep review only (tiered rule, 2026-09-17)",
+        "revised_contract_sha256": "c868ea77dd4a917643a2ac142d57da926c4d1ddbe953f489a08b5674257517ee",
+        "source_head": "8bc36b12b741439d538e7b8540a7f79b8f53c090"
+      }
+    ],
     "migration_id": "task-contract-schema-v2-20260822-r2",
     "origin": "verified_reconciliation_bootstrap",
     "reconciliation_run_id": "20260821T193541Z-998ee7b5",
     "source_schema_version": "1.0",
-    "verification_run_id": "20260821T195959Z-43dba5de",
-    "contract_followups": [
-      {
-        "date": "2026-09-17",
-        "reason": "Mechanical follow-up revision 4 (notes only; NSC-087 rev 2 and NSC-086 rev 2 checks, downstream debt): records that the Spectral Decoy is a sixth owner-controlled suspend entry point carried by children NSC-087 revision 3 and NSC-086 revision 3 per NSC-088 INT-002. Criteria and gates unchanged.",
-        "source_head": "8bc36b12b741439d538e7b8540a7f79b8f53c090",
-        "previous_contract_revision": 3,
-        "base_contract_sha256": "944f6353550c8af71069c63ae870488b40d028189074906aaa65688eecb97808",
-        "revised_contract_sha256": "c868ea77dd4a917643a2ac142d57da926c4d1ddbe953f489a08b5674257517ee",
-        "review": "mechanical revision; grep review only (tiered rule, 2026-09-17)"
-      }
-    ]
+    "verification_run_id": "20260821T195959Z-43dba5de"
   },
   "reconciliation_key": "final-escape-victory",
   "repository_evidence_at_bootstrap": [],

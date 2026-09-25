@@ -60,25 +60,24 @@
     {
       "reconciliation_keys": [
         "player-movement",
-        "fireball",
         "frost-field",
         "force-wave",
-        "spectral-decoy-cast-phantom-cooldown-ui"
+        "spectral-decoy-cast-phantom-cooldown-ui",
+        "fireball-input-scene-assembly"
       ],
       "resource_key": "repo-file:Assets/InputSystem_Actions.inputactions",
       "work_ids": [
         "NSC-003",
-        "NSC-007",
         "NSC-008",
         "NSC-009",
-        "NSC-112"
+        "NSC-112",
+        "NSC-119"
       ]
     },
     {
       "reconciliation_keys": [
         "player-movement",
         "player-health",
-        "fireball",
         "frost-field",
         "force-wave",
         "door-open-interaction",
@@ -104,13 +103,13 @@
         "doorway-opening-seal-and-door-art-binding",
         "world-sprite-sorting-layer-adoption",
         "apply-authored-architectural-tilesets-to-room-builders",
-        "spectral-decoy-cast-phantom-cooldown-ui"
+        "spectral-decoy-cast-phantom-cooldown-ui",
+        "fireball-input-scene-assembly"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
       "work_ids": [
         "NSC-003",
         "NSC-004",
-        "NSC-007",
         "NSC-008",
         "NSC-009",
         "NSC-019",
@@ -136,7 +135,8 @@
         "NSC-097",
         "NSC-100",
         "NSC-109",
-        "NSC-112"
+        "NSC-112",
+        "NSC-119"
       ]
     },
     {
@@ -164,7 +164,6 @@
       "reconciliation_keys": [
         "player-movement",
         "player-health",
-        "fireball",
         "frost-field",
         "force-wave",
         "door-open-interaction",
@@ -193,13 +192,13 @@
         "doorway-opening-seal-and-door-art-binding",
         "fireball-second-mint",
         "title-screen-transparent-layout-build",
-        "spectral-decoy-cast-phantom-cooldown-ui"
+        "spectral-decoy-cast-phantom-cooldown-ui",
+        "fireball-input-scene-assembly"
       ],
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
       "work_ids": [
         "NSC-003",
         "NSC-004",
-        "NSC-007",
         "NSC-008",
         "NSC-009",
         "NSC-019",
@@ -228,7 +227,8 @@
         "NSC-097",
         "NSC-098",
         "NSC-108",
-        "NSC-112"
+        "NSC-112",
+        "NSC-119"
       ]
     },
     {
@@ -475,14 +475,14 @@
         "stationary-enemy-sprite-integration",
         "world-sprite-prefab-sorting",
         "five-room-continuity-door-sequence",
-        "fireball",
         "frost-field",
         "force-wave",
         "wizard-128-source-integration-switch",
         "melee-enemy",
         "fireball-second-mint",
         "title-screen-transparent-layout-build",
-        "spectral-decoy-cast-phantom-cooldown-ui"
+        "spectral-decoy-cast-phantom-cooldown-ui",
+        "fireball-input-scene-assembly"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
       "work_ids": [
@@ -491,14 +491,14 @@
         "NSC-077",
         "NSC-039",
         "NSC-049",
-        "NSC-007",
         "NSC-008",
         "NSC-009",
         "NSC-096",
         "NSC-015",
         "NSC-098",
         "NSC-108",
-        "NSC-112"
+        "NSC-112",
+        "NSC-119"
       ]
     },
     {
@@ -1142,49 +1142,49 @@
     },
     {
       "reconciliation_keys": [
-        "fireball",
         "frost-field",
         "force-wave",
         "title-screen-start-game-transition",
-        "spectral-decoy-cast-phantom-cooldown-ui"
+        "spectral-decoy-cast-phantom-cooldown-ui",
+        "fireball-cast-charge-state"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenController.cs",
       "work_ids": [
-        "NSC-007",
         "NSC-008",
         "NSC-009",
         "NSC-106",
-        "NSC-112"
+        "NSC-112",
+        "NSC-118"
       ]
     },
     {
       "reconciliation_keys": [
-        "fireball",
         "selected-wizard-world-placement",
         "frost-field",
         "force-wave",
-        "spectral-decoy-cast-phantom-cooldown-ui"
+        "spectral-decoy-cast-phantom-cooldown-ui",
+        "fireball-cast-charge-state"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardGameEntryController.cs",
       "work_ids": [
-        "NSC-007",
         "NSC-068",
         "NSC-008",
         "NSC-009",
-        "NSC-112"
+        "NSC-112",
+        "NSC-118"
       ]
     },
     {
       "reconciliation_keys": [
-        "fireball",
         "floor-run-restart-persistent-closure",
-        "victory-trigger-overlay-integration"
+        "victory-trigger-overlay-integration",
+        "fireball-input-scene-assembly"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs",
       "work_ids": [
-        "NSC-007",
         "NSC-033",
-        "NSC-086"
+        "NSC-086",
+        "NSC-119"
       ]
     },
     {
@@ -1233,64 +1233,64 @@
     },
     {
       "reconciliation_keys": [
-        "fireball",
-        "fireball-second-mint"
+        "fireball-second-mint",
+        "fireball-cast-charge-state"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Fireball.cs",
       "work_ids": [
-        "NSC-007",
-        "NSC-098"
+        "NSC-098",
+        "NSC-118"
       ]
     },
     {
       "reconciliation_keys": [
-        "fireball",
-        "fireball-second-mint"
+        "fireball-second-mint",
+        "fireball-cast-charge-state"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Fireball.cs.meta",
       "work_ids": [
-        "NSC-007",
-        "NSC-098"
+        "NSC-098",
+        "NSC-118"
       ]
     },
     {
       "reconciliation_keys": [
-        "fireball",
-        "fireball-second-mint"
+        "fireball-second-mint",
+        "fireball-projectile-damage"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/FireballProjectile.cs",
       "work_ids": [
-        "NSC-007",
-        "NSC-098"
+        "NSC-098",
+        "NSC-117"
       ]
     },
     {
       "reconciliation_keys": [
-        "fireball",
-        "fireball-second-mint"
+        "fireball-second-mint",
+        "fireball-projectile-damage"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/FireballProjectile.cs.meta",
       "work_ids": [
-        "NSC-007",
-        "NSC-098"
+        "NSC-098",
+        "NSC-117"
       ]
     },
     {
       "reconciliation_keys": [
-        "fireball"
+        "fireball-input-scene-assembly"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FireballCommittedSceneConformanceTests.cs",
       "work_ids": [
-        "NSC-007"
+        "NSC-119"
       ]
     },
     {
       "reconciliation_keys": [
-        "fireball"
+        "fireball-input-scene-assembly"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FireballCommittedSceneConformanceTests.cs.meta",
       "work_ids": [
-        "NSC-007"
+        "NSC-119"
       ]
     },
     {

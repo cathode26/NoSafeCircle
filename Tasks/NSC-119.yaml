@@ -1,0 +1,97 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "NSC-007 AC-001",
+      "requirement": "Keep the assembled Fireball implementation as exactly Fireball.cs, FireballProjectile.cs and their .meta files, with no Fireball prefab. Fireball owns tap, charge, cast, reset and suspension state and every shot it launches; FireballProjectile owns one runtime-created shot. Keep the three per-concern Play Mode fixtures and their .meta files separate: FireballCastAndChargePlayModeTests covers tap, hold, tiers, mana, restriction and interruption; FireballProjectilePlayModeTests covers flight, obstruction, contact and area damage; FireballLifecyclePlayModeTests covers reset, suspension, re-enable and title/game-entry flow. Do not merge the fixtures."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "NSC-007 AC-004 (committed binding); GDD §2 Move and Aim",
+      "requirement": "Add one Button-type Fireball action to the existing Player map in Assets/InputSystem_Actions.inputactions. It has exactly one <Mouse>/rightButton binding in the Keyboard&Mouse control scheme only. No other Player action uses that path, including MoveToCursor, FrostField and ForceWave. Leave the stock Attack action and its six base bindings unchanged, and add no gamepad, joystick, touch or XR Fireball binding."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "NSC-007 AC-009",
+      "requirement": "Update DoorPrototypeGlobalSceneBuilder.BuildPlayer to add exactly one Fireball to the Player, with references to the existing PlayerMovement, PlayerMana, PlayerHealth and project InputActionAsset. Update DoorPrototypeSceneBuilder.cs to route the Fireball reference needed by title and game-entry wiring. Create FireballCommittedSceneConformanceTests.cs. The authorized No Safe Circle/Build Door Prototype Scene command materializes the result into Assets/Scenes/DoorPrototype.unity. Implementation code and tests never hand-edit, reconstruct or save the serialized scene."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "NSC-007 AC-010 (builder wiring)",
+      "requirement": "Update DoorPrototypeGlobalSceneBuilder.BuildTitleScreen and BuildWizardGameEntry to assign the Player's Fireball to the optional Fireball references added by fireball-cast-charge-state. The builder never adds Fireball to TitleScreenController's gameplayInputBehaviours array."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "NSC-007 AC-011",
+      "requirement": "Remove DemoRunFlow's embedded right-click fireball: delete TryFireAtCursor, AdvanceFireballs, the private Fireball struct, the fireballSpeed, fireballLifetime, fireballHitRadius, fireballDamage, fireballManaCost and fireballCooldown fields, the fireballs list, the castCooldown field and its decrement in Update, and direct Mouse.current polling. Leave ApplyEnemyContactDamage, DrawEnemyHealthBars, DrawPlayerStatus, the win and death DrawEndScreen branches, and the 'Press R to play again' SceneManager.LoadScene reload unchanged. NSC-086 later retires the win path and NSC-033 the death path; neither is done here."
+    }
+  ],
+  "basis": "Direct GDD authority and NSC-007 AC-001, AC-004, AC-009, AC-010 and AC-011.",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "NSC-007 VAL-005",
+      "requirement": "FireballCommittedSceneConformanceTests opens Assets/Scenes/DoorPrototype.unity additively, limits object lookup to that scene and closes it without saving. Verify the Player's Fireball references PlayerMovement, PlayerMana, PlayerHealth and the committed InputActionAsset. TitleScreenController and WizardGameEntryController must both reference that Fireball. gameplayInputBehaviours must exclude Fireball and still contain exactly DebugDamageControl and DebugManaSpendControl. An Edit Mode test in the same file loads Assets/InputSystem_Actions.inputactions directly. Player/Fireball must be Button type with exactly one <Mouse>/rightButton binding whose groups contain only Keyboard&Mouse. It must have no gamepad, joystick, touch or XR binding, and no other Player action may use that path. Attack must retain exactly its six base bindings. Compare scene bytes before and after, and record clean tracked and untracked repository state before and after validation."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "NSC-007 VAL-007",
+      "requirement": "An Edit Mode reflection test in FireballCommittedSceneConformanceTests verifies DemoRunFlow declares no TryFireAtCursor or AdvanceFireballs method, no nested Fireball type, and none of the fields fireballSpeed, fireballLifetime, fireballHitRadius, fireballDamage, fireballManaCost, fireballCooldown, fireballs or castCooldown. A source-text check must find no Mouse.current in DemoRunFlow.cs. The committed-scene check must count exactly one Fireball Component."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "This is the single final assembly step. It owns every shared input, builder and scene resource and verifies them with one Edit Mode conformance fixture after both runtime children are complete.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-117",
+    "NSC-118"
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-007 INT-001; GDD §3 Player Experience Success Criteria",
+      "requirement": "Once the Melee Enemy, Ranged Enemy and composed room geometry exist, Vincent reviews the materialized candidate in Play Mode using the committed Fireball binding. Review separation around Ruined Entry rubble and whether a rooted charge becomes unsafe as Melee Enemies close; Bone Archive clustering with an escape opening; tap versus charge under a Ranged Enemy telegraph in Chapel of Ash's central aisle and side cover, with cover not clearing target knowledge; Lower Vault's incomplete loops; queued movement or door clicks while charging near a door; and the Final Room five-second door tradeoff. Vincent also judges whether charge, full charge, projectile, impact area and denied-cast feedback are readable. This proposal does not claim that review."
+    }
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/InputSystem_Actions.inputactions",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+    "unity-scene:Assets/Scenes/DoorPrototype.unity",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FireballCommittedSceneConformanceTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FireballCommittedSceneConformanceTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs"
+  ],
+  "execution_reason": "One agent adds the project Fireball Input Action, wires Fireball through DoorPrototypeGlobalSceneBuilder and DoorPrototypeSceneBuilder, uses the authorized builder to materialize the committed scene, removes DemoRunFlow's embedded fireball, and writes the committed-scene and legacy-removal conformance tests.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD §5 Runtime Implementation; API and Tool Constraints",
+      "requirement": "Production builders materialize the canonical scene; implementation code and tests do not hand-edit the serialized scene."
+    },
+    {
+      "reference": "GDD §2 Move and Aim",
+      "requirement": "Gameplay input goes through the project's Unity Input System actions."
+    }
+  ],
+  "id": "NSC-119",
+  "kind": "implementation",
+  "notes": "Only this child may edit the Input Actions asset, DoorPrototypeGlobalSceneBuilder.cs, DoorPrototypeSceneBuilder.cs, DemoRunFlow.cs, FireballCommittedSceneConformanceTests or DoorPrototype.unity. It edits neither Fireball.cs, FireballProjectile.cs nor the controller scripts. Scene materialization is the authorized controller build step. NSC-098 owns Fireball presentation and runs downstream.",
+  "parent": "NSC-007",
+  "provenance": {
+    "graph_delta_plan_id": "GDP-84836ea0bedb87fcbf27409a37a1b30866d162a68db24a735d00ea2f2939a7ad",
+    "origin": "progressive_decomposition",
+    "parent_contract_revision": 9,
+    "parent_contract_sha256": "10acb112a1fa988ca9243ecbb9aeaa1ac928ca430b284ff90542a914441d8920",
+    "parent_task_id": "NSC-007"
+  },
+  "reconciliation_key": "fireball-input-scene-assembly",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Fireball Input Action, Scene Builder Wiring, Committed-Scene Test, and DemoRunFlow Cleanup",
+  "type": "spell"
+}
