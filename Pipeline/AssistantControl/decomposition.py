@@ -850,6 +850,12 @@ def _prepare_continuation(
     path = _record_path(manager, task_id)
     if path.exists():
         current = _read_record(manager, task_id)
+        # Name the wrong record first: the settings checks below would otherwise
+        # report another run's record as an evidence mismatch.
+        if current.get("run_id") != continue_from or current.get("status") != "failed":
+            raise ValueError(
+                f"Decomposition record for {current.get('run_id')} ({current.get('status')}) is not the "
+                f"stopped run {continue_from}; it was preserved")
         if any(key in current for key in ("bookkeeper_model", "bookkeeper_provider",
                                           "designer_bookkeeper_version", "ownership_sheet_review_version")):
             if settings is None:
@@ -860,10 +866,6 @@ def _prepare_continuation(
             _verify_inherited_settings(current, settings)
             _verify_bookkeeping_binding(current, prior)
             _verify_three_call_run_binding(current, prior)
-        if current.get("run_id") != continue_from or current.get("status") != "failed":
-            raise ValueError(
-                f"Decomposition record for {current.get('run_id')} ({current.get('status')}) is not the "
-                f"stopped run {continue_from}; it was preserved")
         archived = path.with_name(f"{task_id}.decomposition.{continue_from}.failed.archived.json")
         if archived.exists():
             raise ValueError(f"Archive already exists and was preserved: {archived.name}")
