@@ -592,6 +592,16 @@
         "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.ThirdPartyDependencyAvailabilityTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-109": {
+      "task_contract_sha256": "7a7722c22decb640e7ab598d6a65997bdef0ced4faba56ab3459b1da216fbd7b",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.RuinedEntrySceneTests;NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.BoneArchiveSceneTests;NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.ChapelOfAshSceneTests;NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.LowerVaultSceneTests;NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.FinalRoomSceneTests;NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}
