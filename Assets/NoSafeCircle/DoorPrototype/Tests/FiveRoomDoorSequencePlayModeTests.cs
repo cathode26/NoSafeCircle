@@ -580,9 +580,17 @@ namespace NoSafeCircle.DoorPrototype.Tests
             }
 
             Debug.Log($"TEMP AC-005(a)+AC-006 legal MELEE points in Lower Vault: {meleeLegal.Count}");
-            foreach (var point in meleeLegal.OrderBy(p => Vector2.Distance(new Vector2(p.x, p.z), midpoint)).Take(12))
+
+            // Ranked by MARGIN, not by legality. Every hit above was found against the same 0.1
+            // the gate asserts, so the whole set could be passing by hundredths - and a spawn that
+            // clears by 0.002 would flip on the next rebake. Pick the flattest ground available.
+            float DeltaY(Vector3 p) =>
+                NavMesh.SamplePosition(p, out var s, 0.6f, NavMesh.AllAreas) ? s.position.y - p.y : 99f;
+
+            foreach (var point in meleeLegal.OrderBy(DeltaY).ThenBy(p => Vector2.Distance(new Vector2(p.x, p.z), midpoint)).Take(10))
             {
-                Debug.Log($"TEMP   melee candidate {point} (d(mid) {Vector2.Distance(new Vector2(point.x, point.z), midpoint):F2})");
+                Debug.Log($"TEMP   melee by MARGIN {point} dY {DeltaY(point):F4} " +
+                          $"d(mid) {Vector2.Distance(new Vector2(point.x, point.z), midpoint):F2}");
             }
 
             // Same question for the ranged partner, independent of which melee point wins: every
@@ -615,8 +623,26 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     return HasClearLinecast(r, new Vector2(-8f, 55.5f)) || HasClearLinecast(r, new Vector2(4f, 74.5f));
                 }).ToList();
 
-                Debug.Log($"TEMP   melee {melee} has {partners.Count} legal ranged partner(s)" +
-                          (partners.Count > 0 ? $", e.g. {partners[0]}, {partners[partners.Count / 2]}" : ""));
+                Debug.Log($"TEMP   melee {melee} dY {DeltaY(melee):F4} has {partners.Count} legal ranged partner(s)");
+
+                // The authored intent for this ranged spawn is "sees D4", so report the best
+                // partners by margin AND the best that still cover the D4 approach, since those
+                // can be different points and the trade-off is a judgement rather than a search.
+                foreach (var partner in partners.OrderBy(DeltaY).Take(3))
+                {
+                    Debug.Log($"TEMP      ranged by MARGIN {partner} dY {DeltaY(partner):F4} " +
+                              $"d(melee) {Vector2.Distance(new Vector2(partner.x, partner.z), meleeFlat):F2} " +
+                              $"seesD4 {HasClearLinecast(partner, new Vector2(4f, 74.5f))}");
+                }
+
+                foreach (var partner in partners
+                             .Where(r => HasClearLinecast(r, new Vector2(4f, 74.5f)))
+                             .OrderBy(DeltaY).Take(3))
+                {
+                    Debug.Log($"TEMP      ranged SEEING D4 {partner} dY {DeltaY(partner):F4} " +
+                              $"d(melee) {Vector2.Distance(new Vector2(partner.x, partner.z), meleeFlat):F2} " +
+                              $"d(D4) {Vector2.Distance(new Vector2(partner.x, partner.z), d4):F2}");
+                }
             }
 
             // Both rooms' FloorCollision boxes are byte-identical in height, so a room-wide offset
