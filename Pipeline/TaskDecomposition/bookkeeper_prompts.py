@@ -11,6 +11,7 @@ import json
 from typing import Any, Iterable, Mapping
 
 from .context_builder import ContextPackage
+from .bookkeeping_skeleton import result_skeleton
 from .prompts import build_decomposer_prompt
 
 _DESIGNER_MODE = """
@@ -44,29 +45,25 @@ _BOOKKEEPER_MODE = """
 
 ## BOOKKEEPING MODE: the design is already decided
 
-You are not designing this split. A designer has already decided it, and its ownership sheet is
-below. Write the complete decomposition result JSON that states exactly this design, filling in
-only the bookkeeping:
+You are not designing this split. A designer has already decided it (the ownership sheet below),
+and code has already built every structural field of the result from it (the result skeleton
+below): the children, entry IDs, requirements, coverage table and dependency rewrites. Return the
+complete decomposition result JSON: the skeleton with every empty prose field written.
 
-- decision "decomposed"; one child per sheet child, with the same local_key, title, kind, type and
-  execution_scope; execution_reason is the sheet's purpose, copied exactly.
-- exclusive_resources, existing_task_dependencies and local_dependencies copied exactly.
-- each sheet entry becomes one child entry of its entry_type with its requirement copied EXACTLY,
-  character for character. Assign IDs (AC-001.., VAL-001.., INT-001.. within each child) and write
-  each entry's reference from the parent contract or GDD.
-- parent_requirement_coverage: one record per parent entry. Its child_targets are the child
-  entries whose sheet `covers` names that parent entry ("acceptance_criteria:AC-001" means
-  parent_entry_type acceptance_criteria, parent_entry_id AC-001). A parent entry covered by
-  entries in two or more children is "shared_integration" with an integration_rationale;
-  otherwise "assigned_to_child" with an empty integration_rationale.
-- each child's notes include its sheet design_notes.
-- inbound_dependency_rewrites exactly as in the sheet, each with a reason; the top-level reason
-  follows the sheet's rationale.
-- fill every other field consistently with the rules above.
+- each entry's `reference`: the parent contract entry or GDD section it comes from.
+- each child's `gdd_evidence`, `basis`, `confidence`, `source_scope`, `decomposition_state` and
+  `decomposition_reason`, following the rules above.
+- each child's `notes`: keep the designer's notes that are already there and add what the rules
+  above require.
+- each coverage record's `reason`, and an `integration_rationale` where the disposition is
+  "shared_integration".
+- each inbound dependency rewrite's `reason`; the top-level `reason` follows the sheet's
+  rationale. Also fill `schema_version`, `parent_task`, `gap_type`, `unresolved_questions`,
+  `unsupported_assumptions` and `artifact_proposal` as the rules above require.
 
-Do not add, remove, merge, split or reword any child, resource, dependency, requirement or
-coverage link. If the sheet cannot be written as a valid result without changing the design,
-write the closest result and state exactly what is wrong in the top-level `reason`.
+Code restores every structural field from the skeleton afterwards, so changing one has no effect.
+If the design cannot be written as a valid result, say exactly what is wrong in the top-level
+`reason`.
 
 ### Ownership sheet
 ```json
@@ -81,8 +78,30 @@ def build_designer_prompt(context: ContextPackage) -> str:
     return build_decomposer_prompt(context) + _DESIGNER_MODE
 
 
+def build_designer_correction_prompt(
+    context: ContextPackage, *, rejected_sheet: Any, rejection_reason: str,
+) -> str:
+    return build_designer_prompt(context) + f"""
+
+## CORRECTION: your previous ownership sheet was refused
+
+Deterministic checks refused the sheet below for this reason:
+
+{rejection_reason}
+
+Return a corrected, complete ownership sheet that fixes this and keeps every other decision that
+was sound. This is the only correction.
+
+### Refused sheet
+```json
+{json.dumps(rejected_sheet, indent=1, ensure_ascii=False, sort_keys=True)}
+```
+"""
+
+
 def build_bookkeeper_prompt(context: ContextPackage, sheet: Mapping[str, Any]) -> str:
-    return build_decomposer_prompt(context) + _BOOKKEEPER_MODE + _sheet_json(sheet) + "\n```\n"
+    return (build_decomposer_prompt(context) + _BOOKKEEPER_MODE + _sheet_json(sheet)
+            + "\n```\n\n### Result skeleton\n```json\n" + _sheet_json(result_skeleton(sheet)) + "\n```\n")
 
 
 def build_bookkeeper_retry_prompt(
@@ -94,11 +113,10 @@ found these problems:
 
 {listed}
 
-Return the corrected complete decomposition result JSON. Fix only these problems: every sheet entry \
-must appear as its own child entry with its requirement copied exactly, and each parent entry's \
-coverage must point at exactly the child entries whose sheet `covers` names it. Renumber IDs within a \
-child if you need to, and keep every coverage record pointing at the right entry after renumbering. \
-Change nothing else.
+Return the corrected complete decomposition result JSON. Fix only these problems, in the prose \
+fields (references, evidence, notes, reasons and the child classification fields). Code restores every \
+structural field from the sheet afterwards, so the children, entry IDs, requirements, coverage links and \
+dependencies in your previous result are already right; change nothing else.
 
 ### Ownership sheet
 ```json

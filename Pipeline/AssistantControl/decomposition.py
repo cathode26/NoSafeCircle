@@ -659,8 +659,6 @@ def _verify_review(manager: Checkouts, record: dict[str, Any]) -> dict[str, Any]
         raise ValueError("Decomposition review history does not end with a clean pass")
     bookkeeping = None
     if "bookkeeper_model" in record:
-        if len(rounds) != 2:
-            raise ValueError("A designer/bookkeeper decomposition carries an author correction")
         candidate_digest, parent_task = _graph_candidate_digest(manager, record["task_id"])
         try:
             bookkeeping = verify_bookkeeping(

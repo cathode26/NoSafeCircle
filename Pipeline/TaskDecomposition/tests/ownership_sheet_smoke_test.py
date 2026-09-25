@@ -22,6 +22,7 @@ PARENT = {
     "acceptance_criteria": [{"criterion_id": "AC-001"}, {"criterion_id": "AC-002"}],
     "completion_gates": [{"gate_id": "VAL-001"}],
     "downstream_integration_obligations": [],
+    "exclusive_resources": ["repo-file:Assets/Cast.cs", "repo-file:Assets/Redirect.cs"],
 }
 
 
@@ -118,7 +119,27 @@ def test_an_incomplete_sheet_is_refused() -> None:
         raise AssertionError("a resource owned by two children was accepted")
 
 
+def test_the_validators_mapping_and_partition_rules_are_checked_on_the_sheet() -> None:
+    cases = {
+        "injective child mappings": lambda s: s["children"][0]["entries"][0]["covers"].append(
+            "acceptance_criteria:AC-002"),
+        "must map to child completion_gates entries": lambda s: s["children"][0]["entries"][0]["covers"].append(
+            "completion_gates:VAL-001"),
+        "exactly partition": lambda s: s["children"][1]["exclusive_resources"].clear(),
+    }
+    for expected, change in cases.items():
+        sheet = sheet_from_result(_result())
+        change(sheet)
+        try:
+            validate_sheet(sheet, PARENT)
+        except OwnershipSheetError as error:
+            assert expected in str(error), (expected, str(error))
+        else:
+            raise AssertionError(f"a sheet breaking {expected!r} was accepted")
+
+
 TESTS = (
+    test_the_validators_mapping_and_partition_rules_are_checked_on_the_sheet,
     test_a_result_conforms_to_its_own_sheet,
     test_renumbered_ids_and_new_reasons_still_conform,
     test_design_changes_are_caught,

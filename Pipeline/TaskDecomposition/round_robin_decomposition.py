@@ -63,7 +63,13 @@ from TaskDecomposition.contracts import (
 from TaskDecomposition.bookkeeper_prompts import (
     build_bookkeeper_prompt,
     build_bookkeeper_retry_prompt,
+    build_designer_correction_prompt,
     build_designer_prompt,
+)
+from TaskDecomposition.bookkeeping_skeleton import (
+    impose_skeleton,
+    result_skeleton,
+    structural_slips,
 )
 from TaskDecomposition.live_decomposition import (
     BOOKKEEPER_ROLE,
@@ -779,6 +785,7 @@ def _run_bookkeeping(
     attempts: list[dict[str, Any]] = []
     rejected: Any = None
     problems: list[str] = []
+    skeleton = result_skeleton(sheet)
     for attempt in range(1, BOOKKEEPER_MAX_ATTEMPTS + 1):
         prompt = (build_bookkeeper_prompt(context, sheet) if attempt == 1
                   else build_bookkeeper_retry_prompt(sheet, rejected, problems))
@@ -802,6 +809,7 @@ def _run_bookkeeping(
             "agent_runtime_result_path": f"rounds/{directory}/agent_runtime/{invocation_id}/result.json",
             "status": "rejected",
             "problems": [],
+            "structural_slips_corrected": [],
             "candidate_after": None,
         }
         failures: list[str] = []
@@ -821,7 +829,11 @@ def _run_bookkeeping(
             publish_json_no_overwrite(run_dir / "rounds" / directory / "bookkeeping_attempt.json", record)
             return None, attempts, [f"bookkeeping attempt {attempt}: {reason}" for reason in failures], True
         assert result is not None
-        rejected = thaw_json(result.structured_output)
+        output = thaw_json(result.structured_output)
+        # The model's structural slips are corrected, not retried; they are
+        # recorded so a run shows how often the skeleton was needed.
+        record["structural_slips_corrected"] = structural_slips(sheet, output)
+        rejected = impose_skeleton(skeleton, output)
         problems = conformance_problems(sheet, rejected)
         candidate: CandidateSnapshot | None = None
         if not problems:
@@ -1018,6 +1030,39 @@ def run_round_robin_decomposition(
     initial_validation_failure: str | None = None
     deferred_round_rejections: list[str] = []
     bookkeeping: dict[str, Any] | None = None
+
+    def design_refusal(sheet: Any) -> str | None:
+        try:
+            validate_sheet(sheet, context_payload["selected_task"]["contract"])
+        except OwnershipSheetError as exc:
+            return f"designer ownership sheet refused: {exc}"
+        return None
+
+    def compile_design(
+        sheet: dict[str, Any], sheet_dir: Path, sheet_relative_dir: str,
+    ) -> tuple[CandidateSnapshot | None, dict[str, Any], list[str], bool]:
+        """Publish an accepted sheet and let the bookkeeper write the result from it."""
+
+        assert bookkeeper_model is not None
+        publish_json_no_overwrite(sheet_dir / OWNERSHIP_SHEET_NAME, sheet)
+        record: dict[str, Any] = {
+            "bookkeeper_model": bookkeeper_model,
+            "sheet_path": f"{sheet_relative_dir}/{OWNERSHIP_SHEET_NAME}",
+            "sheet_sha256": sheet_sha256(sheet),
+            "attempts": [],
+        }
+        compiled, record["attempts"], failures, call_failed = _run_bookkeeping(
+            run_dir=run_dir, task_id=task_id, run_id=selected_run_id, provider=order[0],
+            provider_bundle=with_bundle_model(_validated_provider_bundle(
+                order[0], source_identity.root, provider_factory, role=BOOKKEEPER_ROLE,
+                codex_resume_sandbox_argument=codex_resume_sandbox_argument,
+            ), bookkeeper_model),
+            sheet=sheet, context=context, context_payload=context_payload, graph=graph,
+            context_paths=context_paths, task_contract_identity=task_contract_identity,
+            budgets=generator_budget, heartbeat_seconds=heartbeat_seconds,
+            reporter=reporter, source_identity=source_identity,
+        )
+        return compiled, record, failures, call_failed
 
     for round_number in range(1, call_limit + 1):
         calls_used = round_number
@@ -1226,30 +1271,16 @@ def run_round_robin_decomposition(
         if not round_rejections and agent_result is not None:
             if round_number == 1 and bookkeeper_model is not None:
                 sheet = thaw_json(agent_result.structured_output)
-                try:
-                    validate_sheet(sheet, context_payload["selected_task"]["contract"])
-                except OwnershipSheetError as exc:
-                    round_rejections.append(f"designer ownership sheet refused: {exc}")
+                sheet_refusal = design_refusal(sheet)
+                if sheet_refusal is not None:
+                    # A refused sheet is a design mistake, so the designer gets the
+                    # one bounded correction an author gets for an invalid result.
+                    initial_validation_failure = sheet_refusal
+                    round_rejections.append(sheet_refusal)
                     run_status = "rejected"
                 else:
-                    publish_json_no_overwrite(round_dir / OWNERSHIP_SHEET_NAME, sheet)
-                    bookkeeping = {
-                        "bookkeeper_model": bookkeeper_model,
-                        "sheet_path": f"rounds/{round_number:02d}/{OWNERSHIP_SHEET_NAME}",
-                        "sheet_sha256": sheet_sha256(sheet),
-                        "attempts": [],
-                    }
-                    candidate, bookkeeping["attempts"], bookkeeping_failures, call_failed = _run_bookkeeping(
-                        run_dir=run_dir, task_id=task_id, run_id=selected_run_id, provider=provider,
-                        provider_bundle=with_bundle_model(_validated_provider_bundle(
-                            provider, source_identity.root, provider_factory, role=BOOKKEEPER_ROLE,
-                            codex_resume_sandbox_argument=codex_resume_sandbox_argument,
-                        ), bookkeeper_model),
-                        sheet=sheet, context=context, context_payload=context_payload, graph=graph,
-                        context_paths=context_paths, task_contract_identity=task_contract_identity,
-                        budgets=generator_budget, heartbeat_seconds=heartbeat_seconds,
-                        reporter=reporter, source_identity=source_identity,
-                    )
+                    candidate, bookkeeping, bookkeeping_failures, call_failed = compile_design(
+                        sheet, round_dir, f"rounds/{round_number:02d}")
                     if candidate is None:
                         round_rejections.extend(bookkeeping_failures)
                         run_status = "agent_failed" if call_failed else "rejected"
@@ -1395,7 +1426,6 @@ def run_round_robin_decomposition(
             and round_rejections == [initial_validation_failure]
             and author_corrections_used == 0
             and pooled_sessions is None
-            and bookkeeper_model is None
         )
         if round_rejections:
             round_summary["rejection_reasons"] = round_rejections
@@ -1502,13 +1532,16 @@ def run_round_robin_decomposition(
                 role=role,
                 provider=provider,
                 provider_bundle=correction_bundle,
-                prompt=build_decomposer_correction_prompt(
+                prompt=(build_decomposer_correction_prompt(
                     context,
                     rejected_output=rejected_output,
                     rejection_reason=initial_validation_failure,
                     observed_differences=observed_differences,
-                ),
-                output_schema=DECOMPOSITION_RESULT_SCHEMA,
+                ) if bookkeeper_model is None else build_designer_correction_prompt(
+                    context, rejected_sheet=rejected_output, rejection_reason=initial_validation_failure,
+                )),
+                output_schema=(DECOMPOSITION_RESULT_SCHEMA if bookkeeper_model is None
+                               else OWNERSHIP_SHEET_SCHEMA),
                 context_paths=context_paths,
                 task_contract_identity=task_contract_identity,
                 budgets=generator_budget,
@@ -1559,7 +1592,30 @@ def run_round_robin_decomposition(
                     _read_only_rejection_reasons(correction_result)
                 )
             correction_rejections.extend(correction_source_reasons)
-            if not correction_rejections and correction_result is not None:
+            if not correction_rejections and correction_result is not None and bookkeeper_model is not None:
+                corrected_sheet = thaw_json(correction_result.structured_output)
+                sheet_refusal = design_refusal(corrected_sheet)
+                if sheet_refusal is not None:
+                    correction_rejections.append(sheet_refusal)
+                    run_status = "rejected"
+                else:
+                    candidate, bookkeeping, bookkeeping_failures, call_failed = compile_design(
+                        corrected_sheet, correction_dir, f"rounds/{correction_directory}")
+                    if candidate is None:
+                        correction_rejections.extend(bookkeeping_failures)
+                        run_status = "agent_failed" if call_failed else "rejected"
+                    else:
+                        _publish_candidate(correction_dir, candidate)
+                        correction_summary["candidate_after"] = candidate.summary()
+                        correction_summary["status"] = "correction_candidate_valid"
+                        if round_number == call_limit:
+                            run_status = "needs_human"
+                            rejection_reasons.append(
+                                "call limit ended before an independent provider reviewed the initial candidate"
+                            )
+                        else:
+                            run_status = "rejected"
+            elif not correction_rejections and correction_result is not None:
                 try:
                     candidate = _validate_candidate(
                         thaw_json(correction_result.structured_output),

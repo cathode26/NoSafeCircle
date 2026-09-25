@@ -645,7 +645,7 @@ class BookkeeperReviewTests(unittest.TestCase):
         manager, record, run_dir = self.produce()
         result_path = next((run_dir / "rounds" / "01-bookkeeper-1" / "agent_runtime").glob("*/result.json"))
         value = json.loads(result_path.read_text(encoding="utf-8"))
-        value["structured_output"]["children"][0]["title"] = "Changed after the fact"
+        value["structured_output"]["children"][0]["notes"] += " Changed after the fact."
         result_path.write_text(json.dumps(value), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "Decomposition bookkeeping refused"):
             _verify_review(manager, record)

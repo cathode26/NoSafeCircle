@@ -132,14 +132,36 @@ def _validate_sheet(sheet: Mapping[str, Any], parent_contract: Mapping[str, Any]
         for entry in child["entries"]:
             if not entry["requirement"].strip():
                 raise OwnershipSheetError(f"{child['local_key']}: an entry has no requirement text")
+            # The validator's rule, stated on the design: a parent acceptance
+            # criterion or completion gate maps to child entries of its own
+            # type, and one child entry answers at most one of them.
+            strict = []
             for ref in entry["covers"]:
                 if ref not in parent_refs:
                     raise OwnershipSheetError(f"{child['local_key']}: covers unknown parent entry {ref!r}")
                 covered.add(ref)
+                parent_type = ref.partition(":")[0]
+                if parent_type in ("acceptance_criteria", "completion_gates"):
+                    if entry["entry_type"] != parent_type:
+                        raise OwnershipSheetError(
+                            f"{child['local_key']}: parent {ref} must map to child {parent_type} entries, "
+                            f"not {entry['entry_type']}")
+                    strict.append(ref)
+            if len(strict) > 1:
+                raise OwnershipSheetError(
+                    f"{child['local_key']}: distinct parent obligations must have injective child mappings; "
+                    f"one {entry['entry_type']} entry covers {', '.join(strict)}. Give each its own child entry")
         for resource in child["exclusive_resources"]:
             if resource in owners:
                 raise OwnershipSheetError(f"{resource} is owned by both {owners[resource]} and {child['local_key']}")
             owners[resource] = child["local_key"]
+    parent_resources = sorted(parent_contract.get("exclusive_resources") or [])
+    if sorted(owners) != parent_resources:
+        unassigned = sorted(set(parent_resources) - set(owners))
+        extra = sorted(set(owners) - set(parent_resources))
+        raise OwnershipSheetError(
+            "child exclusive_resources must exactly partition the parent exclusive_resources "
+            f"(unassigned: {unassigned}; not the parent's: {extra})")
     missing = sorted(parent_refs - covered)
     if missing:
         raise OwnershipSheetError(f"no child entry covers {', '.join(missing)}")
@@ -214,6 +236,8 @@ def conformance_problems(sheet: Mapping[str, Any], result: Mapping[str, Any]) ->
                 problems.append(f"{key}: {field} changed")
         if child.get("execution_reason") != plan["purpose"]:
             problems.append(f"{key}: execution_reason is not the sheet's purpose")
+        if plan["design_notes"] not in (child.get("notes") if isinstance(child.get("notes"), str) else ""):
+            problems.append(f"{key}: notes do not carry the sheet's design_notes")
         for field in ("exclusive_resources", "existing_task_dependencies", "local_dependencies"):
             if sorted(child.get(field) or []) != sorted(plan[field]):
                 problems.append(f"{key}: {field} changed")

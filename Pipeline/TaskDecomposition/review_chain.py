@@ -254,8 +254,8 @@ def verify_three_call_chain(
     if "designer_bookkeeper" in run_result:
         # Round 1's own output is the design; the candidate is the last
         # bookkeeping attempt's, bound to that design.
-        _require(not corrections and parent_contract is not None, "D3_BOOKKEEPING",
-                 "a designer/bookkeeper run carries an author correction or no parent contract to check")
+        _require(parent_contract is not None, "D3_BOOKKEEPING",
+                 "a designer/bookkeeper run needs the parent contract to check its sheet")
         try:
             bookkeeping = verify_bookkeeping(
                 run_dir=run_dir, run_result=run_result, author_entry=author, first_provider=first,
