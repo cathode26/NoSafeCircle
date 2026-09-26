@@ -762,6 +762,162 @@ def describe_policy_findings(findings: Sequence[Mapping[str, Any]]) -> str:
     return "validation policy findings: " + "; ".join(parts)
 
 
+# Why a rebind is SKIPPED, named so a caller can report it rather than infer it.
+REBIND_SKIPPED_PRE_EXISTING = "stale_before_this_apply"
+REBIND_SKIPPED_NOT_REWRITTEN = "not_rewritten_by_this_apply"
+REBIND_SKIPPED_NEEDS_AUTHORED_ENTRY = "child_entry_needs_authored_test_filters"
+
+
+def plan_pin_rebind(
+    source: Path | str,
+    findings: Sequence[Mapping[str, Any]],
+    *,
+    commit: str,
+) -> dict[str, Any]:
+    """Name the pins this apply broke and may therefore repair, and what it will not touch.
+
+    THE SCOPE IS DELIBERATELY NARROWER THAN "every stale pin". A pin that was already stale before
+    the apply belongs to whoever revised that contract without rebinding; repairing it here would
+    make an apply change policy nobody asked it to change, and would hide a second writer's defect
+    inside a decomposition's diff. Those are reported as skipped, with the reason, so the caller can
+    say what it is leaving alone.
+
+    A child with no entry is skipped for a different reason and it is not a judgement call: an entry
+    needs authored Unity test class names, which nothing in the apply path can derive.
+    """
+
+    repository = Path(source)
+    rebinds: list[dict[str, str]] = []
+    skipped: list[dict[str, Any]] = []
+    for finding in findings:
+        condition = finding.get("condition")
+        task_id = finding.get("task_id")
+        if condition == POLICY_CHILD_UNPINNED:
+            skipped.append({"task_id": task_id,
+                            "reason": REBIND_SKIPPED_NEEDS_AUTHORED_ENTRY})
+            continue
+        if condition != POLICY_PIN_STALE:
+            continue
+        if finding.get("stale_before_this_apply"):
+            skipped.append({"task_id": task_id, "reason": REBIND_SKIPPED_PRE_EXISTING})
+            continue
+        if not finding.get("rewritten_by_this_apply"):
+            skipped.append({"task_id": task_id, "reason": REBIND_SKIPPED_NOT_REWRITTEN})
+            continue
+        document = read_policy_document(repository, commit=commit)
+        entry = document["tasks"].get(task_id)
+        if not isinstance(entry, Mapping):
+            skipped.append({"task_id": task_id,
+                            "reason": REBIND_SKIPPED_NEEDS_AUTHORED_ENTRY})
+            continue
+        contract = load_committed_task(repository, str(task_id), commit=commit)
+        rebinds.append({
+            "task_id": str(task_id),
+            "from": str(entry.get("task_contract_sha256")),
+            "to": contract["task_contract_sha256"],
+        })
+    return {"commit": _exact_commit(commit), "rebinds": rebinds, "skipped": skipped}
+
+
+def apply_pin_rebind(
+    source: Path | str,
+    plan: Mapping[str, Any],
+    *,
+    message: str,
+) -> dict[str, Any]:
+    """Write exactly the pins the plan names, in one commit that touches only the policy.
+
+    Three things are proven rather than assumed, because this writes to Source:
+
+    The tree is clean first. Committing from a dirty tree is how one writer's commit carries
+    another's staged work, which this repository has already paid for once.
+
+    Each old pin occurs EXACTLY ONCE in the file text. The edit is textual so the document keeps its
+    own 28KB of formatting and its own hashes; a pin that appeared twice would make a textual edit
+    ambiguous, so it refuses instead of guessing.
+
+    Nothing but the named pins changed. The before and after documents are compared as parsed
+    objects with the rebound pins substituted into the original -- so a stray edit anywhere else in
+    the file fails here rather than in whatever reads it next.
+    """
+
+    repository = Path(source)
+    rebinds = list(plan.get("rebinds") or [])
+    if not rebinds:
+        return {"status": "nothing_to_rebind", "commit": None, "rebound": []}
+    dirty = _git_text(repository, "status", "--porcelain", "--untracked-files=all")
+    if dirty.strip():
+        raise ValidationPolicyAuditError(
+            "Source must be clean before a policy rebind commit: " + dirty.strip()
+        )
+    path = repository / VALIDATION_POLICY_RELATIVE
+    original_bytes = path.read_bytes()
+    before = json.loads(original_bytes.decode("utf-8-sig"))
+    text = original_bytes.decode("utf-8")
+    for rebind in rebinds:
+        old = str(rebind["from"])
+        new = str(rebind["to"])
+        if re.fullmatch(r"[0-9a-f]{64}", new) is None:
+            raise ValidationPolicyAuditError(
+                "a rebind target must be an exact sha256: %r" % new
+            )
+        occurrences = text.count(old)
+        if occurrences != 1:
+            raise ValidationPolicyAuditError(
+                "policy pin %s for %s occurs %d times in the document, so a textual rebind is"
+                " ambiguous" % (old[:12], rebind["task_id"], occurrences)
+            )
+        text = text.replace(old, new, 1)
+    after = json.loads(text.encode("utf-8").decode("utf-8-sig"))
+    expected = json.loads(json.dumps(before))
+    for rebind in rebinds:
+        expected["tasks"][rebind["task_id"]]["task_contract_sha256"] = rebind["to"]
+    if after != expected:
+        raise ValidationPolicyAuditError(
+            "the rebound policy differs from the original in something other than the named pins"
+        )
+    path.write_bytes(text.encode("utf-8"))
+    try:
+        _git_text(repository, "add", "--", VALIDATION_POLICY_RELATIVE)
+        staged = _git_text(repository, "diff", "--cached", "--name-only")
+        if [line.strip() for line in staged.splitlines() if line.strip()] != [
+            VALIDATION_POLICY_RELATIVE
+        ]:
+            raise ValidationPolicyAuditError(
+                "a policy rebind staged something other than the policy: %r" % staged
+            )
+        _git_text(repository, "commit", "--only", "-m", message, "--",
+                     VALIDATION_POLICY_RELATIVE)
+    except ValidationPolicyAuditError:
+        path.write_bytes(original_bytes)
+        _git_text(repository, "reset", "-q", "--", VALIDATION_POLICY_RELATIVE)
+        raise
+    head = _git_text(repository, "rev-parse", "HEAD").strip()
+    committed = _git_text(repository, "diff-tree", "--no-commit-id", "--name-only", "-r", head)
+    if [line.strip() for line in committed.splitlines() if line.strip()] != [
+        VALIDATION_POLICY_RELATIVE
+    ]:
+        raise ValidationPolicyAuditError(
+            "the policy rebind commit touched more than the policy: %r" % committed
+        )
+    return {"status": "rebound", "commit": head, "rebound": rebinds,
+            "skipped": list(plan.get("skipped") or [])}
+
+
+def describe_pin_rebind(result: Mapping[str, Any]) -> str:
+    """One line. An empty rebind says so rather than returning silence."""
+
+    rebound = list(result.get("rebound") or [])
+    skipped = list(result.get("skipped") or [])
+    if not rebound:
+        return "no pin was rebound (%d finding(s) left to their owners)" % len(skipped)
+    return "rebound %s at %s; left alone: %s" % (
+        ",".join(item["task_id"] for item in rebound),
+        str(result.get("commit"))[:12],
+        ", ".join("%s (%s)" % (item["task_id"], item["reason"]) for item in skipped) or "nothing",
+    )
+
+
 def decomposition_preflight(
     source: Path | str,
     task_id: str,
@@ -790,6 +946,12 @@ def decomposition_preflight(
 
 __all__ = [
     "DECOMPOSITION_TEMPLATE_AUTHORITY",
+    "REBIND_SKIPPED_NEEDS_AUTHORED_ENTRY",
+    "REBIND_SKIPPED_NOT_REWRITTEN",
+    "REBIND_SKIPPED_PRE_EXISTING",
+    "apply_pin_rebind",
+    "describe_pin_rebind",
+    "plan_pin_rebind",
     "POLICY_CHILD_UNPINNED",
     "POLICY_PIN_STALE",
     "POLICY_UNREADABLE",

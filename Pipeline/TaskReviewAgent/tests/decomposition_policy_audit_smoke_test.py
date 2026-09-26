@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import ast
 import copy
+import re
 import json
 from pathlib import Path
 import subprocess
@@ -43,9 +44,15 @@ from Pipeline.TaskReviewAgent.decomposition_policy_audit import (  # noqa: E402
     POLICY_UNREADABLE,
     VALIDATION_POLICY_RELATIVE,
     ValidationPolicyAuditError,
+    REBIND_SKIPPED_NEEDS_AUTHORED_ENTRY,
+    REBIND_SKIPPED_NOT_REWRITTEN,
+    REBIND_SKIPPED_PRE_EXISTING,
     applied_policy_findings,
+    apply_pin_rebind,
     audit_decomposition_policy,
     describe_policy_findings,
+    describe_pin_rebind,
+    plan_pin_rebind,
     decomposition_preflight,
     is_decomposition_eligible_parent,
     parent_semantic_hash,
@@ -1286,6 +1293,176 @@ def test_the_apply_computes_and_records_the_findings() -> None:
             "_apply_locked computes the findings and never renders them to a log")
 
 
+# --------------------------------- 17: repairing the pins the apply itself broke
+#
+# Detection names the damage; this repairs the half that needs no authored value. The scope is
+# deliberately narrower than "every stale pin": a pin that was already stale belongs to whoever
+# revised that contract, and an apply that silently repaired it would hide a second writer's defect
+# inside a decomposition's diff.
+
+
+def _reasons(plan_or_result):
+    return {item["task_id"]: item["reason"] for item in (plan_or_result.get("skipped") or [])}
+
+
+def test_a_rebind_plan_covers_only_the_pins_this_apply_broke() -> None:
+    """The plan takes the two pins this apply broke and refuses the rest, with reasons."""
+
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        before, after = _apply_fixture(root, pre_stale=APPLY_UNTOUCHED)
+        plan = plan_pin_rebind(root, _findings(root, before, after), commit=after)
+        named = {item["task_id"] for item in plan["rebinds"]}
+        require(named == {APPLY_PARENT, APPLY_BYSTANDER},
+                f"the plan rebinds the wrong set: {named}")
+        reasons = _reasons(plan)
+        require(reasons.get(APPLY_UNTOUCHED) == REBIND_SKIPPED_PRE_EXISTING,
+                f"a pre-existing stale pin was not left to its owner: {reasons}")
+        for child_id in APPLY_CHILDREN:
+            require(reasons.get(child_id) == REBIND_SKIPPED_NEEDS_AUTHORED_ENTRY,
+                    f"an unpinned child was not deferred for authored filters: {reasons}")
+        for item in plan["rebinds"]:
+            require(item["from"] != item["to"], str(item))
+            require(re.fullmatch(r"[0-9a-f]{64}", item["to"]) is not None, str(item))
+
+
+def test_a_rebind_commit_touches_only_the_policy() -> None:
+    """One commit, one path. The apply's own commit is not amended and nothing else rides along."""
+
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        before, after = _apply_fixture(root)
+        plan = plan_pin_rebind(root, _findings(root, before, after), commit=after)
+        result = apply_pin_rebind(root, plan, message="policy: rebind the pins the apply broke")
+        require(result["status"] == "rebound", str(result))
+        require(result["commit"] != after, "the rebind did not create a commit")
+        committed = _git(root, "diff-tree", "--no-commit-id", "--name-only", "-r",
+                         result["commit"]).split()
+        require(committed == [VALIDATION_POLICY_RELATIVE],
+                f"the rebind commit touched {committed}")
+        require(_git(root, "status", "--porcelain").strip() == "",
+                "the rebind left the tree dirty")
+        require(_git(root, "rev-parse", f"{result['commit']}^") == after,
+                "the rebind commit does not sit directly on the apply")
+
+
+def test_a_rebind_changes_nothing_but_the_named_pins() -> None:
+    """Prove it by diffing the parsed documents, not by reading the diff."""
+
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        before, after = _apply_fixture(root)
+        original = json.loads(
+            (root / VALIDATION_POLICY_RELATIVE).read_bytes().decode("utf-8-sig")
+        )
+        plan = plan_pin_rebind(root, _findings(root, before, after), commit=after)
+        apply_pin_rebind(root, plan, message="policy: rebind")
+        rebound = json.loads(
+            (root / VALIDATION_POLICY_RELATIVE).read_bytes().decode("utf-8-sig")
+        )
+        expected = copy.deepcopy(original)
+        for item in plan["rebinds"]:
+            expected["tasks"][item["task_id"]]["task_contract_sha256"] = item["to"]
+        require(rebound == expected, "the rebound document differs beyond the named pins")
+        require(set(rebound["tasks"]) == set(original["tasks"]),
+                "the rebind added or removed an entry")
+        for task_id, entry in rebound["tasks"].items():
+            require(set(entry) == set(original["tasks"][task_id]),
+                    f"the rebind changed {task_id}'s key set")
+
+
+def test_after_a_rebind_the_reader_resolves_the_task_again() -> None:
+    """The repair is proven by `validation_plan_for`, in the other module.
+
+    Before the rebind that reader RAISES "is stale" for the parent; after it, it returns a plan
+    whose pin is the contract's own. Asserting my own document is self-consistent would prove
+    nothing -- the authority has to agree that the task is resolvable again.
+    """
+
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        before, after = _apply_fixture(root)
+        parent = load_committed_task(root, APPLY_PARENT, commit=after)
+        stale = rejects(lambda: validation_plan_for(root, parent), DownstreamPipelineError)
+        require("is stale" in str(stale), str(stale))
+
+        plan = plan_pin_rebind(root, _findings(root, before, after), commit=after)
+        apply_pin_rebind(root, plan, message="policy: rebind")
+
+        resolved = validation_plan_for(root, parent)
+        require(resolved is not None, "the reader still refuses the parent after the rebind")
+        require(resolved["task_contract_sha256"] == parent["task_contract_sha256"],
+                f"the reader resolved a different contract: {resolved}")
+        # And the findings the guard produces are now empty for the pins it repaired.
+        remaining = _findings(root, before, _git(root, "rev-parse", "HEAD"))
+        still_stale = {item["task_id"] for item in remaining
+                       if item["condition"] == POLICY_PIN_STALE}
+        require(APPLY_PARENT not in still_stale and APPLY_BYSTANDER not in still_stale,
+                f"the guard still reports repaired pins as stale: {still_stale}")
+
+
+def test_a_rebind_refuses_a_dirty_source() -> None:
+    """Committing from a dirty tree is how one writer's commit carries another's work."""
+
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        before, after = _apply_fixture(root)
+        plan = plan_pin_rebind(root, _findings(root, before, after), commit=after)
+        (root / "Tasks" / "NSC-926.yaml").write_bytes(b"{}\n")
+        refusal = rejects(
+            lambda: apply_pin_rebind(root, plan, message="policy: rebind"),
+            ValidationPolicyAuditError,
+        )
+        require("must be clean" in str(refusal), str(refusal))
+        require("NSC-926" in str(refusal), str(refusal))
+
+
+def test_a_rebind_refuses_an_ambiguous_pin_instead_of_guessing() -> None:
+    """A textual edit needs the old pin to occur exactly once, and says so when it does not."""
+
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        before, after = _apply_fixture(root)
+        findings = _findings(root, before, after)
+        plan = plan_pin_rebind(root, findings, commit=after)
+        # Give a second entry the same pin, so the parent's old value appears twice.
+        policy_path = root / VALIDATION_POLICY_RELATIVE
+        document = json.loads(policy_path.read_bytes().decode("utf-8-sig"))
+        parent_pin = document["tasks"][APPLY_PARENT]["task_contract_sha256"]
+        document["tasks"][APPLY_UNTOUCHED]["task_contract_sha256"] = parent_pin
+        _write_policy(root, document["tasks"])
+        _git(root, "add", "--all")
+        _git(root, "commit", "-q", "-m", "fixture: duplicate a pin")
+        refusal = rejects(
+            lambda: apply_pin_rebind(root, plan, message="policy: rebind"),
+            ValidationPolicyAuditError,
+        )
+        require("occurs 2 times" in str(refusal), str(refusal))
+        require("ambiguous" in str(refusal), str(refusal))
+        # And it left the document alone rather than half-editing it.
+        require(json.loads(policy_path.read_bytes().decode("utf-8-sig")) == document,
+                "the refusal still modified the policy")
+
+
+def test_a_rebind_with_nothing_to_do_says_so() -> None:
+    """An empty rebind is a positive statement, not silence."""
+
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        before, after = _apply_fixture(root, pin_parent=False)
+        empty = plan_pin_rebind(root, (), commit=before)
+        require(empty["rebinds"] == [], str(empty))
+        head_before_call = _git(root, "rev-parse", "HEAD")
+        require(head_before_call == after, "the fixture did not leave HEAD at the apply")
+        result = apply_pin_rebind(root, empty, message="unused")
+        require(result["status"] == "nothing_to_rebind", str(result))
+        require(result["commit"] is None, str(result))
+        require(_git(root, "rev-parse", "HEAD") == head_before_call,
+                "a no-op rebind still moved HEAD")
+        described = describe_pin_rebind(result)
+        require("no pin was rebound" in described, described)
+
+
 TESTS = (
     test_committed_policy_satisfies_the_decomposition_reader_schema,
     test_committed_policy_audits_clean_against_the_committed_graph,
@@ -1310,6 +1487,13 @@ TESTS = (
     test_a_consistent_policy_says_so_rather_than_returning_silence,
     test_the_stale_rule_is_the_one_every_candidate_validation_already_uses,
     test_the_apply_computes_and_records_the_findings,
+    test_a_rebind_plan_covers_only_the_pins_this_apply_broke,
+    test_a_rebind_commit_touches_only_the_policy,
+    test_a_rebind_changes_nothing_but_the_named_pins,
+    test_after_a_rebind_the_reader_resolves_the_task_again,
+    test_a_rebind_refuses_a_dirty_source,
+    test_a_rebind_refuses_an_ambiguous_pin_instead_of_guessing,
+    test_a_rebind_with_nothing_to_do_says_so,
 )
 
 
