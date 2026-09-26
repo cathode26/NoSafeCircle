@@ -376,7 +376,16 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     who + " carries sortingOrder " + renderer.sortingOrder + "; any other value outranks position unconditionally.");
                 Assert.AreEqual(SpriteSortPoint.Pivot, renderer.spriteSortPoint,
                     who + " sorts by Center rather than Pivot, which reads the sprite's middle instead of its ground contact.");
-                Assert.AreEqual(Vector3.one, renderer.transform.lossyScale, who + " is scaled. Wall sprites are never scaled.");
+                // TOLERANCE, NOT EQUALITY, AND THE REASON IS THE PROPERTY BEING READ. lossyScale is
+                // COMPUTED by multiplying every parent's scale up the chain, so it accumulates
+                // float error and arrives as 0.99999994 rather than 1. Assert.AreEqual compares
+                // Vector3 with Equals(), which is exact per component, so this failed while
+                // printing "Expected: (1.00, 1.00, 1.00) But was: (1.00, 1.00, 1.00)" - identical
+                // to every digit shown. The claim worth keeping is "no wall is scaled", and the
+                // durable way to state it is a magnitude bound, not bitwise equality.
+                Assert.Less((renderer.transform.lossyScale - Vector3.one).magnitude, 1e-4f,
+                    who + " is scaled to " + renderer.transform.lossyScale.ToString("F6")
+                    + ". Wall sprites are never scaled.");
             }
         }
 

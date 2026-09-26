@@ -107,9 +107,19 @@ namespace NoSafeCircle.DoorPrototype.Tests
             // and the bootstrap must still run them low phase first.
             GameBootstrap bootstrap = CreateBootstrap();
 
-            var late = managers.AddComponent<PhaseProbe>();
+            // EACH PROBE ON ITS OWN CHILD, as GameBootstrap instantiates real spawner prefabs.
+            // Added to the ROOT they would each "own" the entire hierarchy, and NavigationSpawner's
+            // re-bake check - which asks what a LATER-phase spawner has left alive under itself -
+            // would attribute the Rooms lane's floor colliders to the Hud probe and report them.
+            // That failure was the fixture's shape, not a defect in the check.
+            var lateObject = new GameObject("LatePhaseProbe");
+            lateObject.transform.SetParent(managers.transform);
+            var late = lateObject.AddComponent<PhaseProbe>();
             late.Configure(SpawnPhase.Hud);
-            var early = managers.AddComponent<PhaseProbe>();
+
+            var earlyObject = new GameObject("EarlyPhaseProbe");
+            earlyObject.transform.SetParent(managers.transform);
+            var early = earlyObject.AddComponent<PhaseProbe>();
             early.Configure(SpawnPhase.Rooms);
 
             yield return null;
