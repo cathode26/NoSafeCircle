@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-073",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "White Female Wizard Hat Frame Correction",
   "reconciliation_key": "white-female-wizard-hat-frame-correction",
@@ -47,7 +47,7 @@
     {
       "gate_id": "VAL-002",
       "reference": "Vincent exact-candidate visual approval",
-      "requirement": "Vincent selects the White Female wizard in Assets/Scenes/DoorPrototype.unity, walks northeast long enough to view the complete loop, confirms the hat and wizard identity remain continuous across all six frames, and explicitly approves the exact candidate before integration."
+      "requirement": "Vincent selects the White Female wizard in Assets/Scenes/RuntimeWorld.unity, walks northeast long enough to view the complete loop, confirms the hat and wizard identity remain continuous across all six frames, and explicitly approves the exact candidate before integration. THE SCENE NAMED IN THIS GATE WAS REPOINTED 2026-09-26 FROM Assets/Scenes/DoorPrototype.unity TO Assets/Scenes/RuntimeWorld.unity, ON VINCENT'S OWN INSTRUCTION THAT THE OLD WORLD IS BEING REMOVED. NOTHING ELSE IN THIS GATE CHANGED: what the reviewer does, looks at and approves is untouched, and no criterion was weakened to make it satisfiable. RuntimeWorld.unity holds only GameManagers, a camera and a light; all content is instantiated at Play by the spawners under Resources/Spawners, so this gate is a PLAY MODE review and must not be read as asking for any object to be present in the saved scene."
     }
   ],
   "downstream_integration_obligations": [],
@@ -74,6 +74,17 @@
     "created_by_human_request": true,
     "wizard_art_source_task_id": "NSC-061",
     "wizard_animation_repair_task_id": "NSC-070",
-    "approved_at_utc_date": "2026-09-12"
+    "approved_at_utc_date": "2026-09-12",
+    "contract_followups": [
+      {
+        "date": "2026-09-26",
+        "reason": "VAL-002: repoint Vincent's human review from the old composed scene to RuntimeWorld.unity on his instruction that the old world is removed; the review itself is unchanged",
+        "source_head": "03e128a7bc2c7af4a75a8e371a3dfbef2ed311f4",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "4db2e2d8d1c3846253946f19497993983b8a117664823437d988e2bb542e9720",
+        "revised_contract_sha256": "7ab5264bae0c3aa5a1f475e4059eb14288c9988012a88cf4d315ab25ddd8fce4",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   }
 }
