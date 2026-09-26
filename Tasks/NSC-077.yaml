@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-077",
-  "contract_revision": 10,
+  "contract_revision": 11,
   "contract_disposition": "active",
   "title": "Enemy Art Integration for the Existing Moving Enemies",
   "reconciliation_key": "stationary-enemy-sprite-integration",
@@ -125,7 +125,7 @@
     {
       "gate_id": "VAL-008",
       "reference": "Vincent's in-game visual approval before integration",
-      "requirement": "Vincent plays the exact candidate in Assets/Scenes/DoorPrototype.unity, lures a MeleeEnemy through all eight screen directions, and walks a circle around a LanternWraith inside its range. He confirms that both enemies show their approved art in all eight facings, with exactly one cleaver on the Dungeon Brute (including north-east) and the lantern visible on the wraith; that an enemy moving up the screen shows its back; that the walk plays only while an enemy moves and the idle when it stops; that the last facing is kept; that feet stay on the floor without jumping between idle and walk, including the south walk loop's restart; that the Lantern Wraith turns toward him and throws teal lantern wisps, not fireballs; that sprites face the camera without leaning or thinning while enemies turn; that sorting against walls, doors and the wizard is correct; and that each enemy's size is acceptable in its 2x2-unit character box (the wizard may still use its older art until its re-make at 128x128 lands). Pixel density is settled at 64 pixels per unit (decision B); any remaining sprite shimmer is recorded for the Art Director rather than blocking approval. He approves the exact candidate commit before integration. Code and test results are not visual proof."
+      "requirement": "Vincent plays the exact candidate in Assets/Scenes/RuntimeWorld.unity, lures a MeleeEnemy through all eight screen directions, and walks a circle around a LanternWraith inside its range. He confirms that both enemies show their approved art in all eight facings, with exactly one cleaver on the Dungeon Brute (including north-east) and the lantern visible on the wraith; that an enemy moving up the screen shows its back; that the walk plays only while an enemy moves and the idle when it stops; that the last facing is kept; that feet stay on the floor without jumping between idle and walk, including the south walk loop's restart; that the Lantern Wraith turns toward him and throws teal lantern wisps, not fireballs; that sprites face the camera without leaning or thinning while enemies turn; that sorting against walls, doors and the wizard is correct; and that each enemy's size is acceptable in its 2x2-unit character box (the wizard may still use its older art until its re-make at 128x128 lands). Pixel density is settled at 64 pixels per unit (decision B); any remaining sprite shimmer is recorded for the Art Director rather than blocking approval. He approves the exact candidate commit before integration. Code and test results are not visual proof. THE SCENE NAMED IN THIS GATE WAS REPOINTED 2026-09-26 FROM Assets/Scenes/DoorPrototype.unity TO Assets/Scenes/RuntimeWorld.unity, ON VINCENT'S OWN INSTRUCTION THAT THE OLD WORLD IS BEING REMOVED. NOTHING ELSE IN THIS GATE CHANGED: what the reviewer does, looks at and approves is untouched, and no criterion was weakened to make it satisfiable. RuntimeWorld.unity holds only GameManagers, a camera and a light; all content is instantiated at Play by the spawners under Resources/Spawners, so this gate is a PLAY MODE review and must not be read as asking for any object to be present in the saved scene."
     }
   ],
   "downstream_integration_obligations": [
@@ -282,6 +282,15 @@
         "base_contract_sha256": "1b3377af2db8310e8bb2c62dd08d331e8d29dc785187e754340ba69b7a6a1418",
         "revised_contract_sha256": "de61930546ce3875bde1129966fb75eff946c559ca87694fbd6e09a1fe1e818a",
         "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
+      },
+      {
+        "date": "2026-09-26",
+        "reason": "VAL-008: repoint Vincent's human review from the old composed scene to RuntimeWorld.unity on his instruction that the old world is removed; the review itself is unchanged",
+        "source_head": "f463e20d0526c9b5d146bda50726d6a4db41b28d",
+        "previous_contract_revision": 10,
+        "base_contract_sha256": "f9a92ccdda4cb4ee58cfe85e27128da419dda5a446e199c6aa2b46299f9a7a83",
+        "revised_contract_sha256": "61dab6389abd023cb4b7cebf87540b9daf816d2cd2c3ec42c7e8a544398c0fb8",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ],
     "pixel_density_decision": {
