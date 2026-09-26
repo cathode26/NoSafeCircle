@@ -85,7 +85,7 @@ namespace NoSafeCircle.DoorPrototype.World
             // try/catch is not decoration - it is the whole reason this is permitted.
             try
             {
-                await BuildWorldAsync(destroyCancellation.Token);
+                await BuildWorldAsync(destroyCancellationToken);
             }
             catch (System.OperationCanceledException)
             {
