@@ -245,6 +245,17 @@ namespace NoSafeCircle.DoorPrototype.Enemies
             wizardPositionAtSpectralDecoyRedirect = Vector3.zero;
         }
 
+        /// The anchor ("owner") is no longer fixed at spawn: it moves with the enemy, and once
+        /// the enemy has run out of slack the enemy drags the anchor along behind it so the
+        /// rope stays exactly taut, per spec:
+        ///     anchor = position - normalize(position - anchor) * leash
+        /// Within slack the anchor holds still (this returns false and startPosition is
+        /// untouched); once beyond it, startPosition is dragged to be exactly
+        /// maximumPursuitDistanceFromStart from the current position before this returns true.
+        /// maximumPursuitDistanceFromStart is thereby a SLACK RADIUS rather than an absolute
+        /// cap on distance from the original spawn point - absolute pursuit distance is
+        /// unbounded. Horizontal-only, matching the pre-existing distance test (fromStart.y is
+        /// zeroed only for that test; the anchor's own Y is left as its prior carried value).
         private bool IsBeyondPursuitLeash()
         {
             if (maximumPursuitDistanceFromStart <= 0f) return false;
@@ -257,7 +268,18 @@ namespace NoSafeCircle.DoorPrototype.Enemies
 
             var fromStart = transform.position - startPosition;
             fromStart.y = 0f;
-            return fromStart.magnitude > maximumPursuitDistanceFromStart;
+
+            if (fromStart.magnitude > maximumPursuitDistanceFromStart)
+            {
+                var direction = fromStart.normalized;
+                startPosition = new Vector3(
+                    transform.position.x - direction.x * maximumPursuitDistanceFromStart,
+                    startPosition.y,
+                    transform.position.z - direction.z * maximumPursuitDistanceFromStart);
+                return true;
+            }
+
+            return false;
         }
 
         private bool HasUnobstructedViewOfWizard()

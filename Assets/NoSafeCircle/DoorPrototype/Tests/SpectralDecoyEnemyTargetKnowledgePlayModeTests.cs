@@ -230,7 +230,13 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
         // AC-003, VAL-001 (case 3): the existing maximum-pursuit-distance-from-start leash stays
         // active while redirected. Exceeding it clears the redirect record, restores the wizard
-        // as CurrentTarget, and searches the enemy's own start position.
+        // as CurrentTarget, and searches the anchor's position.
+        //
+        // UPDATED for the towed anchor (was NSC-116-equivalent fixed-at-spawn): the anchor is no
+        // longer fixed at (0,0,0) - it is dragged along behind the enemy so the rope stays
+        // exactly taut. Anchor starts at (0,0,0); the enemy jumps to (7,0,0), 1 unit beyond the
+        // 6-unit leash, so the anchor is towed to (1,0,0) - exactly `leash` units behind the
+        // enemy's new position, not the original spawn point.
         [Test]
         public void UpdateTargetKnowledge_RedirectedEnemyBeyondLeash_ClearsRedirectRestoresWizardAndSearchesStartPosition()
         {
@@ -244,12 +250,15 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.That(targetKnowledge.IsRedirectedToSpectralDecoy, Is.False);
             Assert.That(targetKnowledge.CurrentTarget, Is.SameAs(wizardTransform));
             Assert.That(targetKnowledge.State, Is.EqualTo(EnemyTargetKnowledgeState.SearchingLastKnownPosition));
-            Assert.That(targetKnowledge.LastKnownPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(targetKnowledge.LastKnownPosition, Is.EqualTo(new Vector3(1f, 0f, 0f)));
         }
 
         // AC-003, VAL-001 (case 3): once the leash has already cleared the redirect record, a
         // later EndSpectralDecoyRedirect call for the former decoy must not overwrite the
         // search state the leash just established.
+        //
+        // UPDATED for the towed anchor: see the test above - the searched position is the towed
+        // anchor (1,0,0), not the original spawn point (0,0,0).
         [Test]
         public void EndSpectralDecoyRedirect_AfterLeashClearedRedirect_DoesNotOverwriteSearchState()
         {
@@ -264,7 +273,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             targetKnowledge.EndSpectralDecoyRedirect(decoyTransform);
 
             Assert.That(targetKnowledge.State, Is.EqualTo(EnemyTargetKnowledgeState.SearchingLastKnownPosition));
-            Assert.That(targetKnowledge.LastKnownPosition, Is.EqualTo(Vector3.zero));
+            Assert.That(targetKnowledge.LastKnownPosition, Is.EqualTo(new Vector3(1f, 0f, 0f)));
             Assert.That(targetKnowledge.CurrentTarget, Is.SameAs(wizardTransform));
         }
 
