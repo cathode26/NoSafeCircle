@@ -1310,7 +1310,15 @@ def test_execution_bridge_builds_exact_normal_and_retry_route_commands() -> None
             str(normal),
         )
 
-        feedback = checkout / "review.txt"
+        # Under the ExecutionCrew output root, which is where the only production
+        # producer writes it (`revision_feedback.py` -> outputs/assistant-feedback/
+        # <hash>/feedback.txt) and the only place a retry's feedback can work: the
+        # crew resolves it against /execution-output and refuses anything not
+        # strictly underneath. The checkout root was incidental to what this test
+        # asserts -- model, provider, reasoning effort and the absent profile flags
+        # -- and none of those depend on where the file sits.
+        feedback = checkout / "Pipeline" / "ExecutionCrew" / "outputs" / "review.txt"
+        feedback.parent.mkdir(parents=True, exist_ok=True)
         feedback.write_text("Fix the reviewed behavior.\n", encoding="utf-8")
         retry = bridge._command(
             accepted,

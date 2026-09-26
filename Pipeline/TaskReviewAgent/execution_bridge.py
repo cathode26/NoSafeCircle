@@ -513,8 +513,42 @@ class ExecutionCrewBridge:
             command.extend(("--expected-provider", provider))
             if feedback_file is None:
                 raise ExecutionBridgeError("ExecutionCrew retry requires a feedback file")
-            relative = feedback_file.resolve().relative_to(self.checkout)
-            command.extend(("--review-feedback-file", "/workspace/" + relative.as_posix()))
+            # THE OUTPUTS DIRECTORY IS MOUNTED TWICE AND ONLY ONE OF THE TWO
+            # PATHS SATISFIES THE CREW'S OWN GUARD. `compose.yaml` gives the
+            # exec services `.:/workspace:ro` and
+            # `./Pipeline/ExecutionCrew/outputs:/execution-output:rw`, with
+            # `NSC_EXECUTION_OUTPUT_ROOT: /execution-output`, and
+            # `ExecutionCrew/README.md` states it: "There is no writable nested
+            # mount beneath /workspace."
+            #
+            # A retry's feedback file lives under the OUTPUTS directory, so the
+            # `/workspace/...` form this used to emit resolved successfully --
+            # through the read-only source mount -- and then failed
+            # `_resolve_existing_under(output_root, ...)` in
+            # `run_crew.load_retry_context`, because `/workspace/...` is not
+            # under `/execution-output`. Measured on NSC-127 run
+            # nsc-127-20260926t0315z-2: "human review feedback file must resolve
+            # strictly underneath the ExecutionCrew output root", raised after
+            # the container was created. The host geometry was always fine; the
+            # container has two names for one directory and this picked the one
+            # the guard does not measure against.
+            #
+            # Reported from the floor by the Pipeline Runner, which had proved
+            # the host predicate true with both controls and correctly refused to
+            # generalise it to every revision. `--revision-feedback-file` below
+            # keeps its `/workspace` form ON PURPOSE: a fresh run never calls
+            # `load_retry_context`, so nothing measures it against the output
+            # root, and three runs tonight (NSC-008, NSC-118, NSC-128) prove that
+            # path works. Do not "fix" it to match.
+            try:
+                relative = feedback_file.resolve().relative_to(self.output_root.resolve())
+            except ValueError as exc:
+                raise ExecutionBridgeError(
+                    "ExecutionCrew retry feedback must be a regular file inside the "
+                    "ExecutionCrew output root"
+                ) from exc
+            command.extend(
+                ("--review-feedback-file", "/execution-output/" + relative.as_posix()))
             return command
 
         if revision_feedback_file is not None:
