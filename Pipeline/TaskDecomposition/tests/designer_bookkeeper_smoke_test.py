@@ -1113,7 +1113,7 @@ def test_additions_notes_remove_only_whole_repeats_and_never_lose_a_note() -> No
         ("Damage is 10.", "Damage is 10.5 for x.", "Damage is 10.\n\nDamage is 10.5 for x."),
         ("Validate Enemy01.", "Validate Enemy02.", "Validate Enemy01.\n\nValidate Enemy02."),
         (d, 'Use Join("  ", v).', d + '\n\nUse Join("  ", v).'),
-        (q, q + " " + q, q + " " + q),
+        (q, q + " " + q, q),
         ('Set "Ready!"', 'Set "Ready?"', 'Set "Ready!"\n\nSet "Ready?"'),
         (q, q + " only after init.", q + " only after init."),
         ("Use [0, 1].", "Use [0, 1).", "Use [0, 1].\n\nUse [0, 1)."),
@@ -1122,6 +1122,8 @@ def test_additions_notes_remove_only_whole_repeats_and_never_lose_a_note() -> No
         (d, "", d),
         (" Clarify ownership.", " Clarify ownership.", " Clarify ownership."),
         (" Clarify ownership.", " Clarify ownership.\n\nMore.", " Clarify ownership.\n\nMore."),
+        (d, d + "\r\n\r\n" + d, d),
+        (" " + d, d + "\n\n " + d, " " + d),
     )
     for design, model, expected in cases:
         assert _preserved_notes(design, model, notes_rule=NOTES_RULE_ADDITIONS) == expected, (design, model)

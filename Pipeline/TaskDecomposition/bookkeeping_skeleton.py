@@ -134,7 +134,7 @@ def _preserved_notes(design_notes: str, model_notes: Any, *, legacy: bool = Fals
     return f"{design_notes}\n\n{written}" if written else design_notes
 
 
-_PARAGRAPH_BREAK = re.compile(r"\n[ \t]*\n\s*")
+_PARAGRAPH_BREAK = re.compile(r"\r?\n[ \t]*\r?\n\s*")
 
 
 def _paragraph_key(paragraph: str) -> str:
@@ -168,28 +168,27 @@ def _additions_notes(design_notes: str, model_notes: Any) -> str:
     """
 
     text = model_notes if isinstance(model_notes, str) else ""
-    design_keys = {_paragraph_key(text_part) for text_part in _PARAGRAPH_BREAK.split(design_notes)
-                   if text_part.strip()}
-    kept_start = kept_end = -1
+    design_keys = {_paragraph_key(part) for part in _PARAGRAPH_BREAK.split(design_notes) if part.strip()}
+
+    def without_repeats(fragment: str) -> str:
+        # Whole paragraphs equal to a designer paragraph are dropped with the
+        # break after them; every other character is copied exactly.
+        return "".join(fragment[start:end] for start, end in _paragraph_spans(fragment)
+                       if _paragraph_key(fragment[start:end]) not in design_keys)
+
     # The designer's notes count as present only where they stand whole: a
     # substring such as "Damage is 10." inside "Damage is 10.5" is not them.
     whole = re.search(r"(?<!\S)" + re.escape(design_notes) + r"(?!\S)", text) if design_notes.strip() else None
     if whole is not None:
-        kept_start, kept_end = whole.span()
-    pieces = []
-    for start, end in _paragraph_spans(text):
-        inside_kept = start < kept_end and end > kept_start
-        if not inside_kept and _paragraph_key(text[start:end]) in design_keys:
-            continue
-        pieces.append(text[start:end])
-    joined = "".join(pieces)
-    result = joined.strip()
-    if kept_start >= 0:
-        # Designer notes may begin or end with whitespace; never strip into them.
-        return result if design_notes in result else joined
+        # The occurrence itself is never cut or stripped into; only the text
+        # before and after it loses whole repeated paragraphs.
+        before = without_repeats(text[:whole.start()]).lstrip()
+        after = without_repeats(text[whole.end():]).rstrip()
+        return before + design_notes + after
+    additions = without_repeats(text).strip()
     if not design_notes:
-        return result
-    return f"{design_notes}\n\n{result}" if result else design_notes
+        return additions
+    return f"{design_notes}\n\n{additions}" if additions else design_notes
 
 
 def impose_skeleton(skeleton: Mapping[str, Any], output: Any, *, legacy_notes: bool = False,
