@@ -66,8 +66,129 @@ def _operator_stop_requested() -> bool:
         return False
 
 
+CONTAINER_LIST_TIMEOUT_SECONDS = 15.0
+CONTAINER_STOP_TIMEOUT_SECONDS = 40.0
+CONTAINER_STOP_GRACE_SECONDS = 10
+
+# The four things the sweep can report. "not_swept" is NOT "no_containers": one says the run left
+# nothing behind, the other says nobody looked, and treating them alike is how orphaned paid work
+# reads as a clean shutdown.
+SWEEP_NO_CONTAINERS = "no_containers"
+SWEEP_STOPPED = "stopped"
+SWEEP_STOP_FAILED = "stop_failed"
+SWEEP_NOT_SWEPT = "not_swept"
+
+
+def crew_compose_project(run_id: str) -> str:
+    """The compose project a crew run's containers carry.
+
+    Derived exactly as the worker derives it (AssistantControl/crew_worker.py), and duplicated
+    rather than imported so TaskReviewAgent keeps no dependency on AssistantControl. A test pins
+    the two against each other; if they ever disagree the sweep silently targets nothing.
+    """
+    return "assistant-crew-" + hashlib.sha256(run_id.encode("utf-8")).hexdigest()[:20]
+
+
+def _docker(args: Sequence[str], timeout_seconds: float) -> tuple[int, str, str]:
+    """Run one docker command with a hard bound. Never raises."""
+    try:
+        completed = subprocess.run(
+            ("docker", *args),
+            capture_output=True,
+            timeout=timeout_seconds,
+            check=False,
+        )
+    except FileNotFoundError:
+        return 127, "", "docker executable not found"
+    except subprocess.TimeoutExpired:
+        return 124, "", f"docker {args[0]} exceeded {timeout_seconds:.0f}s"
+    except OSError as exc:
+        return 125, "", f"docker {args[0]} could not run: {exc}"
+    return (
+        completed.returncode,
+        (completed.stdout or b"").decode("utf-8", "replace"),
+        (completed.stderr or b"").decode("utf-8", "replace"),
+    )
+
+
+def sweep_orphaned_crew_containers(
+    run_id: str | None,
+    *,
+    docker: Callable[[Sequence[str], float], tuple[int, str, str]] | None = None,
+) -> dict[str, Any]:
+    """Stop containers one crew run left behind, and report WHICH of four things happened.
+
+    Called while an error is already propagating, so it never raises and never blocks without a
+    bound: a missing docker binary, a hung daemon and an unknown run id are all RECORDED outcomes.
+    Replacing the original failure with a cleanup failure would lose the reason the run died.
+
+    Scoped to one run by compose-project label, so a concurrent crew is never touched.
+
+    ``outcome`` is one of:
+      ``no_containers``  the sweep ran and this run had none -- nothing was orphaned
+      ``stopped``        containers existed and every one stopped
+      ``stop_failed``    at least one survived -- PAID WORK MAY STILL BE RUNNING, UNCOLLECTED
+      ``not_swept``      the sweep could not run; orphan status UNKNOWN, which is not clean
+    """
+    run = docker if docker is not None else _docker
+    if not run_id:
+        return {"outcome": SWEEP_NOT_SWEPT, "reason": "run_id_unknown", "project": None,
+                "containers": [], "stopped": [], "failed": []}
+    project = crew_compose_project(run_id)
+    code, out, err = run(
+        ("ps", "--all", "--quiet", "--filter", f"label=com.docker.compose.project={project}"),
+        CONTAINER_LIST_TIMEOUT_SECONDS,
+    )
+    if code != 0:
+        return {"outcome": SWEEP_NOT_SWEPT, "reason": f"list_failed: {err.strip()[:200]}",
+                "project": project, "containers": [], "stopped": [], "failed": []}
+    containers = [line.strip() for line in out.splitlines() if line.strip()]
+    if not containers:
+        return {"outcome": SWEEP_NO_CONTAINERS, "reason": None, "project": project,
+                "containers": [], "stopped": [], "failed": []}
+    stopped: list[str] = []
+    failed: list[dict[str, str]] = []
+    for container in containers:
+        code, _out, err = run(
+            ("stop", "--time", str(CONTAINER_STOP_GRACE_SECONDS), container),
+            CONTAINER_STOP_TIMEOUT_SECONDS,
+        )
+        if code == 0:
+            stopped.append(container)
+        else:
+            failed.append({"container": container, "error": err.strip()[:200]})
+    return {
+        "outcome": SWEEP_STOP_FAILED if failed else SWEEP_STOPPED,
+        "reason": None,
+        "project": project,
+        "containers": containers,
+        "stopped": stopped,
+        "failed": failed,
+    }
+
+
+def describe_sweep(sweep: Mapping[str, Any]) -> str:
+    """One clause for a failure reason, naming the outcome rather than implying a clean stop."""
+    outcome = sweep.get("outcome")
+    if outcome == SWEEP_NO_CONTAINERS:
+        return "no orphaned crew container"
+    if outcome == SWEEP_STOPPED:
+        return f"stopped {len(sweep.get('stopped') or ())} orphaned crew container(s)"
+    if outcome == SWEEP_STOP_FAILED:
+        return (f"ORPHANED CREW CONTAINER STILL RUNNING: {len(sweep.get('failed') or ())} of "
+                f"{len(sweep.get('containers') or ())} would not stop")
+    return f"orphaned crew containers NOT SWEPT ({sweep.get('reason') or 'unknown'})"
+
+
 def _kill_process_tree(process: "subprocess.Popen[bytes]") -> None:
-    """Kill the crew and everything it spawned (docker clients included)."""
+    """Kill the crew process tree on THIS HOST, including any docker client in it.
+
+    It does NOT stop a Docker container. A container is a child of the Docker daemon, not of the
+    docker client this kills, so the container keeps running and the crew keeps spending with
+    nobody collecting its output. ``sweep_orphaned_crew_containers`` is the only thing that stops
+    it; this docstring previously claimed "docker clients included" in a way that read as coverage
+    of the containers themselves.
+    """
     if os.name == "nt":
         subprocess.run(("taskkill", "/PID", str(process.pid), "/T", "/F"),
                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
@@ -738,7 +859,16 @@ class ExecutionCrewBridge:
                 pool_owner.cancel_unstarted(run_id=str(pool_assignment["run_id"]))
             raise
         except ExecutionBridgeTimeoutError as exc:
-            self._quarantine_terminal_pool(pool_owner, pool_assignment, str(exc))
+            # The host tree is dead but the container is not in it. Stop it before quarantining,
+            # and carry the outcome into the reason: a run that timed out with a container still
+            # running is still SPENDING, and that must not read like a clean shutdown.
+            sweep = sweep_orphaned_crew_containers(
+                None if pool_assignment is None else str(pool_assignment.get("run_id") or "")
+            )
+            exc.container_sweep = sweep
+            self._quarantine_terminal_pool(
+                pool_owner, pool_assignment, f"{exc} [{describe_sweep(sweep)}]"
+            )
             raise
         try:
             stdout = _decode(completed.stdout or b"", label="ExecutionCrew stdout")
