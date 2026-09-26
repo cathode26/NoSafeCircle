@@ -17,6 +17,28 @@ Assets/Plugins/Demigiant/DOTween.meta -text -whitespace
 Assets/Plugins/deVoid/Signals/Signals.cs -text -whitespace
 Assets/Plugins/deVoid/Signals/LICENSE.txt -text -whitespace
 
+# Unity's own YAML serializer writes "key: " (colon, one trailing space) for every
+# empty-string field - m_Name, m_EditorClassIdentifier, userData, assetBundleName,
+# and more - in every scene, prefab and serialized asset it saves. Confirmed real,
+# not an autocrlf artifact (the committed blob genuinely has the trailing byte,
+# unlike the evidence-tree case above) and confirmed ubiquitous (present across
+# many already-stable scenes, not just newly-touched ones) before writing this.
+# Editing it out is not an option - Unity rewrites it identically on next save,
+# and hand-editing scene/prefab YAML is already forbidden elsewhere in this repo's
+# own rules for the same reason: the risk is in the file, not in this exemption.
+# whitespace=-blank-at-eol matches the precedent already set below for one
+# DoorPrototype .meta subtree (same cause, same fix, found independently) -
+# generalized here to the seven extensions Unity actually uses this format for
+# under Assets/, replacing that narrower rule rather than duplicating it.
+*.unity whitespace=-blank-at-eol
+*.prefab whitespace=-blank-at-eol
+*.asset whitespace=-blank-at-eol
+*.meta whitespace=-blank-at-eol
+*.anim whitespace=-blank-at-eol
+*.controller whitespace=-blank-at-eol
+*.mat whitespace=-blank-at-eol
+*.inputactions whitespace=-blank-at-eol
+
 # Pinned art-conformance inventory blobs (CRLF as authored 09-17, not real trailing
 # whitespace -- git's whitespace check reads CR-at-EOL identically to blank-at-eol).
 # NSC-065's delivery record and contract hash gates hash these committed bytes, so
@@ -39,9 +61,3 @@ Docs/AI-Pipeline/Agent-Operations/host-documents-20260920/originals/** -text -wh
 Docs/AI-Pipeline/Historical-Context-Sessions/reports/host-reports-20260920/originals/** -text -whitespace
 Docs/AI-Pipeline/Historical-Context-Sessions/reports/art-reports-20260920/originals/** -text -whitespace
 
-# Unity serializes empty YAML fields as "key: " with a trailing space and rewrites it on every project open,
-# so .meta files are not normalized. Exempt only the trailing-space check, and only for .meta files, across
-# the whole DoorPrototype content tree -- this recurs on every new asset family Unity touches (2026-09-17:
-# 284 files under Wizard/Source/PixelLab128 alone; 2026-09-22: 100+ more across Doors/Enemies/Environment/
-# Spells, none of them content the fix should have to keep re-scoping file-by-file).
-Assets/NoSafeCircle/DoorPrototype/**/*.meta whitespace=-blank-at-eol
