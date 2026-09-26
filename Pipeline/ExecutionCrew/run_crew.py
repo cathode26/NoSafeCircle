@@ -654,6 +654,26 @@ def snapshot(root: Path) -> Snapshot:
         entries[path] = _entry_state(root / path, tracked=False)
     return Snapshot(git(root, "rev-parse", "HEAD").stdout.strip(), index, entries)
 
+NO_REQUIRED_CHANGE_REASON = "role made no required file modification"
+
+def already_satisfied_reasons(role: str, attempt: int, *, status: str, blockers: Sequence[Any], scope: Sequence[str], new_paths: Sequence[str]) -> tuple[str, ...]:
+    """Name the one state incremental_check cannot distinguish: nothing left to change.
+
+    incremental_check can only report that a required modification is ABSENT, which reads as the
+    role failing. When the role succeeded, raised no blockers, owed no new files, and that absence
+    is the ONLY scope reason, the repository is what satisfies the contract -- the same reasoning
+    the Test Author's require_change already encodes by exempting an empty new_paths. Any further
+    scope reason is a real violation and is never re-described here; an outstanding new path is a
+    real obligation miss, not a satisfied contract.
+    """
+    if status != "succeeded" or blockers or new_paths: return ()
+    if list(scope) != [NO_REQUIRED_CHANGE_REASON]: return ()
+    return (f"{role} succeeded, raised no blockers and changed nothing: the repository may already"
+            " satisfy the contract surface this role owns, which is not the same as the role failing."
+            f" Read that role's own rationale in role_results/{role}_{attempt}.json before"
+            " re-dispatching, and consider whether the remaining work is a delivery record rather"
+            " than another crew run.",)
+
 def incremental_check(before: Snapshot, after: Snapshot, invocation: AgentInvocationRequest, *, require_change: bool):
     reasons=[]
     if after.head != before.head: reasons.append("clone HEAD changed")
@@ -673,7 +693,7 @@ def incremental_check(before: Snapshot, after: Snapshot, invocation: AgentInvoca
             reasons.append(f"approved path is not a regular file: {path} ({after_entry.kind})")
         elif before_entry is None and after_entry.tracked:
             reasons.append(f"new approved path unexpectedly became tracked: {path}")
-    if require_change and not actual: reasons.append("role made no required file modification")
+    if require_change and not actual: reasons.append(NO_REQUIRED_CHANGE_REASON)
     return actual, reasons
 
 def changed_paths(baseline: Snapshot, final: Snapshot) -> list[str]:
@@ -2682,7 +2702,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                 role_records.append(f"role_results/implementer_{attempt}.json"); impl_actual.update(actual); latest_impl=output
                 progress.emit("scope_check_completed",f"Implementer {attempt} scope check {'passed' if not scope else 'failed'}: {len(actual)} changed paths",role="implementer",attempt=attempt,status="passed" if not scope else "failed",changed_paths=actual,changed_path_count=len(actual))
                 if attempt==2: repair_actual.update(actual)
-                if blockers or scope: reasons += [*(f"implementer blocker: {x}" for x in blockers),*scope]; crew_status="blocked" if blockers else "rejected"; stop=True; break
+                if blockers or scope: reasons += [*(f"implementer blocker: {x}" for x in blockers),*scope,*already_satisfied_reasons("implementer",attempt,status=res.status,blockers=blockers,scope=scope,new_paths=impl_plan.new_paths)]; crew_status="blocked" if blockers else "rejected"; stop=True; break
                 if "test_author" in required_roles:
                     impl_new_surface=tuple(sorted((*impl_plan.new_paths, *impl_plan.pipeline_generated_sidecars)))
                     impl_patch=paths_patch(clone,identity.head,implementation_paths,impl_new_surface).decode("utf-8","replace")
