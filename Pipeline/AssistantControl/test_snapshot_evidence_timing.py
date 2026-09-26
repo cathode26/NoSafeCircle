@@ -40,6 +40,7 @@ from Pipeline.AssistantControl.dependencies import inspect_dependencies
 from Pipeline.AssistantControl.snapshot import (
     CONTENT_PROOF_DECLARED_SURFACES,
     CONTENT_PROOF_NONE,
+    _surface_applicability,
     assess_execution_snapshot,
 )
 
@@ -347,6 +348,90 @@ class EvidenceTimingSnapshot(unittest.TestCase):
         self.assertEqual(first["refusals"], later["refusals"])
         self.assertNotEqual(first["source_head"], later["source_head"],
                             "Source must actually have moved")
+
+    # ------------------------------- silence is not establishment
+    def test_an_unassessed_dependency_does_not_read_as_verified(self):
+        """THE DEFECT MY OWN MUTATION HARNESS FOUND UNPINNED.
+
+        A dependency Source has not accepted gets NO content proof here on
+        purpose -- `_dependency_is_satisfied` already refuses it, and reporting it
+        twice would name one cause as two problems. But an earlier version then
+        returned `snapshot_content_verified: True` with an empty `refusals`,
+        because nothing this module refused had gone wrong. **The content question
+        was never asked and the answer read as yes.**
+
+        `refusals` says what this module REFUSES; the flag says what it
+        ESTABLISHED. This test is the difference between them, and the weakening
+        that removes it (`all(applicable is True)`) broke no other test.
+
+        No evidence is published, so the dependency is `not_delivered`.
+        """
+        self.assertIsNone(self.evidence, "this case runs BEFORE the evidence exists")
+        dependency = self.dependency_at_source()
+        entry = dependency["dependencies"][0]
+        self.assertNotEqual(entry["state"], "conformant", entry)
+        result = assess_execution_snapshot(
+            self.source, self.implemented, self.head, dependency)
+        self.assertEqual(result["refusals"], [],
+                         "this module refuses nothing here -- that is the point")
+        self.assertFalse(result["snapshot_content_verified"],
+                         "an unasked question must not answer yes")
+        self.assertEqual(result["dependencies_unassessed"], 1, result)
+        self.assertEqual(result["dependencies_applicable"], 0, result)
+
+    def test_a_dependency_source_has_not_accepted_gets_no_content_proof(self):
+        """And the per-dependency entry says which question was skipped, and why.
+
+        The weakening that hands an unaccepted dependency a content proof anyway
+        broke no other test either: without this, `snapshot.py` could start
+        comparing surfaces from a record the evaluator rejected and nothing would
+        notice.
+        """
+        self.assertIsNone(self.evidence)
+        dependency = self.dependency_at_source()
+        result = assess_execution_snapshot(
+            self.source, self.implemented, self.head, dependency)
+        entry = result["dependencies"][0]
+        self.assertIsNone(entry["applicable"], entry)
+        self.assertEqual(entry["content_proof"], CONTENT_PROOF_NONE, entry)
+        self.assertEqual(entry["reason"], "dependency_not_accepted_at_source", entry)
+        # No comparison was attempted, so none of the surface fields exist.
+        for field in ("surfaces_declared", "surfaces_matching", "absent_at_baseline",
+                      "changed_at_baseline", "validated_commit"):
+            self.assertNotIn(field, entry,
+                             "%s means a surface comparison ran on an unaccepted "
+                             "dependency" % field)
+
+    # ------------------------------- the repository stores forward slashes
+    def test_a_windows_style_surface_path_still_matches_at_the_baseline(self):
+        """A backslash in a declared surface must not read as an absent file.
+
+        Git stores forward slashes; a record written by a Windows tool can carry
+        backslashes, and `rev-parse <commit>:src\\dependency.txt` finds nothing.
+        Without the normalisation this would report the accepted implementation
+        ABSENT from a baseline that contains it -- a false refusal, which is the
+        expensive direction. Called at unit level because a record declaring a
+        backslash path may not survive the evaluator's own path validation, and
+        the property under test is this module's, not the evaluator's.
+        """
+        repo = GitRepository(self.source)
+        blob = repo.blob(self.implemented, SURFACE)
+        windows = SURFACE.replace("/", "\\")
+        self.assertIn("\\", windows, "the fixture must actually use a backslash")
+        proof = _surface_applicability(
+            self.source, self.implemented,
+            [{"path": windows, "blob_sha": blob, "role": "implementation"}])
+        self.assertIs(proof["applicable"], True, proof)
+        self.assertEqual(proof["surfaces_matching"], 1, proof)
+        self.assertEqual(proof["absent_at_baseline"], [], proof)
+        # The control: the same declaration against a baseline WITHOUT the file
+        # must still be recognised as the same path and reported absent, by its
+        # normalised name rather than its backslash form.
+        missing = _surface_applicability(
+            self.source, self.base,
+            [{"path": windows, "blob_sha": blob, "role": "implementation"}])
+        self.assertIs(missing["applicable"], False, missing)
+        self.assertEqual(missing["absent_at_baseline"], [SURFACE], missing)
 
     def test_a_divergent_baseline_is_reported_as_not_a_source_ancestor(self):
         """The boundary that keeps this from becoming "staleness no longer matters".
