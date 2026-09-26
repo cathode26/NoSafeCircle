@@ -1,0 +1,86 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "66fd6a4daec30f33a4a174b5fed702b3d82659ca",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/RuinedEntrySceneBuilder.cs",
+      "role": "Calls ArchitecturalWallAccentPlacement from this room's own committed RoomBounds, floor Y and door openings"
+    },
+    {
+      "blob_sha": "e58b012cc4512447113c61ca05534da8ce90cf7a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/BoneArchiveSceneBuilder.cs",
+      "role": "Same call for Bone Archive, nested under Visuals so RoomSceneComposer.ValidateContentCategories still passes"
+    },
+    {
+      "blob_sha": "fc8396d536fcc636d9af2a12a6e9b647eb1475d2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/ChapelOfAshSceneBuilder.cs",
+      "role": "Same call for Chapel of Ash"
+    },
+    {
+      "blob_sha": "a04f0640d2e0c376407c34ec3d5606ae29f7feae",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/LowerVaultSceneBuilder.cs",
+      "role": "Same call for Lower Vault, using its D3/D4 openings"
+    },
+    {
+      "blob_sha": "ea8ff36176fe1d865274b9b7d045e4f6b5151bec",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/Rooms/FinalRoomSceneBuilder.cs",
+      "role": "Same call for the Final Room"
+    },
+    {
+      "blob_sha": "3b173c3378e10dbf2bb02e91f630100aaa52649d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/RoomWallAccentIntegrationTests.cs",
+      "role": "The Edit Mode fixture VAL-001 names: builds each of the five rooms through its own committed builder and asserts roles, ground contact, idempotence and geometry invariance per room"
+    },
+    {
+      "blob_sha": "dbb8007dea2507cfab981f227ca1cb5ff26fc470",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/Rooms/RoomWallAccentIntegrationTests.cs.meta",
+      "role": "Import metadata for that fixture, delivered in the same commit as the fixture itself"
+    }
+  ],
+  "delivery": {
+    "base_commit": "c6e58d2bda9828e045ee456a227824368ce28cb4",
+    "candidate_commit": "be87c74fa6af1563063da1449f862403cb367ca0",
+    "integrated_commit": "fe70875c7a648dced72bb41ab89a789a5c412837",
+    "integrated_tree": "4d3b3ab7f2c375a0cfcf7339140fbcdd9c3d4ad5"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "1fff297fd41c8ad68008221d9c2d8a8a5110303e",
+          "path": "Pipeline/TaskGraph/evidence/NSC-126/artifacts/Unity-EditMode-NSC126-VAL001-fe70875c7a64.xml"
+        },
+        {
+          "blob_sha": "472bc88a1ba1ef5e4c210f99cb0b9389195b46f7",
+          "path": "Pipeline/TaskGraph/evidence/NSC-126/artifacts/Unity-EditMode-NSC126-VAL001-fe70875c7a64.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Edit Mode run of NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.RoomWallAccentIntegrationTests at the validated commit: total 5, passed 5, failed 0, Unity exit 0, Git tree equal to Post-run tree so the run mutated nothing. One case per room, confirmed present by classname in the results XML rather than inferred from the count. NOT PROVEN BY THIS GATE, and stated because the contract's wording invites the assumption: the fixture builds each room into a fresh in-memory scene and reads no committed scene, so it establishes the BUILDERS place accents and not that any committed scene contains them. That the five committed room scenes and the composed played scene do carry the accents was established separately by the re-bake at c27dc7e6 - WallAccents 0 to 1 in each room scene and 0 to 5 in DoorPrototype.unity, with CornerAccent exactly 4 per room - and is guarded going forward by FiveCommittedRoomScenes_EachCarryTheirWallAccents.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "NSC-126 has one completion gate, VAL-001, and it is an automated Edit Mode gate; the contract names no human gate, so no human approval is claimed and none is implied. This follows the NSC-120 precedent, which recorded delivery with no validation-policy entry and an automated single gate. Recorded by the Game Agent (Integration Steward) at commit fe70875c7a648dced72bb41ab89a789a5c412837, main's tip, which is where Unity actually ran. base_commit c6e58d2bda9828e045ee456a227824368ce28cb4 is the first parent of the candidate. Vincent has separately declined all visual blessings until the wall height is resolved, and nothing in this record asks for or represents one.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-126-fe70875c7a64",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-26T02:30:11Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-126.yaml",
+    "revision": 2,
+    "sha256": "5f80e7a6e152e8308b03fc2889778e4182ff3a18c64c7de1ddc363005168ac5d"
+  },
+  "task_id": "NSC-126",
+  "validated_state": {
+    "commit": "fe70875c7a648dced72bb41ab89a789a5c412837",
+    "tree": "4d3b3ab7f2c375a0cfcf7339140fbcdd9c3d4ad5"
+  }
+}

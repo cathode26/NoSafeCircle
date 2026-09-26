@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="5" result="Passed" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-26 02:29:01Z" end-time="2026-09-26 02:29:01Z" duration="0.686755">
+  <test-suite type="TestSuite" id="1000" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="323" result="Passed" start-time="2026-09-26 02:29:01Z" end-time="2026-09-26 02:29:01Z" duration="0.686755" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1373" name="NoSafeCircle.DoorPrototype.Tests.Editor.dll" fullname="C:/nscrev/doormeta/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.Editor.dll" runstate="Runnable" testcasecount="323" result="Passed" start-time="2026-09-26 02:29:01Z" end-time="2026-09-26 02:29:01Z" duration="0.661443" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="51032" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1374" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="323" result="Passed" start-time="2026-09-26 02:29:01Z" end-time="2026-09-26 02:29:01Z" duration="0.649530" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1375" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="323" result="Passed" start-time="2026-09-26 02:29:01Z" end-time="2026-09-26 02:29:01Z" duration="0.635801" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1376" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="323" result="Passed" start-time="2026-09-26 02:29:01Z" end-time="2026-09-26 02:29:01Z" duration="0.621187" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestSuite" id="1377" name="Editor" fullname="NoSafeCircle.DoorPrototype.Tests.Editor" runstate="Runnable" testcasecount="323" result="Passed" start-time="2026-09-26 02:29:01Z" end-time="2026-09-26 02:29:01Z" duration="0.608833" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="TestSuite" id="1379" name="Rooms" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.Rooms" runstate="Runnable" testcasecount="89" result="Passed" start-time="2026-09-26 02:29:01Z" end-time="2026-09-26 02:29:01Z" duration="0.586211" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-suite type="TestFixture" id="1319" name="RoomWallAccentIntegrationTests" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.RoomWallAccentIntegrationTests" classname="NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.RoomWallAccentIntegrationTests" runstate="Runnable" testcasecount="5" result="Passed" start-time="2026-09-26 02:29:01Z" end-time="2026-09-26 02:29:01Z" duration="0.560962" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+                  <properties />
+                  <test-case id="1321" name="BoneArchive_WallAccentsSatisfyRolesGroundContactIdempotenceAndGeometryInvariance" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.RoomWallAccentIntegrationTests.BoneArchive_WallAccentsSatisfyRolesGroundContactIdempotenceAndGeometryInvariance" methodname="BoneArchive_WallAccentsSatisfyRolesGroundContactIdempotenceAndGeometryInvariance" classname="NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.RoomWallAccentIntegrationTests" runstate="Runnable" seed="714257963" result="Passed" start-time="2026-09-26 02:29:01Z" end-time="2026-09-26 02:29:01Z" duration="0.240948" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1322" name="ChapelOfAsh_WallAccentsSatisfyRolesGroundContactIdempotenceAndGeometryInvariance" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.RoomWallAccentIntegrationTests.ChapelOfAsh_WallAccentsSatisfyRolesGroundContactIdempotenceAndGeometryInvariance" methodname="ChapelOfAsh_WallAccentsSatisfyRolesGroundContactIdempotenceAndGeometryInvariance" classname="NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.RoomWallAccentIntegrationTests" runstate="Runnable" seed="2014716475" result="Passed" start-time="2026-09-26 02:29:01Z" end-time="2026-09-26 02:29:01Z" duration="0.070146" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1324" name="FinalRoom_WallAccentsSatisfyRolesGroundContactIdempotenceAndGeometryInvariance" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.RoomWallAccentIntegrationTests.FinalRoom_WallAccentsSatisfyRolesGroundContactIdempotenceAndGeometryInvariance" methodname="FinalRoom_WallAccentsSatisfyRolesGroundContactIdempotenceAndGeometryInvariance" classname="NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.RoomWallAccentIntegrationTests" runstate="Runnable" seed="515568642" result="Passed" start-time="2026-09-26 02:29:01Z" end-time="2026-09-26 02:29:01Z" duration="0.096852" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1323" name="LowerVault_WallAccentsSatisfyRolesGroundContactIdempotenceAndGeometryInvariance" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.RoomWallAccentIntegrationTests.LowerVault_WallAccentsSatisfyRolesGroundContactIdempotenceAndGeometryInvariance" methodname="LowerVault_WallAccentsSatisfyRolesGroundContactIdempotenceAndGeometryInvariance" classname="NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.RoomWallAccentIntegrationTests" runstate="Runnable" seed="1033564223" result="Passed" start-time="2026-09-26 02:29:01Z" end-time="2026-09-26 02:29:01Z" duration="0.066996" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                  </test-case>
+                  <test-case id="1320" name="RuinedEntry_WallAccentsSatisfyRolesGroundContactIdempotenceAndGeometryInvariance" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.RoomWallAccentIntegrationTests.RuinedEntry_WallAccentsSatisfyRolesGroundContactIdempotenceAndGeometryInvariance" methodname="RuinedEntry_WallAccentsSatisfyRolesGroundContactIdempotenceAndGeometryInvariance" classname="NoSafeCircle.DoorPrototype.Tests.Editor.Rooms.RoomWallAccentIntegrationTests" runstate="Runnable" seed="875357330" result="Passed" start-time="2026-09-26 02:29:01Z" end-time="2026-09-26 02:29:01Z" duration="0.055900" asserts="0">
+                    <properties>
+                      <property name="retryIteration" value="0" />
+                      <property name="repeatIteration" value="0" />
+                    </properties>
+                    <output><![CDATA[Saving results to: C:/Users/VincentLiguori/AppData/LocalLow/DefaultCompany/NoSafeCircle\TestResults.xml
+]]></output>
+                  </test-case>
+                </test-suite>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>
