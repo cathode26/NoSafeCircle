@@ -30,8 +30,10 @@ namespace NoSafeCircle.DoorPrototype.Editor.Environment
     // transparency axis depends on, and that the collider is solid with sane extents.
     public static class PropPrefabVerifier
     {
+        // Under Resources/ so PropSpawner can reach a prop by prop_id at runtime with no shared
+        // registry file to serialize 45 authors behind.
         private const string PrefabFolder =
-            "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Props/Prefabs";
+            "Assets/NoSafeCircle/DoorPrototype/Resources/Props";
 
         // The ONLY props allowed to carry no collider, named individually with the reason.
         //
