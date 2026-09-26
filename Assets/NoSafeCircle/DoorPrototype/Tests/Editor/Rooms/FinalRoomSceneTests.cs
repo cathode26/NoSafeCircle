@@ -395,7 +395,9 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
         private static void AssertWallCells(Tilemap tilemap, TileBase tile, IEnumerable<int> expectedCells, bool lowWall)
         {
             HashSet<int> expectedSet = new HashSet<int>(expectedCells);
-            Matrix4x4 expectedTransform = lowWall ? Matrix4x4.Scale(new Vector3(1f, 0.2f, 1f)) : Matrix4x4.identity;
+            Matrix4x4 expectedTransform = lowWall
+                ? Matrix4x4.Scale(NoSafeCircle.DoorPrototype.Editor.Rooms.FinalRoomSceneBuilder.LowWallCellScale)
+                : Matrix4x4.identity;
 
             for (int cell = -110; cell <= 20; cell++)
             {
