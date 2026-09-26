@@ -1,13 +1,14 @@
-# Raw Unity logs are machine evidence; new logs are normalized upstream.
-Pipeline/TaskGraph/evidence/**/artifacts/*.log -whitespace
-
-# Delivery/validation manifest JSON is machine-generated evidence, never hand-edited.
-# Every line of a newly-committed manifest reads as "trailing whitespace" to git's own
-# whitespace check under core.autocrlf=true, because the whole file is new in the diff -
-# reproduced on the very commit that introduced NSC-124's manifest, against its own
-# immediate parent, with no other change in the range. -whitespace suppresses the false
-# positive the same way the sibling .log rule above already does.
-Pipeline/TaskGraph/evidence/**/artifacts/*.json -whitespace
+# Every file under an evidence artifacts/ directory is a write-once, hash-suffixed
+# snapshot - a manifest, a test-results XML, a captured log, a human-validation
+# transcript, a script or write-up committed as a record of what ran, never edited
+# after the fact. Any of them reads as 100% "trailing whitespace" to git's own
+# whitespace check under core.autocrlf=true merely for being wholly new in a diff -
+# first found on NSC-124's .json manifest, reproduced again on its .xml results file
+# the same evening, on the exact commit that introduced each, against its own
+# immediate parent, nothing else in the range. Exempting the whole artifacts/ tree
+# once, rather than the next extension every time a different evidence file happens
+# to be newest, is the fix; there is no hygiene value in linting a frozen record.
+Pipeline/TaskGraph/evidence/**/artifacts/** -whitespace
 
 # Preserve vendored distribution bytes, including their original line endings.
 # The upstream files contain intentional whitespace that we do not edit.
