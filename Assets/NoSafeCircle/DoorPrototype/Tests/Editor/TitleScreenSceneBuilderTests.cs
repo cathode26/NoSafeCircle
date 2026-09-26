@@ -9,6 +9,7 @@ using UnityEngine.InputSystem.UI;
 using UnityEngine.SceneManagement;
 using UnityEngine.Tilemaps;
 using UnityEngine.UI;
+using NoSafeCircle.DoorPrototype.World;
 
 namespace NoSafeCircle.DoorPrototype.Tests.Editor
 {
@@ -150,7 +151,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 DoorPrototypeSceneBuilder.BackgroundArchitecturalBorderSortingOrder, border.sortingOrder);
             Assert.AreEqual(0, walls.sortingOrder);
             Assert.AreEqual(0, player.sortingOrder);
-            Assert.AreEqual(DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName, walls.sortingLayerName);
+            Assert.AreEqual(WorldSpriteConvention.SortingLayerName, walls.sortingLayerName);
             Assert.AreEqual(walls.sortingLayerName, player.sortingLayerName);
         }
     }

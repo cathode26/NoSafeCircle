@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using NoSafeCircle.DoorPrototype;
 using NoSafeCircle.DoorPrototype.Editor;
+using NoSafeCircle.DoorPrototype.Editor.Generation;
 using NoSafeCircle.DoorPrototype.World;
 using NoSafeCircle.DoorPrototype.World.Rooms;
 using UnityEditor;
@@ -133,7 +134,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
 
             SpriteRenderer wizardRenderer = wizard.AddComponent<SpriteRenderer>();
             wizardRenderer.sprite = wizardSprite;
-            wizardRenderer.sortingLayerName = DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
+            wizardRenderer.sortingLayerName = WorldSpriteConvention.SortingLayerName;
             wizardRenderer.spriteSortPoint = SpriteSortPoint.Pivot;
 
             GameObject cameraObject = new GameObject("PreviewGameplayCamera");
@@ -232,7 +233,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             TilemapRenderer renderer = tilemapObject.AddComponent<TilemapRenderer>();
             renderer.mode = TilemapRenderer.Mode.Individual;
             renderer.sortOrder = TilemapRenderer.SortOrder.TopRight;
-            renderer.sortingLayerName = DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
+            renderer.sortingLayerName = WorldSpriteConvention.SortingLayerName;
             renderer.sortingOrder = sortingOrder;
             return tilemap;
         }
@@ -369,7 +370,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             SpriteRenderer renderer = spriteObject.AddComponent<SpriteRenderer>();
             renderer.sprite = sprite;
             renderer.color = tint;
-            renderer.sortingLayerName = DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
+            renderer.sortingLayerName = WorldSpriteConvention.SortingLayerName;
             renderer.sortingOrder = 0;
             renderer.spriteSortPoint = SpriteSortPoint.Pivot;
 
@@ -496,63 +497,30 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         }
 
         // NSC-109 AC-001/AC-002: this room's own floor Tile, bound to the committed
-        // floor_ChapelOfAsh sprite rather than a procedurally generated texture.
+        // floor_ChapelOfAsh sprite rather than a procedurally generated texture. Generation
+        // logic moved to Editor/Generation/ArchitecturalTileGenerator.cs
+        // (ArchitecturalTileGenerator.ChapelOfAsh.LoadOrCreateSpriteTile); this stays as the
+        // public entry point tests and Build() call.
         public static Tile LoadOrCreateFloorTile(string assetFolder)
         {
-            return LoadOrCreateSpriteTile(assetFolder, FloorTileName, FloorSpriteSourcePath);
+            return ArchitecturalTileGenerator.ChapelOfAsh.LoadOrCreateSpriteTile(
+                assetFolder, FloorTileName, FloorSpriteSourcePath);
         }
 
         // NSC-109 AC-001/AC-002: generates and reconciles the two Chapel-specific wall Tile
         // assets, now bound to the committed wall_straight and wall_broken_stub sprites instead
-        // of procedurally generated masonry textures.
+        // of procedurally generated masonry textures. Generation logic moved to
+        // Editor/Generation/ArchitecturalTileGenerator.cs.
         public static Tile LoadOrCreateFarWallTile(string assetFolder)
         {
-            return LoadOrCreateSpriteTile(assetFolder, FarWallTileName, FarWallSpriteSourcePath);
+            return ArchitecturalTileGenerator.ChapelOfAsh.LoadOrCreateSpriteTile(
+                assetFolder, FarWallTileName, FarWallSpriteSourcePath);
         }
 
         public static Tile LoadOrCreateCutawayWallTile(string assetFolder)
         {
-            return LoadOrCreateSpriteTile(assetFolder, CutawayWallTileName, CutawayWallSpriteSourcePath);
-        }
-
-        private static Tile LoadOrCreateSpriteTile(string assetFolder, string tileName, string sourceSpritePath)
-        {
-            if (string.IsNullOrWhiteSpace(assetFolder) || !assetFolder.StartsWith("Assets/", StringComparison.Ordinal))
-            {
-                throw new ArgumentException("The Tile asset folder must be under Assets.", nameof(assetFolder));
-            }
-
-            Sprite sourceSprite = AssetDatabase.LoadAssetAtPath<Sprite>(sourceSpritePath);
-            if (sourceSprite == null)
-            {
-                throw new InvalidOperationException(
-                    $"Chapel of Ash requires the committed sprite at '{sourceSpritePath}'.");
-            }
-
-            EnsureFolder(assetFolder);
-            string assetPath = assetFolder + "/" + tileName + ".asset";
-            Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(assetPath);
-            if (tile == null)
-            {
-                tile = ScriptableObject.CreateInstance<Tile>();
-                tile.name = tileName;
-                tile.colliderType = Tile.ColliderType.None;
-                tile.sprite = sourceSprite;
-                AssetDatabase.CreateAsset(tile, assetPath);
-                EditorUtility.SetDirty(tile);
-                AssetDatabase.SaveAssetIfDirty(tile);
-                return tile;
-            }
-
-            if (tile.sprite != sourceSprite || tile.colliderType != Tile.ColliderType.None)
-            {
-                tile.sprite = sourceSprite;
-                tile.colliderType = Tile.ColliderType.None;
-                EditorUtility.SetDirty(tile);
-                AssetDatabase.SaveAssetIfDirty(tile);
-            }
-
-            return tile;
+            return ArchitecturalTileGenerator.ChapelOfAsh.LoadOrCreateSpriteTile(
+                assetFolder, CutawayWallTileName, CutawayWallSpriteSourcePath);
         }
 
         private static Tile CreateTransientTile(string tileName, string sourceSpritePath)
@@ -585,7 +553,9 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             TransientTileObjects.Clear();
         }
 
-        private static void EnsureFolder(string folder)
+        // internal (was private): ArchitecturalTileGenerator.ChapelOfAsh.LoadOrCreateSpriteTile
+        // calls this from Editor/Generation/ArchitecturalTileGenerator.cs. No behaviour change.
+        internal static void EnsureFolder(string folder)
         {
             if (string.IsNullOrWhiteSpace(folder) || AssetDatabase.IsValidFolder(folder))
             {

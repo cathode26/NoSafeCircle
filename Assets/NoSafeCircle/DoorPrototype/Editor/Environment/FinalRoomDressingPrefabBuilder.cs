@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
+using NoSafeCircle.DoorPrototype.World;
 
 namespace NoSafeCircle.DoorPrototype.Editor.Environment
 {
@@ -107,7 +108,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Environment
 
                 var renderer = instance.AddComponent<SpriteRenderer>();
                 renderer.sprite = sprite;
-                renderer.sortingLayerName = DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
+                renderer.sortingLayerName = WorldSpriteConvention.SortingLayerName;
                 // ONE BAND, AND THE CAMERA AXIS DECIDES. This was placement.sorting_order,
                 // and that is why a wizard standing BEHIND a bookshelf was drawn in front of
                 // it: sortingOrder is compared BEFORE the transparency axis, so a shelf at

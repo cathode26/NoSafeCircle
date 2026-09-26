@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using NoSafeCircle.DoorPrototype.Editor;
+using NoSafeCircle.DoorPrototype.Editor.Generation;
 using NoSafeCircle.DoorPrototype.World;
 using NoSafeCircle.DoorPrototype.World.Rooms;
 using UnityEditor;
@@ -133,7 +134,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             TilemapRenderer renderer = tilemapObject.AddComponent<TilemapRenderer>();
             renderer.mode = TilemapRenderer.Mode.Individual;
             renderer.sortOrder = TilemapRenderer.SortOrder.TopRight;
-            renderer.sortingLayerName = DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
+            renderer.sortingLayerName = WorldSpriteConvention.SortingLayerName;
             renderer.sortingOrder = sortingOrder;
             return tilemap;
         }
@@ -356,44 +357,14 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         private static string Suffix(bool collision) => collision ? "Collision" : "Visual";
 
         // NSC-109 AC-001/AC-002: this room's own floor Tile, bound to the committed
-        // floor_FinalRoom sprite rather than a procedurally generated texture.
+        // floor_FinalRoom sprite rather than a procedurally generated texture. Generation logic
+        // moved to Editor/Generation/ArchitecturalTileGenerator.cs
+        // (ArchitecturalTileGenerator.FinalRoom.LoadOrCreateFloorTile); this stays as the private
+        // entry point BuildInMemoryForTests calls.
         private static Tile LoadOrCreateFloorTile(string assetFolder)
         {
-            Sprite sourceSprite = AssetDatabase.LoadAssetAtPath<Sprite>(FloorSpriteSourcePath);
-            if (sourceSprite == null)
-            {
-                throw new InvalidOperationException(
-                    $"Final Room requires the committed sprite at '{FloorSpriteSourcePath}'.");
-            }
-
-            if (!AssetDatabase.IsValidFolder(assetFolder))
-            {
-                Directory.CreateDirectory(assetFolder);
-                AssetDatabase.Refresh();
-            }
-
-            Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(FloorTilePath);
-            if (tile == null)
-            {
-                tile = ScriptableObject.CreateInstance<Tile>();
-                tile.name = FloorTileName;
-                tile.colliderType = Tile.ColliderType.None;
-                tile.sprite = sourceSprite;
-                AssetDatabase.CreateAsset(tile, FloorTilePath);
-                EditorUtility.SetDirty(tile);
-                AssetDatabase.SaveAssetIfDirty(tile);
-                return tile;
-            }
-
-            if (tile.sprite != sourceSprite || tile.colliderType != Tile.ColliderType.None)
-            {
-                tile.sprite = sourceSprite;
-                tile.colliderType = Tile.ColliderType.None;
-                EditorUtility.SetDirty(tile);
-                AssetDatabase.SaveAssetIfDirty(tile);
-            }
-
-            return tile;
+            return ArchitecturalTileGenerator.FinalRoom.LoadOrCreateFloorTile(
+                assetFolder, FloorTileName, FloorTilePath, FloorSpriteSourcePath);
         }
 
         // WAS: new Material(Standard); material.color = color; return material; - which drops

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using NoSafeCircle.DoorPrototype.Editor;
+using NoSafeCircle.DoorPrototype.Editor.Generation;
 using NoSafeCircle.DoorPrototype.World;
 using NoSafeCircle.DoorPrototype.World.Rooms;
 using UnityEditor;
@@ -174,7 +175,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             TilemapRenderer renderer = tilemapObject.AddComponent<TilemapRenderer>();
             renderer.mode = TilemapRenderer.Mode.Individual;
             renderer.sortOrder = TilemapRenderer.SortOrder.TopRight;
-            renderer.sortingLayerName = DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
+            renderer.sortingLayerName = WorldSpriteConvention.SortingLayerName;
             renderer.sortingOrder = sortingOrder;
             return tilemap;
         }
@@ -292,56 +293,35 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
 
         // NSC-109 AC-001/AC-002: this room's own floor Tile, bound to the committed
         // floor_RuinedEntry sprite rather than a procedurally generated diamond texture.
+        // Generation logic moved to Editor/Generation/ArchitecturalTileGenerator.cs
+        // (ArchitecturalTileGenerator.RuinedEntry.LoadOrCreateSpriteTile); this stays as the
+        // public entry point tests and Build() call.
         public static Tile LoadOrCreateRuinedEntryFloorTile(string assetFolder)
         {
-            return LoadOrCreateSpriteTile(assetFolder, FloorTileName, FloorSpriteSourcePath);
+            return ArchitecturalTileGenerator.RuinedEntry.LoadOrCreateSpriteTile(
+                assetFolder, FloorTileName, FloorSpriteSourcePath);
         }
 
         // NSC-109 AC-001/AC-002: bound to the committed wall_broken_stub sprite rather than a
-        // procedurally generated masonry-course texture.
+        // procedurally generated masonry-course texture. Generation logic moved to
+        // Editor/Generation/ArchitecturalTileGenerator.cs.
         public static Tile LoadOrCreateRuinedEntryLowWallTile(string assetFolder)
         {
-            return LoadOrCreateSpriteTile(assetFolder, LowWallTileName, LowWallSpriteSourcePath);
+            return ArchitecturalTileGenerator.RuinedEntry.LoadOrCreateSpriteTile(
+                assetFolder, LowWallTileName, LowWallSpriteSourcePath);
         }
 
-        private static Tile LoadOrCreateSpriteTile(string assetFolder, string tileName, string sourceSpritePath)
+        // internal (was private): ArchitecturalTileGenerator.RuinedEntry.LoadOrCreateSpriteTile
+        // calls this from Editor/Generation/ArchitecturalTileGenerator.cs. No behaviour change.
+        internal static void EnsureFolder(string folder)
         {
-            if (string.IsNullOrWhiteSpace(assetFolder) || !assetFolder.StartsWith("Assets/", StringComparison.Ordinal))
+            if (string.IsNullOrWhiteSpace(folder) || AssetDatabase.IsValidFolder(folder))
             {
-                throw new ArgumentException("The Tile asset folder must be under Assets.", nameof(assetFolder));
+                return;
             }
 
-            Sprite sourceSprite = AssetDatabase.LoadAssetAtPath<Sprite>(sourceSpritePath);
-            if (sourceSprite == null)
-            {
-                throw new InvalidOperationException(
-                    $"Ruined Entry requires the committed sprite at '{sourceSpritePath}'.");
-            }
-
-            EnsureFolder(assetFolder);
-            string assetPath = assetFolder + "/" + tileName + ".asset";
-            Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(assetPath);
-            if (tile == null)
-            {
-                tile = ScriptableObject.CreateInstance<Tile>();
-                tile.name = tileName;
-                tile.colliderType = Tile.ColliderType.None;
-                tile.sprite = sourceSprite;
-                AssetDatabase.CreateAsset(tile, assetPath);
-                EditorUtility.SetDirty(tile);
-                AssetDatabase.SaveAssetIfDirty(tile);
-                return tile;
-            }
-
-            if (tile.sprite != sourceSprite || tile.colliderType != Tile.ColliderType.None)
-            {
-                tile.sprite = sourceSprite;
-                tile.colliderType = Tile.ColliderType.None;
-                EditorUtility.SetDirty(tile);
-                AssetDatabase.SaveAssetIfDirty(tile);
-            }
-
-            return tile;
+            Directory.CreateDirectory(folder);
+            AssetDatabase.Refresh();
         }
 
         private static Tile CreateTransientTile(string tileName, string sourceSpritePath)
@@ -488,17 +468,6 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         private static Vector3 RaisedSize(Bounds bounds, float height)
         {
             return new Vector3(bounds.size.x, height, bounds.size.z);
-        }
-
-        private static void EnsureFolder(string folder)
-        {
-            if (string.IsNullOrWhiteSpace(folder) || AssetDatabase.IsValidFolder(folder))
-            {
-                return;
-            }
-
-            Directory.CreateDirectory(folder);
-            AssetDatabase.Refresh();
         }
     }
 }

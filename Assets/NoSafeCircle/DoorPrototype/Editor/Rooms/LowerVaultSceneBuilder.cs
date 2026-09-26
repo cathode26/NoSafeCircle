@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using NoSafeCircle.DoorPrototype.Editor.Generation;
 using NoSafeCircle.DoorPrototype.Editor.World;
 using NoSafeCircle.DoorPrototype.World;
 using NoSafeCircle.DoorPrototype.World.Rooms;
@@ -112,7 +113,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             GameObject standIn = new GameObject("WizardReviewStandIn");
             SpriteRenderer standInRenderer = standIn.AddComponent<SpriteRenderer>();
             standInRenderer.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(WizardReviewSpritePath);
-            standInRenderer.sortingLayerName = DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
+            standInRenderer.sortingLayerName = WorldSpriteConvention.SortingLayerName;
             standInRenderer.spriteSortPoint = SpriteSortPoint.Pivot;
 
             DoorPrototypeGlobalSceneBuilder.BuildCamera(standIn.transform);
@@ -230,7 +231,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             TilemapRenderer renderer = tilemapObject.AddComponent<TilemapRenderer>();
             renderer.mode = TilemapRenderer.Mode.Individual;
             renderer.sortOrder = TilemapRenderer.SortOrder.TopRight;
-            renderer.sortingLayerName = DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
+            renderer.sortingLayerName = WorldSpriteConvention.SortingLayerName;
             renderer.sortingOrder = sortingOrder;
             return tilemap;
         }
@@ -330,7 +331,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
 
             SpriteRenderer renderer = instance.GetComponent<SpriteRenderer>();
             renderer.sprite = proxySprite;
-            renderer.sortingLayerName = DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
+            renderer.sortingLayerName = WorldSpriteConvention.SortingLayerName;
             renderer.sortingOrder = 0;
         }
 
@@ -479,54 +480,19 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         // procedurally generated textures.
         // ------------------------------------------------------------------
 
+        // Generation logic moved to Editor/Generation/ArchitecturalTileGenerator.cs
+        // (ArchitecturalTileGenerator.LowerVault.LoadOrCreateSpriteTile); these stay as the
+        // public entry points tests and Build() call.
         public static Tile LoadOrCreateFloorTile(string assetFolder)
         {
-            return LoadOrCreateSpriteTile(assetFolder, FloorTileName, FloorSpriteSourcePath);
+            return ArchitecturalTileGenerator.LowerVault.LoadOrCreateSpriteTile(
+                assetFolder, FloorTileName, FloorSpriteSourcePath);
         }
 
         public static Tile LoadOrCreateNearWallStubTile(string assetFolder)
         {
-            return LoadOrCreateSpriteTile(assetFolder, NearWallStubTileName, NearWallStubSpriteSourcePath);
-        }
-
-        private static Tile LoadOrCreateSpriteTile(string assetFolder, string tileName, string sourceSpritePath)
-        {
-            if (string.IsNullOrWhiteSpace(assetFolder) || !assetFolder.StartsWith("Assets/", StringComparison.Ordinal))
-            {
-                throw new ArgumentException("The Tile asset folder must be under Assets.", nameof(assetFolder));
-            }
-
-            Sprite sourceSprite = AssetDatabase.LoadAssetAtPath<Sprite>(sourceSpritePath);
-            if (sourceSprite == null)
-            {
-                throw new InvalidOperationException(
-                    $"Lower Vault requires the committed sprite at '{sourceSpritePath}'.");
-            }
-
-            EnsureFolder(assetFolder);
-            string assetPath = assetFolder + "/" + tileName + ".asset";
-            Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(assetPath);
-            if (tile == null)
-            {
-                tile = ScriptableObject.CreateInstance<Tile>();
-                tile.name = tileName;
-                tile.colliderType = Tile.ColliderType.None;
-                tile.sprite = sourceSprite;
-                AssetDatabase.CreateAsset(tile, assetPath);
-                EditorUtility.SetDirty(tile);
-                AssetDatabase.SaveAssetIfDirty(tile);
-                return tile;
-            }
-
-            if (tile.sprite != sourceSprite || tile.colliderType != Tile.ColliderType.None)
-            {
-                tile.sprite = sourceSprite;
-                tile.colliderType = Tile.ColliderType.None;
-                EditorUtility.SetDirty(tile);
-                AssetDatabase.SaveAssetIfDirty(tile);
-            }
-
-            return tile;
+            return ArchitecturalTileGenerator.LowerVault.LoadOrCreateSpriteTile(
+                assetFolder, NearWallStubTileName, NearWallStubSpriteSourcePath);
         }
 
         private static Tile CreateTransientTile(string tileName, string sourceSpritePath)
@@ -709,7 +675,9 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             TransientArchitecturalObjects.Clear();
         }
 
-        private static void EnsureFolder(string folder)
+        // internal (was private): ArchitecturalTileGenerator.LowerVault.LoadOrCreateSpriteTile
+        // calls this from Editor/Generation/ArchitecturalTileGenerator.cs. No behaviour change.
+        internal static void EnsureFolder(string folder)
         {
             if (string.IsNullOrWhiteSpace(folder) || AssetDatabase.IsValidFolder(folder))
             {

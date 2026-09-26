@@ -387,7 +387,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             // so the literal passed for the wrong reason and would keep passing after NSC-100
             // repoints it, while the room sorted wrongly against every world sprite.
             Assert.AreEqual(
-                NoSafeCircle.DoorPrototype.Editor.DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName,
+                WorldSpriteConvention.SortingLayerName,
                 renderer.sortingLayerName);
             Assert.AreEqual(sortingOrder, renderer.sortingOrder);
             return tilemap;

@@ -495,19 +495,19 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
 
             foreach (var renderer in categoryRoot.GetComponentsInChildren<SpriteRenderer>(true))
             {
-                if (renderer.sortingLayerName != DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName)
+                if (renderer.sortingLayerName != WorldSpriteConvention.SortingLayerName)
                 {
                     result.AddError(
-                        $"SpriteRenderer '{renderer.name}' must use the shared '{DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName}' sorting layer.");
+                        $"SpriteRenderer '{renderer.name}' must use the shared '{WorldSpriteConvention.SortingLayerName}' sorting layer.");
                 }
             }
 
             foreach (var renderer in categoryRoot.GetComponentsInChildren<TilemapRenderer>(true))
             {
-                if (renderer.sortingLayerName != DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName)
+                if (renderer.sortingLayerName != WorldSpriteConvention.SortingLayerName)
                 {
                     result.AddError(
-                        $"TilemapRenderer '{renderer.name}' must use the shared '{DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName}' sorting layer.");
+                        $"TilemapRenderer '{renderer.name}' must use the shared '{WorldSpriteConvention.SortingLayerName}' sorting layer.");
                 }
             }
         }
