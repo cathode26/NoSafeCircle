@@ -18,7 +18,7 @@
     {
       "criterion_id": "AC-004",
       "reference": "NSC-039 approved design; GER Agent scope boundary for this task",
-      "requirement": "Do not change the numeric sorting-order band values themselves. WorldSpriteSortingOrder (0), BackgroundGroundSortingOrder (-100), and BackgroundArchitecturalBorderSortingOrder (-90) in DoorPrototypeSceneBuilder.cs (:57-59) remain exactly as NSC-039 defined them; this task validates the sorting LAYER ONLY, DOES NOT VALIDATE SORTING ORDER AT ALL, and adopts the new layer without retuning any band value. AN EARLIER REVISION SAID this task \"only validates that VisualsRoot/GameplayGeometryRoot content is at order 0\", AND THAT IS WITHDRAWN: AC-003's flat order rule was withdrawn as resting on a false premise, since four of the five room builders place FloorTilemap under Visuals at -100. The band VALUES above still must not change - that requirement is untouched and is a different statement from validating what order a renderer carries."
+      "requirement": "This task validates the sorting LAYER ONLY. It DOES NOT VALIDATE SORTING ORDER AT ALL, and it does not retune the background sorting band. THE BAND'S NUMERIC VALUES ARE DELIBERATELY NOT RESTATED IN THIS CRITERION AND NO FUTURE REVISION MAY REINTRODUCE THEM. An earlier revision recited WorldSpriteSortingOrder, BackgroundGroundSortingOrder and BackgroundArchitecturalBorderSortingOrder as three literal numbers at a line range in DoorPrototypeSceneBuilder.cs and required them to \"remain exactly as NSC-039 defined them\". THAT IS WITHDRAWN AS FALSE AND, LEFT STANDING, ACTIVELY HARMFUL: two of the three values have since changed on main, the cited line range had drifted off the constants entirely, and a criterion ordering an implementer to hold the band exactly as NSC-039 defined it now reads as an instruction to REVERT a landed fix. The band moved twice in one night. A criterion that recites a value it does not own goes stale silently, and this one did. WHAT IS REQUIRED INSTEAD IS THE RELATION, WHICH DOES NOT ROT: the ground band draws beneath the architectural border band, the border band draws beneath every world sprite, and BOTH background band members sit strictly below the lowest sorting_order authored in any *DressingCatalog.json under Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing - with that lowest value COMPUTED BY SWEEPING THE CATALOGS AT TEST TIME and written down nowhere. Do not convert that computation into a literal in any file, for any reason: it is what proves the relation instead of assuming it, and it is the only guard on a future decision to raise the band back up. THE RELATION IS ALREADY ENFORCED ON MAIN AND THIS TASK NEITHER OWNS NOR MODIFIES THE FIXTURE THAT ENFORCES IT. BackgroundSortingBandTests (Assets/NoSafeCircle/DoorPrototype/Tests/Editor/World/BackgroundSortingBandTests.cs) recomputes the catalog minimum on every run, asserts each band member strictly below it, asserts the ground beneath the border, and holds no expected sorting_order of its own by design; it also guards the degenerate case where a renamed field silently yields one identical order for every placement. That file appears in no contract's exclusive_resources, which is reported and not fixed here - this task must not adopt it, because owning a file to cite it is how scope grows by accident. IDENTIFY IT BY NAME AND BY WHAT IT DOES, NEVER BY LINE NUMBER: every line citation in earlier revisions of this contract had drifted by the time somebody read it. WHY THE BAND IS NOT THIS TASK'S BUSINESS EVEN THOUGH THIS TASK OWNS THE FILE THE CONSTANTS LIVE IN: draw order within the shared layer belongs to each room's own builder and its own contract, exactly as AC-003 already records. This task adopts the new sorting layer and changes nothing about order. The damage the old band did is recorded at the constants themselves in DoorPrototypeSceneBuilder.cs, which states that at the previous values the floor painted over 189 of the 222 authored placements; that count is a historical reading of a repaired state, not a requirement, and nothing here may be written as a check against it. FALSIFIED BY: any edit made under this task that writes a sorting-order number, or any assertion added under this task that pins a band value as a literal."
     },
     {
       "criterion_id": "AC-005",
@@ -60,7 +60,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 6,
+  "contract_revision": 7,
   "decomposition_reason": "The layer repoint, the composer's flat sorting-order and spriteSortPoint validation, and their EditMode negative-case tests are one self-contained change confined to three source files and the two existing partial-class test files; no further split is warranted.",
   "decomposition_state": "concrete",
   "depends_on": [],
@@ -139,6 +139,15 @@
         "previous_contract_revision": 5,
         "base_contract_sha256": "9099c2a79319e7b03d130bfb7b9d807f266a3151ea883ec945bdc873ed3bbb5c",
         "revised_contract_sha256": "c1c5c985d670f2eeff176821c3437aa1cd86130e8d47e4fdfa7a3b892294773d",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-26",
+        "reason": "AC-004: the band values it recited changed on main; replace the three literals and the drifted line range with the ordering relation and the test-time catalog sweep that already enforces it",
+        "source_head": "2da4d9d21133e684352db794434afc3dd7010f20",
+        "previous_contract_revision": 6,
+        "base_contract_sha256": "e22b3be0bb2c7033c8a37288bc1b98cd04df687534d1f92730777b1ff58c9104",
+        "revised_contract_sha256": "598f4fb78ce38480f5b9fc1e7da43fa0d78c97245afd2cdc5e9846852b749907",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
