@@ -81,6 +81,10 @@ from Pipeline.TaskReviewAgent.committed_tasks import (  # noqa: E402
 from Pipeline.TaskReviewAgent.downstream_pipeline import (  # noqa: E402
     DownstreamPipelineError,
 )
+from Pipeline.TaskReviewAgent.git_identity_guard import (  # noqa: E402
+    GitIdentityGuardError,
+    validated_agent_git_identity,
+)
 from Pipeline.TaskReviewAgent.downstream_resilience import (  # noqa: E402
     require_decomposition_policy_document,
     read_decomposition_policy_document,
@@ -841,7 +845,22 @@ def apply_pin_rebind(
 ) -> dict[str, Any]:
     """Write exactly the pins the plan names, in one commit that touches only the policy.
 
-    Three things are proven rather than assumed, because this writes to Source:
+    FIVE things are proven rather than assumed, because this writes to Source. The first two were
+    added after an audit found the helper accepting a stale plan and committing as the host.
+
+    THE PLAN IS BOUND TO THE CURRENT HEAD. ``plan_pin_rebind`` records the commit it inspected and
+    this refuses unless HEAD is still that commit. Without it, a clean contract revision landing
+    between plan and apply leaves the old pin TEXT intact, so the edit succeeds and installs a hash
+    that is ALREADY STALE while reporting ``rebound`` -- a rebind that reports success and fixes
+    nothing is worse than one that refuses.
+
+    EVERY TARGET HASH IS RECOMPUTED HERE. The HEAD check makes that redundant for a plan this module
+    produced, and it is not redundant for a plan built by hand or carried across a process: a
+    ``to`` value is a claim about a contract's bytes and is checked against those bytes.
+
+    THE COMMIT CARRIES THE VALIDATED AUTOMATION IDENTITY, not the host's. It is configured with
+    ``-c`` so no global configuration can win, and then READ BACK off the created commit, because
+    configuring an identity and having it applied are different claims.
 
     The tree is clean first. Committing from a dirty tree is how one writer's commit carries
     another's staged work, which this repository has already paid for once.
@@ -859,6 +878,22 @@ def apply_pin_rebind(
     rebinds = list(plan.get("rebinds") or [])
     if not rebinds:
         return {"status": "nothing_to_rebind", "commit": None, "rebound": []}
+    planned = _exact_commit(plan.get("commit"))
+    head = _git_text(repository, "rev-parse", "HEAD").strip()
+    if head != planned:
+        raise ValidationPolicyAuditError(
+            "policy rebind plan was made at %s and HEAD is now %s: re-plan rather than applying a"
+            " stale plan, which would install a hash that is already out of date"
+            % (planned[:12], head[:12])
+        )
+    for rebind in rebinds:
+        current = load_committed_task(repository, str(rebind["task_id"]), commit=head)
+        if current["task_contract_sha256"] != str(rebind["to"]):
+            raise ValidationPolicyAuditError(
+                "policy rebind target for %s is %s but the committed contract hashes to %s"
+                % (rebind["task_id"], str(rebind["to"])[:12],
+                   current["task_contract_sha256"][:12])
+            )
     dirty = _git_text(repository, "status", "--porcelain", "--untracked-files=all")
     if dirty.strip():
         raise ValidationPolicyAuditError(
@@ -900,13 +935,30 @@ def apply_pin_rebind(
             raise ValidationPolicyAuditError(
                 "a policy rebind staged something other than the policy: %r" % staged
             )
-        _git_text(repository, "commit", "--only", "-m", message, "--",
-                     VALIDATION_POLICY_RELATIVE)
+        try:
+            author_name, author_email = validated_agent_git_identity()
+        except GitIdentityGuardError as exc:
+            raise ValidationPolicyAuditError(
+                "policy rebind refused: no validated automation git identity: %s" % exc
+            ) from exc
+        _git_text(repository, "-c", "user.name=" + author_name,
+                  "-c", "user.email=" + author_email,
+                  "commit", "--only", "-m", message, "--",
+                  VALIDATION_POLICY_RELATIVE)
     except ValidationPolicyAuditError:
         path.write_bytes(original_bytes)
         _git_text(repository, "reset", "-q", "--", VALIDATION_POLICY_RELATIVE)
         raise
-    head = _git_text(repository, "rev-parse", "HEAD").strip()
+    rebound_commit = _git_text(repository, "rev-parse", "HEAD").strip()
+    stamped = _git_text(
+        repository, "log", "-1", "--format=%an%x1f%ae%x1f%cn%x1f%ce", rebound_commit
+    ).strip().split("\x1f")
+    if stamped != [author_name, author_email, author_name, author_email]:
+        raise ValidationPolicyAuditError(
+            "policy rebind commit %s carries identity %r rather than the validated automation"
+            " identity %r" % (rebound_commit[:12], stamped, [author_name, author_email])
+        )
+    head = rebound_commit
     committed = _git_text(repository, "diff-tree", "--no-commit-id", "--name-only", "-r", head)
     if [line.strip() for line in committed.splitlines() if line.strip()] != [
         VALIDATION_POLICY_RELATIVE

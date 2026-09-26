@@ -1434,8 +1434,9 @@ def test_a_rebind_refuses_an_ambiguous_pin_instead_of_guessing() -> None:
         root = Path(text)
         before, after = _apply_fixture(root)
         findings = _findings(root, before, after)
-        plan = plan_pin_rebind(root, findings, commit=after)
-        # Give a second entry the same pin, so the parent's old value appears twice.
+        # Give a second entry the same pin, so the parent's own value appears twice -- and commit it
+        # BEFORE planning, so the plan is bound to this HEAD and the HEAD check passes. Planning
+        # first would now refuse at the binding and leave the ambiguity guard untested.
         policy_path = root / VALIDATION_POLICY_RELATIVE
         document = json.loads(policy_path.read_bytes().decode("utf-8-sig"))
         parent_pin = document["tasks"][APPLY_PARENT]["task_contract_sha256"]
@@ -1443,6 +1444,8 @@ def test_a_rebind_refuses_an_ambiguous_pin_instead_of_guessing() -> None:
         _write_policy(root, document["tasks"])
         _git(root, "add", "--all")
         _git(root, "commit", "-q", "-m", "fixture: duplicate a pin")
+        duplicated = _git(root, "rev-parse", "HEAD")
+        plan = plan_pin_rebind(root, findings, commit=duplicated)
         refusal = rejects(
             lambda: apply_pin_rebind(root, plan, message="policy: rebind"),
             ValidationPolicyAuditError,
@@ -1484,11 +1487,131 @@ def test_a_plan_that_went_stale_refuses_rather_than_editing_the_wrong_field() ->
             lambda: apply_pin_rebind(root, plan, message="policy: rebind a stale plan"),
             ValidationPolicyAuditError,
         )
-        require("other than the named pins" in str(refusal), str(refusal))
+        # It now refuses at the HEAD BINDING, which is sooner and says more: the plan was read at
+        # one commit and the write would land at another. The audit found exactly this window --
+        # a clean contract revision between plan and apply leaves the old pin TEXT intact, so the
+        # edit succeeds and installs a hash that is already stale while reporting `rebound`.
+        require("stale plan" in str(refusal), str(refusal))
+        require("HEAD is now" in str(refusal), str(refusal))
         require(json.loads(policy_path.read_bytes().decode("utf-8-sig")) == committed,
                 "the refusal left the policy modified")
         require(_git(root, "status", "--porcelain").strip() == "",
                 "the refusal left the tree dirty")
+
+def test_a_hand_built_plan_whose_from_belongs_to_another_entry_is_refused() -> None:
+    """The document-equality check's only remaining reachable failure path.
+
+    With the HEAD binding in place, a plan this module produced can no longer disagree with the
+    document. A HAND-BUILT one can, and `apply_pin_rebind` is exported, so this is the realistic
+    case: a `from` that occurs exactly once -- passing the ambiguity guard -- in an entry it does
+    not belong to. The textual edit would rewrite that entry's pin instead.
+    """
+
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        _before, after = _apply_fixture(root)
+        document = json.loads(
+            (root / VALIDATION_POLICY_RELATIVE).read_bytes().decode("utf-8-sig")
+        )
+        wrong_from = document["tasks"][APPLY_UNTOUCHED]["task_contract_sha256"]
+        correct_to = load_committed_task(root, APPLY_PARENT, commit=after)["task_contract_sha256"]
+        forged = {
+            "commit": after,
+            "rebinds": [{"task_id": APPLY_PARENT, "from": wrong_from, "to": correct_to}],
+            "skipped": [],
+        }
+        refusal = rejects(
+            lambda: apply_pin_rebind(root, forged, message="policy: forged"),
+            ValidationPolicyAuditError,
+        )
+        require("other than the named pins" in str(refusal), str(refusal))
+        require(json.loads((root / VALIDATION_POLICY_RELATIVE).read_bytes().decode("utf-8-sig"))
+                == document, "the refusal left the policy modified")
+        require(_git(root, "rev-parse", "HEAD") == after, "the refusal still moved HEAD")
+
+
+def test_a_plan_target_that_does_not_match_the_committed_contract_is_refused() -> None:
+    """Every `to` is recomputed here rather than trusted.
+
+    The HEAD binding makes this redundant for a plan this module built, and not for one built by
+    hand or carried across a process: a `to` is a CLAIM about a contract's bytes, so it is checked
+    against those bytes.
+    """
+
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        _before, after = _apply_fixture(root)
+        document = json.loads(
+            (root / VALIDATION_POLICY_RELATIVE).read_bytes().decode("utf-8-sig")
+        )
+        forged = {
+            "commit": after,
+            "rebinds": [{
+                "task_id": APPLY_PARENT,
+                "from": document["tasks"][APPLY_PARENT]["task_contract_sha256"],
+                "to": "c" * 64,
+            }],
+            "skipped": [],
+        }
+        refusal = rejects(
+            lambda: apply_pin_rebind(root, forged, message="policy: wrong target"),
+            ValidationPolicyAuditError,
+        )
+        require("hashes to" in str(refusal), str(refusal))
+        require(APPLY_PARENT in str(refusal), str(refusal))
+
+
+def test_the_rebind_commit_carries_the_validated_automation_identity() -> None:
+    """Not the host's, and read back off the commit rather than assumed from the configuration.
+
+    The fixture configures its own `user.name`/`user.email`, exactly as a real operator's machine
+    does, so a commit carrying the fixture identity is the defect the audit found. Configuring an
+    identity and having it applied are different claims, so the created commit is read.
+    """
+
+    from Pipeline.TaskReviewAgent.git_identity_guard import validated_agent_git_identity
+
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        before, after = _apply_fixture(root)
+        plan = plan_pin_rebind(root, _findings(root, before, after), commit=after)
+        result = apply_pin_rebind(root, plan, message="policy: rebind")
+        name, email = validated_agent_git_identity()
+        stamped = _git(root, "log", "-1", "--format=%an%x1f%ae%x1f%cn%x1f%ce",
+                       result["commit"]).split("\x1f")
+        require(stamped == [name, email, name, email], str(stamped))
+        require("Policy Audit Fixture" not in stamped,
+                "the commit inherited the host identity the fixture configured")
+
+
+def test_a_rebind_refuses_when_no_validated_automation_identity_is_available() -> None:
+    """Fail closed. An unusable identity must stop the commit, not fall back to the host's."""
+
+    import os
+    from Pipeline.TaskReviewAgent.git_identity_guard import GitIdentityGuardError
+
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        before, after = _apply_fixture(root)
+        plan = plan_pin_rebind(root, _findings(root, before, after), commit=after)
+        previous = os.environ.get("NSC_AGENT_GIT_EMAIL")
+        # The one namespace the guard exists to reject: it belongs to real GitHub accounts.
+        os.environ["NSC_AGENT_GIT_EMAIL"] = "someone@users.noreply.github.com"
+        try:
+            refusal = rejects(
+                lambda: apply_pin_rebind(root, plan, message="policy: rebind"),
+                ValidationPolicyAuditError,
+            )
+        finally:
+            if previous is None:
+                os.environ.pop("NSC_AGENT_GIT_EMAIL", None)
+            else:
+                os.environ["NSC_AGENT_GIT_EMAIL"] = previous
+        require("validated automation git identity" in str(refusal), str(refusal))
+        require(_git(root, "rev-parse", "HEAD") == after, "the refusal still created a commit")
+        require(_git(root, "status", "--porcelain").strip() == "",
+                "the refusal left the policy staged or modified")
+        require(issubclass(GitIdentityGuardError, RuntimeError), "guard type moved")
 
 def test_a_rebind_with_nothing_to_do_says_so() -> None:
     """An empty rebind is a positive statement, not silence."""
@@ -1541,6 +1664,10 @@ TESTS = (
     test_a_rebind_refuses_an_ambiguous_pin_instead_of_guessing,
     test_a_rebind_with_nothing_to_do_says_so,
     test_a_plan_that_went_stale_refuses_rather_than_editing_the_wrong_field,
+    test_a_hand_built_plan_whose_from_belongs_to_another_entry_is_refused,
+    test_a_plan_target_that_does_not_match_the_committed_contract_is_refused,
+    test_the_rebind_commit_carries_the_validated_automation_identity,
+    test_a_rebind_refuses_when_no_validated_automation_identity_is_available,
 )
 
 
