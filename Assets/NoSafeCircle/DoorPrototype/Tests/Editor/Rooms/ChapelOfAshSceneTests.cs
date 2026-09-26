@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using NoSafeCircle.DoorPrototype.Editor;
 using NoSafeCircle.DoorPrototype.Editor.Rooms;
 using NoSafeCircle.DoorPrototype.Editor.World;
 using NoSafeCircle.DoorPrototype.World;
@@ -768,7 +769,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
                 Assert.IsNotNull(wizardRenderer);
                 Assert.IsNotNull(wizardRenderer.sprite);
                 Assert.AreEqual(SpriteSortPoint.Pivot, wizardRenderer.spriteSortPoint);
-                Assert.AreEqual("Default", wizardRenderer.sortingLayerName);
+                Assert.AreEqual(DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName, wizardRenderer.sortingLayerName);
 
                 Camera camera = cameraObject.GetComponent<Camera>();
                 Assert.IsNotNull(camera);
@@ -844,7 +845,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             Assert.IsNotNull(renderer);
             Assert.AreEqual(TilemapRenderer.Mode.Individual, renderer.mode);
             Assert.AreEqual(TilemapRenderer.SortOrder.TopRight, renderer.sortOrder);
-            Assert.AreEqual("Default", renderer.sortingLayerName);
+            Assert.AreEqual(DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName, renderer.sortingLayerName);
             Assert.AreEqual(sortingOrder, renderer.sortingOrder);
             return tilemap;
         }
@@ -907,7 +908,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             SpriteRenderer renderer = child.GetComponent<SpriteRenderer>();
             Assert.IsNotNull(renderer, $"Expected {name} to carry a SpriteRenderer.");
             Assert.AreEqual(SpriteSortPoint.Pivot, renderer.spriteSortPoint);
-            Assert.AreEqual("Default", renderer.sortingLayerName);
+            Assert.AreEqual(DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName, renderer.sortingLayerName);
             Assert.AreEqual(0, renderer.sortingOrder);
             Assert.IsNull(child.GetComponent<Collider>());
         }

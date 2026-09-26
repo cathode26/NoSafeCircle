@@ -59,10 +59,17 @@ namespace NoSafeCircle.DoorPrototype.Editor
         // passing after this constant is repointed while the room's floor and walls sort
         // wrongly against every world sprite. Reaching this constant across that boundary is
         // also what left NSC-045's candidate unable to compile.
-        public const string WorldSpriteSortingLayerName = "Default";
+        public const string WorldSpriteSortingLayerName = "WorldSprites";
         private const int WorldSpriteSortingOrder = 0;
         private const int BackgroundGroundSortingOrder = -100;
         private const int BackgroundArchitecturalBorderSortingOrder = -90;
+
+        // AC-001/VAL-002: this task adopts the WorldSprites sorting layer that
+        // ProjectSettings/TagManager.asset already declares as an orphan entry; it does not
+        // create or renumber either sorting-layer entry. These are that project setting's own
+        // authored uniqueIDs, read by ValidateWorldSpriteSortingLayerDeclared below.
+        private const int WorldSpriteSortingLayerUniqueId = 1043912875;
+        private const int DefaultSortingLayerUniqueId = 0;
 
         internal const int WorldSpriteTextureSize = 128;
 
@@ -147,6 +154,7 @@ namespace NoSafeCircle.DoorPrototype.Editor
 
         private static void RebuildSceneContents(Scene scene, string architecturalTileAssetFolder)
         {
+            ValidateWorldSpriteSortingLayerDeclared();
             CleanupTransientArchitecturalObjects();
             ClearExistingObjects(scene);
             DoorPrototypeGlobalSceneBuilder.ClearOwnedRoots(scene);
@@ -234,6 +242,55 @@ namespace NoSafeCircle.DoorPrototype.Editor
             SetPrivateField(restartController, "playerMovement", movement);
             SetPrivateField(restartController, "playerInteractionController", interactionController);
             restartObject.SetActive(true);
+        }
+
+        // AC-001/VAL-002: WorldSpriteSortingLayerName repoints onto a sorting layer this
+        // task adopts rather than creates, so ProjectSettings/TagManager.asset must already
+        // declare it. Called before RebuildSceneContents repoints a single renderer, so a
+        // layer that is missing, renamed, or renumbered fails the build loudly instead of
+        // silently leaving every world sprite pinned to whichever layer id 0 or a mismatched
+        // "WorldSprites" now resolves to. Reads UnityEngine.SortingLayer.layers, which
+        // reflects the project's own Tag Manager sorting-layer list rather than a copy this
+        // class maintains, so it cannot go stale relative to ProjectSettings/TagManager.asset.
+        private static void ValidateWorldSpriteSortingLayerDeclared()
+        {
+            var foundDefault = false;
+            var foundWorldSprites = false;
+            var worldSpritesId = 0;
+
+            foreach (var layer in SortingLayer.layers)
+            {
+                if (layer.name == WorldSpriteSortingLayerName)
+                {
+                    foundWorldSprites = true;
+                    worldSpritesId = layer.id;
+                }
+                else if (layer.name == "Default")
+                {
+                    foundDefault = true;
+                    if (layer.id != DefaultSortingLayerUniqueId)
+                    {
+                        throw new System.InvalidOperationException(
+                            "ProjectSettings/TagManager.asset's Default sorting layer must keep " +
+                            $"uniqueID {DefaultSortingLayerUniqueId}; found {layer.id}.");
+                    }
+                }
+            }
+
+            if (!foundDefault)
+            {
+                throw new System.InvalidOperationException(
+                    "ProjectSettings/TagManager.asset must still declare the Default sorting " +
+                    "layer.");
+            }
+
+            if (!foundWorldSprites || worldSpritesId != WorldSpriteSortingLayerUniqueId)
+            {
+                throw new System.InvalidOperationException(
+                    "ProjectSettings/TagManager.asset must declare a sorting layer named " +
+                    $"\"{WorldSpriteSortingLayerName}\" with uniqueID " +
+                    $"{WorldSpriteSortingLayerUniqueId}; it is missing, renamed, or renumbered.");
+            }
         }
 
         private static void ValidateArchitecturalTileAssetFolder(string path)
