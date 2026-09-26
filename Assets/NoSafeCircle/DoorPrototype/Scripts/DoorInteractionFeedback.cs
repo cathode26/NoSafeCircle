@@ -41,8 +41,7 @@ namespace NoSafeCircle.DoorPrototype
         private void Awake()
         {
             if (door == null) door = GetComponent<DoorInteractable>();
-            if (playerMovement == null) playerMovement = FindFirstObjectByType<PlayerMovement>();
-            if (interactionController == null) interactionController = FindFirstObjectByType<PlayerInteractionController>();
+            ResolvePlayerIfMissing();
             if (doorRenderer == null) doorRenderer = GetComponentInChildren<Renderer>();
 
             propertyBlock = new MaterialPropertyBlock();
@@ -63,6 +62,8 @@ namespace NoSafeCircle.DoorPrototype
         public void Tick(float deltaTime)
         {
             if (door == null) return;
+
+            ResolvePlayerIfMissing();
 
             if (door.IsOpen)
             {
@@ -90,6 +91,23 @@ namespace NoSafeCircle.DoorPrototype
             IsSelected = false;
             IsOpening = false;
             ApplyAppearance();
+        }
+
+        // THE PLAYER MAY NOT EXIST YET WHEN THIS DOOR WAKES. Under GameBootstrap the Doors phase
+        // runs before the Player phase inside one synchronous BuildWorld, so the Awake-time lookup
+        // above returns null for every spawned door and, left there, no door would ever hover or
+        // highlight. Resolving again from Tick costs one FindFirstObjectByType per door on the
+        // first Update only - by then Start has finished and the player exists - and nothing once
+        // both references are held. While NO player exists at all it is one lookup per Tick per
+        // door; that is the state the Player lane's absence leaves the world in today and it is
+        // the same lookup the legacy Awake already paid, so it is stated rather than hidden. The
+        // legacy scene, where the player already exists at Awake, takes the Awake path and never
+        // reaches the lookup here. Only nulls are filled: a fixture that wired these fields by
+        // hand keeps exactly what it wired.
+        private void ResolvePlayerIfMissing()
+        {
+            if (playerMovement == null) playerMovement = FindFirstObjectByType<PlayerMovement>();
+            if (interactionController == null) interactionController = FindFirstObjectByType<PlayerInteractionController>();
         }
 
         private void ApplyAppearance()
