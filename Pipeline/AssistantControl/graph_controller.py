@@ -58,6 +58,27 @@ _GRAPH_PATH_PREFIXES = (
     "pipeline/taskreviewagent/authoritative_validation_policy.json",
 )
 _FILTER_RE = re.compile(r"\bfilter\s+([A-Za-z_][A-Za-z0-9_.+`]*)")
+
+# Characters the capture above may swallow that cannot END a type or method name.
+# `.` is in its class because a filter is dotted, so the regex reads a
+# SENTENCE-ENDING PERIOD as part of the name. NSC-088's VAL-007 is correct English
+# prose -- "focused Edit Mode filter NoSafeCircle.DoorPrototype.Tests.Editor
+# .SpectralDecoySceneBuilderTests. It separately runs regression-only filters" --
+# and the captured filter ended in a period, so nothing could ever resolve it.
+# Found by the GER Agent, which checked before proposing any contract edit and was
+# right not to propose one: the prose is fine and the regex was reading
+# punctuation as an identifier.
+_FILTER_TRAILING = ".+`"
+
+# A C# type DECLARATION, anchored at the start of the stripped line so prose can
+# never supply one. Measured over the committed test tree at 2026-09-26: the loose
+# form `\bclass\s+(\w+)` finds 118 "types" and the anchored form finds 114 -- and
+# all four it drops are COMMENTS, including "-- see class remarks --" and "a
+# filter that lands on a partial class selects whatever other files contribute to
+# it". A grep shows you the lines it matched, not the construct they belong to.
+_CLASS_MODIFIERS = r"(?:(?:public|internal|private|protected|sealed|abstract|static|partial|new|unsafe)\s+)*"
+_CLASS_DECLARATION_RE = re.compile(
+    r"^(?P<modifiers>" + _CLASS_MODIFIERS + r")class\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)")
 DELEGATE_SAFE_ACTIONS = frozenset({
     "prepare", "refresh_prepared", "scope",
 })
@@ -235,7 +256,12 @@ def _test_filters(source: Path, task: Mapping[str, Any], commit: str) -> list[st
                 continue
             match = _FILTER_RE.search(str(gate.get("requirement") or ""))
             if match:
-                filters.append(match.group(1))
+                # Gate requirements are English. Strip whatever punctuation the
+                # capture took with it, and drop the gate rather than appending an
+                # empty filter nothing could resolve.
+                value = match.group(1).rstrip(_FILTER_TRAILING)
+                if value:
+                    filters.append(value)
     return list(dict.fromkeys(filters))
 
 
@@ -299,6 +325,72 @@ def _declared_test_paths(task: Mapping[str, Any]) -> dict[str, list[str]]:
     return by_stem
 
 
+def _test_types(source: Path, commit: str,
+                sources: list[str]) -> dict[str, tuple[list[str], bool]]:
+    """Committed test files by the TYPE NAME each declares, with "all partial".
+
+    A VALIDATION FILTER NAMES A TYPE. This resolver indexed committed tests by
+    FILE STEM, which works only while every fixture is one type in one file named
+    after it -- and it is not:
+
+        RoomSceneComposerTests.cs:21   public partial class RoomSceneCompositionFoundationTests
+        RoomSceneContractTests.cs:16   public partial class RoomSceneCompositionFoundationTests
+
+    NSC-069 and NSC-100 both name that type in a completion gate and both refused
+    with "matches no committed test file" -- an absence that was a property of the
+    QUERY, not of the repository. A stem index cannot contain a type name, so no
+    number of runs would have found it. Caught by the GER Agent, which checked the
+    contracts before editing one and found the text correct; NSC-069 rev 10
+    VAL-001 already says "those file names are not type names".
+
+    THE TEST TREE HAD ALREADY CONTORTED ITSELF AROUND THIS AND SAYS SO, in a
+    comment its own author wrote at `RoomSceneCatalogGeometryTests.cs:12-19`:
+    "This is a NEW type, deliberately NOT a partial of
+    ...RoomSceneCompositionFoundationTests ... The contract asks for a distinct
+    type so that a test-path filter naming this file resolves to exactly one
+    file." An extra type exists because of this limitation, which is the argument
+    for fixing the resolver rather than the contracts.
+
+    THE BOOLEAN IS THE WHOLE SAFETY OF THIS. Measured over the committed test tree
+    2026-09-26: SIX type names are declared in more than one file, and exactly ONE
+    of them is `partial`. The other five are private or sealed helpers that happen
+    to share a name -- `CatalogFile` in six files, `CatalogPlacement` and
+    `CatalogPosition` in five each, `PropCatalogFile` and `PropCatalogEntry` in
+    two. Returning every file for one of those would grant a crew write authority
+    over six unrelated fixtures, so several files are accepted ONLY when every
+    declaration is partial.
+
+    One `git grep` over the commit builds the whole index, so this costs one
+    process rather than one per file, and it is built lazily because most clauses
+    resolve on the stem index without ever needing it.
+    """
+    wanted = set(sources)
+    raw = git(source, "grep", "-n", "-E", r"\bclass[ \t]+[A-Za-z_]",
+              commit, "--", "Assets", "Packages")
+    seen: dict[str, dict[str, bool]] = {}
+    for line in raw.decode("utf-8", "surrogateescape").splitlines():
+        # `<commit>:<path>:<line>:<text>`, split left to right; a path containing a
+        # colon would shift the fields, and none do, but the line number is always
+        # the field after the path so the text is whatever is left.
+        _, separator, rest = line.partition(":")
+        if not separator:
+            continue
+        path, separator, rest = rest.partition(":")
+        if not separator or path not in wanted:
+            continue
+        _, separator, text = rest.partition(":")
+        if not separator:
+            continue
+        match = _CLASS_DECLARATION_RE.match(text.strip())
+        if match is None:
+            continue
+        partial = "partial" in match.group("modifiers").split()
+        files = seen.setdefault(match.group("name"), {})
+        files[path] = files.get(path, False) or partial
+    return {name: (sorted(files), all(files.values()))
+            for name, files in seen.items()}
+
+
 def _resolve_test_paths(source: Path, task: Mapping[str, Any], commit: str) -> list[str]:
     """Committed test files the task's validation filters name.
 
@@ -317,20 +409,39 @@ def _resolve_test_paths(source: Path, task: Mapping[str, Any], commit: str) -> l
     for path in sources:
         by_stem.setdefault(PurePosixPath(path).stem, []).append(path)
     declared = _declared_test_paths(task)
+    types: dict[str, tuple[list[str], bool]] | None = None
     resolved: list[str] = []
     unresolved: list[str] = []
     for test_filter in _test_filters(source, task, commit):
         for clause in _filter_clauses(test_filter):
             matches: list[str] = []
             committed = False
+            spans_files = False
             for name in reversed(clause.split(".")):
+                # FILE STEM FIRST, so every clause that resolves today resolves to
+                # the same path tomorrow: the type index is consulted only where
+                # the stem lookup finds nothing, which is why this cannot take a
+                # path away from a plan that already has it.
                 if name in by_stem:
                     matches, committed = by_stem[name], True
+                    break
+                if types is None:
+                    types = _test_types(source, commit, sources)
+                if name in types:
+                    matches, all_partial = types[name]
+                    committed = True
+                    # A PARTIAL FIXTURE IS SEVERAL FILES AND ALL OF THEM ARE IN
+                    # SCOPE: Unity runs a filter naming a partial type against
+                    # every file contributing to it, so a plan holding one of them
+                    # would grant write authority for half the fixture. Several
+                    # files that are NOT partial are distinct types sharing a
+                    # name, and that is real ambiguity.
+                    spans_files = all_partial
                     break
                 if name in declared:
                     matches = declared[name]
                     break
-            if len(matches) != 1:
+            if not matches or (len(matches) > 1 and not spans_files):
                 unresolved.append(
                     f"{clause!r} matches "
                     + (f"{len(matches)} committed test files"
@@ -338,7 +449,7 @@ def _resolve_test_paths(source: Path, task: Mapping[str, Any], commit: str) -> l
                        "no committed test file and is not declared by this task"))
                 continue
             if committed:
-                resolved.append(matches[0])
+                resolved.extend(matches)
     if unresolved:
         raise ValueError(
             f"{task.get('id')} validation filter clauses do not each resolve to "

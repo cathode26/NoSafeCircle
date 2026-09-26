@@ -23,6 +23,29 @@ THE DECISIVE TEST IS `test_a_resolvable_last_clause_no_longer_hides_an_unresolva
 before this change that filter returned one path and raised nothing, which is the
 only failure here that a passing suite could never have revealed.
 
+THE THIRD DEFECT WAS THAT A FILTER NAMES A TYPE AND THIS RESOLVER INDEXED FILE
+STEMS. `RoomSceneCompositionFoundationTests` is a `public partial class` declared
+in `RoomSceneComposerTests.cs:21` AND `RoomSceneContractTests.cs:16`; NSC-069 and
+NSC-100 both name it and both refused with "matches no committed test file" -- an
+absence that was a property of the query. Caught by the GER Agent, which checked
+the contracts before editing one; I had published those two as contract defects
+and they were not. The test tree already documents the limitation at
+`RoomSceneCatalogGeometryTests.cs:12-19`, where an extra type exists so that a
+filter can resolve to one file.
+
+AND THE FOURTH WAS PROSE: `_FILTER_RE`'s character class contains `.`, so a gate
+requirement written as correct English -- "...filter Foo.BarTests. It separately
+runs..." -- captured the SENTENCE-ENDING PERIOD as part of the name.
+
+THE PERIOD NEVER BROKE RESOLUTION AND I FIRST CLAIMED IT DID. Measured: the
+capture becomes `Foo.BarTests.`, `split(".")` yields a trailing EMPTY segment, and
+the reverse walk steps over it and finds the class anyway. What the period breaks
+is the filter STRING -- so the refusal message quotes a name with a period on the
+end, and a reader goes looking for a class that is not what the contract says.
+NSC-088 refuses because `SpectralDecoySceneBuilderTests` has ZERO declarations
+anywhere, not because of the punctuation. The failing-before proof is what caught
+the overstatement: the test written for it passed on the old code.
+
 Every case builds a throwaway repository. Nothing reads or writes live state.
 """
 from __future__ import annotations
@@ -63,6 +86,25 @@ class ScopeFilterClauseTests(unittest.TestCase):
             path = self.root / TESTS / prefix / "TwinTests.cs"
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text("class TwinTests {}\n", encoding="utf-8")
+        # A PARTIAL fixture: one type, two files, neither named after it. This is
+        # the live shape -- RoomSceneCompositionFoundationTests across
+        # RoomSceneComposerTests.cs and RoomSceneContractTests.cs.
+        for name in ("SplitFirstTests", "SplitSecondTests"):
+            path = self.root / TESTS / "Editor" / f"{name}.cs"
+            path.write_text(
+                "public partial class SplitFixtureTests\n{\n}\n", encoding="utf-8")
+        # Two files declaring the SAME NON-partial type, which is the live shape
+        # that must stay ambiguous: CatalogFile is a private helper in six files.
+        for name in ("HelperOneTests", "HelperTwoTests"):
+            path = self.root / TESTS / "Editor" / f"{name}.cs"
+            path.write_text(
+                "private sealed class SharedHelper\n{\n}\n", encoding="utf-8")
+        # A COMMENT that mentions a class. The anchored declaration regex must not
+        # read it; the live tree has four of these, one of them the very comment
+        # describing this resolver.
+        (self.root / TESTS / "Editor" / "CommentOnlyTests.cs").write_text(
+            "// see class GhostFromAComment for why\n"
+            "public sealed class CommentOnlyTests\n{\n}\n", encoding="utf-8")
         self.git("init", "-b", "master")
         self.git("config", "user.name", "Filter Fixture")
         self.git("config", "user.email", "filter@example.invalid")
@@ -215,6 +257,98 @@ class ScopeFilterClauseTests(unittest.TestCase):
         head = self.commit({"PlayMode": f"{NAMESPACE}.AlphaPlayModeTests;"
                                         f"{NAMESPACE}.AlphaPlayModeTests"})
         self.assertEqual([f"{TESTS}/AlphaPlayModeTests.cs"], self.resolve(self.task(), head))
+
+    # ------------------------------------------------------------ type resolution
+    def test_a_filter_naming_a_partial_type_resolves_to_every_file_declaring_it(self):
+        """The NSC-069 and NSC-100 case. Unity runs a filter naming a partial type
+        against every file contributing to it, so a plan holding one of them would
+        grant write authority for half the fixture."""
+        head = self.commit()
+        task = self.task(gates=[f"{NAMESPACE}.Editor.SplitFixtureTests"])
+        self.assertEqual(
+            [f"{TESTS}/Editor/SplitFirstTests.cs", f"{TESTS}/Editor/SplitSecondTests.cs"],
+            sorted(self.resolve(task, head)))
+
+    def test_several_files_declaring_the_same_NON_partial_type_stay_ambiguous(self):
+        """The discriminator, and the whole safety of the change above. Five type
+        names in the live tree are declared in several files and are NOT partial --
+        `CatalogFile` in six -- so returning every file for one of those would grant
+        a crew write authority over six unrelated fixtures."""
+        head = self.commit()
+        task = self.task(gates=[f"{NAMESPACE}.Editor.SharedHelper"])
+        with self.assertRaises(ValueError) as caught:
+            self.resolve(task, head)
+        self.assertIn("2 committed test files", str(caught.exception))
+
+    def test_a_class_name_inside_a_comment_is_not_a_declaration(self):
+        """Anchored at the start of the stripped line, so prose cannot supply a
+        type. Measured on the live tree: the loose pattern finds 118 types and the
+        anchored one 114, and all four it drops are comments."""
+        head = self.commit()
+        task = self.task(gates=[f"{NAMESPACE}.Editor.GhostFromAComment"])
+        with self.assertRaises(ValueError) as caught:
+            self.resolve(task, head)
+        self.assertIn("no committed test file", str(caught.exception))
+
+    def test_the_file_stem_still_wins_over_the_type_index(self):
+        """Stem first, so no clause that resolves today can move to another path.
+        `CommentOnlyTests` is both a file stem and a declared type here."""
+        head = self.commit()
+        task = self.task(gates=[f"{NAMESPACE}.Editor.CommentOnlyTests"])
+        self.assertEqual([f"{TESTS}/Editor/CommentOnlyTests.cs"],
+                         self.resolve(task, head))
+
+    # --------------------------------------------------------- prose punctuation
+    def test_a_gate_filter_ending_a_sentence_resolves_before_and_after(self):
+        """CHARACTERISATION, not a regression guard, and labelled so on purpose.
+
+        A trailing period leaves an EMPTY last segment, the reverse walk steps
+        over it, and the class resolves either way. This test passed on the old
+        code and that is what corrected my claim that the period stopped
+        resolution. Keep it: it pins the behaviour the fix below must not change.
+        """
+        head = self.commit()
+        task = {
+            "id": "NSC-901", "task_contract_sha256": PIN, "exclusive_resources": [],
+            "completion_gates": [{"requirement": (
+                f"Unity EditMode filter {NAMESPACE}.AlphaPlayModeTests. It "
+                "separately runs regression-only filters.")}],
+        }
+        self.assertEqual([f"{TESTS}/AlphaPlayModeTests.cs"], self.resolve(task, head))
+
+    def test_a_gate_filter_is_captured_without_the_sentence_period(self):
+        """What the period ACTUALLY breaks: the filter string, and therefore the
+        refusal message. A reader sent after `...GhostTests.` goes looking for a
+        class whose name the contract never wrote."""
+        from Pipeline.AssistantControl.graph_controller import _test_filters
+        head = self.commit()
+        task = {
+            "id": "NSC-901", "task_contract_sha256": PIN, "exclusive_resources": [],
+            "completion_gates": [{"requirement": (
+                f"Unity EditMode filter {NAMESPACE}.GhostTests. It separately "
+                "runs regression-only filters.")}],
+        }
+        self.assertEqual([f"{NAMESPACE}.GhostTests"], _test_filters(self.root, task, head))
+        with self.assertRaises(ValueError) as caught:
+            self.resolve(task, head)
+        message = str(caught.exception)
+        self.assertIn(f"'{NAMESPACE}.GhostTests'", message)
+        self.assertNotIn("GhostTests.'", message)
+
+    def test_a_filter_that_is_only_punctuation_is_dropped_not_appended_empty(self):
+        """An empty filter would resolve to nothing and refuse with an empty name,
+        which is a worse message than not having a filter at all."""
+        from Pipeline.AssistantControl.graph_controller import _test_filters
+        head = self.commit()
+        task = {
+            "id": "NSC-901", "task_contract_sha256": PIN, "exclusive_resources": [],
+            "completion_gates": [{"requirement": "Unity EditMode filter A."},
+                                 {"requirement": f"filter {NAMESPACE}.BetaPlayModeTests"}],
+        }
+        self.assertEqual([f"{NAMESPACE}.BetaPlayModeTests".replace(NAMESPACE, NAMESPACE)],
+                         [f for f in _test_filters(self.root, task, head)
+                          if f.endswith("BetaPlayModeTests")])
+        self.assertNotIn("", _test_filters(self.root, task, head))
 
 
 if __name__ == "__main__":
