@@ -86,12 +86,19 @@ namespace NoSafeCircle.DoorPrototype.Editor
         // literal: it is what proves the relation rather than assuming it, and it is the guard
         // on any future decision to raise this band back up.
         //
+        // THE +10 IS DELIBERATE AND IT IS A CORRECTION. This pair was briefly MinValue and
+        // MinValue+1, i.e. adjacent, and GER pointed out that the argument above does not cover
+        // the gap between them: ground-to-border is STILL a maintained margin, and setting it to
+        // 1 made it the tightest one representable, so nothing could ever be inserted between the
+        // floor and the ground-flush border. The authored band had a gap of 10 and it costs
+        // nothing to keep. The interval from the border up to 0 remains wide open either way.
+        //
         // PUBLIC for the same reason WorldSpriteSortingLayerName above is public: the five room
         // builders and the separate Editor test assembly must reach one definition instead of
         // restating the number. Every room builder used to pass a bare -100 at its own floor
         // call site, which is how one band came to live in six places at once.
         public const int BackgroundGroundSortingOrder = short.MinValue;
-        public const int BackgroundArchitecturalBorderSortingOrder = short.MinValue + 1;
+        public const int BackgroundArchitecturalBorderSortingOrder = short.MinValue + 10;
 
         // AC-001/VAL-002: this task adopts the WorldSprites sorting layer that
         // ProjectSettings/TagManager.asset already declares as an orphan entry; it does not
