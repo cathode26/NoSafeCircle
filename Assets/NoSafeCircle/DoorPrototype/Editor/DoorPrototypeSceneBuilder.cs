@@ -380,6 +380,13 @@ namespace NoSafeCircle.DoorPrototype.Editor
 
         private static void CleanupTransientArchitecturalObjects()
         {
+            // ArchitecturalTileGenerator keeps its own list since it stopped calling into this
+            // file (it has to survive this file's deletion). Draining it here preserves the
+            // previous behaviour exactly while both files exist: every rebuild, scene close,
+            // assembly reload and quit that cleared a generator-made in-memory Tile before
+            // still clears it now.
+            ArchitecturalTileGenerator.CleanupTransientObjects();
+
             for (var i = OwnedTransientArchitecturalObjects.Count - 1; i >= 0; i--)
             {
                 var transientObject = OwnedTransientArchitecturalObjects[i];
@@ -393,11 +400,11 @@ namespace NoSafeCircle.DoorPrototype.Editor
             ownedTransientArchitecturalScene = default(Scene);
         }
 
-        // internal (was private): ArchitecturalTileGenerator.LoadOrCreateArchitecturalTile calls
-        // this from Editor/Generation/ArchitecturalTileGenerator.cs so its in-memory tile path
-        // still tracks into this exact list and is cleaned up by
-        // CleanupTransientArchitecturalObjects above, unchanged. No other behaviour change.
-        internal static T OwnTransientArchitecturalObject<T>(T transientObject) where T : Object
+        // private again: ArchitecturalTileGenerator briefly called this while its extraction
+        // was in flight. It now owns its own transient list (see
+        // ArchitecturalTileGenerator.OwnTransientObject), because it has to outlive this file.
+        // The only callers left are in this class.
+        private static T OwnTransientArchitecturalObject<T>(T transientObject) where T : Object
         {
             OwnedTransientArchitecturalObjects.Add(transientObject);
             return transientObject;
