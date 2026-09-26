@@ -47,6 +47,13 @@ SPRITE_OPTIONAL_BY_DESIGN = {
 # prefab to carry a uGUI Image: eight FAILs, every one of them a Unity-shipped guid. A declared
 # table, never a blanket skip - an unknown package guid still fails, which is the point.
 UNITY_BUILTIN_EXTRA_GUID = "0000000000000000f000000000000000"
+
+# A uGUI Image with NO sprite is a solid quad in its colour - the HUD's title panels and debug
+# buttons are exactly that, as the scene builder made them - so "renders nothing" is false for it
+# and only for it. The allowance is scoped to the one document class that has that semantics: a
+# SpriteRenderer pointing at fileID 0 still fails. Read from com.unity.ugui's own Image.cs.meta.
+UGUI_IMAGE_SCRIPT_GUID = "fe87c0e1cc204ed48ad3b37840f39efc"
+
 UNITY_SHIPPED_GUIDS = {
     UNITY_BUILTIN_EXTRA_GUID:
         "unity_builtin_extra: Sprites-Default (10754), the Standard shader (46) and the UI/Skin "
@@ -65,6 +72,23 @@ GUID_PATTERN = re.compile(r"guid:\s*([0-9a-f]{32})\b")
 SPRITE_PATTERN = re.compile(r"m_Sprite:\s*\{fileID:\s*(-?\d+)(?:,\s*guid:\s*([0-9a-f]{32}))?")
 SCRIPT_PATTERN = re.compile(r"m_Script:\s*\{fileID:\s*(-?\d+),\s*guid:\s*([0-9a-f]{32})")
 ANCHOR_PATTERN = re.compile(r"^--- !u!(\d+) &(-?\d+)", re.MULTILINE)
+
+
+def documents(text: str):
+    """(is_ugui_image, document_text) for every YAML document in the file, in order.
+
+    The sprite rule needs to know WHICH component a sprite reference sits on, and a whole-file regex
+    cannot tell an Image's m_Sprite from a SpriteRenderer's. A document is class 114 carrying the
+    uGUI Image script, or it is something else; nothing finer than that is decided here.
+    """
+    anchors = list(ANCHOR_PATTERN.finditer(text))
+    for index, anchor in enumerate(anchors):
+        end = anchors[index + 1].start() if index + 1 < len(anchors) else len(text)
+        document = text[anchor.start():end]
+        script = SCRIPT_PATTERN.search(document)
+        is_ugui_image = (anchor.group(1) == "114" and script is not None
+                         and script.group(2) == UGUI_IMAGE_SCRIPT_GUID)
+        yield is_ugui_image, document
 
 
 def check_prefab(path: pathlib.Path, known_guids: set) -> list:
@@ -109,20 +133,24 @@ def check_prefab(path: pathlib.Path, known_guids: set) -> list:
             sprite_optional_reason = reason
 
     saw_unassigned_sprite = False
-    for file_id, guid in SPRITE_PATTERN.findall(text):
-        if file_id == "0":
-            saw_unassigned_sprite = True
-            if sprite_optional_reason is None:
-                failures.append("has an m_Sprite pointing at fileID 0, which renders nothing")
-        elif file_id != SPRITE_SUBASSET_FILE_ID and guid != UNITY_BUILTIN_EXTRA_GUID:
-            # A built-in UI/Skin sprite is the one legitimate non-21300000 sprite reference; any
-            # other fileID is still a broken reference (see UNITY_SHIPPED_GUIDS).
-            failures.append(
-                "has an m_Sprite with fileID {0}; a sprite sub-asset is {1}".format(
-                    file_id, SPRITE_SUBASSET_FILE_ID))
-        if guid and known_guids and guid not in known_guids:
-            failures.append(
-                "references sprite guid {0}, which no .meta in the project declares".format(guid))
+    for is_ugui_image, document in documents(text):
+        for file_id, guid in SPRITE_PATTERN.findall(document):
+            if file_id == "0":
+                if is_ugui_image:
+                    # A uGUI Image with no sprite draws a solid quad in its colour. Not "nothing".
+                    continue
+                saw_unassigned_sprite = True
+                if sprite_optional_reason is None:
+                    failures.append("has an m_Sprite pointing at fileID 0, which renders nothing")
+            elif file_id != SPRITE_SUBASSET_FILE_ID and guid != UNITY_BUILTIN_EXTRA_GUID:
+                # A built-in UI/Skin sprite is the one legitimate non-21300000 sprite reference;
+                # any other fileID is still a broken reference (see UNITY_SHIPPED_GUIDS).
+                failures.append(
+                    "has an m_Sprite with fileID {0}; a sprite sub-asset is {1}".format(
+                        file_id, SPRITE_SUBASSET_FILE_ID))
+            if guid and known_guids and guid not in known_guids:
+                failures.append(
+                    "references sprite guid {0}, which no .meta in the project declares".format(guid))
 
     # THE INVERSE GUARD. A declared exception that has quietly stopped applying is a stale rule, and
     # a stale rule is worse than none because it reads as considered.
