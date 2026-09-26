@@ -243,6 +243,54 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             }
         }
 
+        // THE GUARD THAT WAS MISSING, AND THE TEST ABOVE IS WHY IT WAS MISSING. Seven blockout
+        // cubes stood in the committed Bone Archive with their renderers enabled, Vincent
+        // photographed them in the running game, and the fixture above passed the entire time --
+        // it asserts the blockouts are CORRECT (present, at the right footprint, the right
+        // height), and a cube that should be invisible is correct by every measure it takes.
+        // An assertion that a thing is right cannot notice that the thing should not be drawn.
+        //
+        // Tilemaps are the visible surface in this room, so the blockout meshes exist only to
+        // carry footprints for the layout assertions and must never render. The builder hides
+        // them by setting renderer.enabled = false rather than destroying them, precisely so the
+        // Renderer.bounds reads above keep working -- which means "hidden" is a property that
+        // nothing else in this fixture is able to see.
+        //
+        // Scoped to activeInHierarchy as well as enabled, because a renderer on a deactivated
+        // object draws nothing and counting it would be a false positive.
+        [Test]
+        public void CommittedScene_LeavesNoBlockoutMeshRendererDrawing()
+        {
+            Scene scene = EditorSceneManager.OpenScene(BoneArchiveSceneBuilder.ScenePath, OpenSceneMode.Single);
+
+            try
+            {
+                var drawing = string.Empty;
+                var count = 0;
+
+                foreach (GameObject root in scene.GetRootGameObjects())
+                {
+                    foreach (MeshRenderer renderer in root.GetComponentsInChildren<MeshRenderer>(true))
+                    {
+                        if (!renderer.enabled || !renderer.gameObject.activeInHierarchy) continue;
+
+                        count++;
+                        drawing += (drawing.Length == 0 ? string.Empty : ", ") + renderer.gameObject.name;
+                    }
+                }
+
+                Assert.AreEqual(0, count,
+                    "The committed Bone Archive scene still draws " + count + " MeshRenderer(s): "
+                    + drawing + ". Tilemaps are the visible surface here, so every blockout mesh "
+                    + "must be hidden in the COMMITTED scene and not merely in what the builder "
+                    + "would produce. Re-bake the room scene if the builder is already correct.");
+            }
+            finally
+            {
+                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            }
+        }
+
         // Same assertions as AssertBlockout, but scoped to the opened committed scene rather than
         // to whatever GameObject.Find happens to reach.
         private static void AssertCommittedBlockout(
