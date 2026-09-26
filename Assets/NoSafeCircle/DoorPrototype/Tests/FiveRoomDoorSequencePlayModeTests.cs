@@ -444,34 +444,39 @@ namespace NoSafeCircle.DoorPrototype.Tests
         // ComposedScene_FixedSquadSpawns_MatchApprovedDistributionAndOracles above - but adding a
         // 10th spawn would need a 10th named method here; nothing generates one automatically.
         //
-        // Loads RuntimeWorld ONCE for all 9 cases (a static s_WorldBuilt guard in UnitySetUp)
-        // rather than 9 separate async world builds: every check here is read-only (coordinate
-        // arithmetic, NavMesh.SamplePosition, Physics.CheckSphere), so sharing one built world is
-        // safe. OneTimeTearDown unloads it once after the last case runs.
+        // UNSHARED BY MEASUREMENT, NOT BY DEFAULT: a first version loaded RuntimeWorld ONCE for
+        // all 9 cases (a static s_WorldBuilt guard in UnitySetUp) and unloaded it once in
+        // [OneTimeTearDown] after the last case ran. That teardown is SYNCHRONOUS by NUnit's own
+        // contract, so it could not `yield return SceneManager.UnloadSceneAsync(...)` the way
+        // every other teardown in this file does - it fired the unload and returned immediately,
+        // leaving no active scene and an in-flight unload that landed asynchronously inside
+        // whichever fixture ran next. The full NoSafeCircle-filtered suite caught this as two
+        // fixtures nothing here touches going red for reasons that were never their own
+        // (HoldPositionPlayModeTests x2, HudSpawnerPlayModeTests x1) - see
+        // PlayModeSceneCleanupConventionTests.cs remarks for the 2026-09-23 precedent of the same
+        // shape, and note its own guard only checks for the literal "UnloadSceneAsync" appearing
+        // in source, so it cannot tell an awaited call from a fired-and-forgotten one.
+        //
+        // So each case here loads and unloads RuntimeWorld itself, exactly like every other test
+        // in the outer class, via the SAME awaited UnloadRuntimeWorldSceneWithoutSaving() helper.
+        // Measured cost of the shared version was 0.334s total (9 cases) against roughly 2.9s
+        // unshared (9 x this fixture's ~0.32s single-scene cost) - about 2.5s. That is worth
+        // paying to remove a correctness race across fixtures that do not know about each other.
         [TestFixture]
         public sealed class FixedSquadSpawnPositionTests
         {
-            private static bool s_WorldBuilt;
-
             [UnitySetUp]
             public IEnumerator SetUp()
             {
-                if (s_WorldBuilt) yield break;
                 yield return SceneManager.LoadSceneAsync("RuntimeWorld", LoadSceneMode.Single);
                 yield return WaitForWorldBuilt();
                 Physics.SyncTransforms();
-                s_WorldBuilt = true;
             }
 
-            [OneTimeTearDown]
-            public void OneTimeTearDown()
+            [UnityTearDown]
+            public IEnumerator TearDown()
             {
-                s_WorldBuilt = false;
-                var scene = SceneManager.GetSceneByName("RuntimeWorld");
-                if (scene.IsValid() && scene.isLoaded)
-                {
-                    SceneManager.UnloadSceneAsync(scene);
-                }
+                yield return UnloadRuntimeWorldSceneWithoutSaving();
             }
 
             // Resolved by name rather than cached once: the reflection cost is two FieldInfo
@@ -727,6 +732,25 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
         [UnityTearDown]
         public IEnumerator UnloadCanonicalSceneWithoutSaving()
+        {
+            yield return UnloadRuntimeWorldSceneWithoutSaving();
+        }
+
+        // Shared by this class's own UnityTearDown above and by
+        // FixedSquadSpawnPositionTests.TearDown below, so both stay byte-for-byte identical to
+        // the ORIGINAL pattern rather than risking drift between two hand-copies of it.
+        //
+        // MUST be awaited (yield return), never fired-and-forgotten from a synchronous
+        // OneTimeTearDown: an unawaited SceneManager.UnloadSceneAsync lands its unload
+        // asynchronously inside whichever fixture runs NEXT, and leaves no active scene behind
+        // in the meantime. See PlayModeSceneCleanupConventionTests.cs remarks (2026-09-23): a
+        // Single-loaded scene left behind this way took down two unrelated fixtures
+        // (HoldPositionPlayModeTests, HudSpawnerPlayModeTests) with nothing wrong in either one -
+        // exactly what a first version of FixedSquadSpawnPositionTests here did with a
+        // fire-and-forget [OneTimeTearDown], caught by the full NoSafeCircle-filtered suite
+        // (440/429/6/5) even though the fixture's own filtered run looked clean (11/13 passed,
+        // both failures the two already-known-bad spawn coordinates).
+        private static IEnumerator UnloadRuntimeWorldSceneWithoutSaving()
         {
             var scene = SceneManager.GetSceneByName("RuntimeWorld");
             if (!scene.IsValid() || !scene.isLoaded) yield break;
