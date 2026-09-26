@@ -23,7 +23,11 @@ from Pipeline.AssistantControl.decomposition_transport import build_compose_comm
 from Pipeline.AssistantControl.inspect_project import changes, git
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
 from Pipeline.TaskReviewAgent.contracts import validate_task_id
-from Pipeline.TaskReviewAgent.decomposition_policy_audit import decomposition_preflight
+from Pipeline.TaskReviewAgent.decomposition_policy_audit import (
+    applied_policy_findings,
+    decomposition_preflight,
+    describe_policy_findings,
+)
 from Pipeline.TaskReviewAgent.decomposition_session_pool import (
     DecompositionSessionPoolError,
     DecompositionSessionPoolOwner,
@@ -1621,6 +1625,23 @@ def _apply_locked(
         child = load_committed_task(manager.source, child_id, commit=head)
         if child.get("parent") != task_id or child.get("contract_disposition") != "active":
             raise RuntimeError(f"Applied child {child_id} does not bind the reviewed parent")
+    # Applying rewrites contracts and writes nothing to the validation policy,
+    # so the pins it just invalidated and the children it left unpinned are
+    # named here rather than discovered later by a red job. This reports and
+    # does not refuse: the commit is already on the branch, and raising would
+    # leave Source moved with the record un-applied.
+    policy_findings = applied_policy_findings(
+        manager.source,
+        before_commit=review["apply_source_commit"],
+        after_commit=head,
+        parent_task_id=task_id,
+        child_task_ids=review["child_ids"],
+    )
+    if policy_findings:
+        print(describe_policy_findings(policy_findings), file=sys.stderr)
+        for finding in policy_findings:
+            print("  %s: %s" % (finding["condition"], finding["detail"]),
+                  file=sys.stderr)
     record.pop("error", None)
     record.update(
         status="applied",
@@ -1630,6 +1651,7 @@ def _apply_locked(
         child_ids=review["child_ids"],
         application=asdict(applied),
         application_authentication=review,
+        validation_policy_findings=list(policy_findings),
     )
     write_record(_record_path(manager, task_id), record)
     return record

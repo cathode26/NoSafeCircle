@@ -20,6 +20,7 @@ ordinary concrete-task resolution is byte-identical to what it was before.
 
 from __future__ import annotations
 
+import ast
 import copy
 import json
 from pathlib import Path
@@ -37,9 +38,14 @@ if str(ROOT) not in sys.path:
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task  # noqa: E402
 from Pipeline.TaskReviewAgent.decomposition_policy_audit import (  # noqa: E402
     DECOMPOSITION_TEMPLATE_AUTHORITY,
+    POLICY_CHILD_UNPINNED,
+    POLICY_PIN_STALE,
+    POLICY_UNREADABLE,
     VALIDATION_POLICY_RELATIVE,
     ValidationPolicyAuditError,
+    applied_policy_findings,
     audit_decomposition_policy,
+    describe_policy_findings,
     decomposition_preflight,
     is_decomposition_eligible_parent,
     parent_semantic_hash,
@@ -950,6 +956,336 @@ def test_the_preflight_runs_selection_rules_and_the_policy_audit_together() -> N
         require("already concrete single_agent work" in str(blocked), str(blocked))
 
 
+# ------------------------------------ 16: what an apply leaves behind in the policy
+#
+# Applying a decomposition rewrites contracts and writes nothing to the policy, so it
+# silently invalidates every pin it rewrote and gives its new children no entry.
+# `test_committed_direct_policies_match_exact_task_contract_bytes` above is the check
+# that catches the first half -- hours later, on CI -- and it CANNOT catch the second
+# half at all: it iterates `document["tasks"]`, so a child with no entry is not in the
+# loop. An assertion over the entries that exist can never see the entry nobody wrote.
+
+APPLY_PARENT = "NSC-921"
+APPLY_BYSTANDER = "NSC-922"
+APPLY_UNTOUCHED = "NSC-923"
+APPLY_CHILDREN = ("NSC-924", "NSC-925")
+
+
+def _pinned_entry(sha256: str) -> dict[str, Any]:
+    return {
+        "task_contract_sha256": sha256,
+        "required_test_platforms": ["EditMode"],
+        "test_filters": {"EditMode": "NoSafeCircle.Fixture.Tests.Editor.PinnedTests"},
+        "authority": "committed_task_specific_authoritative_validation_policy",
+    }
+
+
+def _plain_task(task_id: str, revision: int, **extra: Any) -> dict[str, Any]:
+    task = {
+        "id": task_id,
+        "schema_version": "1.0",
+        "title": f"fixture {task_id}",
+        "kind": "implementation",
+        "contract_disposition": "active",
+        "contract_revision": revision,
+        "exclusive_resources": [f"repo-file:Assets/Fixture/{task_id}.cs"],
+    }
+    task.update(extra)
+    return task
+
+
+def _write_task(root: Path, task: dict[str, Any]) -> None:
+    (root / "Tasks").mkdir(parents=True, exist_ok=True)
+    (root / "Tasks" / f"{task['id']}.yaml").write_bytes(
+        (json.dumps(task, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    )
+
+
+def _write_policy(root: Path, entries: dict[str, Any]) -> None:
+    path = root / VALIDATION_POLICY_RELATIVE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(
+        (json.dumps({
+            "schema_version": "1.0",
+            "tasks": entries,
+            "decomposition_child_templates": {},
+        }, indent=2, sort_keys=True) + "\n").encode("utf-8")
+    )
+
+
+def _apply_fixture(stack: Path, *, pin_parent: bool = True, keep_policy: bool = True,
+                   pre_stale: str | None = None) -> tuple[str, str]:
+    """Build before/after commits shaped like a real decomposition apply.
+
+    Three commits, because a pin can only be written once its contract's committed
+    bytes exist: contracts, then the policy that pins them, then the apply. The pins
+    are read back with `load_committed_task` rather than computed here, so the fixture
+    cannot disagree with the reader about what "the committed bytes" are -- and
+    `core.autocrlf` is pinned off so the committed bytes are the bytes written.
+    """
+
+    _git(stack, "init", "-b", "master")
+    _git(stack, "config", "user.name", "Policy Audit Fixture")
+    _git(stack, "config", "user.email", "policy-audit@nosafecircle.invalid")
+    _git(stack, "config", "core.autocrlf", "false")
+    for task_id in (APPLY_PARENT, APPLY_BYSTANDER, APPLY_UNTOUCHED):
+        _write_task(stack, _plain_task(task_id, 1))
+    _git(stack, "add", ".")
+    _git(stack, "commit", "-q", "-m", "contracts")
+    contracts = _git(stack, "rev-parse", "HEAD")
+
+    entries = {}
+    for task_id in (APPLY_PARENT, APPLY_BYSTANDER, APPLY_UNTOUCHED):
+        if task_id == APPLY_PARENT and not pin_parent:
+            continue
+        exact = load_committed_task(stack, task_id, commit=contracts)["task_contract_sha256"]
+        entries[task_id] = _pinned_entry("0" * 64 if task_id == pre_stale else exact)
+    _write_policy(stack, entries)
+    _git(stack, "add", ".")
+    _git(stack, "commit", "-q", "-m", "policy pins the contracts")
+    before = _git(stack, "rev-parse", "HEAD")
+
+    # The apply: the parent is rewritten, every task that referenced it is
+    # re-serialized, the children are created, and the policy is not touched.
+    _write_task(stack, _plain_task(APPLY_PARENT, 2, decomposition_state="decomposed",
+                                  decomposition_children=list(APPLY_CHILDREN)))
+    _write_task(stack, _plain_task(APPLY_BYSTANDER, 2, depends_on=list(APPLY_CHILDREN)))
+    for child_id in APPLY_CHILDREN:
+        _write_task(stack, _plain_task(child_id, 1, parent=APPLY_PARENT))
+    if not keep_policy:
+        (stack / VALIDATION_POLICY_RELATIVE).unlink()
+    _git(stack, "add", "--all")
+    _git(stack, "commit", "-q", "-m", "apply the decomposition")
+    return before, _git(stack, "rev-parse", "HEAD")
+
+
+def _findings(root: Path, before: str, after: str) -> tuple[dict[str, Any], ...]:
+    return applied_policy_findings(
+        root, before_commit=before, after_commit=after,
+        parent_task_id=APPLY_PARENT, child_task_ids=list(APPLY_CHILDREN),
+    )
+
+
+def _by_condition(findings, condition: str) -> list[dict[str, Any]]:
+    return [item for item in findings if item["condition"] == condition]
+
+
+def test_an_apply_names_the_parent_pin_it_broke() -> None:
+    """The pin the apply invalidated is reported, and attributed to the apply."""
+
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        before, after = _apply_fixture(root)
+        findings = _findings(root, before, after)
+        stale = _by_condition(findings, POLICY_PIN_STALE)
+        named = {item["task_id"] for item in stale}
+        require(APPLY_PARENT in named, f"the parent's broken pin was not reported: {named}")
+        parent = next(item for item in stale if item["task_id"] == APPLY_PARENT)
+        require(parent["stale_before_this_apply"] is False,
+                f"the parent pin was blamed on the wrong commit: {parent}")
+        require(parent["rewritten_by_this_apply"] is True, str(parent))
+        require("the decomposed parent" in parent["detail"], parent["detail"])
+        require(APPLY_UNTOUCHED not in named,
+                f"an entry the apply never touched was reported stale: {named}")
+
+
+def test_an_apply_names_the_bystander_pins_it_broke_not_only_the_parent() -> None:
+    """A task rewritten only because it referenced the parent is reported too.
+
+    This is the half a parent-scoped fix would miss, and it is the majority of the
+    real damage: measured on the two applies that caused this defect, `644e3c4f` broke
+    NSC-007 (its parent) and NSC-098 (a bystander), and `b5c64602` broke NSC-099 alone
+    while leaving its own parent's pin untouched because NSC-015 carries no entry. Two
+    of the three broken pins belonged to tasks that were not being decomposed.
+    """
+
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        before, after = _apply_fixture(root)
+        stale = _by_condition(_findings(root, before, after), POLICY_PIN_STALE)
+        named = {item["task_id"] for item in stale}
+        require(APPLY_BYSTANDER in named,
+                f"a rewritten bystander's broken pin was not reported: {named}")
+        item = next(entry for entry in stale if entry["task_id"] == APPLY_BYSTANDER)
+        require(item["rewritten_by_this_apply"] is True, str(item))
+        require(item["stale_before_this_apply"] is False, str(item))
+        require("referenced the parent" in item["detail"], item["detail"])
+
+
+def test_a_pin_already_stale_before_the_apply_is_not_blamed_on_the_apply() -> None:
+    """Pre-existing staleness is reported and explicitly not attributed to the apply.
+
+    Both halves matter. Reporting it is right -- it is a real defect and this is the
+    moment someone is looking. Attributing it to the apply would overstate the apply's
+    damage, which is how a cause that accounts for part of a phenomenon gets published
+    as the whole of it.
+    """
+
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        before, after = _apply_fixture(root, pre_stale=APPLY_UNTOUCHED)
+        stale = _by_condition(_findings(root, before, after), POLICY_PIN_STALE)
+        item = next((entry for entry in stale if entry["task_id"] == APPLY_UNTOUCHED), None)
+        require(item is not None, f"a pre-existing stale pin went unreported: {stale}")
+        require(item["stale_before_this_apply"] is True, str(item))
+        require(item["rewritten_by_this_apply"] is False, str(item))
+        require("did not cause it" in item["detail"], item["detail"])
+        parent = next(entry for entry in stale if entry["task_id"] == APPLY_PARENT)
+        require(parent["stale_before_this_apply"] is False,
+                "the apply's own damage was mislabelled as pre-existing")
+
+
+def test_an_apply_names_every_child_it_left_unpinned() -> None:
+    """A child with no entry is reported, which no assertion over the entries can do."""
+
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        before, after = _apply_fixture(root)
+        unpinned = _by_condition(_findings(root, before, after), POLICY_CHILD_UNPINNED)
+        require({item["task_id"] for item in unpinned} == set(APPLY_CHILDREN),
+                f"the unpinned children were not reported: {unpinned}")
+        for item in unpinned:
+            require(item["parent_task_id"] == APPLY_PARENT, str(item))
+            require("authored Unity test class names" in item["detail"], item["detail"])
+
+
+def test_a_child_is_only_called_unpinned_when_its_parent_was_pinned() -> None:
+    """No entry is the NORMAL case, so it is only a finding when coverage was lost.
+
+    65 of the 128 committed contracts carry no policy entry and never needed one. A
+    finding on every entry-less task would fire on the majority of the graph and
+    train its reader to ignore it, so the condition is the narrower one that needs no
+    authored value: the parent was pinned and the child is not.
+    """
+
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        before, after = _apply_fixture(root, pin_parent=False)
+        findings = _findings(root, before, after)
+        require(_by_condition(findings, POLICY_CHILD_UNPINNED) == [],
+                f"an unpinned child was reported although nothing was pinned: {findings}")
+        # The control: the same children ARE reported when the parent carries an entry,
+        # so the empty result above is a decision and not a broken query.
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        before, after = _apply_fixture(root)
+        require(len(_by_condition(_findings(root, before, after), POLICY_CHILD_UNPINNED)) == 2,
+                "the control did not reproduce the reported case")
+
+
+def test_an_unreadable_policy_is_not_reported_as_a_consistent_one() -> None:
+    """Nobody-could-look and nothing-is-wrong are different states.
+
+    Both would otherwise return an empty finding list, and collapsing them is how an
+    unchecked policy reads as a clean one -- the same defect as a container sweep that
+    reports "nothing was orphaned" when in fact nothing could be enumerated.
+    """
+
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        before, after = _apply_fixture(root, keep_policy=False)
+        findings = _findings(root, before, after)
+        require(len(findings) == 1, f"expected exactly one finding, got {findings}")
+        require(findings[0]["condition"] == POLICY_UNREADABLE, str(findings))
+        require("nobody could look" not in describe_policy_findings(findings),
+                "the one-line description should name the condition, not editorialise")
+        require("policy_unreadable" in describe_policy_findings(findings),
+                describe_policy_findings(findings))
+
+
+def test_a_consistent_policy_says_so_rather_than_returning_silence() -> None:
+    """An empty finding list must be describable as a positive statement."""
+
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        before, _after = _apply_fixture(root)
+        # `before` against itself: nothing was rewritten and nothing is stale.
+        findings = applied_policy_findings(
+            root, before_commit=before, after_commit=before,
+            parent_task_id=APPLY_PARENT, child_task_ids=[],
+        )
+        require(findings == (), f"a consistent policy produced findings: {findings}")
+        described = describe_policy_findings(findings)
+        require("no stale pin, no unpinned child" in described, described)
+
+
+def test_the_stale_rule_is_the_one_every_candidate_validation_already_uses() -> None:
+    """Pin the verdict against `validation_plan_for`, in the other module.
+
+    A check whose expectations come from the artifact it checks is self-consistent by
+    construction. So the authority for both conditions is the reader the pipeline
+    already runs: it RAISES "authoritative validation policy for <id> is stale" for a
+    drifted pin, and RETURNS None for a task with no entry and no inherited template.
+    If either rule moves, this fails here rather than in production.
+    """
+
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        before, after = _apply_fixture(root)
+        findings = _findings(root, before, after)
+
+        parent = load_committed_task(root, APPLY_PARENT, commit=after)
+        refusal = rejects(lambda: validation_plan_for(root, parent), DownstreamPipelineError)
+        require("is stale" in str(refusal), str(refusal))
+        require(APPLY_PARENT in str(refusal), str(refusal))
+        require(APPLY_PARENT in {item["task_id"] for item in
+                                 _by_condition(findings, POLICY_PIN_STALE)},
+                "the reader calls the parent stale and the findings do not")
+
+        child = load_committed_task(root, APPLY_CHILDREN[0], commit=after)
+        require(validation_plan_for(root, child) is None,
+                "the reader resolved a plan for a child this fixture left unpinned")
+        require(APPLY_CHILDREN[0] in {item["task_id"] for item in
+                                      _by_condition(findings, POLICY_CHILD_UNPINNED)},
+                "the reader gives that child no plan and the findings do not say so")
+
+        # And the untouched entry still resolves, so the two rules above are
+        # discriminating rather than refusing everything this fixture builds.
+        untouched = load_committed_task(root, APPLY_UNTOUCHED, commit=after)
+        plan = validation_plan_for(root, untouched)
+        require(plan is not None and plan["task_id"] == APPLY_UNTOUCHED, str(plan))
+
+
+def test_the_apply_computes_and_records_the_findings() -> None:
+    """Pin the wiring, not just the helper.
+
+    A helper nothing calls is a helper that reports nothing, and a whole-file revert
+    would only ever produce an ImportError -- a failure with no assertion in it. This
+    reads the apply's own syntax tree so that removing the call, or dropping the
+    record field, fails on a sentence.
+    """
+
+    module = ast.parse(
+        (ROOT / "Pipeline" / "AssistantControl" / "decomposition.py").read_text(
+            encoding="utf-8"
+        )
+    )
+    locked = next(
+        (node for node in ast.walk(module)
+         if isinstance(node, ast.FunctionDef) and node.name == "_apply_locked"),
+        None,
+    )
+    require(locked is not None, "_apply_locked is gone from decomposition.py")
+    called = {
+        node.func.id for node in ast.walk(locked)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+    }
+    require("applied_policy_findings" in called,
+            "_apply_locked never computes the validation policy findings, so an apply"
+            " still leaves a stale pin and an unpinned child unreported")
+    updates = [
+        node for node in ast.walk(locked)
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "update"
+    ]
+    recorded = {keyword.arg for node in updates for keyword in node.keywords}
+    require("validation_policy_findings" in recorded,
+            "the applied record does not carry validation_policy_findings, so the"
+            " findings die with the process that computed them")
+    require("describe_policy_findings" in called,
+            "_apply_locked computes the findings and never renders them to a log")
+
+
 TESTS = (
     test_committed_policy_satisfies_the_decomposition_reader_schema,
     test_committed_policy_audits_clean_against_the_committed_graph,
@@ -965,6 +1301,15 @@ TESTS = (
     test_a_bound_source_commit_is_audited_at_that_commit,
     test_the_preflight_runs_selection_rules_and_the_policy_audit_together,
     test_an_inherited_child_policy_survives_a_clone_to_receiver_merge,
+    test_an_apply_names_the_parent_pin_it_broke,
+    test_an_apply_names_the_bystander_pins_it_broke_not_only_the_parent,
+    test_a_pin_already_stale_before_the_apply_is_not_blamed_on_the_apply,
+    test_an_apply_names_every_child_it_left_unpinned,
+    test_a_child_is_only_called_unpinned_when_its_parent_was_pinned,
+    test_an_unreadable_policy_is_not_reported_as_a_consistent_one,
+    test_a_consistent_policy_says_so_rather_than_returning_silence,
+    test_the_stale_rule_is_the_one_every_candidate_validation_already_uses,
+    test_the_apply_computes_and_records_the_findings,
 )
 
 
