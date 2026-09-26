@@ -79,8 +79,18 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing
                         placement.instance_id + " resolved no sprite for prop '" + placement.prop_id + "'.");
                     Assert.AreEqual(SpriteSortPoint.Pivot, renderer.spriteSortPoint,
                         placement.instance_id + " must sort by pivot, as the world-sprite convention requires.");
-                    Assert.AreEqual(placement.sorting_order, renderer.sortingOrder,
-                        placement.instance_id + " must carry the authored sorting order.");
+                    // NOT the authored sorting_order, deliberately. Every prop sits in the
+                    // shared world-sprite band so the camera transparency axis decides its
+                    // depth by POSITION. An authored integer here is compared BEFORE the axis
+                    // and wins unconditionally, which is how a bookshelf came to render behind
+                    // a wizard who was standing behind it. The catalog keeps its numbers and
+                    // Catalog_ObeysTheSortingRuleItDeclares still checks them against the rule
+                    // the catalog declares; they are simply not what the renderer carries.
+                    Assert.AreEqual(
+                        NoSafeCircle.DoorPrototype.Editor.DoorPrototypeSceneBuilder.WorldSpriteSortingOrder,
+                        renderer.sortingOrder,
+                        placement.instance_id + " must sit in the shared world-sprite band, not "
+                        + "carry an authored order that outranks the camera axis.");
 
                     // NO COLLIDERS, EVER. Dressing is scenery; it must never change where the
                     // wizard can walk. Checked per placement rather than once on the root, because

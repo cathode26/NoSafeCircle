@@ -60,7 +60,10 @@ namespace NoSafeCircle.DoorPrototype.Editor
         // wrongly against every world sprite. Reaching this constant across that boundary is
         // also what left NSC-045's candidate unable to compile.
         public const string WorldSpriteSortingLayerName = "WorldSprites";
-        private const int WorldSpriteSortingOrder = 0;
+        // PUBLIC for the same reason the two background constants below are: the five
+        // dressing prefab builders and the separate Editor test assembly must reach ONE
+        // definition of the shared band instead of each restating 0.
+        public const int WorldSpriteSortingOrder = 0;
 
         // THE BACKGROUND BAND MUST SIT STRICTLY BELOW EVERY AUTHORED DRESSING sorting_order.
         // It was -100/-90, and at that value the floor painted over 189 of the 222 placements

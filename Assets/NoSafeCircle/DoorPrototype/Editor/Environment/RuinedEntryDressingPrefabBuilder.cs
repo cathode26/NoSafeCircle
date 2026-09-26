@@ -108,7 +108,25 @@ namespace NoSafeCircle.DoorPrototype.Editor.Environment
                 var renderer = instance.AddComponent<SpriteRenderer>();
                 renderer.sprite = sprite;
                 renderer.sortingLayerName = DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
-                renderer.sortingOrder = placement.sorting_order;
+                // ONE BAND, AND THE CAMERA AXIS DECIDES. This was placement.sorting_order,
+                // and that is why a wizard standing BEHIND a bookshelf was drawn in front of
+                // it: sortingOrder is compared BEFORE the transparency axis, so a shelf at
+                // -160 lost to a wizard at 0 at EVERY position, and position never got to
+                // arbitrate. Two depth systems cannot coexist - the integer always wins.
+                //
+                // WHY THE PROPS ARE THE ONES THAT MOVE, rather than the wizard: walls are
+                // Tilemaps, a TilemapRenderer carries ONE sortingOrder for an entire run, and
+                // Unity has no per-tile order. Walls therefore cannot hold per-position depth
+                // and must stay in the axis-sorted band; the wizard must stay there to sort
+                // against walls; so the props have to come there too. The constraint runs
+                // walls -> wizard -> props and there is no arrangement that keeps the
+                // authored integers AND lets walls occlude correctly.
+                //
+                // The authored sorting_order STAYS IN THE CATALOGS and is still asserted
+                // against the catalogs own declared rule by Catalog_ObeysTheSortingRuleItDeclares.
+                // It is simply no longer applied to a renderer.
+                renderer.sortingOrder =
+                    NoSafeCircle.DoorPrototype.Editor.DoorPrototypeSceneBuilder.WorldSpriteSortingOrder;
                 renderer.spriteSortPoint = SpriteSortPoint.Pivot;
 
                 // No collider is added, ever. Dressing is scenery and must not change where the
