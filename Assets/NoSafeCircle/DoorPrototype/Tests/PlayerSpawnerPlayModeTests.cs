@@ -60,8 +60,6 @@ namespace NoSafeCircle.DoorPrototype.Tests
         // One wizard and one camera per Spawn(), from the lane specification (section 4.4 step 7).
         private const int ObjectsPerSpawn = 2;
 
-        private const int RenderWidth = 800;
-        private const int RenderHeight = 600;
 
         private GameObject floor;
         private GameObject placeholderCameraObject;
@@ -387,7 +385,28 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             // Batch mode has no Game View: give the spawned camera a fixed pixel surface so
             // WorldToScreenPoint and ScreenPointToRay agree, as PlayerMovementPlayModeTests does.
-            renderTexture = new RenderTexture(RenderWidth, RenderHeight, 24);
+            // SIZE THE RENDER TEXTURE TO THE SCREEN, AND THIS IS THE WHOLE BUG.
+            //
+            // A mouse position lives in SCREEN space. Camera.ScreenPointToRay interprets its
+            // argument against the camera's pixelRect, which becomes the RENDER TEXTURE's size the
+            // moment a target texture is attached. So a click point computed through the camera and
+            // then written to the mouse only round-trips when the render texture matches the screen.
+            //
+            // Hardcoded 800x600 against a 640x480 batchmode screen is why this test failed ONLY in
+            // combination: measured at the failure, pixelRect=(0,0,800,600) while screen=640x480,
+            // and the ray landed at (-2.57, 0.00, -38.51) for a click aimed at (-1.00, 0.00,
+            // -19.00). Everything else was exonerated first - one mouse, ours, at the exact screen
+            // point; Camera.main the spawner's; gameplay enabled; nothing accumulated.
+            //
+            // IN THE SHIPPED GAME THERE IS NO TARGET TEXTURE, so pixelRect IS the screen and the
+            // correspondence holds. The defect was in the fixture, never in PlayerMovement - which
+            // is what Vincent demonstrated by walking the wizard around long before this was found.
+            //
+            // Every other PlayMode fixture hardcodes 800x600 the same way (DoorInteractionFeedback,
+            // DoorSpawner, EnemyHoverHighlight, HoldPosition, PlayerMovement, WizardAnimation).
+            // They only escape this because they do not round-trip world->screen->world through the
+            // mouse. The convention is still fragile and worth fixing there too.
+            renderTexture = new RenderTexture(Screen.width, Screen.height, 24);
             renderTexture.Create();
             spawner.Camera.targetTexture = renderTexture;
             yield return null;
