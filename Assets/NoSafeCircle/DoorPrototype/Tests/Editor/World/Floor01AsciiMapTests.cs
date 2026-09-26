@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using NUnit.Framework;
+using UnityEngine;
 using NoSafeCircle.DoorPrototype.World.Rooms;
 
 namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
@@ -190,6 +191,111 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
             {
                 Assert.AreEqual(original[i].TrimEnd(' '), rendered[i].TrimEnd(' '),
                     "Row " + (i + 1) + " did not survive the round trip.");
+            }
+        }
+
+        [Test]
+        public void MapRectContainsEachRoomsLayoutRectAndDiffersByLessThanOneCell()
+        {
+            // THIS TEST REPLACES A DESIGN STEP THAT WAS GOING TO MOVE A DELIVERED ROOM.
+            //
+            // The walls addendum (2A) found that the map's Final Room rectangle is X [-16,+16] while
+            // FinalRoomLayout says X [-15,+15], and proposed snapping the room to +/-16 because 15 is
+            // not on the 2-unit cell lattice. Measured cost of that snap: NSC-048 is `conformant`
+            // with an approved delivery record, and its AC-001 requirement text names "X [-15,+15]"
+            // literally, as do AC-003 (the wall runs and the -14.849 Tilemap inset), AC-004 (the
+            // split collider spans) and NSC-049's INT-001 (the shared Z 76 reconciliation over
+            // X [-15,+15] and the Lower Vault jog over X [-20,-15] and [+15,+20]). Editing a
+            // delivered task's requirement voids its delivery record, so a 1-unit cosmetic
+            // alignment would have un-delivered the only delivered room work in the sprint.
+            //
+            // IT COSTS NOTHING TO LEAVE IT, because 2A's own decision 1 already says the layouts -
+            // never the map - are authoritative for "exact wall-collider lines". The spawner takes
+            // each room's collider line and run extent from its *Layout.cs and takes only the
+            // TOPOLOGY (which cells are band, floor, opening, outside) from the map, so the wall the
+            // wizard sees stands on the line he collides with and there is no 1-unit gap to close.
+            //
+            // WHAT THIS ASSERTS IS THEREFORE A RELATION, NOT A COORDINATE: a 2-unit grid cannot
+            // place a boundary on an odd world coordinate, so the map's rectangle CONTAINS the
+            // layout's and differs from it by strictly less than one cell on every edge. That is
+            // true of any room anyone adds later. The per-room insets are pinned as well so a map
+            // edit cannot silently widen one - four rooms are exact and only the Final Room's two X
+            // edges carry the half-cell, which is a property of the GRID and not a defect in the room.
+            AsciiRoomMap map = ParseOrFail();
+
+            // Every room exposes RoomBounds; only four of five expose Minimum/MaximumX, so the
+            // bounds accessor is the one that works uniformly and keeps this table symmetric.
+            // name, layout bounds, expected west inset, expected east inset
+            var rooms = new[]
+            {
+                new object[] { "RuinedEntry", RuinedEntryLayout.RoomBounds, 0f, 0f },
+                new object[] { "BoneArchive", BoneArchiveLayout.RoomBounds, 0f, 0f },
+                new object[] { "ChapelOfAsh", ChapelOfAshLayout.RoomBounds, 0f, 0f },
+                new object[] { "LowerVault", LowerVaultLayout.RoomBounds, 0f, 0f },
+                new object[] { "FinalRoom", FinalRoomLayout.RoomBounds, 1f, 1f },
+            };
+
+            foreach (object[] room in rooms)
+            {
+                var name = (string)room[0];
+                var layout = (Bounds)room[1];
+                float layoutMinX = layout.min.x;
+                float layoutMaxX = layout.max.x;
+                float layoutMinZ = layout.min.z;
+                float layoutMaxZ = layout.max.z;
+                float expectedWestInset = (float)room[2];
+                float expectedEastInset = (float)room[3];
+
+                // Rows are derived from the room's own Z bounds and the map origin, so a room that
+                // moves in Z is read at its new rows rather than at a frozen row number.
+                int firstRow = (int)((MaximumZ - layoutMaxZ) / AsciiRoomMap.WorldUnitsPerCell);
+                int lastRow = (int)((MaximumZ - layoutMinZ) / AsciiRoomMap.WorldUnitsPerCell) - 1;
+
+                int firstColumn = int.MaxValue;
+                int lastColumn = int.MinValue;
+                for (int row = firstRow; row <= lastRow; row++)
+                {
+                    for (int column = 0; column < Columns; column++)
+                    {
+                        if (map[column, row] == AsciiCell.Outside)
+                        {
+                            continue;
+                        }
+
+                        firstColumn = column < firstColumn ? column : firstColumn;
+                        lastColumn = column > lastColumn ? column : lastColumn;
+                    }
+                }
+
+                Assert.AreNotEqual(int.MaxValue, firstColumn,
+                    name + " occupies rows " + firstRow + ".." + lastRow
+                    + " of the map and every cell in them is Outside. The room is missing from the map.");
+
+                float mapMinX = MinimumX + (AsciiRoomMap.WorldUnitsPerCell * firstColumn);
+                float mapMaxX = MinimumX + (AsciiRoomMap.WorldUnitsPerCell * (lastColumn + 1));
+
+                // Containment, in the only direction a coarser grid can err.
+                Assert.LessOrEqual(mapMinX, layoutMinX,
+                    name + ": the map's west edge " + mapMinX + " is inside the layout's "
+                    + layoutMinX + ", so part of the room has no cell to be drawn in.");
+                Assert.GreaterOrEqual(mapMaxX, layoutMaxX,
+                    name + ": the map's east edge " + mapMaxX + " is inside the layout's "
+                    + layoutMaxX + ", so part of the room has no cell to be drawn in.");
+
+                // Less than one cell, which is what makes the inset a rounding artifact rather
+                // than a disagreement about where the room is.
+                Assert.Less(layoutMinX - mapMinX, AsciiRoomMap.WorldUnitsPerCell,
+                    name + ": the map's west edge is a whole cell or more outside the layout's.");
+                Assert.Less(mapMaxX - layoutMaxX, AsciiRoomMap.WorldUnitsPerCell,
+                    name + ": the map's east edge is a whole cell or more outside the layout's.");
+
+                // And exactly the inset we measured, so nobody widens a room by editing the map.
+                Assert.AreEqual(expectedWestInset, layoutMinX - mapMinX, 0.001f,
+                    name + ": west inset changed. Map " + mapMinX + ", layout " + layoutMinX
+                    + ". If the room really moved, move it in its *Layout.cs and revise its contract;"
+                    + " if the map is wrong, fix the map.");
+                Assert.AreEqual(expectedEastInset, mapMaxX - layoutMaxX, 0.001f,
+                    name + ": east inset changed. Map " + mapMaxX + ", layout " + layoutMaxX + ".");
             }
         }
     }

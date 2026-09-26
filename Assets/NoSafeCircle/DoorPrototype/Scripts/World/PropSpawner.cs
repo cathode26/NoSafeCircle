@@ -27,7 +27,7 @@ namespace NoSafeCircle.DoorPrototype.World
     // visual and physical property belongs to the prefab, where a human or an agent can edit it and
     // have the edit survive.
     [DisallowMultipleComponent]
-    public sealed class PropSpawner : MonoBehaviour
+    public sealed class PropSpawner : MonoBehaviour, ISpawner
     {
         // Resources rather than a serialized prefab registry, deliberately, and the reason is
         // concurrency rather than convenience: a registry is ONE shared file that every prop author
@@ -35,6 +35,11 @@ namespace NoSafeCircle.DoorPrototype.World
         // set of 45 independent files. With Resources, adding a prop is one prefab plus one meta and
         // touches nothing anyone else owns.
         private const string PropResourceFolder = "Props/";
+
+        /// <summary>Props run after Rooms and before Navigation, because they are solid: the navmesh
+        /// has to bake around the colliders these prefabs carry. Same fact as "props should block
+        /// you", seen from the navmesh's side.</summary>
+        public SpawnPhase Phase => SpawnPhase.Props;
 
         [Tooltip("The *DressingCatalog.json files, as TextAssets. Drag all five in. Read as "
             + "TextAsset rather than File.ReadAllText because File IO does not work on WebGL.")]

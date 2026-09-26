@@ -1,6 +1,6 @@
 %YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
---- !u!1 &6461986870669863047
+--- !u!1 &2100000000000000001
 GameObject:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -8,22 +8,22 @@ GameObject:
   m_PrefabAsset: {fileID: 0}
   serializedVersion: 6
   m_Component:
-  - component: {fileID: 1580228902000910684}
-  - component: {fileID: 7692138792266165626}
+  - component: {fileID: 2100000000000000002}
+  - component: {fileID: 2100000000000000003}
   m_Layer: 0
-  m_Name: PropSpawner
+  m_Name: GameManagers
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
---- !u!4 &1580228902000910684
+--- !u!4 &2100000000000000002
 Transform:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6461986870669863047}
+  m_GameObject: {fileID: 2100000000000000001}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
@@ -32,23 +32,17 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &7692138792266165626
+--- !u!114 &2100000000000000003
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6461986870669863047}
+  m_GameObject: {fileID: 2100000000000000001}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e83d093f6dcce414b85565d68b70070c, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  catalogs:
-  - {fileID: 4900000, guid: a17f436829c20a542a1d5c516f22e8de, type: 3}
-  - {fileID: 4900000, guid: 4e418a5aa43621041be532e713640498, type: 3}
-  - {fileID: 4900000, guid: 7a9ed0f1aad4502468843e3a8bc11033, type: 3}
-  - {fileID: 4900000, guid: 79b2c1ac4f9c6404eafcf25072c56846, type: 3}
-  - {fileID: 4900000, guid: 479561ae1803fac4298e002c092fbcf8, type: 3}
-  dressingRoot: {fileID: 0}
-  spawnOnAwake: 1
+  m_Script: {fileID: 11500000, guid: fa70d0f7b351992ba0e6b2ea052eb4b4, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  buildOnStart: 1
+  logPhases: 1
