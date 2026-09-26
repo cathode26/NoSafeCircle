@@ -304,57 +304,66 @@ namespace NoSafeCircle.DoorPrototype.Tests
             }
         }
 
-        // NSC-049 VAL-008/AC-005/AC-006: reads DoorPrototypeGlobalSceneBuilder's fixed melee/
-        // ranged squad arrays by reflection (this Play Mode test can reach the baked gameplay
-        // NavMesh, unlike the Edit Mode composition tests) and asserts the counts, the AC-005
-        // per-room distribution and placement-intent oracles, and AC-006's clearance conditions
-        // for every entry.
-        [UnityTest]
-        public IEnumerator ComposedScene_FixedSquadSpawns_MatchApprovedDistributionOraclesAndClearance()
+        // The four-room table and RoomOf lookup used to be a local function/array inside
+        // ComposedScene_FixedSquadSpawns_MatchApprovedDistributionAndOracles below. Promoted to
+        // shared static state so FixedSquadSpawnPositionTests (the per-position AC-006 cases
+        // split out below) can compute the same room membership without duplicating the table.
+        private static readonly (string Name, float MinX, float MaxX, float MinZ, float MaxZ)[] Rooms =
         {
-            yield return SceneManager.LoadSceneAsync("RuntimeWorld", LoadSceneMode.Single);
-            yield return WaitForWorldBuilt();
-            Physics.SyncTransforms();
+            ("BoneArchive", -12f, 12f, 0f, 20f),
+            ("ChapelOfAsh", -18f, 18f, 20f, 54f),
+            ("LowerVault", -20f, 20f, 54f, 76f),
+            ("FinalRoom", -15f, 15f, 76f, 104f),
+        };
 
+        private static string RoomOf(Vector3 position)
+        {
+            foreach (var room in Rooms)
+            {
+                if (position.x >= room.MinX && position.x <= room.MaxX &&
+                    position.z >= room.MinZ && position.z <= room.MaxZ)
+                {
+                    return room.Name;
+                }
+            }
+            return null;
+        }
+
+        private static System.Type ResolveBuilderType()
+        {
             var builderType = System.Type.GetType(
                 "NoSafeCircle.DoorPrototype.Editor.World.DoorPrototypeGlobalSceneBuilder, " +
                 "NoSafeCircle.DoorPrototype.Editor");
             Assert.IsNotNull(builderType,
                 "VAL-008: expected to reflect DoorPrototypeGlobalSceneBuilder from the Editor assembly.");
+            return builderType;
+        }
 
+        // NSC-049 VAL-008/AC-005: reads DoorPrototypeGlobalSceneBuilder's fixed melee/ranged
+        // squad arrays by reflection (this Play Mode test can reach the baked gameplay NavMesh,
+        // unlike the Edit Mode composition tests) and asserts the counts, the AC-005 per-room
+        // distribution and the placement-intent oracles that compare positions WITHIN a room to
+        // each other - relations a single per-position case cannot express.
+        //
+        // AC-006 clearance (wall inset, NavMesh sample, CheckSphere) and the general AC-005
+        // "falls within an approved room" membership check moved to FixedSquadSpawnPositionTests
+        // below: those are independent per spawn, and this method's single [UnityTest] used to
+        // throw on the FIRST failing one and hide the rest. Splitting them means N spawn defects
+        // now report as N failing cases instead of 1 - see NSC's game-fixer brief for
+        // fix/spawn-test-split. NOT a coordinate fix: no position value changed by this split.
+        [UnityTest]
+        public IEnumerator ComposedScene_FixedSquadSpawns_MatchApprovedDistributionAndOracles()
+        {
+            yield return SceneManager.LoadSceneAsync("RuntimeWorld", LoadSceneMode.Single);
+            yield return WaitForWorldBuilt();
+            Physics.SyncTransforms();
+
+            var builderType = ResolveBuilderType();
             var meleePositions = GetPrivateStaticVector3Array(builderType, "EnemySpawnPositions");
             var rangedPositions = GetPrivateStaticVector3Array(builderType, "LanternWraithSpawnPositions");
 
             Assert.AreEqual(5, meleePositions.Length, "AC-005: exactly 5 melee entries.");
             Assert.AreEqual(4, rangedPositions.Length, "AC-005: exactly 4 ranged entries.");
-
-            var rooms = new (string Name, float MinX, float MaxX, float MinZ, float MaxZ)[]
-            {
-                ("BoneArchive", -12f, 12f, 0f, 20f),
-                ("ChapelOfAsh", -18f, 18f, 20f, 54f),
-                ("LowerVault", -20f, 20f, 54f, 76f),
-                ("FinalRoom", -15f, 15f, 76f, 104f),
-            };
-
-            string RoomOf(Vector3 position)
-            {
-                foreach (var room in rooms)
-                {
-                    if (position.x >= room.MinX && position.x <= room.MaxX &&
-                        position.z >= room.MinZ && position.z <= room.MaxZ)
-                    {
-                        return room.Name;
-                    }
-                }
-                return null;
-            }
-
-            foreach (var position in meleePositions.Concat(rangedPositions))
-            {
-                Assert.IsNotNull(RoomOf(position),
-                    $"AC-005: fixed spawn {position} must fall within one of the four approved " +
-                    "enemy-bearing rooms.");
-            }
 
             var meleeByRoom = meleePositions.GroupBy(RoomOf).ToDictionary(g => g.Key, g => g.ToList());
             var rangedByRoom = rangedPositions.GroupBy(RoomOf).ToDictionary(g => g.Key, g => g.ToList());
@@ -409,12 +418,87 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "AC-005(d): Final Room ranged spawn must lie within 12 units of D4.");
             Assert.IsTrue(HasClearLinecast(finalRanged, new Vector2(4f, 77.5f)),
                 "AC-005(d): Final Room ranged spawn must have a clear Linecast to the D4 approach point.");
+        }
 
-            // AC-006: every one of the 9 fixed entries.
-            foreach (var position in meleePositions.Concat(rangedPositions))
+        // NSC-049 AC-005 (general membership)/AC-006: one case per fixed spawn (9 total: 5 melee +
+        // 4 ranged), split out of ComposedScene_FixedSquadSpawns_MatchApprovedDistributionAndOracles
+        // above so N independent spawn defects report as N failing cases instead of NUnit's single
+        // [UnityTest] throwing on the first Assert and hiding the rest. Every check here is about
+        // ONE position in isolation (room membership, wall inset, NavMesh sample, clearance) -
+        // never a relation between two spawns, which is what stayed in the method above.
+        //
+        // SpawnPositionCases() runs at NUnit test-COLLECTION time, before any scene loads or
+        // PlayMode setup runs: it reflects DoorPrototypeGlobalSceneBuilder's private static
+        // Vector3[] fields directly off the compiled Editor assembly, which is already loaded in
+        // the Editor domain regardless of PlayMode state. Verified by running this fixture: the
+        // 9 named cases (BoneArchive_Melee_1, BoneArchive_Ranged_1, ChapelOfAsh_Melee_1,
+        // ChapelOfAsh_Ranged_1, LowerVault_Melee_1, LowerVault_Ranged_1, FinalRoom_Melee_1,
+        // FinalRoom_Melee_2, FinalRoom_Ranged_1) show up in the PlayMode test list and each runs
+        // independently.
+        //
+        // Loads RuntimeWorld ONCE for all 9 cases (a static s_WorldBuilt guard in UnitySetUp)
+        // rather than 9 separate async world builds: every check here is read-only (coordinate
+        // arithmetic, NavMesh.SamplePosition, Physics.CheckSphere), so sharing one built world is
+        // safe. OneTimeTearDown unloads it once after the last case runs.
+        [TestFixture]
+        public sealed class FixedSquadSpawnPositionTests
+        {
+            private static bool s_WorldBuilt;
+
+            [UnitySetUp]
+            public IEnumerator SetUp()
+            {
+                if (s_WorldBuilt) yield break;
+                yield return SceneManager.LoadSceneAsync("RuntimeWorld", LoadSceneMode.Single);
+                yield return WaitForWorldBuilt();
+                Physics.SyncTransforms();
+                s_WorldBuilt = true;
+            }
+
+            [OneTimeTearDown]
+            public void OneTimeTearDown()
+            {
+                s_WorldBuilt = false;
+                var scene = SceneManager.GetSceneByName("RuntimeWorld");
+                if (scene.IsValid() && scene.isLoaded)
+                {
+                    SceneManager.UnloadSceneAsync(scene);
+                }
+            }
+
+            // Named "{Room}_{Melee|Ranged}_{n}" so a CI failure identifies the spawn without
+            // anyone opening a log. n restarts per room+role (FinalRoom has two melee entries;
+            // every other room+role combination has exactly one).
+            private static IEnumerable<TestCaseData> SpawnPositionCases()
+            {
+                var builderType = ResolveBuilderType();
+                var meleePositions = GetPrivateStaticVector3Array(builderType, "EnemySpawnPositions");
+                var rangedPositions = GetPrivateStaticVector3Array(builderType, "LanternWraithSpawnPositions");
+
+                var roleCounts = new Dictionary<string, int>();
+                var tagged = meleePositions.Select(p => (Position: p, Role: "Melee"))
+                    .Concat(rangedPositions.Select(p => (Position: p, Role: "Ranged")));
+
+                foreach (var entry in tagged)
+                {
+                    var roomName = RoomOf(entry.Position) ?? "UnknownRoom";
+                    var key = roomName + "_" + entry.Role;
+                    roleCounts.TryGetValue(key, out var count);
+                    count++;
+                    roleCounts[key] = count;
+                    yield return new TestCaseData(entry.Position).SetName($"{roomName}_{entry.Role}_{count}");
+                }
+            }
+
+            [UnityTest]
+            [TestCaseSource(nameof(SpawnPositionCases))]
+            public IEnumerator ClearsWallInsetNavMeshAndCollision(Vector3 position)
             {
                 var roomName = RoomOf(position);
-                var room = rooms.Single(r => r.Name == roomName);
+                Assert.IsNotNull(roomName,
+                    $"AC-005: fixed spawn {position} must fall within one of the four approved " +
+                    "enemy-bearing rooms.");
+                var room = Rooms.Single(r => r.Name == roomName);
 
                 Assert.GreaterOrEqual(position.x, room.MinX + 1.5f,
                     $"AC-006: {position} must lie at least 1.5 units inside {room.Name}'s west wall.");
@@ -443,6 +527,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 var checkPoint = position + Vector3.up;
                 Assert.IsFalse(Physics.CheckSphere(checkPoint, 0.5f, Physics.AllLayers, QueryTriggerInteraction.Ignore),
                     $"AC-006: {position} must be clear of non-trigger colliders.");
+
+                yield break;
             }
         }
 
