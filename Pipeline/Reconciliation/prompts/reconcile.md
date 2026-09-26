@@ -1978,4 +1978,3 @@ This does NOT make `.gitignore` design canon or gameplay evidence. Do not use it
 to invent requirements, dependencies, ownership rules, acceptance criteria, or
 exclusive-resource decisions. No other root-level repository metadata file is
 approved by this exception unless the boundary is deliberately expanded later.
-

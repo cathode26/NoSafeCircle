@@ -245,4 +245,3 @@ class TaskCheckoutAncestryCallersTests(unittest.TestCase):
             2, checked,
             "expected exactly two task-checkout ancestry sites; the set changed",
         )
-

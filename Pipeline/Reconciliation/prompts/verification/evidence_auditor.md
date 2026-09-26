@@ -128,4 +128,3 @@ Evidence provenance is strict. Prompt text, verifier instructions, patch scripts
 ## 2026-08-21 FINAL MATERIAL CONVERGENCE
 
 For `fixed-isometric-camera`, distinguish requirement evidence from implementation evidence. Fixed isometric presentation/no free rotation is GDD-backed. Player-follow translation through `IsometricCameraFollow.cs` is valid current repository behavior but must not be presented as a GDD requirement unless the current GDD actually says so.
-

@@ -203,4 +203,3 @@ class ChangedPathsResolvabilityTests(unittest.TestCase):
         """The control. A fix that refused everything would pass the two above."""
         root, first, second = self._repo()
         self.assertEqual({"b.txt"}, review._changed_paths(root, first, second))
-

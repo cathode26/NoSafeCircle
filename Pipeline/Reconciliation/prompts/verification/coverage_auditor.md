@@ -591,4 +591,3 @@ A required runtime behavior is not durably represented merely because its senten
 Current canonical example: Frost Field slows Ranged Enemy locomotion/repositioning but does not stop its attacks. Coverage is durable when the status-effect owner explicitly limits the slow to locomotion/repositioning and the Ranged Enemy behavior can be validated to keep attacking while slowed.
 
 For `fixed-isometric-camera`, do not demand player-follow translation as a GDD requirement. The GDD requires fixed isometric presentation/no free rotation; current follow translation is repository implementation behavior unless the GDD is revised to require it.
-
