@@ -570,6 +570,96 @@ class ChecklistDeliveryTests(unittest.TestCase):
             _verify_review(manager, record)
 
 
+class NotesRuleBindingTests(unittest.TestCase):
+    """Pure/component regression checks; no repository or Unity assets are touched."""
+
+    def test_notes_rule_is_bound_between_host_record_and_result(self):
+        from Pipeline.AssistantControl.decomposition import _verify_bookkeeping_binding
+        record = {"providers": ["claude", "codex"], "bookkeeper_model": "fixture",
+                  "bookkeeper_provider": "claude", "designer_bookkeeper_version": "2.0",
+                  "ownership_sheet_review_version": "1.1"}
+        result = {"designer_bookkeeper": {"schema_version": "2.0", "bookkeeper_provider": "claude",
+                                         "bookkeeper_model": "fixture"}}
+        _verify_bookkeeping_binding(record, result)
+        record["notes_rule"] = result["designer_bookkeeper"]["notes_rule"] = "additions-1"
+        _verify_bookkeeping_binding(record, result)
+        for target in (record, result["designer_bookkeeper"]):
+            for marker in (None, "other-rule"):
+                with self.subTest(target=target, marker=marker):
+                    if marker is None:
+                        target.pop("notes_rule")
+                    else:
+                        target["notes_rule"] = marker
+                    with self.assertRaisesRegex(ValueError, "notes_rule"):
+                        _verify_bookkeeping_binding(record, result)
+                    target["notes_rule"] = "additions-1"
+        record["notes_rule"] = result["designer_bookkeeper"]["notes_rule"] = None
+        with self.assertRaisesRegex(ValueError, "notes_rule"):
+            _verify_bookkeeping_binding(record, result)
+
+    def test_notes_rule_is_bound_between_request_and_host_record(self):
+        from Pipeline.AssistantControl import decomposition as module
+        record = {"artifact_root": str(Path.cwd()), "run_id": "fixture", "task_id": "NSC-010",
+                  "providers": ["claude", "codex"], "max_calls": 2, "bookkeeper_model": "fixture",
+                  "bookkeeper_provider": "claude", "designer_bookkeeper_version": "2.0",
+                  "ownership_sheet_review_version": "1.1", "notes_rule": "additions-1",
+                  "timeout_profile": {"task_decomposer": 1440, "decomposition_reviewer": 1200}}
+        request = {"run_id": "fixture", "selected_task_id": "NSC-010", "provider_order": record["providers"],
+                   "max_calls": 2, "context_sha256": "fixture-hash", "bookkeeper_model": "fixture",
+                   "bookkeeper_provider": "claude", "designer_bookkeeper_version": "2.0",
+                   "ownership_sheet_review_version": "1.1", "notes_rule": "additions-1",
+                   "author_timeout_seconds": 1440, "reviewer_timeout_seconds": 1200}
+        context = SimpleNamespace(semantic_sha256="fixture-hash", to_dict=lambda: {})
+
+        def retained_path(root, relative):
+            data = json.dumps(request if relative == "decomposition_request.json" else {}).encode("utf-8")
+            return SimpleNamespace(is_file=lambda: True, read_bytes=lambda: data)
+
+        with patch.object(module, "confined", side_effect=retained_path), \
+                patch.object(module.ContextPackage, "from_payload", return_value=context):
+            module._verify_three_call_run_binding(record, {"context_sha256": "fixture-hash"})
+            for marker in (None, "other-rule"):
+                with self.subTest(marker=marker):
+                    if marker is None:
+                        request.pop("notes_rule")
+                    else:
+                        request["notes_rule"] = marker
+                    with self.assertRaisesRegex(ValueError, "request notes_rule"):
+                        module._verify_three_call_run_binding(record, {"context_sha256": "fixture-hash"})
+
+            for target in (request, record):
+                request["notes_rule"] = record["notes_rule"] = "additions-1"
+                target["notes_rule"] = None
+                with self.assertRaisesRegex(ValueError, "notes_rule"):
+                    module._verify_three_call_run_binding(record, {"context_sha256": "fixture-hash"})
+            request["notes_rule"] = record["notes_rule"] = None
+            with self.assertRaisesRegex(ValueError, "notes_rule"):
+                module._verify_three_call_run_binding(record, {"context_sha256": "fixture-hash"})
+
+    def test_inherited_notes_rule_cannot_be_added_or_removed(self):
+        from Pipeline.AssistantControl.decomposition import _verify_inherited_settings
+        settings = {"timeout_profile": {"task_decomposer": 1440, "decomposition_reviewer": 1200}}
+        record = deepcopy(settings)
+        _verify_inherited_settings(record, settings)
+        record["notes_rule"] = "additions-1"
+        with self.assertRaisesRegex(ValueError, "notes_rule"):
+            _verify_inherited_settings(record, settings)
+        settings["notes_rule"] = "additions-1"
+        _verify_inherited_settings(record, settings)
+        record.pop("notes_rule")
+        with self.assertRaisesRegex(ValueError, "notes_rule"):
+            _verify_inherited_settings(record, settings)
+        for target in (record, settings):
+            record.pop("notes_rule", None)
+            settings.pop("notes_rule", None)
+            target["notes_rule"] = None
+            with self.assertRaisesRegex(ValueError, "notes_rule"):
+                _verify_inherited_settings(record, settings)
+        record["notes_rule"] = settings["notes_rule"] = "other-rule"
+        with self.assertRaisesRegex(ValueError, "notes_rule"):
+            _verify_inherited_settings(record, settings)
+
+
 class BookkeeperReviewTests(unittest.TestCase):
     """A designer/bookkeeper run is accepted only with its sheet and bookkeeping proven."""
 
@@ -646,7 +736,7 @@ class BookkeeperReviewTests(unittest.TestCase):
             "status": "failed" if stopped else "review_ready",
             "timeout_profile": {"task_decomposer": 1440, "decomposition_reviewer": 1200},
             "bookkeeper_provider": "claude", "designer_bookkeeper_version": "2.0",
-            "ownership_sheet_review_version": "1.1",
+            "ownership_sheet_review_version": "1.1", "notes_rule": "additions-1",
             **({} if record_model is None else {"bookkeeper_model": record_model}),
         }
         return manager, record, output_root / run_id
@@ -698,6 +788,35 @@ class BookkeeperReviewTests(unittest.TestCase):
         result_path.write_text(json.dumps(value), encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "bookkeeping|BOOKKEEPING"):
             _verify_review(manager, record)
+
+    def test_notes_rule_is_pinned_between_request_host_record_and_result(self):
+        manager, record, run_dir = self.produce()
+        request_path = run_dir / "decomposition_request.json"
+        result_path = run_dir / "decomposition_run_result.json"
+        saved_request, saved_result = request_path.read_bytes(), result_path.read_bytes()
+        self.assertEqual("additions-1", record["notes_rule"])
+        self.assertEqual("additions-1", json.loads(saved_request)["notes_rule"])
+        self.assertEqual("additions-1", json.loads(saved_result)["designer_bookkeeper"]["notes_rule"])
+        _verify_review(manager, record)
+        for target in ("record", "request", "result"):
+            for marker in (None, "other-rule"):
+                with self.subTest(target=target, marker=marker):
+                    changed_record = deepcopy(record)
+                    payload = (changed_record if target == "record" else
+                               json.loads(saved_request if target == "request" else saved_result))
+                    changed = payload["designer_bookkeeper"] if target == "result" else payload
+                    if marker is None:
+                        changed.pop("notes_rule")
+                    else:
+                        changed["notes_rule"] = marker
+                    if target != "record":
+                        _write_json(request_path if target == "request" else result_path, payload)
+                    try:
+                        with self.assertRaisesRegex(ValueError, "notes_rule"):
+                            _verify_review(manager, changed_record)
+                    finally:
+                        request_path.write_bytes(saved_request)
+                        result_path.write_bytes(saved_result)
 
     def test_v2_protocol_settings_cannot_be_removed_or_downgraded(self):
         for field, replacement in (("designer_bookkeeper_version", None),
@@ -868,6 +987,7 @@ class BookkeeperReviewTests(unittest.TestCase):
         inherited = _prepare_continuation(manager, "NSC-010", record["run_id"], record["providers"],
                                          run_dir.parent, record["source_commit"])
         self.assertEqual(self.MODEL, inherited["bookkeeper_model"])
+        self.assertEqual("additions-1", inherited["notes_rule"])
         self.assertEqual(record["timeout_profile"], inherited["timeout_profile"])
         self.assertFalse(path.exists())
         self.assertTrue(path.with_name("NSC-010.decomposition.bookkeeper-review.failed.archived.json").is_file())
@@ -936,7 +1056,7 @@ class BookkeeperReviewTests(unittest.TestCase):
             record = run(manager, "NSC-010", "host-continued", continue_from=prior["run_id"],
                          max_calls=4, execution_authorized=True)
         for field in ("bookkeeper_model", "bookkeeper_provider", "designer_bookkeeper_version",
-                      "ownership_sheet_review_version", "timeout_profile"):
+                      "ownership_sheet_review_version", "timeout_profile", "notes_rule"):
             self.assertEqual(prior[field], record[field])
         self.assertEqual({"NSC_TASK_DECOMPOSER_TIMEOUT_SECONDS": 1440,
                           "NSC_DECOMPOSITION_REVIEWER_TIMEOUT_SECONDS": 1200},

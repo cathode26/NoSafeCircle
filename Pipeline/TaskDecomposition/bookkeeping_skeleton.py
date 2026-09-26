@@ -13,9 +13,20 @@ reach the candidate. What survives from the model is exactly its prose.
 from __future__ import annotations
 
 from copy import deepcopy
+import re
 from typing import Any, Mapping
 
 from .ownership_sheet import ENTRY_TYPES, conformance_problems
+
+NOTES_RULE_ADDITIONS = "additions-1"
+
+
+def validate_notes_rule(notes_rule: str | None) -> None:
+    """Refuse unknown rules rather than changing the meaning of recorded evidence."""
+
+    if notes_rule is not None and notes_rule != NOTES_RULE_ADDITIONS:
+        raise ValueError(f"unsupported bookkeeper notes rule: {notes_rule!r}")
+
 
 _ID_FIELDS = {
     "acceptance_criteria": ("criterion_id", "AC"),
@@ -102,13 +113,17 @@ def _as_map(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
 
-def _preserved_notes(design_notes: str, model_notes: Any, *, legacy: bool = False) -> str:
+def _preserved_notes(design_notes: str, model_notes: Any, *, legacy: bool = False,
+                     notes_rule: str | None = None) -> str:
     """The model's notes, always carrying the designer's notes word for word.
 
     ``legacy`` reproduces the pre-v2 behaviour exactly, so evidence recorded
     before the whitespace fix still replays to the candidate it recorded.
     """
 
+    validate_notes_rule(notes_rule)
+    if notes_rule == NOTES_RULE_ADDITIONS:
+        return _additions_notes(design_notes, model_notes)
     written = model_notes.strip() if isinstance(model_notes, str) else ""
     if design_notes in written:
         return written
@@ -119,8 +134,66 @@ def _preserved_notes(design_notes: str, model_notes: Any, *, legacy: bool = Fals
     return f"{design_notes}\n\n{written}" if written else design_notes
 
 
+_PARAGRAPH_BREAK = re.compile(r"\r?\n[ \t]*\r?\n\s*")
+
+
+def _paragraph_key(paragraph: str) -> str:
+    """Whitespace and case only: never punctuation, never content."""
+
+    return " ".join(paragraph.split()).casefold()
+
+
+def _paragraph_spans(text: str) -> list[tuple[int, int]]:
+    """(start, end) of each paragraph, where end includes the break that follows it."""
+
+    spans = []
+    position = 0
+    for match in _PARAGRAPH_BREAK.finditer(text):
+        spans.append((position, match.end()))
+        position = match.end()
+    spans.append((position, len(text)))
+    return spans
+
+
+def _additions_notes(design_notes: str, model_notes: Any) -> str:
+    """Designer notes exactly once where the model repeats them whole; never a lost note.
+
+    Only whole paragraphs equal to a designer paragraph (apart from whitespace
+    and case) are removed, and every other character of the model's text is
+    kept exactly, so a genuine addition cannot be lost or altered. When the
+    model's notes already contain the designer's notes word for word, that
+    occurrence is kept where the model put it; otherwise the designer's notes
+    come first. A partial or reworded copy stays visible for a reviewer; the
+    additions-only prompt is what keeps copies out.
+    """
+
+    text = model_notes if isinstance(model_notes, str) else ""
+    design_keys = {_paragraph_key(part) for part in _PARAGRAPH_BREAK.split(design_notes) if part.strip()}
+
+    def without_repeats(fragment: str) -> str:
+        # Whole paragraphs equal to a designer paragraph are dropped with the
+        # break after them; every other character is copied exactly.
+        return "".join(fragment[start:end] for start, end in _paragraph_spans(fragment)
+                       if _paragraph_key(fragment[start:end]) not in design_keys)
+
+    # The designer's notes count as present only where they stand whole: a
+    # substring such as "Damage is 10." inside "Damage is 10.5" is not them.
+    whole = re.search(r"(?<!\S)" + re.escape(design_notes) + r"(?!\S)", text) if design_notes.strip() else None
+    if whole is not None:
+        # The occurrence itself is never cut or stripped into; only the text
+        # before and after it loses whole repeated paragraphs.
+        before = without_repeats(text[:whole.start()]).lstrip()
+        after = without_repeats(text[whole.end():]).rstrip()
+        return before + design_notes + after
+    additions = without_repeats(text).strip()
+    if not design_notes:
+        return additions
+    return f"{design_notes}\n\n{additions}" if additions else design_notes
+
+
 def impose_skeleton(skeleton: Mapping[str, Any], output: Any, *, legacy_notes: bool = False,
-                    legacy_entry_ids: bool = False) -> dict[str, Any]:
+                    legacy_entry_ids: bool = False,
+                    notes_rule: str | None = None) -> dict[str, Any]:
     """The model's answer with every structural field replaced by the skeleton's.
 
     Prose is matched to the skeleton by stable keys (child local_key, entry
@@ -131,6 +204,7 @@ def impose_skeleton(skeleton: Mapping[str, Any], output: Any, *, legacy_notes: b
     recorded before that change.
     """
 
+    validate_notes_rule(notes_rule)
     answer = _as_map(output)
     result = {key: deepcopy(value) for key, value in answer.items()
               if key not in ("decision", "children", "parent_requirement_coverage", "inbound_dependency_rewrites")}
@@ -147,7 +221,9 @@ def impose_skeleton(skeleton: Mapping[str, Any], output: Any, *, legacy_notes: b
         for field in _STRUCTURAL_CHILD_FIELDS:
             if field not in ENTRY_TYPES:
                 child[field] = deepcopy(planned[field])
-        child["notes"] = _preserved_notes(planned["notes"], model_child.get("notes"), legacy=legacy_notes)
+        child["notes"] = _preserved_notes(
+            planned["notes"], model_child.get("notes"), legacy=legacy_notes, notes_rule=notes_rule,
+        )
         for entry_type in ENTRY_TYPES:
             id_field = _ID_FIELDS[entry_type][0]
             model_entries = [entry for entry in _as_list(model_child.get(entry_type))

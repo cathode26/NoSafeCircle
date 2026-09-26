@@ -12,7 +12,7 @@ from typing import Any, Iterable, Mapping
 
 from .bookkeeper_context import compact_bookkeeper_context
 from .context_builder import ContextPackage
-from .bookkeeping_skeleton import result_skeleton
+from .bookkeeping_skeleton import NOTES_RULE_ADDITIONS, result_skeleton, validate_notes_rule
 from .prompts import build_decomposer_prompt
 
 _DESIGNER_MODE = """
@@ -71,6 +71,23 @@ If the design cannot be written as a valid result, say exactly what is wrong in 
 """
 
 
+_BOOKKEEPER_ADDITIONS_INSTRUCTION = """For each child's `notes`, write ONLY notes the rules require beyond the designer's notes.
+Code places the designer's notes first word for word, so do not copy or paraphrase them.
+"""
+
+
+def _bookkeeper_mode(notes_rule: str | None) -> str:
+    validate_notes_rule(notes_rule)
+    if notes_rule == NOTES_RULE_ADDITIONS:
+        return _BOOKKEEPER_MODE.replace(
+            "- each child's `notes`: keep the designer's notes that are already there and add what the rules\n"
+            "  above require.",
+            "- each child's `notes`: write ONLY notes the rules require beyond the designer's notes.\n"
+            "  Code places the designer's notes first word for word, so do not copy or paraphrase them.",
+        )
+    return _BOOKKEEPER_MODE
+
+
 def _sheet_json(sheet: Mapping[str, Any]) -> str:
     return json.dumps(sheet, indent=1, ensure_ascii=False, sort_keys=True)
 
@@ -100,17 +117,21 @@ was sound. This is the only correction.
 """
 
 
-def build_bookkeeper_prompt(context: ContextPackage, sheet: Mapping[str, Any]) -> str:
+def build_bookkeeper_prompt(
+    context: ContextPackage, sheet: Mapping[str, Any], *, notes_rule: str | None = None,
+) -> str:
     embedded = compact_bookkeeper_context(context, sheet)
-    return (build_decomposer_prompt(context, embedded=embedded) + _BOOKKEEPER_MODE + _sheet_json(sheet)
+    return (build_decomposer_prompt(context, embedded=embedded) + _bookkeeper_mode(notes_rule) + _sheet_json(sheet)
             + "\n```\n\n### Result skeleton\n```json\n" + _sheet_json(result_skeleton(sheet)) + "\n```\n")
 
 
 def build_bookkeeper_retry_prompt(
     sheet: Mapping[str, Any], rejected: Any, problems: Iterable[str],
+    *, notes_rule: str | None = None,
 ) -> str:
+    validate_notes_rule(notes_rule)
     listed = "\n".join(f"- {problem}" for problem in problems)
-    return f"""You wrote a decomposition result from a designer's ownership sheet. Deterministic checks \
+    prompt = f"""You wrote a decomposition result from a designer's ownership sheet. Deterministic checks \
 found these problems:
 
 {listed}
@@ -131,6 +152,9 @@ dependencies in your previous result are already right; change nothing else.
 ```
 """
 
+    return (prompt + "\n" + _BOOKKEEPER_ADDITIONS_INSTRUCTION
+            if notes_rule == NOTES_RULE_ADDITIONS else prompt)
+
 
 def build_bookkeeper_revision_prompt(
     context: ContextPackage,
@@ -139,12 +163,13 @@ def build_bookkeeper_revision_prompt(
     previous_candidate: Mapping[str, Any],
     review: Mapping[str, Any],
     unresolved_findings: Iterable[Mapping[str, Any]],
+    notes_rule: str | None = None,
 ) -> str:
     unresolved = list(unresolved_findings)
     embedded = compact_bookkeeper_context(
         context, sheet, citation_sources=(previous_candidate, review, unresolved),
     )
-    return (build_decomposer_prompt(context, embedded=embedded) + _BOOKKEEPER_MODE + _sheet_json(sheet)
+    return (build_decomposer_prompt(context, embedded=embedded) + _bookkeeper_mode(notes_rule) + _sheet_json(sheet)
             + "\n```\n\n### Result skeleton\n```json\n" + _sheet_json(result_skeleton(sheet)) + "\n```\n"
             + f"""
 ## REVISION: compile the reviewer's sheet and repair the compiled prose
@@ -180,10 +205,11 @@ def build_bookkeeper_revision_retry_prompt(
     previous_candidate: Mapping[str, Any],
     review: Mapping[str, Any],
     unresolved_findings: Iterable[Mapping[str, Any]],
+    notes_rule: str | None = None,
 ) -> str:
     revision = build_bookkeeper_revision_prompt(
         context, sheet, previous_candidate=previous_candidate, review=review,
-        unresolved_findings=unresolved_findings,
+        unresolved_findings=unresolved_findings, notes_rule=notes_rule,
     )
     listed = "\n".join(f"- {problem}" for problem in problems)
     return revision + f"""

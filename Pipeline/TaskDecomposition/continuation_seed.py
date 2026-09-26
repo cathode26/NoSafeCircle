@@ -67,6 +67,9 @@ def _verify_seed(output_root: Path, prior: Mapping[str, Any], parent_contract: M
                 or value.get("task_execution_contract_identity") != prior.get("task_execution_contract_identity")
                 or value.get("d1a_semantic_parent_identity") != prior.get("d1a_semantic_parent_identity")):
             raise ValueError(f"run {run_id} has another task, provider order or parent contract")
+        if ((value.get("designer_bookkeeper") or {}).get("notes_rule")
+                != (prior.get("designer_bookkeeper") or {}).get("notes_rule")):
+            raise ValueError(f"run {run_id} changed the inherited bookkeeper notes_rule")
         hashes[f"{run_id}/{_RESULT}"] = hashlib.sha256(raw).hexdigest()
         chain.insert(0, (run_id, value, raw))
         continued = value.get("continued_from")

@@ -21,7 +21,9 @@ from TaskDecomposition.bookkeeper_prompts import (
 from TaskDecomposition.context_builder import ContextPackage
 from TaskDecomposition.contracts import DecompositionResult
 from TaskDecomposition.schemas import DECOMPOSITION_RESULT_SCHEMA
-from TaskDecomposition.bookkeeping_skeleton import impose_skeleton, result_skeleton, structural_slips
+from TaskDecomposition.bookkeeping_skeleton import (
+    NOTES_RULE_ADDITIONS, impose_skeleton, result_skeleton, structural_slips,
+)
 from TaskDecomposition.ownership_sheet import (
     OWNERSHIP_SHEET_SCHEMA,
     OwnershipSheetError,
@@ -224,9 +226,9 @@ def sheet_review_protocol(run_dir: Path, run_result: Mapping[str, Any]) -> bool:
     files = _Files(Path(run_dir))
     request = files.json("decomposition_request.json", "decomposition request")
     record = run_result.get("designer_bookkeeper")
-    markers = ("designer_bookkeeper_version", "ownership_sheet_review_version", "bookkeeper_provider")
+    markers = ("designer_bookkeeper_version", "ownership_sheet_review_version", "bookkeeper_provider", "notes_rule")
     marked = any(key in request for key in markers)
-    versioned = isinstance(record, Mapping) and "schema_version" in record
+    versioned = isinstance(record, Mapping) and any(key in record for key in ("schema_version", "notes_rule"))
     if not marked and not versioned:
         _require(not request.get("bookkeeper_model") or isinstance(record, Mapping),
                  "the pinned bookkeeper run has no designer_bookkeeper evidence")
@@ -238,6 +240,11 @@ def sheet_review_protocol(run_dir: Path, run_result: Mapping[str, Any]) -> bool:
     _require(request.get("bookkeeper_provider") == record.get("bookkeeper_provider")
              and request.get("bookkeeper_model") == record.get("bookkeeper_model"),
              "the pinned bookkeeper provider/model differs from designer_bookkeeper")
+    _require(("notes_rule" in request) == ("notes_rule" in record)
+             and request.get("notes_rule") == record.get("notes_rule"),
+             "the pinned notes_rule differs from designer_bookkeeper")
+    _require("notes_rule" not in request or request["notes_rule"] == NOTES_RULE_ADDITIONS,
+             f"unsupported notes_rule {request.get('notes_rule')!r}")
     return True
 
 
@@ -287,7 +294,9 @@ def _verify_compilation(
     """Replay one v2 sheet compilation without treating a failed result as a candidate."""
 
     files = _Files(Path(run_dir))
+    _require(sheet_review_protocol(run_dir, run_result), "compilation requires the v2 bookkeeper protocol")
     record = run_result["designer_bookkeeper"]
+    notes_rule = record.get("notes_rule")
     number = source_entry.get("round_number")
     _require(type(number) is int and number >= 1, "compilation source round is invalid")
     corrected = source_entry.get("correction_of_round") is not None
@@ -418,17 +427,18 @@ def _verify_compilation(
                  and request.get("context_paths") == context_payload.get("context_paths"),
                  f"{label} request schema/context paths differ")
         if revision is None:
-            prompt = (build_bookkeeper_prompt(context, sheet) if index == 1
-                      else build_bookkeeper_retry_prompt(sheet, rejected, problems))
+            prompt = (build_bookkeeper_prompt(context, sheet, notes_rule=notes_rule) if index == 1
+                      else build_bookkeeper_retry_prompt(sheet, rejected, problems, notes_rule=notes_rule))
         else:
-            prompt = (build_bookkeeper_revision_prompt(context, sheet, **revision) if index == 1
-                      else build_bookkeeper_revision_retry_prompt(context, sheet, rejected, problems, **revision))
+            prompt = (build_bookkeeper_revision_prompt(context, sheet, notes_rule=notes_rule, **revision) if index == 1
+                      else build_bookkeeper_revision_retry_prompt(
+                          context, sheet, rejected, problems, notes_rule=notes_rule, **revision))
         _require(request.get("prompt") == prompt, f"{label} prompt differs from its recorded sheet/revision input")
         raw = result.get("structured_output")
         _schema(raw, DECOMPOSITION_RESULT_SCHEMA, label)
         _require(attempt.get("structural_slips_corrected") == structural_slips(sheet, raw),
                  f"{label} structural corrections differ from deterministic replay")
-        rejected = impose_skeleton(skeleton, raw)
+        rejected = impose_skeleton(skeleton, raw, notes_rule=notes_rule)
         problems = conformance_problems(sheet, rejected)
         digest = None
         if not problems:
@@ -563,6 +573,7 @@ def _verify_bookkeeping(
     _require(record.get("latest_sheet") == latest_sheet,
              "latest_sheet does not identify the accepted latest candidate's compilation")
     return {"schema_version": "2.0", "bookkeeper_provider": first_provider,
+            **({"notes_rule": record["notes_rule"]} if "notes_rule" in record else {}),
             "bookkeeper_model": record["bookkeeper_model"], "attempts": attempts,
             "bookkeeping_calls_used": attempts, "compilations": verified, "latest_sheet": latest_sheet,
             "sheet_sha256": latest_sheet["sheet_sha256"], "candidate_sha256": latest_sheet["candidate_sha256"],

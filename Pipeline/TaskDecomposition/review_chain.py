@@ -580,6 +580,7 @@ def _sheet_settings(evidence: _Evidence, run_result: Mapping[str, Any], provider
         _require(all(timeouts.get(role) == value for role, value in profile.items()),
                  "D3_TIMEOUT", "the retained request timeout profile differs from the host")
     return {"bookkeeper_provider": record["bookkeeper_provider"], "bookkeeper_model": record["bookkeeper_model"],
+            **({"notes_rule": record["notes_rule"]} if "notes_rule" in record else {}),
             "designer_bookkeeper_version": request["designer_bookkeeper_version"],
             "ownership_sheet_review_version": request["ownership_sheet_review_version"],
             "timeout_profile": profile}, context
@@ -721,6 +722,7 @@ def _verify_sheet_continuation(
     _require(run_result.get("unresolved_findings") == [unresolved[key].to_dict() for key in sorted(unresolved)],
              "D3_FINDING_RESOLUTION", "continuation unresolved findings differ from policy replay")
     bookkeeping = {"schema_version": "2.0", "bookkeeper_provider": settings["bookkeeper_provider"],
+                   **({"notes_rule": settings["notes_rule"]} if "notes_rule" in settings else {}),
                    "bookkeeper_model": settings["bookkeeper_model"], "bookkeeping_calls_used": attempts,
                    "attempts": attempts, "compilations": verified, "latest_sheet": sheet_ref,
                    "sheet_sha256": sheet_ref["sheet_sha256"], "candidate_sha256": latest["sha256"], "conformed": True}
