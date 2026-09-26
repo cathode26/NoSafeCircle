@@ -90,7 +90,6 @@ namespace NoSafeCircle.DoorPrototype.World
             }
 
             var prefabCache = new Dictionary<string, GameObject>();
-            var seenInstanceIds = new HashSet<string>();
             int spawned = 0;
             int missingPrefabs = 0;
 
@@ -116,15 +115,28 @@ namespace NoSafeCircle.DoorPrototype.World
                 Transform roomRoot = new GameObject(catalog.room + "Dressing").transform;
                 roomRoot.SetParent(root, false);
 
+                // PER CATALOG, NOT GLOBAL, and that distinction was measured rather than assumed.
+                // instance_ids are ROOM-SCOPED by design: "NORTH-WALL-drape-01" means the first
+                // drape on the north wall of THIS room, and each room's props live under their own
+                // <Room>Dressing parent, so the names are unique where Unity resolves them.
+                //
+                // Measured across all five catalogs: 222 placements, 219 distinct ids, ZERO
+                // within-catalog duplicates, and exactly 2 cross-catalog collisions -
+                // NORTH-WALL-drape-01 (BoneArchive + FinalRoom) and NW-CORNER-web-01 (BoneArchive +
+                // FinalRoom + RuinedEntry). A global check flagged those as defects and dropped
+                // three real props. The editor builders each checked one catalog and were right;
+                // this scope was briefly "improved" to global and it was a regression.
+                var seenInstanceIds = new HashSet<string>();
+
                 foreach (DressingPlacement placement in catalog.props)
                 {
                     if (!seenInstanceIds.Add(placement.instance_id))
                     {
-                        // Across catalogs as well as within one: two rooms sharing an instance_id
-                        // means a later edit moves the wrong prop, and it would be invisible.
-                        Debug.LogError($"{nameof(PropSpawner)}: duplicate instance_id "
-                            + $"'{placement.instance_id}'. Instance ids identify a placement and "
-                            + "must be unique.");
+                        // Within ONE room this is a real defect: a later edit moves the wrong prop
+                        // and nothing would show it.
+                        Debug.LogError($"{nameof(PropSpawner)}: '{catalogAsset.name}' repeats "
+                            + $"instance_id '{placement.instance_id}'. Instance ids identify a "
+                            + "placement within a room and must be unique there.");
                         continue;
                     }
 

@@ -177,18 +177,29 @@ namespace NoSafeCircle.DoorPrototype.Tests
             spawner.Spawn();
             yield return null;
 
-            var byInstanceId = spawnerObject
-                .GetComponentsInChildren<SpriteRenderer>(true)
-                .ToDictionary(r => r.gameObject.name, r => r.transform);
-
+            // LOOK UP PER ROOM, not globally. instance_ids are room-scoped: measured across the five
+            // catalogs there are 222 placements but only 219 distinct ids, because
+            // NORTH-WALL-drape-01 and NW-CORNER-web-01 recur in two and three rooms respectively.
+            // A single name->transform dictionary throws on those, and a first-wins lookup would
+            // silently check one room's prop against another room's coordinates.
             int checked_ = 0;
             foreach (TextAsset catalog in catalogs)
             {
                 var parsed = JsonUtility.FromJson<RoomDressingCatalog>(catalog.text);
+
+                Transform roomRoot = spawnerObject.transform.Find(parsed.room + "Dressing");
+                Assert.IsNotNull(roomRoot,
+                    "No '" + parsed.room + "Dressing' parent was created for " + catalog.name + ".");
+
+                var byInstanceId = roomRoot
+                    .GetComponentsInChildren<SpriteRenderer>(true)
+                    .ToDictionary(r => r.gameObject.name, r => r.transform);
+
                 foreach (DressingPlacement placement in parsed.props)
                 {
                     Assert.IsTrue(byInstanceId.TryGetValue(placement.instance_id, out Transform t),
-                        "No spawned object named '" + placement.instance_id + "'.");
+                        "No spawned object named '" + placement.instance_id + "' under "
+                        + parsed.room + "Dressing.");
 
                     Assert.AreEqual(placement.position.x, t.localPosition.x, 0.0001f,
                         placement.instance_id + " x");
