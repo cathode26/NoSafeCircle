@@ -56,12 +56,12 @@
     {
       "gate_id": "VAL-005",
       "reference": "Developer visual approval",
-      "requirement": "Vincent opens Assets/Scenes/DoorPrototype.unity in Play Mode, checks the title-to-selection flow, selects all four wizard options in separate runs, and approves readability, option identity, respectful presentation, and selected-state feedback. World placement and gameplay entry are reviewed under NSC-068."
+      "requirement": "Vincent opens Assets/Scenes/RuntimeWorld.unity in Play Mode, checks the title-to-selection flow, selects all four wizard options in separate runs, and approves readability, option identity, respectful presentation, and selected-state feedback. World placement and gameplay entry are reviewed under NSC-068. THE SCENE NAMED IN THIS GATE WAS REPOINTED 2026-09-26 FROM Assets/Scenes/DoorPrototype.unity TO Assets/Scenes/RuntimeWorld.unity, ON VINCENT'S OWN INSTRUCTION THAT THE OLD WORLD IS BEING REMOVED. NOTHING ELSE IN THIS GATE CHANGED: what the reviewer does, looks at and approves is untouched, and no criterion was weakened to make it satisfiable. RuntimeWorld.unity holds only GameManagers, a camera and a light; all content is instantiated at Play by the spawners under Resources/Spawners, so this gate is a PLAY MODE review and must not be read as asking for any object to be present in the saved scene."
     }
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 3,
+  "contract_revision": 4,
   "decomposition_reason": "The four options, source-art owner, preceding title transition, selection behavior, and confirmed-selection handoff are fully specified.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -107,7 +107,18 @@
     "title_screen_task_id": "NSC-066",
     "wizard_art_source_task_id": "NSC-061",
     "wizard_integration_task_id": "NSC-062",
-    "world_entry_task_id": "NSC-068"
+    "world_entry_task_id": "NSC-068",
+    "contract_followups": [
+      {
+        "date": "2026-09-26",
+        "reason": "VAL-005: repoint Vincent's human review from the old composed scene to RuntimeWorld.unity on his instruction that the old world is removed; the review itself is unchanged",
+        "source_head": "986471cdf99395c8178003163f1055f3eaed598c",
+        "previous_contract_revision": 3,
+        "base_contract_sha256": "81d0de71bb41570e9549a85ea330014086b35c04fb701dda2e67b7c3d191d405",
+        "revised_contract_sha256": "268db099b82d6c0b18d13add703b0f79ee41aecb0c56b7c0f81ca90215fff244",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   },
   "reconciliation_key": "four-wizard-selection-screen",
   "repository_evidence_at_bootstrap": [],
