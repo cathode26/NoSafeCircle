@@ -63,3 +63,65 @@ evidence of a closed task - the same failure class as a stale contract-hash pin.
 **Non-south facings.** Only direction S exists. Mirroring would serve E and W geometrically but flips the
 upper-left key light the whole family shares, so other facings are a generation request with their own cap when a
 room needs one.
+
+## South-west facing, 2026-09-26 — a NEW generation, not the approved sprite rotated
+
+**Why it exists.** Vincent, from a play screenshot: *"Door is pointing south and it should point
+south west."* That is a defect he can see, and it is entirely an art problem.
+`CreateDoorSpriteVisual` sets `localRotation = Quaternion.identity`, so the builder never rotates
+the sprite; and `BuildWalls` places the flanking walls at `doorPosition ± (2.5, 1.25, 0)` with
+`localScale (3, 2.5, 0.3)`, so the wall runs along X and is thin in Z. Its face normal is ±Z and
+is seen obliquely under the scene's −45° yaw camera. **A front-facing sprite is wrong for this
+wall by construction, and no builder change can fix it.**
+
+**What it is, stated plainly so nobody mistakes it for a rotation of the approved art.** The
+`_SW_` set is a NEW PixelLab generation in the family's style. It is **not** Vincent's approved
+door re-angled, and that route is now permanently closed: the approved base's PixelLab job
+(`99f204e7-c2e6-4b79-96bf-91f1aab741b9`) has **expired** — its hosted image returns HTTP 404 — so
+those pixels can no longer be fed into any reference or edit tool. *Expired*, not merely *blocked*.
+
+**Provenance.** 8-direction object `3795f8df-3527-4a5f-b2b6-b947ea0d2455` ("Bonestone Arch Door",
+view `low top-down`, 40 generations; it returns 136×136 even when 128 is requested). The
+south-west rotation was then finished with `edit_image_pixen`, **one edit at a time from a single
+base and never chained** — the method that produced the approved family. Chaining was tried first
+and failed measurably: each call repaints the whole sprite, so a later edit silently undid an
+earlier one.
+
+| file | source | seed | edit |
+|---|---|---|---|
+| `door_bonestone_sealed_SW_000.png` | the SW rotation | 20151 | remove an invented lantern; add a small pale-lavender threshold puddle and mossy rocks |
+| `door_bonestone_locked_SW_000.png` | sealed base | 20403 | *"add a stylized bone crossbar latch…"* — the approved family's own prompt |
+| `door_bonestone_open_SW_000.png` | sealed base | 20406 | *"door fully swung open…"* |
+| `door_bonestone_final_SW_000.png` | sealed base | 20405 | *"add a warm golden rim light…"* |
+
+**Canvas and registration.** Delivered at the builder's **128×128**, padded with transparent
+pixels from 136×136 — **never rescaled**; opaque pixel counts are identical before and after
+padding for all four. All four were cropped on **one union box** `(16,8,115,133)` and
+bottom-aligned, so the door cannot jump between states. `spritePivot` is `{x: 0.492188, y: 0}`:
+the puddle spreads left, so centring on the bounding box would put the door slab off its world
+position; this places the slab where the approved `_S_` sprite places it. Importer settings are
+otherwise cloned from the approved sprite — `textureType: 8`, PPU 64, `filterMode: 0`,
+`alphaIsTransparency: 1` — with a fresh GUID per file.
+
+**Acceptance.** The four states were gated as a set against the approved family: no neon
+saturation in any state (0 px at S>0.85 ∧ V>0.60), the puddle **coherent across states**
+(465 / 463 / 476 / 349, max/min 1.36) so it does not change when the door locks, and the maroon
+door slab present in all four. **An absolute pixel-count target taken from the approved sprite
+was tried first and discarded: that door is front-facing, so its threshold pool spreads toward the
+camera, and a 3/4 facing foreshortens the same puddle into far fewer pixels. Coherence transfers
+between facings; a raw count does not.**
+
+**Honest differences from the approved art**, shown to Vincent with the images: the stone reads
+greyer than the approved blue-violet slate, the puddle is smaller, and there are fewer moss rocks.
+
+**What this does NOT change.** Nothing on screen. The builder's four filename constants at
+`DoorPrototypeSceneBuilder.cs:1040-1043` still name the `_S_` files, and the `_S_` files are
+untouched. Switching facings is a one-line change to those constants — **and it is Vincent's call,
+because this is a new design rather than his approved sprite turned.** Note that those constants
+sit under the `AC-002` comment binding them to this document's bind list, so the builder edit is
+not cosmetic and may need an AC-002 revision alongside it.
+
+**`Docs/Art/Doors/inventory.json` and `inventory.md` are pinned by NSC-065's delivery record**
+(`9120473efc69113990002ab4cae8f8222fd48ca3` and `8444cc83e983cd8b025ba4105646bd9b24a73f84`,
+both re-resolved on main and current) **and are deliberately not edited here.** This file is the
+one that is not pinned, which is why the record goes in it.
