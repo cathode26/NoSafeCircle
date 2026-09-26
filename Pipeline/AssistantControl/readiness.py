@@ -96,6 +96,49 @@ def _reservations_awaiting_settle(checkouts: Checkouts, reservations: Any) -> tu
     return sorted(set(awaiting)), sorted(set(unreadable))
 
 
+def _committed_delivery_evidence(source: Path, task_id: str, commit: str) -> bool:
+    """Whether this task already has committed delivery evidence at that commit.
+
+    THE DEFECT THIS ANSWERS, and it is not a gate. `ready_to_reserve` means "may
+    this be admitted". It does NOT mean "is there work here", and nothing in this
+    result said so -- so on 2026-09-26 I censused the fleet, found 23 prepared
+    records one `refresh-prepared` from admissible, and reported it as available
+    work. TWENTY OF THE TWENTY-THREE WERE ALREADY DELIVERED. Of 30 prepared
+    checkout records, 22 were `conformant`. The Producer Agent caught it, named
+    the mechanism exactly -- "the signal cannot distinguish ready to start from
+    already finished" -- and it had already reached its sprint board as the
+    night's biggest throughput item.
+
+    THIS IS A PROXY AND SAYING SO IS THE POINT. `AssistantControl` imports nothing
+    from `TaskGraph`, so the authoritative `evaluate_current_conformance` is out of
+    reach from here; `revise_on_source` hit the same wall and uses this same
+    committed-evidence test, documenting it as a proxy. Measured over all 30
+    prepared records at main `00b1baf4`, it separates the population with ZERO
+    disagreements: every one of the 22 conformant records has committed evidence,
+    and the 7 `not_delivered` plus 1 aggregate have none.
+
+    WHAT WOULD FALSIFY IT: a task carrying partial evidence that genuinely still
+    needs a crew pass, or a delivery recorded somewhere other than this path. Then
+    this field says "delivered" about work that is not, and a reader who treated it
+    as a gate would be stranded. Which is why it is NOT a gate.
+
+    IT IS DELIBERATELY NOT A PROBLEM. Appending it to `problems` would refuse 22
+    records that `reserve` admits, recreating the readiness-versus-reserve
+    disagreement fixed at `8eecdee7` and `6d1e5233` in the other direction. A
+    reader decides what a delivered task means; this only stops the result being
+    silent about it.
+    """
+    try:
+        listing = git(source, "ls-tree", "-r", "--name-only", commit, "--",
+                      f"Pipeline/TaskGraph/evidence/{task_id}")
+    except RuntimeError:
+        # An unreadable tree is not an absence, and the honest answer here is
+        # "cannot say" -- which for a boolean advisory is the same as not
+        # asserting delivery. A caller needing certainty reads taskcontrol.
+        return False
+    return bool(listing.strip())
+
+
 def inspect_readiness(
     checkouts: Checkouts, task_id: str, *, capacity: int = 1,
     dependency_reader=None, allow_resource_overlap: bool = False,
@@ -260,6 +303,11 @@ def inspect_readiness(
         "source_unchanged_during_read": source_stable,
         "dependencies": dependency,
         "checkout": checkout_view,
+        # ADVISORY, NEVER A GATE: a task can be admissible AND already delivered.
+        # See `_committed_delivery_evidence` for why this is a proxy and why it is
+        # not in `problems`.
+        "committed_delivery_evidence": _committed_delivery_evidence(
+            source, task_id, source_head),
         "scope_registered": scope_registered,
         "scope_validated": scope is not None,
         "checkout_error": checkout_error,
