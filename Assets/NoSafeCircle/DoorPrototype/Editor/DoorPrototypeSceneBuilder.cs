@@ -9,6 +9,7 @@ using UnityEngine.UI;
 using NoSafeCircle.DoorPrototype.World;
 using NoSafeCircle.DoorPrototype.Editor.World;
 using NoSafeCircle.DoorPrototype.World;
+using NoSafeCircle.DoorPrototype.Editor.Generation;
 using Object = UnityEngine.Object;
 
 namespace NoSafeCircle.DoorPrototype.Editor
@@ -392,7 +393,11 @@ namespace NoSafeCircle.DoorPrototype.Editor
             ownedTransientArchitecturalScene = default(Scene);
         }
 
-        private static T OwnTransientArchitecturalObject<T>(T transientObject) where T : Object
+        // internal (was private): ArchitecturalTileGenerator.LoadOrCreateArchitecturalTile calls
+        // this from Editor/Generation/ArchitecturalTileGenerator.cs so its in-memory tile path
+        // still tracks into this exact list and is cleaned up by
+        // CleanupTransientArchitecturalObjects above, unchanged. No other behaviour change.
+        internal static T OwnTransientArchitecturalObject<T>(T transientObject) where T : Object
         {
             OwnedTransientArchitecturalObjects.Add(transientObject);
             return transientObject;
@@ -667,67 +672,13 @@ namespace NoSafeCircle.DoorPrototype.Editor
         private const string ArchitecturalWallSpriteSourcePath =
             "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_straight.png";
 
-        private static ArchitecturalTileSet CreateArchitecturalTileSet(string assetFolder)
+        // Moved to Editor/Generation/ArchitecturalTileGenerator.cs (CreateArchitecturalTileSet /
+        // LoadOrCreateArchitecturalTile / ArchitecturalTileSet) - this is now a thin forwarding
+        // call so the rest of this builder (BuildIsometricVisualLayer) keeps working unchanged.
+        private static ArchitecturalTileGenerator.ArchitecturalTileSet CreateArchitecturalTileSet(string assetFolder)
         {
-            return new ArchitecturalTileSet(
-                LoadOrCreateArchitecturalTile(
-                    assetFolder, "FloorTile.asset", "FloorTile", ArchitecturalFloorSpriteSourcePath),
-                LoadOrCreateArchitecturalTile(
-                    assetFolder, "WallTile.asset", "WallTile", ArchitecturalWallSpriteSourcePath),
-                LoadOrCreateArchitecturalTile(
-                    assetFolder, "ArchitecturalBorderTile.asset", "ArchitecturalBorderTile",
-                    ArchitecturalFloorSpriteSourcePath));
-        }
-
-        private static Tile LoadOrCreateArchitecturalTile(
-            string assetFolder, string assetFileName, string tileName, string sourceSpritePath)
-        {
-            var sourceSprite = AssetDatabase.LoadAssetAtPath<Sprite>(sourceSpritePath);
-            if (sourceSprite == null)
-            {
-                throw new System.InvalidOperationException(
-                    $"The Door Prototype scene requires the committed sprite at '{sourceSpritePath}'.");
-            }
-
-            if (!string.IsNullOrEmpty(assetFolder))
-            {
-                var assetPath = assetFolder + "/" + assetFileName;
-                var existing = AssetDatabase.LoadAssetAtPath<Tile>(assetPath);
-
-                if (existing != null)
-                {
-                    if (existing.sprite != sourceSprite || existing.colliderType != Tile.ColliderType.None)
-                    {
-                        existing.sprite = sourceSprite;
-                        existing.colliderType = Tile.ColliderType.None;
-                        EditorUtility.SetDirty(existing);
-                        AssetDatabase.SaveAssetIfDirty(existing);
-                    }
-                    return existing;
-                }
-
-                var persistentTile = ScriptableObject.CreateInstance<Tile>();
-                persistentTile.name = tileName;
-                persistentTile.colliderType = Tile.ColliderType.None;
-                persistentTile.sprite = sourceSprite;
-
-                AssetDatabase.CreateAsset(persistentTile, assetPath);
-                EditorUtility.SetDirty(persistentTile);
-                AssetDatabase.SaveAssetIfDirty(persistentTile);
-
-                return persistentTile;
-            }
-
-            var inMemoryTile =
-                OwnTransientArchitecturalObject(
-                    ScriptableObject.CreateInstance<Tile>());
-
-            inMemoryTile.name = tileName;
-            inMemoryTile.colliderType = Tile.ColliderType.None;
-            inMemoryTile.hideFlags = HideFlags.HideAndDontSave;
-            inMemoryTile.sprite = sourceSprite;
-
-            return inMemoryTile;
+            return ArchitecturalTileGenerator.CreateArchitecturalTileSet(
+                assetFolder, ArchitecturalFloorSpriteSourcePath, ArchitecturalWallSpriteSourcePath);
         }
 
         private static Texture2D CreateTileTexture(string name, int width, int height, Color32[] pixels)
@@ -741,20 +692,6 @@ namespace NoSafeCircle.DoorPrototype.Editor
             texture.SetPixels32(pixels);
             texture.Apply(false, false);
             return texture;
-        }
-
-        private sealed class ArchitecturalTileSet
-        {
-            public readonly Tile Floor;
-            public readonly Tile Wall;
-            public readonly Tile Architectural;
-
-            public ArchitecturalTileSet(Tile floor, Tile wall, Tile architectural)
-            {
-                Floor = floor;
-                Wall = wall;
-                Architectural = architectural;
-            }
         }
 
         // NSC-039 AC-001: the actual reusable Prefab asset every independently sorted or

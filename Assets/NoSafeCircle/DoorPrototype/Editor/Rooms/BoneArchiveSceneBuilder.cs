@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using NoSafeCircle.DoorPrototype.Editor;
+using NoSafeCircle.DoorPrototype.Editor.Generation;
 using NoSafeCircle.DoorPrototype.World;
 using NoSafeCircle.DoorPrototype.World.Rooms;
 using UnityEditor;
@@ -422,44 +423,14 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         }
 
         // NSC-109 AC-001/AC-002: binds this room's floor Tile to the committed floor_BoneArchive
-        // sprite rather than a procedurally generated texture.
+        // sprite rather than a procedurally generated texture. Generation logic moved to
+        // Editor/Generation/ArchitecturalTileGenerator.cs
+        // (ArchitecturalTileGenerator.BoneArchive.LoadOrCreateBoneArchiveFloorTile); this stays
+        // as the private entry point BuildAndSave calls.
         private static Tile LoadOrCreateBoneArchiveFloorTile(string assetFolder)
         {
-            Sprite sourceSprite = AssetDatabase.LoadAssetAtPath<Sprite>(FloorSpriteSourcePath);
-            if (sourceSprite == null)
-            {
-                throw new InvalidOperationException(
-                    $"Bone Archive requires the committed sprite at '{FloorSpriteSourcePath}'.");
-            }
-
-            if (!AssetDatabase.IsValidFolder(assetFolder))
-            {
-                Directory.CreateDirectory(assetFolder);
-                AssetDatabase.Refresh();
-            }
-
-            Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(FloorTilePath);
-            if (tile == null)
-            {
-                tile = ScriptableObject.CreateInstance<Tile>();
-                tile.name = FloorTileName;
-                tile.colliderType = Tile.ColliderType.None;
-                tile.sprite = sourceSprite;
-                AssetDatabase.CreateAsset(tile, FloorTilePath);
-                EditorUtility.SetDirty(tile);
-                AssetDatabase.SaveAssetIfDirty(tile);
-                return tile;
-            }
-
-            if (tile.sprite != sourceSprite || tile.colliderType != Tile.ColliderType.None)
-            {
-                tile.sprite = sourceSprite;
-                tile.colliderType = Tile.ColliderType.None;
-                EditorUtility.SetDirty(tile);
-                AssetDatabase.SaveAssetIfDirty(tile);
-            }
-
-            return tile;
+            return ArchitecturalTileGenerator.BoneArchive.LoadOrCreateBoneArchiveFloorTile(
+                assetFolder, FloorTileName, FloorTilePath, FloorSpriteSourcePath);
         }
     }
 }
