@@ -2745,7 +2745,7 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                     reasons.append("repair cycle made no deterministic changes"); crew_status="needs_human"; stop=True; break
                 new_surface=tuple(sorted((*impl_plan.new_paths, *test_plan.new_paths, *pipeline_generated)))
                 candidate=full_patch(clone,identity.head,new_surface); final_paths=changed_paths(baseline_clone,snapshot(clone))
-                inv,res=invoke("validator",attempt,source_root,False,validator_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd_path=GDD_PATH,candidate_patch=candidate.decode("utf-8","replace"),changed_paths=final_paths,implementer_output=latest_impl,test_author_output=latest_test,human_review_feedback=human_review_feedback),VALIDATOR_OUTPUT_SCHEMA,"high_reasoning",WriteBoundaries((),()))
+                inv,res=invoke("validator",attempt,source_root,False,validator_prompt(task_id=task_id,title=task["title"],task_contract=task_text,gdd_path=GDD_PATH,candidate_patch=candidate.decode("utf-8","replace"),changed_paths=final_paths,implementer_output=latest_impl,test_author_output=latest_test,human_review_feedback=human_review_feedback,expected_requirement_ids=expected_requirement_ids),VALIDATOR_OUTPUT_SCHEMA,"high_reasoning",WriteBoundaries((),()))
                 scope=source_revalidation(source_root,identity)
                 deterministic_scope=list(scope)
                 raw_output=thaw_json(res.structured_output) if res.status=="succeeded" else {}
@@ -2789,7 +2789,8 @@ def run_crew(*, source: Path, output_root: Path, task_id: str|None=None, provide
                         task_id=task_id,title=task["title"],task_contract=task_text,gdd_path=GDD_PATH,
                         candidate_patch=candidate.decode("utf-8","replace"),changed_paths=final_paths,
                         implementer_output=latest_impl,test_author_output=latest_test,
-                        human_review_feedback=json.dumps(output))
+                        human_review_feedback=json.dumps(output),
+                        expected_requirement_ids=expected_requirement_ids)
                     _, lead_result = invoke("lead_developer",1,source_root,False,lead_prompt,
                         VALIDATOR_OUTPUT_SCHEMA,"high_reasoning",WriteBoundaries((),()))
                     lead_scope = source_revalidation(source_root,identity)

@@ -250,14 +250,43 @@ If an existing test inside your approved test paths encodes behavior that the cu
 EXACT COMMITTED TASK CONTRACT\n---\n{task_contract}\n---\n{_committed_gdd_reference(gdd_path)}COMMITTED UNITY TESTING POLICY\n---\n{policy}\n---\nEXACT DETERMINISTIC IMPLEMENTATION DIFF\n---\n{implementation_patch}\n---{review}{repair}"""
 
 
+def _required_ids(values: Iterable[str]) -> str:
+    """Enumerate the exact IDs the automated check will compare against.
+
+    The prompt already carries the full task contract, so every required ID is
+    physically present -- but the model has to EXTRACT them, and the pipeline has
+    already computed the list it will judge the answer by. Measured at main
+    4910089f: NSC-049 revision 9 is 6 AC + 8 gates = 14 IDs inside 29,867 bytes,
+    and NSC-127 revision 3 is 5 + 1 = 6 inside 15,969. One missing ID rejects the
+    whole run after the implementation has been paid for.
+
+    The caller passes the SAME tuple that `validator_semantic_reasons` is given,
+    so what the prompt asks for and what the check demands cannot drift.
+    """
+    values = tuple(values)
+    if not values:
+        return ""
+    return (
+        "\nTHE EXACT IDS THE AUTOMATED CHECK DEMANDS, and it compares your criteria_results"
+        f" against exactly this list -- {len(values)} of them, no more and no fewer:"
+        f" {', '.join(values)}."
+        " Emit one criteria_results item per ID in this list. An ID missing from your output,"
+        " or an ID in your output that is not in this list, rejects the entire run."
+        " This list is derived from the same committed task contract printed below; if you"
+        " believe the two disagree, report that as a blocking issue rather than silently"
+        " choosing one of them.")
+
+
 def validator_prompt(*, task_id: str, title: str, task_contract: str,
                      gdd_path: str = COMMITTED_GDD_PATH,
                      candidate_patch: str, changed_paths: Iterable[str],
                      implementer_output: Mapping[str, Any], test_author_output: Mapping[str, Any],
-                     human_review_feedback: str | None = None) -> str:
+                     human_review_feedback: str | None = None,
+                     expected_requirement_ids: Iterable[str] = ()) -> str:
     review = _human_review(human_review_feedback or "", role="validator")
     changed_paths = tuple(changed_paths)
     dressing = _dressing_guidance(changed_paths)
+    required = _required_ids(expected_requirement_ids)
     return f"""You are the independent read-only Validator for {task_id} - {title}. Semantically review the supplied implementation and test changes against the exact task and canon. You have no write authority. Do not run Unity, tests, builds, scripts, or package managers. A pass means semantic review only: it does not mean Unity passed, delivery occurred, conformance/readiness exists, or integration is approved.
 ENGINEERING REUSE / TOOL SELECTION
 - Read Docs/Engineering/ENGINEERING_STANDARDS.md and check whether the candidate unnecessarily duplicates suitable existing infrastructure.
@@ -274,7 +303,7 @@ REPOSITORY VIEW SEMANTICS
 - If the patch cannot be reconciled with the baseline, is internally inconsistent, omits necessary changes, or violates canon, report that actual defect.
 - If a changed writable source-of-truth deterministically regenerates a generated/serialized Unity artifact that is intentionally outside the candidate write paths, the not-yet-regenerated artifact is a later human integration/runtime-evidence step, not by itself a source-level failure. Keep Unity/runtime gates not_proven until that regeneration and execution actually occur. Still fail if the generator cannot produce the required state, the artifact requires hand-authored changes, or the task/canon requires a missing design decision.
 - Runtime or Unity evidence that was not executed remains not_proven wherever execution is required.
-Report exactly one criteria_results item for every acceptance-criterion ID and completion-gate ID (AC/VAL ID) in the task, with no other IDs. Never mark a Unity/runtime completion gate pass merely from source inspection. A gate you CANNOT certify still gets its criteria_results item: report it status=not_proven with reason_code=runtime_not_executed, which keeps overall status=pass valid. `risks` is commentary and is NOT a substitute -- an ID that appears only in risks is a MISSING ID, and one missing ID rejects the entire run after the implementation has already been paid for. Emit a row for every ID even when most of them are not_proven.
+Report exactly one criteria_results item for every acceptance-criterion ID and completion-gate ID (AC/VAL ID) in the task, with no other IDs. Never mark a Unity/runtime completion gate pass merely from source inspection. A gate you CANNOT certify still gets its criteria_results item: report it status=not_proven with reason_code=runtime_not_executed, which keeps overall status=pass valid. `risks` is commentary and is NOT a substitute -- an ID that appears only in risks is a MISSING ID, and one missing ID rejects the entire run after the implementation has already been paid for. Emit a row for every ID even when most of them are not_proven.{required}
 REASON_CODE (required on every criteria_results item)
 - status=pass requires reason_code=proved.
 - status=fail requires reason_code=criterion_failed.
