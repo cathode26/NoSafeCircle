@@ -60,7 +60,7 @@ from pathlib import Path
 import re
 import subprocess
 import sys
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -73,6 +73,10 @@ for _module_root in (ROOT, PIPELINE_ROOT, TASK_GRAPH_ROOT):
 from Pipeline.TaskDecomposition.context_builder import (  # noqa: E402
     DecompositionPreflightError,
     validate_task_selection,
+)
+from Pipeline.TaskReviewAgent.committed_tasks import (  # noqa: E402
+    CommittedTaskError,
+    load_committed_task,
 )
 from Pipeline.TaskReviewAgent.downstream_pipeline import (  # noqa: E402
     DownstreamPipelineError,
@@ -584,6 +588,180 @@ def audit_decomposition_policy(
     }
 
 
+# The three conditions an apply can leave behind in the validation policy, named so
+# a caller can branch on them instead of matching prose. POLICY_UNREADABLE is not
+# "nothing is wrong": it is the state where nobody could look, and collapsing it
+# into an empty finding list is how an unchecked policy reads as a clean one.
+POLICY_UNREADABLE = "policy_unreadable"
+POLICY_PIN_STALE = "pin_stale"
+POLICY_CHILD_UNPINNED = "child_unpinned"
+
+
+def _rewritten_contract_ids(
+    source: Path, before_commit: str, after_commit: str
+) -> tuple[str, ...]:
+    """Task IDs whose contract bytes differ between the two commits."""
+
+    listing = _git_text(
+        source, "diff", "--name-only", _exact_commit(before_commit),
+        _exact_commit(after_commit), "--", "Tasks",
+    )
+    ids = []
+    for line in listing.splitlines():
+        name = line.strip()
+        if not name.startswith("Tasks/") or not name.endswith(".yaml"):
+            continue
+        task_id = name[len("Tasks/"):-len(".yaml")]
+        if _TASK_ID.fullmatch(task_id) is not None:
+            ids.append(task_id)
+    return tuple(sorted(set(ids)))
+
+
+def applied_policy_findings(
+    source: Path | str,
+    *,
+    before_commit: str,
+    after_commit: str,
+    parent_task_id: str,
+    child_task_ids: Sequence[str],
+) -> tuple[dict[str, Any], ...]:
+    """Name what applying a decomposition just invalidated in the validation policy.
+
+    Applying rewrites ``Tasks/*.yaml`` -- it bumps ``contract_revision``, repoints
+    every ``depends_on`` that referenced the parent, and re-serializes -- and it
+    writes nothing to ``authoritative_validation_policy.json``. The policy pins each
+    task by the sha256 of its committed contract bytes, so an apply silently
+    invalidates the pin of every task it rewrote, and gives its new children no
+    entry at all. Neither condition is reported by the apply today; both surface
+    hours later, as a red CI job or as a child with no validation plan.
+
+    THE DAMAGE IS NOT LIMITED TO THE PARENT, which is the part the original report
+    of this defect did not carry. Measured on the two applies that caused it:
+    ``644e3c4f`` rewrote ten contracts and broke three pins -- NSC-007 the parent,
+    and NSC-098 which is not part of the decomposition at all and was rewritten only
+    because it referenced the parent -- while ``b5c64602`` broke NSC-099 the same
+    way and left its own parent's pin alone, because NSC-015 carries no entry. So
+    two of the three pins an apply broke belonged to bystanders. Scoping this to the
+    parent would have found one of them.
+
+    The stale rule is not restated here. ``downstream_resilience.validation_plan_for``
+    refuses an entry whose ``task_contract_sha256`` differs from the contract's own,
+    with the message "authoritative validation policy for <id> is stale", and
+    ``committed_tasks.load_committed_task`` is what computes that hash from the
+    committed bytes. This asks those two, at a stated commit, so the verdict comes
+    from the readers the pipeline already trusts rather than from a second opinion
+    that can drift from them.
+
+    A missing entry is deliberately NOT reported for every task that lacks one: 65 of
+    the 128 committed contracts have no entry and never needed one, so "no entry" is
+    the normal case and a finding on it would be noise. It is reported when the
+    PARENT carries an entry and a child does not, because then validation that was
+    pinned before the split is unpinned after it -- coverage the apply removed rather
+    than coverage that never existed.
+
+    Returns one finding per condition, never raising for the conditions themselves:
+    the commit is already on the branch by the time this can be measured, and
+    refusing here would leave Source moved with the record un-applied, turning a
+    rebind that GER does in one pass into an unrecoverable decomposition. The
+    findings go into the record and onto stderr instead. Reading them is the
+    caller's, and a caller that ignores them is no worse off than today.
+    """
+
+    repository = Path(source)
+    findings: list[dict[str, Any]] = []
+    try:
+        document = read_policy_document(repository, commit=after_commit)
+    except ValidationPolicyAuditError as exc:
+        return ({
+            "condition": POLICY_UNREADABLE,
+            "task_id": None,
+            "detail": (
+                "the validation policy could not be read at the applied commit, so"
+                " neither a stale pin nor an unpinned child could be looked for here:"
+                " %s" % exc
+            ),
+        },)
+    entries = document["tasks"]
+    rewritten = _rewritten_contract_ids(repository, before_commit, after_commit)
+    children = tuple(sorted(set(child_task_ids)))
+
+    def pinned_matches(task_id: str, commit: str) -> bool | None:
+        """True/False when both the entry and the contract exist, else None."""
+
+        entry = entries.get(task_id)
+        if not isinstance(entry, Mapping):
+            return None
+        try:
+            contract = load_committed_task(repository, task_id, commit=commit)
+        except CommittedTaskError:
+            return None
+        return entry.get("task_contract_sha256") == contract["task_contract_sha256"]
+
+    for task_id in sorted(entries):
+        if pinned_matches(task_id, after_commit) is not False:
+            continue
+        if task_id == parent_task_id:
+            role = "the decomposed parent"
+        elif task_id in children:
+            role = "a new child of this decomposition"
+        elif task_id in rewritten:
+            role = (
+                "a task this apply rewrote without decomposing it, because it"
+                " referenced the parent"
+            )
+        else:
+            role = "a task this apply did not rewrite"
+        was_fresh = pinned_matches(task_id, before_commit) is True
+        findings.append({
+            "condition": POLICY_PIN_STALE,
+            "task_id": task_id,
+            "detail": (
+                "%s pins a contract this apply no longer matches: %s. It was %s"
+                " immediately before the apply, so this apply %s. Rebinding the entry"
+                " to the committed contract bytes is the whole repair."
+                % (
+                    task_id, role,
+                    "consistent" if was_fresh else "ALREADY stale",
+                    "broke it" if was_fresh else "did not cause it",
+                )
+            ),
+            "rewritten_by_this_apply": task_id in rewritten,
+            "stale_before_this_apply": not was_fresh,
+        })
+
+    if isinstance(entries.get(parent_task_id), Mapping):
+        for child_id in children:
+            if isinstance(entries.get(child_id), Mapping):
+                continue
+            findings.append({
+                "condition": POLICY_CHILD_UNPINNED,
+                "task_id": child_id,
+                "detail": (
+                    "%s has no validation policy entry while its parent %s has one, so"
+                    " work that was pinned to exact test filters before the split is"
+                    " unpinned after it. The entry needs authored Unity test class"
+                    " names, which this apply cannot derive -- it is named here so it"
+                    " is authored deliberately rather than discovered by a red job."
+                    % (child_id, parent_task_id)
+                ),
+                "parent_task_id": parent_task_id,
+            })
+    return tuple(findings)
+
+
+def describe_policy_findings(findings: Sequence[Mapping[str, Any]]) -> str:
+    """One line for a log or an error message. Empty findings say so explicitly."""
+
+    if not findings:
+        return "validation policy consistent: no stale pin, no unpinned child"
+    parts = []
+    for condition in (POLICY_UNREADABLE, POLICY_PIN_STALE, POLICY_CHILD_UNPINNED):
+        named = [str(f.get("task_id")) for f in findings if f.get("condition") == condition]
+        if named:
+            parts.append("%s=%s" % (condition, ",".join(named)))
+    return "validation policy findings: " + "; ".join(parts)
+
+
 def decomposition_preflight(
     source: Path | str,
     task_id: str,
@@ -612,6 +790,11 @@ def decomposition_preflight(
 
 __all__ = [
     "DECOMPOSITION_TEMPLATE_AUTHORITY",
+    "POLICY_CHILD_UNPINNED",
+    "POLICY_PIN_STALE",
+    "POLICY_UNREADABLE",
+    "applied_policy_findings",
+    "describe_policy_findings",
     "VALIDATION_POLICY_RELATIVE",
     "ValidationPolicyAuditError",
     "audit_decomposition_policy",
