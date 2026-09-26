@@ -129,6 +129,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             SetMouse(screenPoint, false);
             Release(keyboardDevice.leftShiftKey);
+            InputSystem.Update();
             movement.Tick(0.02f);
             movement.ResetMovement();
 
@@ -166,6 +167,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "A fresh press while HoldPosition is held must not set a destination.");
 
             Release(keyboardDevice.leftShiftKey);
+            InputSystem.Update();
             AdvanceMovementTime(movement, 2f);
 
             yield return null;
@@ -182,12 +184,14 @@ namespace NoSafeCircle.DoorPrototype.Tests
             var baselineCount = GetPrivateField<int>(movement, "movementRestrictionCount");
 
             Press(keyboardDevice.leftShiftKey);
+            InputSystem.Update();
             movement.Tick(0.02f);
 
             Assert.IsTrue(movement.IsMovementRestricted,
                 "Test setup must actually restrict movement while the action is held.");
 
             Release(keyboardDevice.leftShiftKey);
+            InputSystem.Update();
             movement.Tick(0.02f);
 
             yield return null;
@@ -203,18 +207,22 @@ namespace NoSafeCircle.DoorPrototype.Tests
         public IEnumerator HoldPosition_RespondsToEitherPhysicalShiftKey()
         {
             Press(keyboardDevice.leftShiftKey);
+            InputSystem.Update();
             movement.Tick(0.02f);
             Assert.IsTrue(movement.IsMovementRestricted, "The left Shift key must suppress movement.");
             Release(keyboardDevice.leftShiftKey);
+            InputSystem.Update();
             movement.Tick(0.02f);
             Assert.IsFalse(movement.IsMovementRestricted);
 
             yield return null;
 
             Press(keyboardDevice.rightShiftKey);
+            InputSystem.Update();
             movement.Tick(0.02f);
             Assert.IsTrue(movement.IsMovementRestricted, "The right Shift key must also suppress movement.");
             Release(keyboardDevice.rightShiftKey);
+            InputSystem.Update();
             movement.Tick(0.02f);
             Assert.IsFalse(movement.IsMovementRestricted);
         }
@@ -233,6 +241,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "Test setup must actually hold a concurrent (e.g. Fireball charge) restriction first.");
 
             Press(keyboardDevice.leftShiftKey);
+            InputSystem.Update();
             movement.Tick(0.02f);
 
             Assert.AreEqual(baselineCount + 2, GetPrivateField<int>(movement, "movementRestrictionCount"),
@@ -240,6 +249,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "restriction, not replace or duplicate the existing one.");
 
             Release(keyboardDevice.leftShiftKey);
+            InputSystem.Update();
             movement.Tick(0.02f);
 
             yield return null;
@@ -265,6 +275,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             var baselineCount = GetPrivateField<int>(movement, "movementRestrictionCount");
 
             Press(keyboardDevice.leftShiftKey);
+            InputSystem.Update();
             movement.Tick(0.02f);
 
             Assert.IsTrue(movement.IsMovementRestricted,
@@ -288,6 +299,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         public IEnumerator CastPerformedWhileHeld_StillSpendsMana_AndProducesProjectile()
         {
             Press(keyboardDevice.leftShiftKey);
+            InputSystem.Update();
             movement.Tick(0.02f);
 
             Assert.IsTrue(movement.IsMovementRestricted,
@@ -485,6 +497,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             SetMouse(doorScreenPoint, false);
             movement.Tick(0.02f);
             Release(keyboardDevice.leftShiftKey);
+            InputSystem.Update();
             movement.Tick(0.02f);
 
             yield return null;
@@ -512,6 +525,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "Test setup must actually suppress the door approach while HoldPosition is held.");
 
             Release(keyboardDevice.leftShiftKey);
+            InputSystem.Update();
             movement.Tick(0.02f);
 
             yield return null;
