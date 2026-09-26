@@ -43,7 +43,7 @@
     {
       "criterion_id": "AC-009",
       "reference": "Tasks/NSC-015.yaml: acceptance_criteria AC-009; Docs/GDD/No_Safe_Circle_GDD.md:668-695",
-      "requirement": "In DoorPrototypeGlobalSceneBuilder.cs, remove EnemyPursuitLeashDistance and the BuildChaseEnemy call to EnemyTargetKnowledge.SetMaximumPursuitDistanceFromStart, while leaving the public API itself unchanged. In the same change, move the Bone Archive melee spawn from (-6,0,10) to (-3,0,10), the Lower Vault melee spawn from (-7,0,53) to (-2,0,53), and the Chapel Lantern Wraith spawn from (-9,0,27) to (-9,0,31), with comments recording the geometry clearance. Regenerate DoorPrototype.unity through the owned builder; do not hand-edit the binary scene."
+      "requirement": "THE LEASH SURVIVES. Do NOT remove EnemyPursuitLeashDistance and do NOT remove the BuildChaseEnemy call to EnemyTargetKnowledge.SetMaximumPursuitDistanceFromStart. AN EARLIER REVISION REQUIRED EXACTLY THAT REMOVAL AND IT IS WITHDRAWN ON VINCENT'S OWN DECISION, 2026-09-26: \"the issue is that leash has a owner and the owner doesnt move\", \"the owner must move with enemy\", \"the enemy must drag the owner when it runs out of slack\". HE DID NOT ASK FOR THE LEASH TO GO; HE RESPECIFIED ITS ANCHOR. His spec keeps a home to return to - within slack the anchor does not move - so deleting the constant and the call would destroy the mechanism he has just defined rather than implement it. The removal clause and his decision agree on INTENT, which is that pursuit must not be artificially bounded around a fixed mid-room post; they differ on MECHANISM, and his mechanism is the one that survives. RESPECIFYING THE ANCHOR IS NOT THIS TASK'S WORK AND MUST NOT BE ABSORBED INTO IT. The towing behaviour lives in EnemyTargetKnowledge.cs, which this task DOES NOT OWN - its exclusive_resources carry DoorPrototypeGlobalSceneBuilder.cs but not that file - so a criterion requiring the tow here would be unsatisfiable by construction, which is the defect this contract family has already been bitten by once. This task keeps the builder's leash wiring exactly as committed and changes nothing about pursuit distance. WHAT THIS CRITERION STILL REQUIRES IS UNCHANGED AND IS THE SPAWN WORK: in DoorPrototypeGlobalSceneBuilder.cs, move the Bone Archive melee spawn from (-6,0,10) to (-3,0,10), the Lower Vault melee spawn from (-7,0,53) to (-2,0,53), and the Chapel Lantern Wraith spawn from (-9,0,27) to (-9,0,31), with comments recording the geometry clearance. Regenerate DoorPrototype.unity through the owned builder; do not hand-edit the binary scene. The public API of EnemyTargetKnowledge is left unchanged, as it always was."
     }
   ],
   "basis": "The ownership sheet assigns all remaining parent work to one ordered child: the generic EnemyPursuitMovement hold seam, Dungeon Brute defeat response and death-look mechanism, MeleeEnemyGameplay prefab generation, prefab and pursuit tests, builder leash removal, and canonical DoorPrototype scene regeneration. Existing components and read-only generated art/navigation outputs remain owned by their named task contracts.",
@@ -91,12 +91,12 @@
     {
       "gate_id": "VAL-009",
       "reference": "Tasks/NSC-015.yaml: completion_gates VAL-009; Docs/GDD/No_Safe_Circle_GDD.md:526-544, 668-695",
-      "requirement": "Extend EnemyPursuitPlayModeTests.cs without weakening its NSC-092 regression coverage. In Play Mode, verify an enemy in the committed DoorPrototype scene follows a retreating wizard beyond the former five-unit leash. Add an Edit Mode assertion for the three revised spawn positions so later changes fail explicitly. Tests must not save DoorPrototype.unity."
+      "requirement": "Extend EnemyPursuitPlayModeTests.cs without weakening its NSC-092 regression coverage. In Play Mode, verify an enemy in the committed DoorPrototype scene follows a retreating wizard FURTHER THAN FIVE UNITS FROM ITS OWN SPAWN POINT rather than turning back. AN EARLIER WORDING SAID \"beyond the former five-unit leash\" AND THAT IS CORRECTED, BECAUSE THE LEASH IS NOT FORMER: AC-009 no longer removes it, and \"former\" would tell a reader the constant had been deleted. The five-unit figure is NOT re-pinned by this gate and must not be asserted as a configured value - it is named only as the distance the old start-anchored behaviour would have turned back at, which is what makes the test discriminating. Add an Edit Mode assertion for the three revised spawn positions so later changes fail explicitly. Tests must not save DoorPrototype.unity."
     }
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "decomposition_reason": "This child is the explicitly ordered second implementation bundle. It depends on the first child's public attack-phase surface, then owns the remaining shared locomotion resource, defeat response, generated prefab, builder output, canonical scene regeneration, and all combined prefab/pursuit/defeat validation. The resource partition leaves no hidden parent assembly work.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -179,7 +179,18 @@
     "origin": "progressive_decomposition",
     "parent_contract_revision": 17,
     "parent_contract_sha256": "eccaaf878e02994638f535ad429f85a8ca6a773524d8a283c099ddd3c61b03a9",
-    "parent_task_id": "NSC-015"
+    "parent_task_id": "NSC-015",
+    "contract_followups": [
+      {
+        "date": "2026-09-26",
+        "reason": "AC-009 and VAL-009: Vincent respecified the leash anchor rather than asking for the leash to go, so the removal clause is withdrawn; the three spawn moves and the NSC-092 coverage requirement are untouched",
+        "source_head": "6e6f212ed26256393260856285eedc737cdc993e",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "07ac4f519d13c90f79cd8d961023104bbe9a60b4415882b4e0e36d0073247f5e",
+        "revised_contract_sha256": "e8b297bce5b90a89f9e5145a8468a20a8cb3760749af75b23b528472aceaea30",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   },
   "reconciliation_key": "melee-prefab-locomotion-defeat",
   "repository_evidence_at_bootstrap": [],
