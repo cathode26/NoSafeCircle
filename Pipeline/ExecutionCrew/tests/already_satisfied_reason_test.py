@@ -82,9 +82,14 @@ def test_the_real_check_produces_exactly_the_reason_the_helper_recognises() -> N
 
 
 def test_an_already_satisfied_implementer_is_not_described_as_a_role_failure() -> None:
-    (reason,) = already_satisfied_reasons(
+    named = already_satisfied_reasons(
         "implementer", 1, status="succeeded", blockers=[], scope=_check(require_change=True), new_paths=()
     )
+    _require(
+        len(named) == 1,
+        "no already-satisfied reason was produced for a role that succeeded, raised no blockers and owed no new files",
+    )
+    reason = named[0]
     _require("implementer" in reason, "the reason does not name the role it describes")
     _require(
         "not the same as the role failing" in reason,
@@ -102,9 +107,14 @@ def test_an_already_satisfied_implementer_is_not_described_as_a_role_failure() -
 
 def test_the_attempt_number_points_at_the_record_that_exists() -> None:
     """require_change only fires on attempt 1 today, but the pointer must not hardcode that."""
-    (reason,) = already_satisfied_reasons(
+    named = already_satisfied_reasons(
         "implementer", 2, status="succeeded", blockers=[], scope=_check(require_change=True), new_paths=()
     )
+    _require(
+        len(named) == 1,
+        "no already-satisfied reason was produced for attempt 2, so the record pointer cannot be checked",
+    )
+    reason = named[0]
     _require(
         "role_results/implementer_2.json" in reason,
         "the record pointer ignores the attempt it was given",
