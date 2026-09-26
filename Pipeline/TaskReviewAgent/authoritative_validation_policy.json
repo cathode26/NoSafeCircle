@@ -652,6 +652,16 @@
         "PlayMode": "NoSafeCircle.DoorPrototype.Tests.FireballCastAndChargePlayModeTests;NoSafeCircle.DoorPrototype.Tests.FireballLifecyclePlayModeTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-119": {
+      "task_contract_sha256": "2d7254350cf2fc5b24f38b7cc271573d7441c47d8b278b5a405ff8693cc7a652",
+      "required_test_platforms": [
+        "EditMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.FireballCommittedSceneConformanceTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}
