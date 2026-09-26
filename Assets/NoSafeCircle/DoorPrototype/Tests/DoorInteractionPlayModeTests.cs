@@ -825,9 +825,11 @@ namespace NoSafeCircle.DoorPrototype.Tests
     // moment any of them drifts apart.
     public sealed class DoorCrossingCommittedSceneConformanceTests
     {
-        private const string CommittedScenePath = "Assets/Scenes/DoorPrototype.unity";
+        // Scene 0 of ProjectSettings/EditorBuildSettings.asset - what a build launches. Ported
+        // from the dying DoorPrototype.unity; see e82bd6f23 for the pilot.
+        private const string CommittedScenePath = "Assets/Scenes/RuntimeWorld.unity";
 
-        private const string CommittedSceneName = "DoorPrototype";
+        private const string CommittedSceneName = "RuntimeWorld";
 
         // Fixed simulation step for the public PlayerMovement.Tick seam, and the bounds that
         // keep every wait in this fixture finite. Uncapped batchmode frames give deltaTime
@@ -897,6 +899,26 @@ namespace NoSafeCircle.DoorPrototype.Tests
             // One frame so the loaded scene Awake calls run: ForwardCrossingTrigger is created at
             // runtime by DoorInteractable.Awake and is not serialized in the scene at all.
             yield return null;
+
+            // THE NEW WORLD DOES NOT EXIST UNTIL GameBootstrap RUNS. Unlike the old committed
+            // scene - serialized, so its hierarchy existed the frame after load - RuntimeWorld's
+            // doors, player and every other object below are instantiated asynchronously from
+            // GameBootstrap.Start. Without this wait, the single frame above would photograph an
+            // empty world instead of the five production doors this fixture expects. See
+            // e82bd6f23 (TitleScreenPlayModeTests) for the proven pattern this follows.
+            GameObject managers = GameObject.Find("GameManagers");
+            Assert.IsNotNull(managers,
+                "RuntimeWorld.unity carries no GameManagers object, so nothing builds the world.");
+            var bootstrap = managers.GetComponent<World.GameBootstrap>();
+            Assert.IsNotNull(bootstrap, "GameManagers carries no GameBootstrap.");
+
+            yield return null;
+            yield return null;
+
+            Assert.IsTrue(bootstrap.HasBuilt,
+                "GameBootstrap had not built after three frames, so every assertion below would "
+                + "fail on an empty world rather than on the thing under test. SpawnedCount = "
+                + bootstrap.SpawnedCount + ".");
         }
 
         [UnityTest]

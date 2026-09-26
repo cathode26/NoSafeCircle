@@ -62,8 +62,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
         /// <summary>Puts an empty scene back after the tests that load the composed floor.</summary>
         /// <remarks>
         /// CommittedScene_D1_, CommittedScene_D2_ and HumanReview_ call
-        /// SceneManager.LoadScene("DoorPrototype", LoadSceneMode.Single), which REPLACES the
-        /// active scene with the composed five-room floor and leaves it loaded. The [TearDown]
+        /// SceneManager.LoadScene("RuntimeWorld", LoadSceneMode.Single), which REPLACES the
+        /// active scene with the composed five-room world and leaves it loaded. The [TearDown]
         /// above cannot clean that up: it returns early on doorObject == null, and SetUp skips
         /// those three tests by name so doorObject was never created. Every fixture running
         /// after this one therefore ran INSIDE the five-room floor.
@@ -86,7 +86,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         [UnityTearDown]
         public IEnumerator RestoreEmptyActiveSceneAfterCommittedSceneTests()
         {
-            var scene = SceneManager.GetSceneByName("DoorPrototype");
+            var scene = SceneManager.GetSceneByName("RuntimeWorld");
             if (!scene.IsValid() || !scene.isLoaded) yield break;
 
             var cleanupScene = SceneManager.CreateScene("DoorBreachFeedbackTestCleanup");
@@ -267,11 +267,30 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.Less(Vector3.Distance(shakeTarget.localPosition, authoredPosition), 0.001f);
         }
 
+        // Scene 0 of ProjectSettings/EditorBuildSettings.asset - what a build launches. Ported
+        // from the dying DoorPrototype.unity; see e82bd6f23 for the pilot. The wait for
+        // GameBootstrap is not optional: the new world builds asynchronously from
+        // GameBootstrap.Start, so a single frame after load photographs an empty world rather
+        // than the door/player rig FindDoor/FindPlayer below expect to find.
         private static IEnumerator LoadCommittedScene()
         {
-            SceneManager.LoadScene("DoorPrototype", LoadSceneMode.Single);
+            SceneManager.LoadScene("RuntimeWorld", LoadSceneMode.Single);
             yield return null;
-            Assert.AreEqual("DoorPrototype", SceneManager.GetActiveScene().name);
+            Assert.AreEqual("RuntimeWorld", SceneManager.GetActiveScene().name);
+
+            GameObject managers = GameObject.Find("GameManagers");
+            Assert.IsNotNull(managers,
+                "RuntimeWorld.unity carries no GameManagers object, so nothing builds the world.");
+            var bootstrap = managers.GetComponent<World.GameBootstrap>();
+            Assert.IsNotNull(bootstrap, "GameManagers carries no GameBootstrap.");
+
+            yield return null;
+            yield return null;
+
+            Assert.IsTrue(bootstrap.HasBuilt,
+                "GameBootstrap had not built after three frames, so every assertion below would "
+                + "fail on an empty world rather than on the thing under test. SpawnedCount = "
+                + bootstrap.SpawnedCount + ".");
         }
 
         private static IEnumerator OpenAndCross(DoorInteractable target, PlayerInteractionController player)

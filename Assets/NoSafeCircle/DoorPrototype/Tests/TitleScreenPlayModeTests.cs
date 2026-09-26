@@ -178,13 +178,46 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
     public class TitleScreenCommittedScenePlayModeTests
     {
+        /// <summary>Scene 0 of ProjectSettings/EditorBuildSettings.asset - what a build launches.</summary>
+        private const string CanonicalSceneName = "RuntimeWorld";
+
+
         // NSC-066 AC-001/AC-002/AC-003 and VAL-001: load the registered canonical scene in
-        // Play Mode, then exercise its serialized Button listener without saving the scene.
+        // Play Mode, then exercise its Button listener without saving the scene.
+        //
+        // THE SCENE NAME CHANGED BECAUSE THE REGISTRATION DID, AND THAT IS THE WHOLE POINT OF THE
+        // TEST. It has always meant "whatever scene a build actually launches"; that was
+        // DoorPrototype.unity and is now RuntimeWorld.unity, which is scene 0 of
+        // ProjectSettings/EditorBuildSettings.asset. Pinning the old name would have kept the test
+        // green while it stopped describing the shipped game - the exact failure that let the WebGL
+        // player ship the old world for days.
+        //
+        // AND THE WAIT IS NOT OPTIONAL. The old scene was SERIALIZED, so its hierarchy existed one
+        // frame after load. The new world does not exist until GameBootstrap runs: the HUD is
+        // spawned from Resources/Hud/Hud.prefab by HudSpawner in phase 6, after the Player it binds
+        // to. One frame photographs an empty room. Two frames plus an explicit HasBuilt assertion
+        // is the pattern RuntimeWorldCaptureTests already proves, and asserting HasBuilt rather
+        // than trusting the frame count is what makes a slow build a loud failure instead of a
+        // confusing null.
         [UnityTest]
-        public IEnumerator DoorPrototypeScene_StartsAtTitleAndEmitsOneWizardSelectionRequest()
+        public IEnumerator RegisteredCanonicalScene_StartsAtTitleAndEmitsOneWizardSelectionRequest()
         {
-            SceneManager.LoadScene("DoorPrototype", LoadSceneMode.Single);
+            SceneManager.LoadScene(CanonicalSceneName, LoadSceneMode.Single);
             yield return null;
+
+            GameObject managers = GameObject.Find("GameManagers");
+            Assert.IsNotNull(managers,
+                "RuntimeWorld.unity carries no GameManagers object, so nothing builds the world.");
+            var bootstrap = managers.GetComponent<World.GameBootstrap>();
+            Assert.IsNotNull(bootstrap, "GameManagers carries no GameBootstrap.");
+
+            yield return null;
+            yield return null;
+
+            Assert.IsTrue(bootstrap.HasBuilt,
+                "GameBootstrap had not built after three frames, so every assertion below would "
+                + "fail on an empty scene rather than on the title screen. SpawnedCount = "
+                + bootstrap.SpawnedCount + ".");
 
             TitleScreenController controller = Object.FindFirstObjectByType<TitleScreenController>();
             GameObject player = GameObject.Find("Player");
@@ -219,7 +252,10 @@ namespace NoSafeCircle.DoorPrototype.Tests
         [UnityTearDown]
         public IEnumerator UnloadCanonicalSceneWithoutSaving()
         {
-            Scene scene = SceneManager.GetSceneByName("DoorPrototype");
+            // Same constant as the load. A literal here would silently unload nothing once the
+            // load moved, leaving the world resident for every fixture that runs afterwards -
+            // which is precisely what PlayModeSceneCleanupConventionTests exists to catch.
+            Scene scene = SceneManager.GetSceneByName(CanonicalSceneName);
             if (!scene.IsValid() || !scene.isLoaded) yield break;
 
             Scene cleanupScene = SceneManager.CreateScene("TitleScreenTestCleanup");

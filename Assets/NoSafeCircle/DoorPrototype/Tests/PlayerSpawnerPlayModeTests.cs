@@ -60,8 +60,6 @@ namespace NoSafeCircle.DoorPrototype.Tests
         // One wizard and one camera per Spawn(), from the lane specification (section 4.4 step 7).
         private const int ObjectsPerSpawn = 2;
 
-        private const int RenderWidth = 800;
-        private const int RenderHeight = 600;
 
         private GameObject floor;
         private GameObject placeholderCameraObject;
@@ -387,7 +385,28 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             // Batch mode has no Game View: give the spawned camera a fixed pixel surface so
             // WorldToScreenPoint and ScreenPointToRay agree, as PlayerMovementPlayModeTests does.
-            renderTexture = new RenderTexture(RenderWidth, RenderHeight, 24);
+            // SIZE THE RENDER TEXTURE TO THE SCREEN, AND THIS IS THE WHOLE BUG.
+            //
+            // A mouse position lives in SCREEN space. Camera.ScreenPointToRay interprets its
+            // argument against the camera's pixelRect, which becomes the RENDER TEXTURE's size the
+            // moment a target texture is attached. So a click point computed through the camera and
+            // then written to the mouse only round-trips when the render texture matches the screen.
+            //
+            // Hardcoded 800x600 against a 640x480 batchmode screen is why this test failed ONLY in
+            // combination: measured at the failure, pixelRect=(0,0,800,600) while screen=640x480,
+            // and the ray landed at (-2.57, 0.00, -38.51) for a click aimed at (-1.00, 0.00,
+            // -19.00). Everything else was exonerated first - one mouse, ours, at the exact screen
+            // point; Camera.main the spawner's; gameplay enabled; nothing accumulated.
+            //
+            // IN THE SHIPPED GAME THERE IS NO TARGET TEXTURE, so pixelRect IS the screen and the
+            // correspondence holds. The defect was in the fixture, never in PlayerMovement - which
+            // is what Vincent demonstrated by walking the wizard around long before this was found.
+            //
+            // Every other PlayMode fixture hardcodes 800x600 the same way (DoorInteractionFeedback,
+            // DoorSpawner, EnemyHoverHighlight, HoldPosition, PlayerMovement, WizardAnimation).
+            // They only escape this because they do not round-trip world->screen->world through the
+            // mouse. The convention is still fragile and worth fixing there too.
+            renderTexture = new RenderTexture(Screen.width, Screen.height, 24);
             renderTexture.Create();
             spawner.Camera.targetTexture = renderTexture;
             yield return null;
@@ -407,18 +426,75 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             // The left button is the measured binding of MoveToCursor in
             // Assets/InputSystem_Actions.inputactions; PointerPosition is <Mouse>/position.
-            SetMouse(spawner.Camera.WorldToScreenPoint(target), true);
+            Vector2 screen = spawner.Camera.WorldToScreenPoint(target);
+            SetMouse(screen, true);
             for (int i = 0; i < ticks; i++)
             {
                 spawner.Player.Tick(seconds / ticks);
             }
-            SetMouse(spawner.Camera.WorldToScreenPoint(target), false);
+            SetMouse(screen, false);
 
             float remaining = HorizontalDistance(spawner.Player.transform.position, target);
+
+            // THE MESSAGE NAMES THE BROKEN LINK INSTEAD OF LISTING SUSPECTS.
+            //
+            // This test is ORDER-DEPENDENT: it passes alone, with its own fixture (15/15), paired
+            // with HudSpawner (28/28), with HoldPosition (21/21), with each Door fixture singly,
+            // and with all five Door fixtures together - and FAILS only with all nine of the
+            // BoneArchive/Door fixtures present. So the cause is CUMULATIVE, and a bisect that
+            // assumes one culprit cannot find it: every subset passes while the whole fails.
+            //
+            // Five plausible readings of the source were wrong (camera retirement order, gameplay
+            // input suspension, a missing ground collider, HUD binding, the project input asset).
+            // An order-dependent failure is invisible to source reading BY CONSTRUCTION, because
+            // every file involved is individually correct. The old message listed three suspects
+            // and distinguished none of them, so a failing CI run told the reader nothing.
+            //
+            // PlayerMovement returns SILENTLY from UpdatePointerWorldTarget when Camera.main is
+            // null, and from HandleMoveToCursorInput when HasPointerWorldTarget is false. Both
+            // produce exactly "moved zero units". These readings separate them.
+            Camera main = Camera.main;
+            PlayerMovement movement = spawner.Player;
+            string state =
+                " | camera.main=" + (main == null ? "NULL" : main.name)
+                + " isSpawnerCamera=" + (main == spawner.Camera)
+                + " gameplayEnabled=" + movement.IsGameplayEnabled
+                + " movementRestricted=" + movement.IsMovementRestricted
+                + " hasPointerTarget=" + movement.HasPointerWorldTarget
+                + " pointerTarget=" + movement.PointerWorldTarget
+                + " hasDestination=" + movement.HasActiveDestination
+                + " wanted=" + target
+                + " at=" + movement.transform.position
+                + " liveCameras=" + Camera.allCamerasCount
+                + " doorsRegistered=" + DoorInteractable.ActiveDoors.Count
+                // THE DEVICE READINGS. pointerTarget landing bottom-left of the wanted point is
+                // what a pointer position of (0,0) projects to, which happens when PlayerMovement
+                // reads a DIFFERENT Mouse than the one this fixture queues events to. Nine
+                // InputTestFixtures add and remove devices; the action binds to whatever the
+                // Input System resolves, which need not be ours.
+                + " devices=" + UnityEngine.InputSystem.InputSystem.devices.Count
+                + " mice=" + CountMice()
+                + " mouseCurrentIsOurs=" + (UnityEngine.InputSystem.Mouse.current == mouse)
+                + " ourMousePos=" + mouse.position.ReadValue()
+                + " currentMousePos=" + (UnityEngine.InputSystem.Mouse.current == null
+                    ? "NO-CURRENT"
+                    : UnityEngine.InputSystem.Mouse.current.position.ReadValue().ToString())
+                // THE VIEWPORT READINGS. Input is exonerated: one mouse, ours, at the exact screen
+                // point the test computed. So WorldToScreenPoint (test) and ScreenPointToRay
+                // (PlayerMovement) disagree on the SAME camera, which is a pixelRect/aspect
+                // mismatch - ScreenPointToRay reads the render texture's size while a target
+                // texture is attached, and the screen's otherwise.
+                + " pixelRect=" + spawner.Camera.pixelRect
+                + " targetTexIsOurs=" + (spawner.Camera.targetTexture == renderTexture)
+                + " targetTexNull=" + (spawner.Camera.targetTexture == null)
+                + " screen=" + Screen.width + "x" + Screen.height
+                + " activeRT=" + (RenderTexture.active == null ? "null" : RenderTexture.active.width + "x" + RenderTexture.active.height)
+                + " roundTrip=" + spawner.Camera.ScreenToWorldPoint(
+                    new Vector3(screen.x, screen.y, spawner.Camera.nearClipPlane));
+
             Assert.Less(remaining, leg - 0.5f,
                 "The wizard did not move toward the clicked point at all (" + remaining + " of "
-                + leg + " units remain). Either the input asset is not wired, Camera.main is wrong, "
-                + "or the click never reached PlayerMovement.");
+                + leg + " units remain)." + state);
             Assert.LessOrEqual(remaining, leg - expectedTravel + 0.1f,
                 "After " + seconds + " s at " + moveSpeed + " u/s the wizard should be within "
                 + (leg - expectedTravel) + " of the target; " + remaining + " remain.");
@@ -586,6 +662,20 @@ namespace NoSafeCircle.DoorPrototype.Tests
             yield return null;
         }
 
+
+        private static int CountMice()
+        {
+            int mice = 0;
+            foreach (UnityEngine.InputSystem.InputDevice device in UnityEngine.InputSystem.InputSystem.devices)
+            {
+                if (device is UnityEngine.InputSystem.Mouse)
+                {
+                    mice++;
+                }
+            }
+
+            return mice;
+        }
         private void SetMouse(Vector2 screenPosition, bool leftButtonPressed)
         {
             InputSystem.QueueStateEvent(mouse, new MouseState

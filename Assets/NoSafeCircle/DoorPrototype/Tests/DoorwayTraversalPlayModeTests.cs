@@ -17,7 +17,11 @@ namespace NoSafeCircle.DoorPrototype.Tests
     // Mode fixture's lightweight in-memory seam does not carry that geometry.
     public sealed class DoorwayTraversalPlayModeTests
     {
-        private const string SceneName = "DoorPrototype";
+        /// <summary>Scene 0 of ProjectSettings/EditorBuildSettings.asset - what a build launches.
+        /// Ported from the dying DoorPrototype.unity: see e82bd6f23 for the pilot and its
+        /// reasoning (RuntimeWorld builds its hierarchy from GameBootstrap at Play, not from a
+        /// serialized scene, so a frame must be spent waiting for it before anything is found).</summary>
+        private const string SceneName = "RuntimeWorld";
 
         [UnityTearDown]
         public IEnumerator UnloadSavedSceneWithoutSaving()
@@ -30,6 +34,26 @@ namespace NoSafeCircle.DoorPrototype.Tests
             yield return SceneManager.UnloadSceneAsync(scene);
         }
 
+        // The new world does not exist until GameBootstrap runs: the wait is not optional. See
+        // e82bd6f23 (TitleScreenPlayModeTests) for why two frames plus HasBuilt, not a frame count.
+        private static IEnumerator WaitForWorldBuilt()
+        {
+            yield return null;
+            GameObject managers = GameObject.Find("GameManagers");
+            Assert.IsNotNull(managers,
+                "RuntimeWorld.unity carries no GameManagers object, so nothing builds the world.");
+            var bootstrap = managers.GetComponent<World.GameBootstrap>();
+            Assert.IsNotNull(bootstrap, "GameManagers carries no GameBootstrap.");
+
+            yield return null;
+            yield return null;
+
+            Assert.IsTrue(bootstrap.HasBuilt,
+                "GameBootstrap had not built after three frames, so every assertion below would "
+                + "fail on an empty world rather than on the thing under test. SpawnedCount = "
+                + bootstrap.SpawnedCount + ".");
+        }
+
         // VAL-002: DoorInteractable.Complete() deactivates DoorVisual before raising Opened, so
         // the binder's handler must re-enable it before the open sprite is assigned - otherwise
         // the door renders the correct sprite on a hidden object and simply vanishes.
@@ -37,6 +61,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         public IEnumerator SavedScene_Door1Opens_ReactivatesVisualAndRendersOpenSprite()
         {
             yield return SceneManager.LoadSceneAsync(SceneName, LoadSceneMode.Single);
+            yield return WaitForWorldBuilt();
             var scene = SceneManager.GetSceneByName(SceneName);
             var doorRoot = FindRoot(scene, "DoorRoot");
             var door = doorRoot.GetComponent<DoorInteractable>();
@@ -66,6 +91,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         public IEnumerator SavedScene_Door1Opens_BlockerStaysDisabled_AndProjectileRaycastCrossesCleanly()
         {
             yield return SceneManager.LoadSceneAsync(SceneName, LoadSceneMode.Single);
+            yield return WaitForWorldBuilt();
             var scene = SceneManager.GetSceneByName(SceneName);
             var doorRoot = FindRoot(scene, "DoorRoot");
             var door = doorRoot.GetComponent<DoorInteractable>();
@@ -98,6 +124,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         public IEnumerator SavedScene_Door1LockedAfterForwardCrossing_RendersLockedSprite_WithVisualActive()
         {
             yield return SceneManager.LoadSceneAsync(SceneName, LoadSceneMode.Single);
+            yield return WaitForWorldBuilt();
             var scene = SceneManager.GetSceneByName(SceneName);
             var doorRoot = FindRoot(scene, "DoorRoot");
             var door = doorRoot.GetComponent<DoorInteractable>();
@@ -125,6 +152,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         public IEnumerator SavedScene_Door1ResetAfterOpening_RendersSealedSprite_WithVisualActive()
         {
             yield return SceneManager.LoadSceneAsync(SceneName, LoadSceneMode.Single);
+            yield return WaitForWorldBuilt();
             var scene = SceneManager.GetSceneByName(SceneName);
             var doorRoot = FindRoot(scene, "DoorRoot");
             var door = doorRoot.GetComponent<DoorInteractable>();
@@ -156,6 +184,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         public IEnumerator SavedScene_Door5IsFinalAndSealed_RendersFinalSprite_WithVisualActive()
         {
             yield return SceneManager.LoadSceneAsync(SceneName, LoadSceneMode.Single);
+            yield return WaitForWorldBuilt();
             var scene = SceneManager.GetSceneByName(SceneName);
             var doorRoot = FindRoot(scene, "D5");
             var door = doorRoot.GetComponent<DoorInteractable>();
@@ -180,6 +209,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         public IEnumerator SavedScene_Door1Open_WizardWalksFromApproachSideToForwardSide()
         {
             yield return SceneManager.LoadSceneAsync(SceneName, LoadSceneMode.Single);
+            yield return WaitForWorldBuilt();
             var scene = SceneManager.GetSceneByName(SceneName);
             var doorRoot = FindRoot(scene, "DoorRoot");
             var door = doorRoot.GetComponent<DoorInteractable>();
@@ -205,6 +235,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         public IEnumerator SavedScene_Door1Open_WizardWalksFromForwardSideToApproachSide()
         {
             yield return SceneManager.LoadSceneAsync(SceneName, LoadSceneMode.Single);
+            yield return WaitForWorldBuilt();
             var scene = SceneManager.GetSceneByName(SceneName);
             var doorRoot = FindRoot(scene, "DoorRoot");
             var door = doorRoot.GetComponent<DoorInteractable>();
@@ -230,6 +261,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         public IEnumerator SavedScene_Door1Sealed_WizardApproachDoesNotCrossDoorway()
         {
             yield return SceneManager.LoadSceneAsync(SceneName, LoadSceneMode.Single);
+            yield return WaitForWorldBuilt();
             var scene = SceneManager.GetSceneByName(SceneName);
             var doorRoot = FindRoot(scene, "DoorRoot");
             var door = doorRoot.GetComponent<DoorInteractable>();
@@ -298,11 +330,30 @@ namespace NoSafeCircle.DoorPrototype.Tests
             method.Invoke(target, new object[] { other });
         }
 
+        // NOT root-scoped: RuntimeWorld nests every spawned object under its spawner (GameManagers
+        // -> <Family>Spawner -> the object), never at the scene root, unlike the old committed
+        // scene this helper was written against. Recurses the whole loaded scene instead and keeps
+        // the original "expect exactly one" guarantee, which the old SingleOrDefault only
+        // ever checked at the root level anyway.
         private static GameObject FindRoot(Scene scene, string name)
         {
-            var root = scene.GetRootGameObjects().SingleOrDefault(item => item.name == name);
-            Assert.IsNotNull(root, $"Expected one '{name}' root in saved scene {scene.path}.");
-            return root;
+            var matches = new System.Collections.Generic.List<GameObject>();
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                CollectByName(root.transform, name, matches);
+            }
+            Assert.AreEqual(1, matches.Count,
+                $"Expected exactly one '{name}' object in loaded scene {scene.path}, found {matches.Count}.");
+            return matches[0];
+        }
+
+        private static void CollectByName(Transform node, string name, System.Collections.Generic.List<GameObject> matches)
+        {
+            if (node.name == name) matches.Add(node.gameObject);
+            for (int i = 0; i < node.childCount; i++)
+            {
+                CollectByName(node.GetChild(i), name, matches);
+            }
         }
     }
 }

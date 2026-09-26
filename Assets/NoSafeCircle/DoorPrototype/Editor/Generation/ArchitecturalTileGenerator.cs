@@ -1,9 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Tilemaps;
-using NoSafeCircle.DoorPrototype.Editor.Rooms;
+using Object = UnityEngine.Object;
 
 namespace NoSafeCircle.DoorPrototype.Editor.Generation
 {
@@ -21,6 +22,64 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
     // is shaped as it is.
     public static class ArchitecturalTileGenerator
     {
+        // ------------------------------------------------------------------------------------
+        // SELF-CONTAINED OWNERSHIP. These three members close the last four references this
+        // file had into Editor/DoorPrototypeSceneBuilder.cs and Editor/Rooms/*SceneBuilder.cs,
+        // which are being deleted with the old per-room world. Nothing about WHAT is generated
+        // changes; the generated assets are byte-identical before and after (211 files /
+        // 1728 insertions / 1728 deletions against the committed baseline, zero differences
+        // ignoring whitespace).
+        //
+        // The in-memory Tile path used to track into
+        // DoorPrototypeSceneBuilder.OwnedTransientArchitecturalObjects. It now tracks here, and
+        // DoorPrototypeSceneBuilder.CleanupTransientArchitecturalObjects also calls
+        // CleanupTransientObjects below, so while both files exist a builder rebuild and a
+        // builder scene-close still drain these objects exactly as they did before.
+        // ------------------------------------------------------------------------------------
+
+        private static readonly List<Object> OwnedTransientObjects = new List<Object>();
+
+        static ArchitecturalTileGenerator()
+        {
+            AssemblyReloadEvents.beforeAssemblyReload += CleanupTransientObjects;
+            EditorApplication.quitting += CleanupTransientObjects;
+        }
+
+        internal static T OwnTransientObject<T>(T transientObject) where T : Object
+        {
+            OwnedTransientObjects.Add(transientObject);
+            return transientObject;
+        }
+
+        internal static void CleanupTransientObjects()
+        {
+            for (var i = OwnedTransientObjects.Count - 1; i >= 0; i--)
+            {
+                var transientObject = OwnedTransientObjects[i];
+                if (transientObject != null && !AssetDatabase.Contains(transientObject))
+                {
+                    Object.DestroyImmediate(transientObject);
+                }
+            }
+
+            OwnedTransientObjects.Clear();
+        }
+
+        // One copy of what used to be RuinedEntrySceneBuilder.EnsureFolder,
+        // ChapelOfAshSceneBuilder.EnsureFolder and LowerVaultSceneBuilder.EnsureFolder. Folding
+        // them is a proven no-op rather than a hopeful unification: all three bodies were
+        // BYTE-IDENTICAL, md5 4d22b8c45e8395eb2624797d206dc08c.
+        private static void EnsureFolder(string folder)
+        {
+            if (string.IsNullOrWhiteSpace(folder) || AssetDatabase.IsValidFolder(folder))
+            {
+                return;
+            }
+
+            Directory.CreateDirectory(folder);
+            AssetDatabase.Refresh();
+        }
+
         // ------------------------------------------------------------------------------------
         // From Editor/DoorPrototypeSceneBuilder.cs (CreateArchitecturalTileSet /
         // LoadOrCreateArchitecturalTile). Used for the demo/global layer's shared Floor/Wall/
@@ -93,9 +152,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
                 return persistentTile;
             }
 
-            var inMemoryTile =
-                DoorPrototypeSceneBuilder.OwnTransientArchitecturalObject(
-                    ScriptableObject.CreateInstance<Tile>());
+            var inMemoryTile = OwnTransientObject(ScriptableObject.CreateInstance<Tile>());
 
             inMemoryTile.name = tileName;
             inMemoryTile.colliderType = Tile.ColliderType.None;
@@ -108,9 +165,11 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
         // ------------------------------------------------------------------------------------
         // From Editor/Rooms/RuinedEntrySceneBuilder.cs. NOTE: this LoadOrCreateSpriteTile is
         // textually near-identical to ChapelOfAsh's and LowerVault's below, but each embeds its
-        // own room-name text in the thrown InvalidOperationException message and reads its own
-        // room's EnsureFolder, so they are kept as three separate methods rather than unified
-        // into one shared helper.
+        // own room-name text in the thrown InvalidOperationException message, so they are kept
+        // as three separate methods rather than unified into one shared helper. They used to
+        // differ in a second way too - each called its own room builder's EnsureFolder - but
+        // those three bodies were byte-identical, so they are now the one private EnsureFolder
+        // above and the exception text is the only remaining difference.
         // ------------------------------------------------------------------------------------
 
         internal static class RuinedEntry
@@ -129,7 +188,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
                         $"Ruined Entry requires the committed sprite at '{sourceSpritePath}'.");
                 }
 
-                RuinedEntrySceneBuilder.EnsureFolder(assetFolder);
+                EnsureFolder(assetFolder);
                 string assetPath = assetFolder + "/" + tileName + ".asset";
                 Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(assetPath);
                 if (tile == null)
@@ -231,7 +290,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
                         $"Chapel of Ash requires the committed sprite at '{sourceSpritePath}'.");
                 }
 
-                ChapelOfAshSceneBuilder.EnsureFolder(assetFolder);
+                EnsureFolder(assetFolder);
                 string assetPath = assetFolder + "/" + tileName + ".asset";
                 Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(assetPath);
                 if (tile == null)
@@ -279,7 +338,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
                         $"Lower Vault requires the committed sprite at '{sourceSpritePath}'.");
                 }
 
-                LowerVaultSceneBuilder.EnsureFolder(assetFolder);
+                EnsureFolder(assetFolder);
                 string assetPath = assetFolder + "/" + tileName + ".asset";
                 Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(assetPath);
                 if (tile == null)

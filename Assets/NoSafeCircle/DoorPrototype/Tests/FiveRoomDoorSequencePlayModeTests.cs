@@ -18,11 +18,58 @@ namespace NoSafeCircle.DoorPrototype.Tests
         // step is enough in practice; this only stops a fixture defect from hanging the run.
         private const int MaxTriggerSettleFixedSteps = 10;
 
+        // The new world does not exist until GameBootstrap runs: the wait is not optional. See
+        // e82bd6f23 (TitleScreenPlayModeTests) for why two frames plus HasBuilt, not a frame count.
+        private static IEnumerator WaitForWorldBuilt()
+        {
+            yield return null;
+            GameObject managers = GameObject.Find("GameManagers");
+            Assert.IsNotNull(managers,
+                "RuntimeWorld.unity carries no GameManagers object, so nothing builds the world.");
+            var bootstrap = managers.GetComponent<World.GameBootstrap>();
+            Assert.IsNotNull(bootstrap, "GameManagers carries no GameBootstrap.");
+
+            yield return null;
+            yield return null;
+
+            Assert.IsTrue(bootstrap.HasBuilt,
+                "GameBootstrap had not built after three frames, so every assertion below would "
+                + "fail on an empty world rather than on the thing under test. SpawnedCount = "
+                + bootstrap.SpawnedCount + ".");
+        }
+
+        // NOT root-scoped: RuntimeWorld nests every spawned object under its spawner
+        // (GameManagers -> <Family>Spawner -> the object), never at the scene root, unlike the
+        // old committed scene the previous scene.GetRootGameObjects().Single(...) calls here
+        // were written against. Recurses the whole loaded scene and keeps the original
+        // "expect exactly one" guarantee.
+        private static GameObject FindInScene(Scene scene, string name)
+        {
+            var matches = new System.Collections.Generic.List<GameObject>();
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                CollectByName(root.transform, name, matches);
+            }
+            Assert.AreEqual(1, matches.Count,
+                $"Expected exactly one '{name}' object in loaded scene {scene.path}, found {matches.Count}.");
+            return matches[0];
+        }
+
+        private static void CollectByName(Transform node, string name, System.Collections.Generic.List<GameObject> matches)
+        {
+            if (node.name == name) matches.Add(node.gameObject);
+            for (int i = 0; i < node.childCount; i++)
+            {
+                CollectByName(node.GetChild(i), name, matches);
+            }
+        }
+
         [UnityTest]
         public IEnumerator CanonicalScene_HasOrderedDoors_AndD5IsTheOnlyFinalDoor()
         {
-            yield return SceneManager.LoadSceneAsync("DoorPrototype", LoadSceneMode.Single);
-            var scene = SceneManager.GetSceneByName("DoorPrototype");
+            yield return SceneManager.LoadSceneAsync("RuntimeWorld", LoadSceneMode.Single);
+            yield return WaitForWorldBuilt();
+            var scene = SceneManager.GetSceneByName("RuntimeWorld");
             var doors = scene.GetRootGameObjects()
                 .SelectMany(root => root.GetComponentsInChildren<DoorInteractable>(true))
                 .OrderBy(door => door.DoorId)
@@ -70,8 +117,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
         [UnityTest]
         public IEnumerator ComposedScene_DoorFeedback_TracksHoverSelectedAndOpeningPerDoor()
         {
-            yield return SceneManager.LoadSceneAsync("DoorPrototype", LoadSceneMode.Single);
-            var scene = SceneManager.GetSceneByName("DoorPrototype");
+            yield return SceneManager.LoadSceneAsync("RuntimeWorld", LoadSceneMode.Single);
+            yield return WaitForWorldBuilt();
+            var scene = SceneManager.GetSceneByName("RuntimeWorld");
 
             // THE COMPOSED SCENE STARTS AT THE TITLE SCREEN WITH GAMEPLAY INPUT SUSPENDED.
             // TitleScreenController.Awake calls SuspendGameplayInput on PlayerInteractionController,
@@ -83,7 +131,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             // Entering gameplay the way a player does is what makes the assertion meaningful.
             yield return EnterGameplayThroughRunEntry();
 
-            var player = scene.GetRootGameObjects().Single(root => root.name == "Player");
+            var player = FindInScene(scene, "Player");
             var movement = player.GetComponent<PlayerMovement>();
             var interactionController = player.GetComponent<PlayerInteractionController>();
 
@@ -97,7 +145,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             foreach (var doorRootName in doorRootNames)
             {
-                var doorRoot = scene.GetRootGameObjects().Single(root => root.name == doorRootName);
+                var doorRoot = FindInScene(scene, doorRootName);
                 var door = doorRoot.GetComponent<DoorInteractable>();
                 var feedback = doorRoot.GetComponent<DoorInteractionFeedback>();
                 var doorRenderer = doorRoot.transform.Find("DoorVisual").Find("DoorSprite").GetComponent<SpriteRenderer>();
@@ -174,12 +222,13 @@ namespace NoSafeCircle.DoorPrototype.Tests
         [UnityTest]
         public IEnumerator ComposedScene_BrokenDoor_NavMeshPathReconnectsAcrossDoorway()
         {
-            yield return SceneManager.LoadSceneAsync("DoorPrototype", LoadSceneMode.Single);
-            var scene = SceneManager.GetSceneByName("DoorPrototype");
+            yield return SceneManager.LoadSceneAsync("RuntimeWorld", LoadSceneMode.Single);
+            yield return WaitForWorldBuilt();
+            var scene = SceneManager.GetSceneByName("RuntimeWorld");
 
-            var doorRoot = scene.GetRootGameObjects().Single(root => root.name == "DoorRoot");
+            var doorRoot = FindInScene(scene, "DoorRoot");
             var door = doorRoot.GetComponent<DoorInteractable>();
-            var player = scene.GetRootGameObjects().Single(root => root.name == "Player");
+            var player = FindInScene(scene, "Player");
             var playerCollider = player.GetComponent<CharacterController>();
 
             door.StartInteraction();
@@ -262,8 +311,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
         [UnityTest]
         public IEnumerator ComposedScene_FixedSquadSpawns_MatchApprovedDistributionOraclesAndClearance()
         {
-            yield return SceneManager.LoadSceneAsync("DoorPrototype", LoadSceneMode.Single);
-            yield return null;
+            yield return SceneManager.LoadSceneAsync("RuntimeWorld", LoadSceneMode.Single);
+            yield return WaitForWorldBuilt();
             Physics.SyncTransforms();
 
             var builderType = System.Type.GetType(
@@ -519,7 +568,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         [UnityTearDown]
         public IEnumerator UnloadCanonicalSceneWithoutSaving()
         {
-            var scene = SceneManager.GetSceneByName("DoorPrototype");
+            var scene = SceneManager.GetSceneByName("RuntimeWorld");
             if (!scene.IsValid() || !scene.isLoaded) yield break;
 
             var cleanupScene = SceneManager.CreateScene("FiveRoomDoorSequenceTestCleanup");

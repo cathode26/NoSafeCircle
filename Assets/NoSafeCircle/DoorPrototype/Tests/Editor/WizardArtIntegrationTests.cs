@@ -302,9 +302,32 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 "west",
                 "north-west"
             };
-            System.Type builderType = typeof(NoSafeCircle.DoorPrototype.Editor.DoorPrototypeSceneBuilder)
-                .Assembly.GetType("NoSafeCircle.DoorPrototype.Editor.World.DoorPrototypeGlobalSceneBuilder");
-            Assert.IsNotNull(builderType);
+            // REFLECTED BY NAME, SO NO COMPILER CAN SEE THIS COUPLING. These constants moved from
+            // DoorPrototypeGlobalSceneBuilder to CharacterAnimationGenerator when the animation
+            // generator was extracted so it would survive the deletion of the scene builders. The
+            // move was faithful - same names, same values - but this test pinned the old HOME as a
+            // STRING, so it broke while compile_check passed 4/4. Reflection is not a compile-time
+            // reference; only the test suite could catch it, and this is what it caught.
+            //
+            // Pointed at the GENERATOR rather than repaired in place on purpose: the generator
+            // survives the cutover and the builder does not, so this test now outlives it instead
+            // of dying with it.
+            //
+            // Reflection is still required rather than a direct reference: these members are
+            // internal to NoSafeCircle.DoorPrototype.Editor and this fixture is in
+            // NoSafeCircle.DoorPrototype.Tests.Editor, a different assembly.
+            // THE ANCHOR HAS TO SURVIVE TOO, NOT JUST THE TARGET. This typeof only names a class in
+            // order to reach its ASSEMBLY, and it used to name DoorPrototypeSceneBuilder - which is
+            // being deleted with the old world. Repointing the GetType string at the generator (as
+            // c453a5adc did) moved the half that was easy to see and left the half that resolves the
+            // assembly pointing at a dying type. ArchitecturalTileGenerator is public, lives in the
+            // same assembly, and survives the cutover.
+            System.Type builderType = typeof(NoSafeCircle.DoorPrototype.Editor.Generation.ArchitecturalTileGenerator)
+                .Assembly.GetType("NoSafeCircle.DoorPrototype.Editor.Generation.CharacterAnimationGenerator");
+            Assert.IsNotNull(builderType,
+                "CharacterAnimationGenerator was not found. If it moved again, repoint this at its "
+                + "new home rather than deleting the assertion - the canonical eight-direction set "
+                + "is the thing under test, not the class that happens to hold it.");
             FieldInfo directionsField = builderType.GetField(
                 "WizardDirections", BindingFlags.NonPublic | BindingFlags.Static);
             FieldInfo standingDirectionsField = builderType.GetField(
