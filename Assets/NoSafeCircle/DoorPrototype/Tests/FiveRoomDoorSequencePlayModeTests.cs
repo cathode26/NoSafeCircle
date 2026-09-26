@@ -427,14 +427,22 @@ namespace NoSafeCircle.DoorPrototype.Tests
         // ONE position in isolation (room membership, wall inset, NavMesh sample, clearance) -
         // never a relation between two spawns, which is what stayed in the method above.
         //
-        // SpawnPositionCases() runs at NUnit test-COLLECTION time, before any scene loads or
-        // PlayMode setup runs: it reflects DoorPrototypeGlobalSceneBuilder's private static
-        // Vector3[] fields directly off the compiled Editor assembly, which is already loaded in
-        // the Editor domain regardless of PlayMode state. Verified by running this fixture: the
-        // 9 named cases (BoneArchive_Melee_1, BoneArchive_Ranged_1, ChapelOfAsh_Melee_1,
-        // ChapelOfAsh_Ranged_1, LowerVault_Melee_1, LowerVault_Ranged_1, FinalRoom_Melee_1,
-        // FinalRoom_Melee_2, FinalRoom_Ranged_1) show up in the PlayMode test list and each runs
-        // independently.
+        // MEASURED, NOT ASSUMED: [UnityTest]+[TestCaseSource] was tried first (case names built by
+        // reflecting the builder's arrays at NUnit collection time, which DID work - all 9 names
+        // resolved correctly before any scene loaded). But every generated case then reported
+        // result="Failed", runstate="NotRunnable", reason "Method has non-void return value, but
+        // no result is expected" - this project's com.unity.test-framework@7056e7f856e9 does not
+        // run a [TestCaseSource]-parameterized IEnumerator as a coroutine the way a parameterless
+        // [UnityTest] is. Confirmed by running this exact fixture (see fix/spawn-test-split run
+        // log): 9/9 cases NotRunnable with that message, none of the AC-006 assertions ever
+        // executed. Falling back to 9 separately named, parameterless [UnityTest] methods, as
+        // this brief allows when TestCaseSource proves unreliable.
+        //
+        // Room/role -> position is still resolved once by reflection (NamedSpawnPosition), so a
+        // change to the builder's spawn ARRAY SIZE surfaces as an assertion failure here (a named
+        // case whose position goes missing) as well as in the count asserts kept in
+        // ComposedScene_FixedSquadSpawns_MatchApprovedDistributionAndOracles above - but adding a
+        // 10th spawn would need a 10th named method here; nothing generates one automatically.
         //
         // Loads RuntimeWorld ONCE for all 9 cases (a static s_WorldBuilt guard in UnitySetUp)
         // rather than 9 separate async world builds: every check here is read-only (coordinate
@@ -466,10 +474,10 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 }
             }
 
-            // Named "{Room}_{Melee|Ranged}_{n}" so a CI failure identifies the spawn without
-            // anyone opening a log. n restarts per room+role (FinalRoom has two melee entries;
-            // every other room+role combination has exactly one).
-            private static IEnumerable<TestCaseData> SpawnPositionCases()
+            // Resolved by name rather than cached once: the reflection cost is two FieldInfo
+            // reads and is negligible next to the NavMesh/Physics queries below, and recomputing
+            // it per case avoids any dependency on static-field init order.
+            private static Vector3 NamedSpawnPosition(string caseName)
             {
                 var builderType = ResolveBuilderType();
                 var meleePositions = GetPrivateStaticVector3Array(builderType, "EnemySpawnPositions");
@@ -486,13 +494,16 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     roleCounts.TryGetValue(key, out var count);
                     count++;
                     roleCounts[key] = count;
-                    yield return new TestCaseData(entry.Position).SetName($"{roomName}_{entry.Role}_{count}");
+                    if ($"{roomName}_{entry.Role}_{count}" == caseName) return entry.Position;
                 }
+
+                Assert.Fail($"Expected a fixed spawn position named '{caseName}' among the builder's " +
+                    "current melee/ranged arrays, but none matched - the array contents or size " +
+                    "changed under this hard-coded case name.");
+                return default;
             }
 
-            [UnityTest]
-            [TestCaseSource(nameof(SpawnPositionCases))]
-            public IEnumerator ClearsWallInsetNavMeshAndCollision(Vector3 position)
+            private static void AssertClearsWallInsetNavMeshAndCollision(Vector3 position, string roomNameForMessage)
             {
                 var roomName = RoomOf(position);
                 Assert.IsNotNull(roomName,
@@ -521,13 +532,74 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     : " No walkable point within 5 units, so this is a bake gap rather than a height offset.";
 
                 Assert.IsTrue(NavMesh.SamplePosition(position, out _, 0.1f, NavMesh.AllAreas),
-                    $"AC-006: {position} in {roomName} must sample the baked gameplay NavMesh within 0.1 units." +
+                    $"AC-006: {position} in {roomNameForMessage} must sample the baked gameplay NavMesh within 0.1 units." +
                     nearestDetail);
 
                 var checkPoint = position + Vector3.up;
                 Assert.IsFalse(Physics.CheckSphere(checkPoint, 0.5f, Physics.AllLayers, QueryTriggerInteraction.Ignore),
                     $"AC-006: {position} must be clear of non-trigger colliders.");
+            }
 
+            [UnityTest]
+            public IEnumerator BoneArchive_Melee_1()
+            {
+                AssertClearsWallInsetNavMeshAndCollision(NamedSpawnPosition("BoneArchive_Melee_1"), "BoneArchive");
+                yield break;
+            }
+
+            [UnityTest]
+            public IEnumerator BoneArchive_Ranged_1()
+            {
+                AssertClearsWallInsetNavMeshAndCollision(NamedSpawnPosition("BoneArchive_Ranged_1"), "BoneArchive");
+                yield break;
+            }
+
+            [UnityTest]
+            public IEnumerator ChapelOfAsh_Melee_1()
+            {
+                AssertClearsWallInsetNavMeshAndCollision(NamedSpawnPosition("ChapelOfAsh_Melee_1"), "ChapelOfAsh");
+                yield break;
+            }
+
+            [UnityTest]
+            public IEnumerator ChapelOfAsh_Ranged_1()
+            {
+                AssertClearsWallInsetNavMeshAndCollision(NamedSpawnPosition("ChapelOfAsh_Ranged_1"), "ChapelOfAsh");
+                yield break;
+            }
+
+            [UnityTest]
+            public IEnumerator LowerVault_Melee_1()
+            {
+                AssertClearsWallInsetNavMeshAndCollision(NamedSpawnPosition("LowerVault_Melee_1"), "LowerVault");
+                yield break;
+            }
+
+            [UnityTest]
+            public IEnumerator LowerVault_Ranged_1()
+            {
+                AssertClearsWallInsetNavMeshAndCollision(NamedSpawnPosition("LowerVault_Ranged_1"), "LowerVault");
+                yield break;
+            }
+
+            [UnityTest]
+            public IEnumerator FinalRoom_Melee_1()
+            {
+                AssertClearsWallInsetNavMeshAndCollision(NamedSpawnPosition("FinalRoom_Melee_1"), "FinalRoom");
+                yield break;
+            }
+
+            [UnityTest]
+            public IEnumerator FinalRoom_Melee_2()
+            {
+                AssertClearsWallInsetNavMeshAndCollision(NamedSpawnPosition("FinalRoom_Melee_2"), "FinalRoom");
+                yield break;
+            }
+
+            [UnityTest]
+            public IEnumerator FinalRoom_Ranged_1()
+            {
+                AssertClearsWallInsetNavMeshAndCollision(NamedSpawnPosition("FinalRoom_Ranged_1"), "FinalRoom");
                 yield break;
             }
         }
