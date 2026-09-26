@@ -27,6 +27,7 @@ namespace NoSafeCircle.DoorPrototype
         private Camera mainCamera;
         private InputAction pointerPositionAction;
         private InputAction moveToCursorAction;
+        private InputAction holdPositionAction;
 
         private Vector3 initialPosition;
         private Quaternion initialRotation;
@@ -36,6 +37,7 @@ namespace NoSafeCircle.DoorPrototype
         private int movementRestrictionCount;
         private float blockedDestinationTime;
         private bool wasMoveToCursorPressed;
+        private bool isHoldingPositionRestriction;
 
         /// Shared world-space pointer target (AC-002), produced by projecting the cursor
         /// onto the gameplay plane. Consumers (cursor-aimed spells, Door/Interaction) read
@@ -71,11 +73,18 @@ namespace NoSafeCircle.DoorPrototype
 
             pointerPositionAction = playerMap.FindAction("PointerPosition", false);
             moveToCursorAction = playerMap.FindAction("MoveToCursor", false);
+            holdPositionAction = playerMap.FindAction("HoldPosition", false);
 
             if (pointerPositionAction == null || moveToCursorAction == null)
             {
                 Debug.LogWarning("PlayerMovement could not find the 'PointerPosition' and/or 'MoveToCursor' " +
                     "actions on the Player action map.");
+            }
+
+            if (holdPositionAction == null)
+            {
+                Debug.LogWarning("PlayerMovement could not find the 'HoldPosition' action on the Player action " +
+                    "map; holding Shift to suppress movement will be unavailable.");
             }
         }
 
@@ -83,12 +92,14 @@ namespace NoSafeCircle.DoorPrototype
         {
             pointerPositionAction?.Enable();
             moveToCursorAction?.Enable();
+            holdPositionAction?.Enable();
         }
 
         private void OnDisable()
         {
             pointerPositionAction?.Disable();
             moveToCursorAction?.Disable();
+            holdPositionAction?.Disable();
         }
 
         private void Update()
@@ -108,8 +119,32 @@ namespace NoSafeCircle.DoorPrototype
                 return;
             }
 
+            HandleHoldPositionInput();
             HandleMoveToCursorInput();
             TickDestinationMovement(deltaTime);
+        }
+
+        /// AC-001/AC-002: reads only the 'HoldPosition' action (no hardware polling). True for
+        /// exactly as long as either physical Shift key is held.
+        private bool IsHoldPositionHeld => holdPositionAction != null && holdPositionAction.IsPressed();
+
+        /// AC-002/AC-003: holds/releases the existing reference-counted movement restriction for
+        /// exactly as long as the action is held, so a Fireball charge held across the same
+        /// press/release composes with this one instead of fighting it.
+        private void HandleHoldPositionInput()
+        {
+            var isPressed = IsHoldPositionHeld;
+
+            if (isPressed && !isHoldingPositionRestriction)
+            {
+                RequestMovementRestriction();
+                isHoldingPositionRestriction = true;
+            }
+            else if (!isPressed && isHoldingPositionRestriction)
+            {
+                ReleaseMovementRestriction();
+                isHoldingPositionRestriction = false;
+            }
         }
 
         private void UpdatePointerWorldTarget()
@@ -142,6 +177,12 @@ namespace NoSafeCircle.DoorPrototype
             // between two distinct input samples.
             var isFreshPress = isPressed && !wasMoveToCursorPressed;
             wasMoveToCursorPressed = isPressed;
+
+            // AC-005: while Shift is held, a fresh press starts no destination and no door
+            // approach. wasMoveToCursorPressed above is still updated while held, so a press
+            // held across Shift's release is not replayed/queued as a fresh press once Shift
+            // comes back up.
+            if (IsHoldPositionHeld) return;
 
             // AC-001: a fresh press is offered to Door/Interaction first, using the shared
             // pointer target this method already computed. If it hit a sealed door, Door and
@@ -319,6 +360,7 @@ namespace NoSafeCircle.DoorPrototype
         {
             ClearDestination();
             movementRestrictionCount = 0;
+            isHoldingPositionRestriction = false;
             IsGameplayEnabled = true;
 
             controller.enabled = false;
@@ -334,6 +376,15 @@ namespace NoSafeCircle.DoorPrototype
         {
             IsGameplayEnabled = false;
             ClearDestination();
+
+            // AC-003: a title-screen transition mid-hold must not strand this restriction;
+            // release it here rather than waiting for a Shift release that may never come
+            // while gameplay input is suspended.
+            if (isHoldingPositionRestriction)
+            {
+                ReleaseMovementRestriction();
+                isHoldingPositionRestriction = false;
+            }
         }
 
         public void EnableGameplayInput()
