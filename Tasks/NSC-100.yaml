@@ -55,12 +55,12 @@
     {
       "gate_id": "VAL-004",
       "reference": "Developer visual regression review",
-      "requirement": "Vincent opens Assets/Scenes/DoorPrototype.unity and confirms the existing prototype still renders with correct draw order and remains playable after the sorting-layer repoint, with no renderer visibly misordered relative to its pre-change appearance."
+      "requirement": "Vincent opens Assets/Scenes/RuntimeWorld.unity and confirms the existing prototype still renders with correct draw order and remains playable after the sorting-layer repoint, with no renderer visibly misordered relative to its pre-change appearance. THE SCENE NAMED IN THIS GATE WAS REPOINTED 2026-09-26 FROM Assets/Scenes/DoorPrototype.unity TO Assets/Scenes/RuntimeWorld.unity, ON VINCENT'S OWN INSTRUCTION THAT THE OLD WORLD IS BEING REMOVED. NOTHING ELSE IN THIS GATE CHANGED: what the reviewer does, looks at and approves is untouched, and no criterion was weakened to make it satisfiable. RuntimeWorld.unity holds only GameManagers, a camera and a light; all content is instantiated at Play by the spawners under Resources/Spawners, so this gate is a PLAY MODE review and must not be read as asking for any object to be present in the saved scene."
     }
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 7,
+  "contract_revision": 8,
   "decomposition_reason": "The layer repoint, the composer's flat sorting-order and spriteSortPoint validation, and their EditMode negative-case tests are one self-contained change confined to three source files and the two existing partial-class test files; no further split is warranted.",
   "decomposition_state": "concrete",
   "depends_on": [],
@@ -148,6 +148,15 @@
         "previous_contract_revision": 6,
         "base_contract_sha256": "e22b3be0bb2c7033c8a37288bc1b98cd04df687534d1f92730777b1ff58c9104",
         "revised_contract_sha256": "598f4fb78ce38480f5b9fc1e7da43fa0d78c97245afd2cdc5e9846852b749907",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-26",
+        "reason": "VAL-004: repoint Vincent's human review from the old composed scene to RuntimeWorld.unity, on his instruction that the old world is being removed; the review itself is unchanged",
+        "source_head": "00a151d750e745a681dcaf2fdcbe3bc76f3886c0",
+        "previous_contract_revision": 7,
+        "base_contract_sha256": "8f5befa9c3afa3aaa6947afb89ac8652d2c086b5010ecbaf937f1c80b59cad60",
+        "revised_contract_sha256": "2b9727131cced371df031b6c8beb171e59810c723bb01091fe22b86bea0021cb",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
