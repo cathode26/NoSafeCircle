@@ -61,8 +61,25 @@ namespace NoSafeCircle.DoorPrototype.Editor
         // also what left NSC-045's candidate unable to compile.
         public const string WorldSpriteSortingLayerName = "WorldSprites";
         private const int WorldSpriteSortingOrder = 0;
-        private const int BackgroundGroundSortingOrder = -100;
-        private const int BackgroundArchitecturalBorderSortingOrder = -90;
+
+        // THE BACKGROUND BAND MUST SIT STRICTLY BELOW EVERY AUTHORED DRESSING sorting_order.
+        // It was -100/-90, and at that value the floor painted over 189 of the 222 placements
+        // in the five room dressing catalogs. sortingOrder is compared BEFORE the camera
+        // transparency axis configured in BuildCamera, so a prop authored at -1165 loses to a
+        // floor at -100 whatever its world position - the axis never gets to arbitrate.
+        //
+        // The numbers themselves are arbitrary; only the RELATION matters, and it is NOT
+        // asserted here. BackgroundSortingBandTests recomputes the minimum from the catalogs
+        // at test time and fails with the actual margin, so a deeper prop authored later
+        // cannot reintroduce this silently. Do not turn that computation back into a literal:
+        // -1165 is the minimum TODAY and nothing stops a catalog being authored past it.
+        //
+        // PUBLIC for the same reason WorldSpriteSortingLayerName above is public: the five
+        // room builders and the separate Editor test assembly must reach one definition
+        // instead of restating the number. Every room builder used to pass a bare -100 at its
+        // own floor call site, which is how one band came to live in six places at once.
+        public const int BackgroundGroundSortingOrder = -10000;
+        public const int BackgroundArchitecturalBorderSortingOrder = -9990;
 
         // AC-001/VAL-002: this task adopts the WorldSprites sorting layer that
         // ProjectSettings/TagManager.asset already declares as an orphan entry; it does not
