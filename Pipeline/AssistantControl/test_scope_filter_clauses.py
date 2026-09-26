@@ -33,11 +33,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from Pipeline.AssistantControl.graph_controller import (
-    _declared_test_paths,
-    _filter_clauses,
-    _resolve_test_paths,
-)
+# ONLY `_resolve_test_paths` is imported at module scope, deliberately. The two
+# helpers below are new, so importing them here would make the whole module fail
+# to IMPORT when the implementation is reverted -- an ImportError, which proves
+# the helpers are absent and says nothing about behaviour. The behavioural cases
+# must fail behaviourally on the old code, so the helpers are imported inside the
+# two tests that are about the helpers themselves.
+from Pipeline.AssistantControl.graph_controller import _resolve_test_paths
 
 PIN = "a" * 64
 TESTS = "Assets/NoSafeCircle/DoorPrototype/Tests"
@@ -105,6 +107,7 @@ class ScopeFilterClauseTests(unittest.TestCase):
 
     # ---------------------------------------------------------------- clauses
     def test_a_filter_entry_can_name_several_classes(self):
+        from Pipeline.AssistantControl.graph_controller import _filter_clauses
         self.assertEqual(["A.One", "B.Two", "C.Three"],
                          _filter_clauses("A.One;B.Two; C.Three "))
         self.assertEqual(["A.One"], _filter_clauses("A.One"))
@@ -171,6 +174,7 @@ class ScopeFilterClauseTests(unittest.TestCase):
 
     def test_only_declared_TEST_paths_count(self):
         """A declared implementation file must not satisfy a test filter."""
+        from Pipeline.AssistantControl.graph_controller import _declared_test_paths
         head = self.commit()
         declared = _declared_test_paths({"exclusive_resources": [
             f"repo-file:{TESTS}/DeltaPlayModeTests.cs",
