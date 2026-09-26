@@ -23,8 +23,17 @@ What it checks, per semicolon-separated name in the filter:
     vacuously at the graph level and is the same failure wearing a better disguise;
   - the platform implied by its location (Tests/Editor -> EditMode, else PlayMode) matches the platform
     the filter is bound under;
-  - graph_controller._resolve_test_paths resolves filters by FILE STEM, so the last name segment must also
-    match exactly one committed test file stem, or scoping fails even when the type exists.
+  - the clause RESOLVES under graph_controller._resolve_test_paths, which is a two-stage lookup, not a
+    stem-only one. THIS CHECK USED TO DEMAND EXACTLY ONE MATCHING FILE STEM AND THAT WAS WRONG: it
+    produced a false FAIL on every PARTIAL fixture, which is a whole class of real ones. The resolver
+    tries the file stem FIRST (graph_controller.py:425) and, only when no stem matches, falls back to a
+    type index (:430) that sets spans_files = all_partial (:439). The rejection at :444 is
+    `not matches or (len(matches) > 1 and not spans_files)` - so several files are FINE when they are all
+    partial, because Unity runs a filter naming a partial type against every file contributing to it.
+    Measured 2026-09-26 at main 5def87bc: NSC-069 and NSC-100 were reported FAIL here for years and both
+    resolve correctly in the live automatic_scope_plan (2 and 5 test paths, including BOTH halves of the
+    partial class RoomSceneCompositionFoundationTests). The 2026-09-18 GER handoff's advice that NSC-069
+    'needs a scope override' came from this false FAIL and is withdrawn.
 """
 from __future__ import annotations
 
@@ -71,6 +80,7 @@ def check(filter_text: str, platform: str, table: dict, stems: dict, authored: s
     if not names:
         return [f"{platform}: filter is empty"]
     for full in names:
+        before = len(problems)
         short = full.rsplit(".", 1)[-1]
         hits = table.get(short) or []
         if not hits:
@@ -94,14 +104,23 @@ def check(filter_text: str, platform: str, table: dict, stems: dict, authored: s
             implied = "EditMode" if "/Tests/Editor/" in path else "PlayMode"
             if implied != platform:
                 problems.append(f"{platform}: PLATFORM MISMATCH - {full} lives at {path} ({implied})")
-        if len(stems.get(short, [])) != 1:
-            n = len(stems.get(short, []))
+        # Mirror graph_controller._resolve_test_paths exactly: stem branch first (:425), then the type
+        # index (:430) whose spans_files = all_partial (:439); rejection at :444 is
+        # `not matches or (len(matches) > 1 and not spans_files)`. A partial fixture spanning several
+        # files RESOLVES - demanding one stem here is stricter than the code and false-FAILs it.
+        n_stems = len(stems.get(short, []))
+        if n_stems > 1:
             problems.append(
-                f"{platform}: STEM RESOLUTION - {short} matches {n} committed test file stems, needs exactly 1 "
-                "(graph_controller resolves scope by file stem)")
-        if not problems or problems[-1].startswith(platform) is False:
-            pass
-        if all(not p.startswith(f"{platform}: ") or full not in p for p in problems):
+                f"{platform}: STEM AMBIGUITY - {short} matches {n_stems} committed test file stems. The"
+                " resolver takes the stem branch first, where spans_files is False, so >1 is rejected"
+                " at graph_controller.py:444.")
+        elif n_stems == 0 and len(hits) > 1 and not all(h[2] for h in hits):
+            problems.append(
+                f"{platform}: TYPE AMBIGUITY - no file stem matches {short}, so the type index at"
+                f" graph_controller.py:430 decides, and {len(hits)} committed files declare that name"
+                " without all being `partial`. Those are distinct types sharing a name and are rejected"
+                " at :444. (All-partial would resolve to every contributing file, which is correct.)")
+        if len(problems) == before:
             print(f"    OK  {full}  ({total} tests, {qualified[0][0]})")
     return problems
 
