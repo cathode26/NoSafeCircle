@@ -59,6 +59,23 @@ namespace NoSafeCircle.DoorPrototype.World
             }
         }
 
+        /// Assigns the catalogs and the parent from code instead of the inspector, for a bootstrap
+        /// that owns the build order and for tests. Does NOT spawn - call Spawn() when ready, which
+        /// is the whole point: a caller that must build rooms and bake a navmesh around this needs
+        /// to choose the moment.
+        public void Configure(IEnumerable<TextAsset> catalogAssets, Transform root = null)
+        {
+            var list = new List<TextAsset>();
+            if (catalogAssets != null)
+            {
+                list.AddRange(catalogAssets);
+            }
+
+            catalogs = list.ToArray();
+            dressingRoot = root;
+            spawnOnAwake = false;
+        }
+
         /// Instantiates every placement in every assigned catalog. Safe to call again: it clears
         /// what it previously spawned first, so a re-spawn cannot silently double the dressing.
         public int Spawn()

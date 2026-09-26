@@ -59,11 +59,21 @@ namespace NoSafeCircle.DoorPrototype.Editor
         // passing after this constant is repointed while the room's floor and walls sort
         // wrongly against every world sprite. Reaching this constant across that boundary is
         // also what left NSC-045's candidate unable to compile.
-        public const string WorldSpriteSortingLayerName = "WorldSprites";
+
+        // FORWARDED. The one definition now lives in the RUNTIME assembly because the world
+        // is assembled at Play and runtime code cannot reference an Editor assembly. Kept here
+        // as an alias so the ~20 tests and five builders that name it keep compiling, and so
+        // there is still exactly ONE value rather than two that can drift apart.
+        public const string WorldSpriteSortingLayerName = NoSafeCircle.DoorPrototype.World.WorldSpriteConvention.SortingLayerName;
         // PUBLIC for the same reason the two background constants below are: the five
         // dressing prefab builders and the separate Editor test assembly must reach ONE
         // definition of the shared band instead of each restating 0.
-        public const int WorldSpriteSortingOrder = 0;
+
+        // FORWARDED. The one definition now lives in the RUNTIME assembly because the world
+        // is assembled at Play and runtime code cannot reference an Editor assembly. Kept here
+        // as an alias so the ~20 tests and five builders that name it keep compiling, and so
+        // there is still exactly ONE value rather than two that can drift apart.
+        public const int WorldSpriteSortingOrder = NoSafeCircle.DoorPrototype.World.WorldSpriteConvention.SortingOrder;
 
         // THE BACKGROUND BAND MUST SIT STRICTLY BELOW EVERY AUTHORED DRESSING sorting_order.
         // It was -100/-90, and at that value the floor painted over 189 of the 222 placements
@@ -100,8 +110,18 @@ namespace NoSafeCircle.DoorPrototype.Editor
         // builders and the separate Editor test assembly must reach one definition instead of
         // restating the number. Every room builder used to pass a bare -100 at its own floor
         // call site, which is how one band came to live in six places at once.
-        public const int BackgroundGroundSortingOrder = short.MinValue;
-        public const int BackgroundArchitecturalBorderSortingOrder = short.MinValue + 10;
+
+        // FORWARDED. The one definition now lives in the RUNTIME assembly because the world
+        // is assembled at Play and runtime code cannot reference an Editor assembly. Kept here
+        // as an alias so the ~20 tests and five builders that name it keep compiling, and so
+        // there is still exactly ONE value rather than two that can drift apart.
+        public const int BackgroundGroundSortingOrder = NoSafeCircle.DoorPrototype.World.WorldSpriteConvention.BackgroundGroundSortingOrder;
+
+        // FORWARDED. The one definition now lives in the RUNTIME assembly because the world
+        // is assembled at Play and runtime code cannot reference an Editor assembly. Kept here
+        // as an alias so the ~20 tests and five builders that name it keep compiling, and so
+        // there is still exactly ONE value rather than two that can drift apart.
+        public const int BackgroundArchitecturalBorderSortingOrder = NoSafeCircle.DoorPrototype.World.WorldSpriteConvention.BackgroundArchitecturalBorderSortingOrder;
 
         // AC-001/VAL-002: this task adopts the WorldSprites sorting layer that
         // ProjectSettings/TagManager.asset already declares as an orphan entry; it does not
