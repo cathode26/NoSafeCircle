@@ -407,12 +407,13 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             // The left button is the measured binding of MoveToCursor in
             // Assets/InputSystem_Actions.inputactions; PointerPosition is <Mouse>/position.
-            SetMouse(spawner.Camera.WorldToScreenPoint(target), true);
+            Vector2 screen = spawner.Camera.WorldToScreenPoint(target);
+            SetMouse(screen, true);
             for (int i = 0; i < ticks; i++)
             {
                 spawner.Player.Tick(seconds / ticks);
             }
-            SetMouse(spawner.Camera.WorldToScreenPoint(target), false);
+            SetMouse(screen, false);
 
             float remaining = HorizontalDistance(spawner.Player.transform.position, target);
 
@@ -458,7 +459,19 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 + " ourMousePos=" + mouse.position.ReadValue()
                 + " currentMousePos=" + (UnityEngine.InputSystem.Mouse.current == null
                     ? "NO-CURRENT"
-                    : UnityEngine.InputSystem.Mouse.current.position.ReadValue().ToString());
+                    : UnityEngine.InputSystem.Mouse.current.position.ReadValue().ToString())
+                // THE VIEWPORT READINGS. Input is exonerated: one mouse, ours, at the exact screen
+                // point the test computed. So WorldToScreenPoint (test) and ScreenPointToRay
+                // (PlayerMovement) disagree on the SAME camera, which is a pixelRect/aspect
+                // mismatch - ScreenPointToRay reads the render texture's size while a target
+                // texture is attached, and the screen's otherwise.
+                + " pixelRect=" + spawner.Camera.pixelRect
+                + " targetTexIsOurs=" + (spawner.Camera.targetTexture == renderTexture)
+                + " targetTexNull=" + (spawner.Camera.targetTexture == null)
+                + " screen=" + Screen.width + "x" + Screen.height
+                + " activeRT=" + (RenderTexture.active == null ? "null" : RenderTexture.active.width + "x" + RenderTexture.active.height)
+                + " roundTrip=" + spawner.Camera.ScreenToWorldPoint(
+                    new Vector3(screen.x, screen.y, spawner.Camera.nearClipPlane));
 
             Assert.Less(remaining, leg - 0.5f,
                 "The wizard did not move toward the clicked point at all (" + remaining + " of "
