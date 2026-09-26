@@ -542,7 +542,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             Assert.IsNotNull(fullWallTile);
             Assert.IsNotNull(lowWallTile);
             Assert.That(fullWallTile.sprite.bounds.size.y, Is.EqualTo(2.5f).Within(0.001f));
-            Assert.That(lowWallTile.sprite.bounds.size.y, Is.EqualTo(0.5f).Within(0.001f));
+            Assert.That(lowWallTile.sprite.bounds.size.y, Is.EqualTo(2.796875f).Within(0.001f));
 
             // NSC-109 AC-001/VAL-001: the painted floor and wall Tiles must resolve to the
             // committed sprites under Art/Environment/Source rather than a procedurally

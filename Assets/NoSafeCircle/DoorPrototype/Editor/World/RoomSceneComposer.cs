@@ -485,6 +485,8 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
         {
             ValidateRendererSortingLayer(result.VisualsRoot, result);
             ValidateRendererSortingLayer(result.GameplayGeometryRoot, result);
+            ValidateRendererSortPivot(result.VisualsRoot, result);
+            ValidateRendererSortPivot(result.GameplayGeometryRoot, result);
         }
 
         private static void ValidateRendererSortingLayer(GameObject categoryRoot, RoomValidationResult result)
@@ -506,6 +508,25 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 {
                     result.AddError(
                         $"TilemapRenderer '{renderer.name}' must use the shared '{DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName}' sorting layer.");
+                }
+            }
+        }
+
+        // AC-006: DoorPrototypeSceneBuilder.ApplyWorldSpriteRendererConvention anchors every
+        // world sprite at its ground-contact (feet) origin and relies on spriteSortPoint.Pivot
+        // so the camera's custom-axis transparency sort orders by that ground position rather
+        // than by Unity's default Center point. TilemapRenderer has no spriteSortPoint, so only
+        // SpriteRenderer is checked here.
+        private static void ValidateRendererSortPivot(GameObject categoryRoot, RoomValidationResult result)
+        {
+            if (categoryRoot == null) return;
+
+            foreach (var renderer in categoryRoot.GetComponentsInChildren<SpriteRenderer>(true))
+            {
+                if (renderer.spriteSortPoint != SpriteSortPoint.Pivot)
+                {
+                    result.AddError(
+                        $"SpriteRenderer '{renderer.name}' must use the '{nameof(SpriteSortPoint.Pivot)}' sprite sort point.");
                 }
             }
         }

@@ -6,6 +6,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using NoSafeCircle.DoorPrototype.Editor;
 using NoSafeCircle.DoorPrototype.Editor.World;
 using NoSafeCircle.DoorPrototype.World;
 using Object = UnityEngine.Object;
@@ -103,7 +104,15 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
             var visuals = AddCategoryChild(roomRoot, roomId, RoomContentCategory.Visuals, "Visuals");
             var spriteObject = new GameObject("Sprite");
             spriteObject.transform.SetParent(visuals.transform, false);
-            spriteObject.AddComponent<SpriteRenderer>().sortingLayerName = "Default";
+            // AC-005/AC-006: this is the shared "valid" baseline every other fixture in this
+            // file starts from, so it must itself satisfy the two validation rules those
+            // criteria add (shared sorting layer, Pivot sort point) or every test that reuses
+            // it to check an UNRELATED rule would start failing on this rule instead. Assert
+            // the constant, not a literal, so this setup cannot go stale the way AC-007's
+            // pinned literal assertions did.
+            var spriteRenderer = spriteObject.AddComponent<SpriteRenderer>();
+            spriteRenderer.sortingLayerName = DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
+            spriteRenderer.spriteSortPoint = SpriteSortPoint.Pivot;
 
             var gameplayGeometry =
                 AddCategoryChild(roomRoot, roomId, RoomContentCategory.GameplayGeometry, "GameplayGeometry");
@@ -151,6 +160,65 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
                 CollectionAssert.IsEmpty(result.Errors, string.Join("\n", result.Errors));
                 Assert.IsTrue(result.IsValid);
                 Assert.AreEqual(1, result.DoorAnchors.Count);
+            }
+            finally
+            {
+                EditorSceneManager.CloseScene(scene, true);
+            }
+        }
+
+        // AC-005/VAL-001: restores the negative sorting-layer case NSC-069 revision 8 removed,
+        // now provable because a second sorting layer (WorldSprites) exists. A Visuals or
+        // GameplayGeometry SpriteRenderer or TilemapRenderer authored on a sorting layer other
+        // than the shared WorldSprites layer must fail validation with an error naming it.
+        [Test]
+        public void ValidateOpenRoomScene_VisualsSpriteRendererOnWrongSortingLayer_ReportsError()
+        {
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+            try
+            {
+                var roomEntry = CreateFixtureRoomEntry(RoomId.RuinedEntry);
+                var doors = CreateFixtureDoors(RoomId.RuinedEntry, RoomId.BoneArchive);
+                var roomRoot = BuildValidRoomFixture(scene, RoomId.RuinedEntry, doors[0]);
+                var offendingRenderer = roomRoot.transform.Find("Visuals/Sprite").GetComponent<SpriteRenderer>();
+                offendingRenderer.sortingLayerName = "Default";
+
+                var result = RoomSceneComposer.ValidateOpenRoomScene(RoomId.RuinedEntry, scene, roomEntry, doors);
+
+                Assert.IsFalse(result.IsValid);
+                Assert.IsTrue(
+                    result.Errors.Contains(
+                        $"SpriteRenderer 'Sprite' must use the shared '{DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName}' sorting layer."),
+                    string.Join("\n", result.Errors));
+            }
+            finally
+            {
+                EditorSceneManager.CloseScene(scene, true);
+            }
+        }
+
+        // AC-006/VAL-001: a Visuals or GameplayGeometry SpriteRenderer left at the default
+        // spriteSortPoint.Center, rather than Pivot, must fail validation with an error naming
+        // it. TilemapRenderer has no spriteSortPoint and is not covered by this rule.
+        [Test]
+        public void ValidateOpenRoomScene_VisualsSpriteRendererNotPivotSortPoint_ReportsError()
+        {
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+            try
+            {
+                var roomEntry = CreateFixtureRoomEntry(RoomId.RuinedEntry);
+                var doors = CreateFixtureDoors(RoomId.RuinedEntry, RoomId.BoneArchive);
+                var roomRoot = BuildValidRoomFixture(scene, RoomId.RuinedEntry, doors[0]);
+                var offendingRenderer = roomRoot.transform.Find("Visuals/Sprite").GetComponent<SpriteRenderer>();
+                offendingRenderer.spriteSortPoint = SpriteSortPoint.Center;
+
+                var result = RoomSceneComposer.ValidateOpenRoomScene(RoomId.RuinedEntry, scene, roomEntry, doors);
+
+                Assert.IsFalse(result.IsValid);
+                Assert.IsTrue(
+                    result.Errors.Contains(
+                        $"SpriteRenderer 'Sprite' must use the '{nameof(SpriteSortPoint.Pivot)}' sprite sort point."),
+                    string.Join("\n", result.Errors));
             }
             finally
             {

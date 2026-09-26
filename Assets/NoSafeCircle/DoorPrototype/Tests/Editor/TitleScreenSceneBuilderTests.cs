@@ -142,7 +142,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.AreEqual(-90, border.sortingOrder);
             Assert.AreEqual(0, walls.sortingOrder);
             Assert.AreEqual(0, player.sortingOrder);
-            Assert.AreEqual("Default", walls.sortingLayerName);
+            Assert.AreEqual(DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName, walls.sortingLayerName);
             Assert.AreEqual(walls.sortingLayerName, player.sortingLayerName);
         }
     }

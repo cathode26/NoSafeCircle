@@ -469,6 +469,11 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             SpriteRenderer renderer = instance.AddComponent<SpriteRenderer>();
             renderer.sprite = sprite;
             renderer.sortingLayerName = DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
+            // NSC-100 AC-006: accents are world sprites and must sort by their GROUND CONTACT,
+            // not their centre, or a tall accent's mid-point decides its isometric depth. The
+            // shared convention in DoorPrototypeSceneBuilder has always required this; the accent
+            // placer set the layer and never the sort point, and the AC-006 guard caught it.
+            renderer.spriteSortPoint = SpriteSortPoint.Pivot;
 
             placed.Add(new PlacedWallAccent(role, run, instance));
         }
