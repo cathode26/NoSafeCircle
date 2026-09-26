@@ -40,6 +40,27 @@ SPRITE_OPTIONAL_BY_DESIGN = {
         "sprite, because the sprite is the one thing each copy supplies for itself.",
 }
 
+# GUIDS UNITY SHIPS, WHICH NO .meta UNDER Assets/ CAN EVER DECLARE, each with what it is and how it
+# was read. The known-guid index is built from Assets/**/*.meta, so a reference into a PACKAGE
+# (Library/PackageCache, deliberately excluded above as build output) or into Unity's own built-in
+# resource bundles looks exactly like a typo to the checks below. Measured 2026-09-26 on the first
+# prefab to carry a uGUI Image: eight FAILs, every one of them a Unity-shipped guid. A declared
+# table, never a blanket skip - an unknown package guid still fails, which is the point.
+UNITY_BUILTIN_EXTRA_GUID = "0000000000000000f000000000000000"
+UNITY_SHIPPED_GUIDS = {
+    UNITY_BUILTIN_EXTRA_GUID:
+        "unity_builtin_extra: Sprites-Default (10754), the Standard shader (46) and the UI/Skin "
+        "sprites UISprite.psd (10905) and Background.psd (10907). These sprites are not sub-assets "
+        "of a texture, so their fileIDs are legitimately not 21300000.",
+    "fe87c0e1cc204ed48ad3b37840f39efc":
+        "com.unity.ugui Runtime/UGUI/UI/Core/Image.cs, read from the package cache's own .meta. "
+        "DoorBreachFeedback.durabilityFill is typed Image, so a door prefab must reference it.",
+    "0cd44c1031e13a943bb63640046fad76":
+        "com.unity.ugui Runtime/UGUI/UI/Core/Layout/CanvasScaler.cs, read from the package cache.",
+    "dc42784cf147c0c48a680349fa168899":
+        "com.unity.ugui Runtime/UGUI/UI/Core/GraphicRaycaster.cs, read from the package cache.",
+}
+
 GUID_PATTERN = re.compile(r"guid:\s*([0-9a-f]{32})\b")
 SPRITE_PATTERN = re.compile(r"m_Sprite:\s*\{fileID:\s*(-?\d+)(?:,\s*guid:\s*([0-9a-f]{32}))?")
 SCRIPT_PATTERN = re.compile(r"m_Script:\s*\{fileID:\s*(-?\d+),\s*guid:\s*([0-9a-f]{32})")
@@ -93,7 +114,9 @@ def check_prefab(path: pathlib.Path, known_guids: set) -> list:
             saw_unassigned_sprite = True
             if sprite_optional_reason is None:
                 failures.append("has an m_Sprite pointing at fileID 0, which renders nothing")
-        elif file_id != SPRITE_SUBASSET_FILE_ID:
+        elif file_id != SPRITE_SUBASSET_FILE_ID and guid != UNITY_BUILTIN_EXTRA_GUID:
+            # A built-in UI/Skin sprite is the one legitimate non-21300000 sprite reference; any
+            # other fileID is still a broken reference (see UNITY_SHIPPED_GUIDS).
             failures.append(
                 "has an m_Sprite with fileID {0}; a sprite sub-asset is {1}".format(
                     file_id, SPRITE_SUBASSET_FILE_ID))
@@ -129,7 +152,7 @@ def collect_known_guids(root: pathlib.Path) -> set:
     A CONTROL, NOT A CONVENIENCE: without it the reference checks silently pass on a typo, because
     an unresolvable guid looks exactly like a resolvable one in text.
     """
-    guids = set()
+    guids = set(UNITY_SHIPPED_GUIDS)
     for meta in root.rglob("*.meta"):
         if "Library" in meta.parts or "Temp" in meta.parts:
             continue
