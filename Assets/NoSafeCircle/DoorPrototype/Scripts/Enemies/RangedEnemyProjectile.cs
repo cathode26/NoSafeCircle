@@ -1,4 +1,5 @@
 using System;
+using NoSafeCircle.DoorPrototype;
 using UnityEngine;
 
 namespace NoSafeCircle.DoorPrototype.Enemies
@@ -61,7 +62,7 @@ namespace NoSafeCircle.DoorPrototype.Enemies
             Physics.SyncTransforms();
             if (StopForInitialOverlap(origin)) return;
             RaycastHit[] hits = Physics.SphereCastAll(origin, collisionRadius, direction, distance,
-                ~0, QueryTriggerInteraction.Ignore);
+                SightOcclusionLayers.ExcludeLowDressing(~0), QueryTriggerInteraction.Ignore);
             Array.Sort(hits, (left, right) => left.distance.CompareTo(right.distance));
 
             foreach (RaycastHit hit in hits)
@@ -85,7 +86,7 @@ namespace NoSafeCircle.DoorPrototype.Enemies
         private bool StopForInitialOverlap(Vector3 origin)
         {
             Collider[] overlaps = Physics.OverlapSphere(origin, collisionRadius,
-                ~0, QueryTriggerInteraction.Ignore);
+                SightOcclusionLayers.ExcludeLowDressing(~0), QueryTriggerInteraction.Ignore);
             PlayerHealth contactedPlayer = null;
             foreach (Collider collider in overlaps)
             {

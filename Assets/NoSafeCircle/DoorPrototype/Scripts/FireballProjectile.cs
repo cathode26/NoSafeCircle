@@ -115,9 +115,10 @@ namespace NoSafeCircle.DoorPrototype
             blockingHit = default;
             if (distance <= 0f) return false;
 
-            Vector3 chestOrigin = origin + Vector3.up;
+            Vector3 chestOrigin = origin + SightOcclusionLayers.EyeOffset;
             RaycastHit[] hits = Physics.RaycastAll(chestOrigin, direction, distance,
-                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+                SightOcclusionLayers.ExcludeLowDressing(Physics.DefaultRaycastLayers),
+                QueryTriggerInteraction.Ignore);
 
             bool found = false;
             float closestDistance = float.MaxValue;
@@ -208,14 +209,15 @@ namespace NoSafeCircle.DoorPrototype
         /// between the detonation and that enemy.
         private static bool HasUnobstructedLine(Vector3 fromPoint, Vector3 toPosition)
         {
-            Vector3 eye = fromPoint + Vector3.up;
-            Vector3 target = toPosition + Vector3.up;
+            Vector3 eye = fromPoint + SightOcclusionLayers.EyeOffset;
+            Vector3 target = toPosition + SightOcclusionLayers.EyeOffset;
             Vector3 toTarget = target - eye;
             float distance = toTarget.magnitude;
             if (distance <= 0.01f) return true;
 
             return !Physics.Raycast(eye, toTarget / distance, distance,
-                Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
+                SightOcclusionLayers.ExcludeLowDressing(Physics.DefaultRaycastLayers),
+                QueryTriggerInteraction.Ignore);
         }
 
         private bool IsCaster(Transform hitTransform)

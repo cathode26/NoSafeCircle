@@ -265,14 +265,15 @@ namespace NoSafeCircle.DoorPrototype.Enemies
             if (!requiresLineOfSight || wizardTransform == null) return true;
 
             // Sample at chest height so the ground plane itself never counts as an occluder.
-            var eye = transform.position + Vector3.up;
-            var target = wizardTransform.position + Vector3.up;
+            var eye = transform.position + SightOcclusionLayers.EyeOffset;
+            var target = wizardTransform.position + SightOcclusionLayers.EyeOffset;
             var toTarget = target - eye;
             var distance = toTarget.magnitude;
             if (distance <= 0.01f) return true;
 
             if (!Physics.Raycast(eye, toTarget / distance, out RaycastHit hit, distance,
-                    Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+                    SightOcclusionLayers.ExcludeLowDressing(Physics.DefaultRaycastLayers),
+                    QueryTriggerInteraction.Ignore))
             {
                 return true;
             }

@@ -7,6 +7,7 @@ using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using NoSafeCircle.DoorPrototype;
 using NoSafeCircle.DoorPrototype.World;
 
 namespace NoSafeCircle.DoorPrototype.Tests
@@ -476,7 +477,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
         {
             var start = new Vector3(from.x, 1.0f, from.z);
             var end = new Vector3(toFlat.x, 1.0f, toFlat.y);
-            return !Physics.Linecast(start, end, out _, Physics.AllLayers, QueryTriggerInteraction.Ignore);
+            return !Physics.Linecast(start, end, out _,
+                SightOcclusionLayers.ExcludeLowDressing(Physics.AllLayers), QueryTriggerInteraction.Ignore);
         }
 
         private static float Cross(Vector2 a, Vector2 b) => a.x * b.y - a.y * b.x;

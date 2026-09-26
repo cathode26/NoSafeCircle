@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using NoSafeCircle.DoorPrototype;
 using UnityEngine;
 
 namespace NoSafeCircle.DoorPrototype.Enemies
@@ -105,14 +106,15 @@ namespace NoSafeCircle.DoorPrototype.Enemies
         {
             // Chest height on both ends so the floor never counts as an occluder, and triggers
             // such as a door's range volume are ignored - only solid geometry blocks a cast.
-            var eye = transform.position + Vector3.up;
-            var target = wizardTransform.position + Vector3.up;
+            var eye = transform.position + SightOcclusionLayers.EyeOffset;
+            var target = wizardTransform.position + SightOcclusionLayers.EyeOffset;
             var toTarget = target - eye;
             var distance = toTarget.magnitude;
             if (distance <= 0.01f) return true;
 
             if (!Physics.Raycast(eye, toTarget / distance, out RaycastHit hit, distance,
-                    Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore))
+                    SightOcclusionLayers.ExcludeLowDressing(Physics.DefaultRaycastLayers),
+                    QueryTriggerInteraction.Ignore))
             {
                 return true;
             }
