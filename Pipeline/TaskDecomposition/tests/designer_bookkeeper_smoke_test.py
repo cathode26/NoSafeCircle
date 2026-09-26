@@ -1166,6 +1166,22 @@ def test_additions_notes_keep_real_additions_and_drop_only_drifted_copies() -> N
     assert _preserved_notes(design, drifted) == f"{design}\n\n{drifted}"
 
 
+def test_additions_rule_copies_kept_text_exactly() -> None:
+    # Astra R3: normalisation is for comparing only; kept text is byte-for-byte.
+    from TaskDecomposition.bookkeeping_skeleton import NOTES_RULE_ADDITIONS, _preserved_notes
+
+    def notes(design: str, model: str) -> str:
+        return _preserved_notes(design, model, notes_rule=NOTES_RULE_ADDITIONS)
+
+    design = "Check the projectile prefab in Play Mode."
+    joined = 'Use string.Join("  ", values) for the score label.'
+    assert notes(design, joined) == f"{design}\n\n{joined}"
+    quoted = 'Set the status label to "Ready."'
+    assert notes(quoted, quoted + " " + quoted) == quoted
+    assert notes(design, "First addition.\n\n" + design + "\n\nSecond addition.") == (
+        f"{design}\n\nFirst addition.\n\nSecond addition.")
+
+
 TESTS = (
     test_additions_rule_drops_near_copy_sentences,
     test_additions_rule_removes_only_identical_sentences,
@@ -1183,6 +1199,7 @@ TESTS = (
     test_sheet_review_schema_and_policy_refuse_invalid_reviews,
     test_the_bookkeeper_gets_only_the_cited_gdd_lines,
     test_additions_notes_keep_real_additions_and_drop_only_drifted_copies,
+    test_additions_rule_copies_kept_text_exactly,
     test_legacy_replay_keeps_the_old_whitespace_notes_behaviour,
     test_entry_references_survive_mislabelled_entry_ids,
     test_repeated_requirements_pair_up_in_order,

@@ -134,15 +134,30 @@ def _preserved_notes(design_notes: str, model_notes: Any, *, legacy: bool = Fals
     return f"{design_notes}\n\n{written}" if written else design_notes
 
 
+# A sentence ends at . ! or ?, optionally followed by closing quotes or brackets,
+# before whitespace; a blank line also ends one. Line wraps inside a sentence do not.
+_SENTENCE_END = re.compile(r"(?<=[.!?])[\"'\u201d\u2019)\]]*\s+|\s*\n\s*\n\s*")
+_BLANK_LINE = re.compile(r"\n\s*\n")
+
+
 def _sentence_key(sentence: str) -> str:
     """Whitespace, case and end punctuation only: never a difference of content."""
 
-    return " ".join(sentence.split()).casefold().rstrip(".!?;: ")
+    return " ".join(sentence.split()).casefold().rstrip(".!?;:\"'\u201d\u2019)] ")
 
 
-def _sentences(paragraph: str) -> list[str]:
-    # Whitespace is collapsed first so a line-wrapped copy is still one sentence.
-    return [part for part in re.split(r"(?<=[.!?])\s+", " ".join(paragraph.split())) if part]
+def _sentence_spans(text: str) -> list[tuple[str, str]]:
+    """Each sentence exactly as written, with the separator that follows it."""
+
+    spans = []
+    position = 0
+    for match in _SENTENCE_END.finditer(text):
+        closers = match.group(0)[:len(match.group(0)) - len(match.group(0).lstrip("\"'\u201d\u2019)]"))]
+        spans.append((text[position:match.start()] + closers, match.group(0)[len(closers):]))
+        position = match.end()
+    if position < len(text):
+        spans.append((text[position:], ""))
+    return [(sentence, separator) for sentence, separator in spans if sentence.strip()]
 
 
 def _additions_notes(design_notes: str, model_notes: Any) -> str:
@@ -152,18 +167,20 @@ def _additions_notes(design_notes: str, model_notes: Any) -> str:
     apart from whitespace, case and end punctuation. Nothing fuzzier is removed:
     a one-character difference (Enemy01 and Enemy02, 10 and 10.5) can be the
     whole meaning, so a reworded copy stays visible rather than risking a lost
-    note. The additions-only prompt is what keeps paraphrases out.
+    note. The additions-only prompt is what keeps paraphrases out. Kept text is
+    copied exactly; normalisation is used only to compare.
     """
 
     text = model_notes if isinstance(model_notes, str) else ""
-    design_keys = {_sentence_key(sentence) for paragraph in re.split(r"\n\s*\n", design_notes)
-                   for sentence in _sentences(paragraph)}
-    paragraphs = []
-    for paragraph in re.split(r"\n\s*\n", text):
-        kept = [sentence for sentence in _sentences(paragraph) if _sentence_key(sentence) not in design_keys]
-        if kept:
-            paragraphs.append(" ".join(kept))
-    additions = "\n\n".join(paragraphs)
+    design_keys = {_sentence_key(sentence) for sentence, _ in _sentence_spans(design_notes)}
+    pieces: list[str] = []
+    for sentence, separator in _sentence_spans(text):
+        if _sentence_key(sentence) not in design_keys:
+            pieces.extend((sentence.strip(), separator))
+        elif pieces and _BLANK_LINE.search(separator) and not _BLANK_LINE.search(pieces[-1]):
+            # Keep the paragraph break a dropped sentence carried.
+            pieces[-1] = separator
+    additions = "".join(pieces).strip()
     if not design_notes:
         return additions
     return f"{design_notes}\n\n{additions}" if additions else design_notes
