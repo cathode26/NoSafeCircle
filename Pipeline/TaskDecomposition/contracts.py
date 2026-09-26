@@ -13,7 +13,11 @@ from AgentRuntime.contracts import (
     validate_repository_path,
 )
 
-TASK_ID_RE = re.compile(r"^NSC-(?:[0-9]{3}|[1-9][0-9]{3,8})$")
+# The bounded task-id rule, unanchored, so a SEARCH shares one source of truth with a
+# FULLMATCH instead of each caller re-deriving the boundaries. The width limits are the
+# whole point: an unbounded NSC-\\d+ matches NSC-1234567890123 and the id space does not.
+TASK_ID_BODY = r"NSC-(?:[0-9]{3}|[1-9][0-9]{3,8})"
+TASK_ID_RE = re.compile(rf"^{TASK_ID_BODY}$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 LOCAL_KEY_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 ENTRY_PATTERNS = {

@@ -17,6 +17,8 @@ Scoped by Astra, rounds 19 and 20.
 from __future__ import annotations
 
 from pathlib import Path, PurePosixPath
+
+from TaskDecomposition.contracts import TASK_ID_BODY
 import re
 from typing import Any, Mapping
 
@@ -245,7 +247,7 @@ def worksheet_for_source(source: Path, task_id: str) -> dict[str, Any]:
     task_ids = sorted(
         PurePosixPath(path).stem
         for path in _git(source, "ls-tree", "-z", "--name-only", head, "--", "Tasks/").decode("utf-8").split("\0")
-        if re.fullmatch(r"Tasks/NSC-\d+\.yaml", path))
+        if re.fullmatch(rf"Tasks/{TASK_ID_BODY}\.yaml", path))
     tasks = load_committed_tasks(source, task_ids, commit=head)
     return build_worksheet(tasks, task_id, repository_components=repository_components(source, head),
                            source_commit=head)

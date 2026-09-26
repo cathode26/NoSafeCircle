@@ -43,6 +43,7 @@ import argparse
 import concurrent.futures
 import os
 import re
+import ast
 import shutil
 import subprocess
 import sys
@@ -111,6 +112,11 @@ SUPPORT = [
     Path("ger/main_write.py"),
     Path("guarded_merge.py"),
     Path("ger/contract_commit.py"),
+    # contract_commit.py and apply_followup_revision.py both `import
+    # pinned_candidate_warning` as a bare sibling. Without it staged, the isolated
+    # tree raises ModuleNotFoundError before any mutation is scored -- which is a
+    # crash, not a kill, and reads as "the baseline suite cannot run".
+    Path("ger/pinned_candidate_warning.py"),
     Path("ger/apply_followup_revision.py"),
     Path("ger-contract-revisions-20260916/new_task_commit.py"),
     Path("ger-contract-revisions-20260916/policy_entry_commit.py"),
@@ -479,10 +485,43 @@ MUTATIONS = [
 ]
 
 
+def unstaged_sibling_imports(every: "list[Path]") -> list[str]:
+    """Bare imports of a copied file that resolve to a Tools/Host sibling nobody copies.
+
+    FILES, SUITES and SUPPORT are hand-maintained, so adding one `import helper` to a staged
+    module silently breaks the isolated tree the next time CI runs -- as a ModuleNotFoundError
+    deep inside a suite, which scores as a crash rather than naming the missing file. This closes
+    the list over its own imports and says which file wants what.
+    """
+    staged = {relative.stem for relative in every if relative.suffix == ".py"}
+    findings: list[str] = []
+    for relative in every:
+        if relative.suffix != ".py":
+            continue
+        try:
+            tree = ast.parse((HOST / relative).read_text(encoding="utf-8"))
+        except (OSError, SyntaxError):
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Import):
+                continue
+            for alias in node.names:
+                top = alias.name.split(".")[0]
+                if top in staged or not (HOST / relative.parent / f"{top}.py").is_file():
+                    continue
+                findings.append(f"{relative.as_posix()} imports {top}, "
+                                f"which is {(relative.parent / (top + '.py')).as_posix()} and is not staged")
+    return sorted(set(findings))
+
+
 def stage(tmp: Path) -> tuple[dict[str, Path], dict[str, Path]]:
     """A copy that keeps the layout the suites navigate by."""
     host = tmp / "Tools" / "Host"
     every = list(FILES.values()) + list(SUITES.values()) + SUPPORT
+    unstaged = unstaged_sibling_imports(every)
+    if unstaged:
+        raise SystemExit("mutation_check cannot stage a tree its own suites can import:\n  "
+                         + "\n  ".join(unstaged))
     for relative in every:
         target = host / relative
         target.parent.mkdir(parents=True, exist_ok=True)
