@@ -189,7 +189,8 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             grid.cellSwizzle = GridLayout.CellSwizzle.XYZ;
 
             Tilemap floor = CreateVisualTilemap(gridObject.transform, "FloorTilemap",
-                new Vector3(0f, 0.01f, 0f), Quaternion.Euler(-90f, 0f, 0f), -100);
+                new Vector3(0f, 0.01f, 0f), Quaternion.Euler(-90f, 0f, 0f),
+                DoorPrototypeSceneBuilder.BackgroundGroundSortingOrder);
             PaintFloor(floor, floorTile);
 
             // North and west walls are full height.

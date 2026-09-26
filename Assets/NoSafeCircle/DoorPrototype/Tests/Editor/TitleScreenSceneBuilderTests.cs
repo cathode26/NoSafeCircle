@@ -138,8 +138,16 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.IsNotNull(border);
             Assert.IsNotNull(walls);
             Assert.IsNotNull(player);
-            Assert.AreEqual(-100, floor.sortingOrder);
-            Assert.AreEqual(-90, border.sortingOrder);
+            // These read the shared constants rather than the literals they held, which makes
+            // this a WIRING check and nothing more: it proves the prototype scene floor and
+            // border ARE the band, and it deliberately cannot judge whether the band VALUE is
+            // right, because its expectation now comes from the thing under test. The value is
+            // BackgroundSortingBandTests job, computed from the catalogs. The literals that
+            // used to be here passed for the wrong reason and would have kept passing while
+            // 189 authored props sat underneath the floor.
+            Assert.AreEqual(DoorPrototypeSceneBuilder.BackgroundGroundSortingOrder, floor.sortingOrder);
+            Assert.AreEqual(
+                DoorPrototypeSceneBuilder.BackgroundArchitecturalBorderSortingOrder, border.sortingOrder);
             Assert.AreEqual(0, walls.sortingOrder);
             Assert.AreEqual(0, player.sortingOrder);
             Assert.AreEqual(DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName, walls.sortingLayerName);

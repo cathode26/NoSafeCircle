@@ -505,7 +505,8 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             Assert.AreEqual(new Vector3(1f, 0.5f, 1f), grid.cellSize);
             Assert.AreEqual(1, visuals.GetComponentsInChildren<Grid>().Length);
 
-            Tilemap floor = RequiredTilemap(gridRoot, "FloorTilemap", Quaternion.Euler(-90f, 0f, 0f), -100);
+            Tilemap floor = RequiredTilemap(gridRoot, "FloorTilemap", Quaternion.Euler(-90f, 0f, 0f),
+                NoSafeCircle.DoorPrototype.Editor.DoorPrototypeSceneBuilder.BackgroundGroundSortingOrder);
             Tilemap north = RequiredTilemap(gridRoot, "NorthFullWallTilemap", Quaternion.identity, 0);
             Tilemap west = RequiredTilemap(gridRoot, "WestFullWallTilemap", Quaternion.Euler(0f, 90f, 0f), 0);
             Tilemap south = RequiredTilemap(gridRoot, "SouthLowWallTilemap", Quaternion.identity, 0);
