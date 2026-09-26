@@ -89,6 +89,27 @@ def _overlap(left: str, right: str) -> bool:
     return left == right or left.startswith(right + "/") or right.startswith(left + "/")
 
 
+# The record states an admission may reserve. THE SAME SET `readiness` REPORTS
+# ON, deliberately: `readiness.py` appends `task_checkout_has_work_or_review_state`
+# for anything outside it, and an advisory that refuses more than the gate it
+# advises on is the defect this closes.
+#
+# `reserve` checked the record's status NOWHERE -- `grep 'record.get("status")'`
+# over this module returned zero hits before this constant existed. So a record
+# `awaiting_human`, with a registered candidate waiting for a person, was
+# reservable whenever its checkout still sat on the baseline and its scope was
+# still valid: exactly the state a crew leaves behind, for as long as main has
+# not moved. Found by Astra reviewing the snapshot-validity question, which is a
+# different question; it read the two functions side by side and noticed that
+# readiness checks a status reserve does not.
+#
+# `planned` is here because readiness accepts it. No production path writes it --
+# the only occurrence in the tree is a test fixture -- and narrowing the set to
+# match production would be a second decision with its own population to
+# measure. This one is only about the two answers agreeing.
+_RESERVABLE_STATUSES = frozenset({"prepared", "planned"})
+
+
 def _reservation_resources(task: Mapping[str, Any], scope: Mapping[str, Any]) -> list[str]:
     values: list[str] = []
     for resource in task.get("exclusive_resources") or []:
@@ -482,6 +503,19 @@ def reserve(
                 record = json.loads(record_path.read_text(encoding="utf-8"))
             except (OSError, UnicodeError, json.JSONDecodeError) as exc:
                 raise ValueError("task checkout record is unreadable") from exc
+            status = record.get("status")
+            if status not in _RESERVABLE_STATUSES:
+                # BEFORE the baseline resolution, so the refusal names the STATE
+                # rather than whichever baseline check happens to trip over it.
+                # Placing it before the idempotence branch is safe: every
+                # production caller reserves a task it has just decided to
+                # dispatch, and both paths that publish a reservable record --
+                # `revisions.py:189` and `revise_on_source._publish_reconciled`
+                # -- write "prepared", so a retry of the same attempt still sees
+                # a reservable status.
+                raise ValueError(
+                    f"task checkout is not reservable in state {status!r}; it "
+                    "carries work or review state")
             source_head = git(source, "rev-parse", "HEAD").decode().strip()
             baseline = _revision_baseline(checkouts, record, task_id, source_head)
             if baseline is None:
