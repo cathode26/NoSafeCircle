@@ -86,7 +86,7 @@
     {
       "gate_id": "VAL-006",
       "reference": "NSC-088 VAL-006",
-      "requirement": "Vincent reviews the built candidate in Play Mode at the fixed gameplay camera. First half-second (proposed 0.5 s) after a cast: the phantom separates immediately, the offset origin flare and the enemy switch pulse are readable, and the real wizard stays identifiable. With a Lantern Wraith wisp in flight near the phantom, he confirms the phantom is clearly distinct from the teal wisp; if not, he records presentation feedback instead of approving, whether the phantom uses authored art or runtime-tinted reuse. He confirms SpectralDecoyCooldownUI is readable and overlaps none of the named HUD elements, including ForceWaveCooldownUI. He compares spending the decoy on a mid-room escape with saving the cooldown for a door attempt. He checks that current scene Melee lures are visibly shortened by their leash and that DemoRunFlow proximity damage can still hurt the wizard. He observes an open-door lure and any backward travel through a broken doorway without treating either as a new passability rule. He confirms the cooldown and eligibility rules do not create one dominant, repeatable safe route. In-scene Ranged effectiveness is not reviewed until NSC-030 lands, and the room-by-room review belongs to INT-006."
+      "requirement": "Vincent reviews the built candidate in Play Mode at the fixed gameplay camera. First half-second (proposed 0.5 s) after a cast: the phantom separates immediately, the offset origin flare and the enemy switch pulse are readable, and the real wizard stays identifiable. With a Lantern Wraith wisp in flight near the phantom, he confirms the phantom is clearly distinct from the teal wisp; if not, he records presentation feedback instead of approving, whether the phantom uses authored art or runtime-tinted reuse. He confirms SpectralDecoyCooldownUI is readable and overlaps none of the named HUD elements, including ForceWaveCooldownUI. He compares spending the decoy on a mid-room escape with saving the cooldown for a door attempt. He checks that DemoRunFlow proximity damage can still hurt the wizard. AN EARLIER WORDING ALSO ASKED HIM TO CHECK THAT \"current scene Melee lures are visibly shortened by their leash\", AND THAT IS WITHDRAWN AS SOMETHING HIS OWN DECISION HAS MADE FALSE: on 2026-09-26 he respecified the pursuit leash so that its anchor is dragged by the enemy once slack runs out, which is precisely the change that stops a lure being shortened by it. Asking him to confirm a shortening that his own instruction removed would spend the one resource this project cannot generate on a question with a known wrong answer. NOTHING REPLACES IT HERE. What a reviewer should instead observe about lure range under a towed anchor belongs to whichever task implements the tow, and neither this task nor NSC-125 owns EnemyTargetKnowledge.cs, so specifying it here would be unsatisfiable by construction. He observes an open-door lure and any backward travel through a broken doorway without treating either as a new passability rule. He confirms the cooldown and eligibility rules do not create one dominant, repeatable safe route. In-scene Ranged effectiveness is not reviewed until NSC-030 lands, and the room-by-room review belongs to INT-006."
     },
     {
       "gate_id": "VAL-007",
@@ -96,7 +96,7 @@
   ],
   "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "decomposition_reason": "NSC-088 decomposition_reason assigns every resource other than EnemyTargetKnowledge.cs and its test to this Wizard Combat child. That includes the paired DoorPrototypeSceneBuilder.cs and DoorPrototype.unity lock. This child depends on the enemy-redirect child, NSC-009 (ForceWaveCooldownUI) and NSC-077 (Lantern Wraith lantern-wisp projectile).",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -187,7 +187,18 @@
     "origin": "progressive_decomposition",
     "parent_contract_revision": 10,
     "parent_contract_sha256": "e9060b52230445505b7d7d64dca7a8a69d5d061bab67a2e86da494c9aaa9f0f2",
-    "parent_task_id": "NSC-088"
+    "parent_task_id": "NSC-088",
+    "contract_followups": [
+      {
+        "date": "2026-09-26",
+        "reason": "VAL-006: withdraw the human-review clause asking Vincent to confirm Melee lures are shortened by their leash - his own 2026-09-26 anchor-towing decision is what removes that shortening",
+        "source_head": "6685c4eededc7103c03c87cb040271ce1439ad22",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "55de54706e0581b176a757988f5c09e5d9c5928ec1cb787d8a46733e8d60d2ef",
+        "revised_contract_sha256": "629ed355f47a5af8e4ea31021101e85594c5445d92ce735a0565a689886bbcb1",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   },
   "reconciliation_key": "spectral-decoy-cast-phantom-cooldown-ui",
   "repository_evidence_at_bootstrap": [],
