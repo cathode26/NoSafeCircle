@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-070",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "contract_disposition": "active",
   "title": "Four-Wizard Directional Animation State Repair",
   "reconciliation_key": "wizard-animation-audit-repair",
@@ -74,7 +74,7 @@
     {
       "gate_id": "VAL-005",
       "reference": "Vincent all-four movement review before integration",
-      "requirement": "Before integration, Vincent tests the exact candidate in Assets/Scenes/DoorPrototype.unity with all four wizard choices, holds movement toward all four screen diagonals long enough to see every walk frame, confirms facing never flips for northeast or southwest movement, and confirms selection and world entry still use one Player."
+      "requirement": "Before integration, Vincent tests the exact candidate in Assets/Scenes/RuntimeWorld.unity with all four wizard choices, holds movement toward all four screen diagonals long enough to see every walk frame, confirms facing never flips for northeast or southwest movement, and confirms selection and world entry still use one Player. THE SCENE NAMED IN THIS GATE WAS REPOINTED 2026-09-26 FROM Assets/Scenes/DoorPrototype.unity TO Assets/Scenes/RuntimeWorld.unity, ON VINCENT'S OWN INSTRUCTION THAT THE OLD WORLD IS BEING REMOVED. NOTHING ELSE IN THIS GATE CHANGED: what the reviewer does, looks at and approves is untouched, and no criterion was weakened to make it satisfiable. RuntimeWorld.unity holds only GameManagers, a camera and a light; all content is instantiated at Play by the spawners under Resources/Spawners, so this gate is a PLAY MODE review and must not be read as asking for any object to be present in the saved scene."
     }
   ],
   "downstream_integration_obligations": [
@@ -125,6 +125,17 @@
     "wizard_integration_task_id": "NSC-062",
     "wizard_selection_task_id": "NSC-067",
     "world_entry_task_id": "NSC-068",
-    "approved_at_utc_date": "2026-09-12"
+    "approved_at_utc_date": "2026-09-12",
+    "contract_followups": [
+      {
+        "date": "2026-09-26",
+        "reason": "VAL-005: repoint Vincent's human review from the old composed scene to RuntimeWorld.unity on his instruction that the old world is removed; the review itself is unchanged",
+        "source_head": "844b42181ae1d91b8b744b784cd2bbb4d1d6ff0c",
+        "previous_contract_revision": 2,
+        "base_contract_sha256": "5a1acac207b893a89d9df3f2af73dc4314c7e6ba84a19d03b47246a587e9cd13",
+        "revised_contract_sha256": "63cabe2099e188cabef8c907959938867aa9f8e65ce8d4b77614d7a9bee5fe89",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   }
 }
