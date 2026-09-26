@@ -108,10 +108,10 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
             var forbiddenWords = new[] { "damaged", "opening", "broken" };
             foreach (FieldInfo field in spriteFields)
             {
-                var sprite = (Sprite)field.GetValue(binder);
-                Assert.IsNotNull(sprite, field.Name + " is unassigned on the prefab.");
+                var boundSprite = (Sprite)field.GetValue(binder);
+                Assert.IsNotNull(boundSprite, field.Name + " is unassigned on the prefab.");
 
-                string assetPath = AssetDatabase.GetAssetPath(sprite);
+                string assetPath = AssetDatabase.GetAssetPath(boundSprite);
                 // sealedSprite -> sealed, lockedSprite -> locked, openSprite -> open, finalSprite -> final.
                 string state = field.Name.Replace("Sprite", string.Empty);
                 Assert.AreEqual(DoorArtSourceFolder + "door_bonestone_" + state + "_S_000.png", assetPath,
