@@ -129,8 +129,13 @@ def main() -> int:
 
     try:
         failures = 0
+        # THE TRIAL WORKTREE HAS NO Library, so it has no package cache, so every package guid
+        # reads as undeclared and a perfectly good lane FAILS. Point the lint at the real project's
+        # cache - the packages belong to the project, not to a throwaway checkout.
+        package_cache = str(pathlib.Path(repo) / "Library" / "PackageCache")
         for script, extra in (("Tools/prefab_lint.py",
-                               ["--assets", "Assets", "--subtree", "NoSafeCircle/DoorPrototype"]),
+                               ["--assets", "Assets", "--subtree", "NoSafeCircle/DoorPrototype",
+                                "--package-cache", package_cache]),
                               ("Tools/component_size_lint.py", [])):
             lint_code, lint_out = run_lint(worktree, script, extra)
             marker = "PASS" if lint_code == 0 else "FAIL"

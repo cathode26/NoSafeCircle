@@ -89,11 +89,38 @@ foreach ($rsp in $responseFiles) {
         }
     }
 
+    # RECURSE FROM THE ASSEMBLY'S OWN ROOT, not from the directories the snapshot happened to know.
+    # FOUND BY THE HUD WORKER, and it is a SILENT FALSE PASS - the worst kind. The first version
+    # walked only $roots (directories that already contained a source in the last import), so an
+    # entirely NEW FOLDER like Scripts/Hud/ was skipped without a word and the assembly reported
+    # PASS while none of its new code was compiled. A check that quietly narrows its own subject is
+    # worse than one that fails.
+    $asmdefDir = $null
+    foreach ($candidate in Get-ChildItem "Assets" -Recurse -Filter "$assembly.asmdef" -ErrorAction SilentlyContinue) {
+        $asmdefDir = $candidate.DirectoryName
+        break
+    }
+    $searchRoots = if ($asmdefDir) { @($asmdefDir) } else { @($roots.Keys) }
+
     $added = 0
-    foreach ($dir in @($roots.Keys)) {
+    foreach ($dir in $searchRoots) {
         if (-not (Test-Path $dir)) { continue }
-        Get-ChildItem $dir -Filter *.cs -ErrorAction SilentlyContinue | ForEach-Object {
+        Get-ChildItem $dir -Recurse -Filter *.cs -ErrorAction SilentlyContinue | ForEach-Object {
             $rel = $_.FullName.Substring($ProjectPath.Length + 1)
+            # A NESTED .asmdef OWNS ITS OWN SUBTREE. Recursing from the asmdef folder would
+            # otherwise sweep a child assembly's sources into the parent and produce errors that
+            # are artifacts of this script rather than of the code.
+            $ownedByChild = $false
+            $probe = $_.Directory
+            while ($probe -and $probe.FullName.Length -gt $asmdefDir.Length) {
+                if (Get-ChildItem $probe.FullName -Filter *.asmdef -ErrorAction SilentlyContinue) {
+                    $ownedByChild = $true
+                    break
+                }
+                $probe = $probe.Parent
+            }
+            if ($ownedByChild) { return }
+
             if (-not $known.ContainsKey($rel)) {
                 $lines += ('"' + $rel + '"')
                 $known[$rel] = $true

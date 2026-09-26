@@ -164,7 +164,11 @@ def collect_package_guids(project_root: pathlib.Path) -> dict:
     Returns guid -> a single synthetic owner, because two PACKAGES sharing a guid is not a defect
     this project can cause or fix; only duplicate claims inside Assets are ours.
     """
-    cache = project_root / "Library" / "PackageCache"
+    return collect_package_guids_at(project_root / "Library" / "PackageCache")
+
+
+def collect_package_guids_at(cache: pathlib.Path) -> dict:
+    """The same index, at an explicitly named cache directory."""
     if not cache.is_dir():
         return {}
 
@@ -229,6 +233,11 @@ def main() -> int:
     parser.add_argument("--subtree", default="", help="Limit to this path under --assets.")
     parser.add_argument("--skip-guid-resolution", action="store_true",
                         help="Skip the guid index (faster, and blind to broken references).")
+    parser.add_argument("--package-cache", default="",
+                        help="Library/PackageCache to index. Defaults to the one beside --assets. "
+                             "A TRIAL WORKTREE HAS NO Library, so lane_report.py passes the real "
+                             "project's - without it every package reference reads as undeclared "
+                             "and the lane false-FAILS on code that is fine.")
     arguments = parser.parse_args()
 
     assets = pathlib.Path(arguments.assets)
@@ -251,8 +260,13 @@ def main() -> int:
     # Duplicate detection runs over the ASSETS index only - see collect_package_guids for why -
     # so the package guids are merged into the known set AFTER that dict is built, and the two
     # counts are reported separately rather than as one number that hides which is which.
-    package_guids = {} if arguments.skip_guid_resolution else collect_package_guids(
-        assets.parent if assets.name == "Assets" else pathlib.Path("."))
+    if arguments.skip_guid_resolution:
+        package_guids = {}
+    elif arguments.package_cache:
+        package_guids = collect_package_guids_at(pathlib.Path(arguments.package_cache))
+    else:
+        package_guids = collect_package_guids(
+            assets.parent if assets.name == "Assets" else pathlib.Path("."))
     known_guids = set(guid_owners) | set(package_guids)
 
     # Duplicates first: a collision makes every OTHER finding about those files unreliable, because
