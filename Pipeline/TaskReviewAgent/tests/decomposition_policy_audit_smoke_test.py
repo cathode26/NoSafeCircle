@@ -1444,6 +1444,42 @@ def test_a_rebind_refuses_an_ambiguous_pin_instead_of_guessing() -> None:
                 "the refusal still modified the policy")
 
 
+def test_a_plan_that_went_stale_refuses_rather_than_editing_the_wrong_field() -> None:
+    """A plan is read at a commit; the write happens in the working tree. They can diverge.
+
+    This is the one scenario that reaches the document-equality check, and it was found by removing
+    that check and watching every test still pass. The construction is deliberate rather than
+    natural: the parent's pin is changed and its OLD value is parked in another entry's `authority`,
+    so the old value still occurs exactly once -- passing the ambiguity guard -- while no longer
+    belonging to the entry the plan names. A textual edit would rewrite that `authority` field and
+    leave the policy quietly wrong.
+    """
+
+    with tempfile.TemporaryDirectory() as text:
+        root = Path(text)
+        before, after = _apply_fixture(root)
+        plan = plan_pin_rebind(root, _findings(root, before, after), commit=after)
+        parent_rebind = next(item for item in plan["rebinds"] if item["task_id"] == APPLY_PARENT)
+
+        policy_path = root / VALIDATION_POLICY_RELATIVE
+        document = json.loads(policy_path.read_bytes().decode("utf-8-sig"))
+        document["tasks"][APPLY_PARENT]["task_contract_sha256"] = "b" * 64
+        document["tasks"][APPLY_UNTOUCHED]["authority"] = parent_rebind["from"]
+        _write_policy(root, document["tasks"])
+        _git(root, "add", "--all")
+        _git(root, "commit", "-q", "-m", "fixture: the plan is now stale")
+        committed = json.loads(policy_path.read_bytes().decode("utf-8-sig"))
+
+        refusal = rejects(
+            lambda: apply_pin_rebind(root, plan, message="policy: rebind a stale plan"),
+            ValidationPolicyAuditError,
+        )
+        require("other than the named pins" in str(refusal), str(refusal))
+        require(json.loads(policy_path.read_bytes().decode("utf-8-sig")) == committed,
+                "the refusal left the policy modified")
+        require(_git(root, "status", "--porcelain").strip() == "",
+                "the refusal left the tree dirty")
+
 def test_a_rebind_with_nothing_to_do_says_so() -> None:
     """An empty rebind is a positive statement, not silence."""
 
@@ -1494,6 +1530,7 @@ TESTS = (
     test_a_rebind_refuses_a_dirty_source,
     test_a_rebind_refuses_an_ambiguous_pin_instead_of_guessing,
     test_a_rebind_with_nothing_to_do_says_so,
+    test_a_plan_that_went_stale_refuses_rather_than_editing_the_wrong_field,
 )
 
 
