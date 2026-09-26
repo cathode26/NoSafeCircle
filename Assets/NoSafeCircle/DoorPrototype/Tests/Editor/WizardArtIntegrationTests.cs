@@ -316,7 +316,13 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             // Reflection is still required rather than a direct reference: these members are
             // internal to NoSafeCircle.DoorPrototype.Editor and this fixture is in
             // NoSafeCircle.DoorPrototype.Tests.Editor, a different assembly.
-            System.Type builderType = typeof(NoSafeCircle.DoorPrototype.Editor.DoorPrototypeSceneBuilder)
+            // THE ANCHOR HAS TO SURVIVE TOO, NOT JUST THE TARGET. This typeof only names a class in
+            // order to reach its ASSEMBLY, and it used to name DoorPrototypeSceneBuilder - which is
+            // being deleted with the old world. Repointing the GetType string at the generator (as
+            // c453a5adc did) moved the half that was easy to see and left the half that resolves the
+            // assembly pointing at a dying type. ArchitecturalTileGenerator is public, lives in the
+            // same assembly, and survives the cutover.
+            System.Type builderType = typeof(NoSafeCircle.DoorPrototype.Editor.Generation.ArchitecturalTileGenerator)
                 .Assembly.GetType("NoSafeCircle.DoorPrototype.Editor.Generation.CharacterAnimationGenerator");
             Assert.IsNotNull(builderType,
                 "CharacterAnimationGenerator was not found. If it moved again, repoint this at its "
