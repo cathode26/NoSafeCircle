@@ -46,7 +46,12 @@ class ExecutionBridgeStartError(ExecutionBridgeError):
 
 
 class ExecutionBridgeTimeoutError(ExecutionBridgeError):
-    """The Docker process was killed and reaped after its timeout."""
+    """The crew's HOST process was killed and reaped after its timeout.
+
+    That says nothing about the container, which is a child of the Docker daemon rather than of the
+    process that was killed. ``container_sweep`` on the raised instance carries what happened to it,
+    and its ``outcome`` distinguishes a run that left nothing behind from one nobody could check.
+    """
 
 
 class ExecutionBridgeAbortedError(ExecutionBridgeError):
