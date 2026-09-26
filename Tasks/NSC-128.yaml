@@ -1,9 +1,9 @@
 {
   "schema_version": "2.0",
   "id": "NSC-128",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
-  "title": "Hold Shift to Suppress Movement While Attacking",
+  "title": "Hold Z to Suppress Movement While Attacking",
   "reconciliation_key": "hold-shift-suppress-movement",
   "kind": "implementation",
   "type": "gameplay_system",
@@ -26,7 +26,7 @@
     {
       "criterion_id": "AC-001",
       "reference": "Vincent 2026-09-25: 'In diablo you could press shift , hold it, and then shoot without moving'; SPELL_DECISIONS.md S1",
-      "requirement": "Assets/InputSystem_Actions.inputactions gains exactly one new Button-type action in the existing Player action map, on the Keyboard&Mouse control scheme only, that responds to either physical Shift key. THE ACTION MUST BE READ BY COMMITTED CODE, AND THAT IS PART OF THIS CRITERION RATHER THAN AN IMPLEMENTATION DETAIL: this repository already carries WASD bindings in that same asset that ZERO code reads, so a binding present in the asset proves nothing about behaviour. No existing action, binding or control scheme is modified or removed."
+      "requirement": "Assets/InputSystem_Actions.inputactions gains exactly one new Button-type action in the existing Player action map, on the Keyboard&Mouse control scheme only, that responds to the Z key. AN EARLIER REVISION REQUIRED \"either physical Shift key\" AND THAT IS WITHDRAWN ON VINCENT'S OWN INSTRUCTION, 2026-09-26, given after he played the WebGL build: \"Z vs left-Shift, cant use left shift its a special button when you hold it, use z\". BOTH SHIFT KEYS ARE DEAD FOR THIS ACTION AND MUST NOT BE REINSTATED. NO MECHANISM IS RECORDED HERE AS THE JUSTIFICATION, AND THAT OMISSION IS DELIBERATE RATHER THAN AN OVERSIGHT: the sweep accompanying his decision could not reproduce his stated reason - it measured Windows Filter Keys as an eight-second hold of the RIGHT Shift, with left Shift not triggering it - and writing an unreproducible mechanism into a criterion would hand a future reader apparent grounds to move the binding back. HIS INSTRUCTION IS THE AUTHORITY. Z avoids BOTH Shift keys, so it is the correct binding under his premise and under that sweep's alike, and the disagreement therefore does not need resolving before this task can be built. Z WAS MEASURED FREE ON MAIN AND RE-MEASURED INDEPENDENTLY 2026-09-26: the asset binds exactly 1, 2, a, c, d, e, s, w, space, enter, leftShift, rightShift and the four arrow keys - sixteen distinct keyboard controls, with z absent from all of them. Re-measure before relying on that list; it is a reading of one commit. THE ACTION MUST BE READ BY COMMITTED CODE, AND THAT IS PART OF THIS CRITERION RATHER THAN AN IMPLEMENTATION DETAIL: this repository already carries WASD bindings in that same asset that ZERO code reads, so a binding present in the asset proves nothing about behaviour. No existing action, binding or control scheme is modified or removed. FINALLY, THIS TASK'S reconciliation_key STILL READS \"hold-shift-suppress-movement\" AND MUST NOT BE CHANGED. It is an immutable identity field that the contract committer refuses to alter, it states no requirement, and it is NOT evidence that Shift remains the binding. The same applies to every `reference` field and to `notes` below, which quote what Vincent said on 2026-09-25 and are PROVENANCE: they record why this task exists and are deliberately left as spoken. Only requirements state what must hold."
     },
     {
       "criterion_id": "AC-002",
@@ -36,7 +36,7 @@
     {
       "criterion_id": "AC-003",
       "reference": "PlayerMovement.RequestMovementRestriction / ReleaseMovementRestriction / IsMovementRestricted (delivered by NSC-019); SPELL_DECISIONS.md S2",
-      "requirement": "SUPPRESSION USES THE EXISTING REFERENCE-COUNTED MOVEMENT RESTRICTION ON PlayerMovement AND INVENTS NO SECOND MECHANISM. PlayerMovement already exposes RequestMovementRestriction(), ReleaseMovementRestriction() and IsMovementRestricted, and Fireball's charge already holds one, so the two must compose rather than fight: exactly ONE restriction is held while the action is down and released exactly ONCE on release, so a charge held across a Shift press and release does not leave the wizard frozen or prematurely freed. The restriction is also released when gameplay input is suspended, so a title-screen transition mid-hold cannot strand it."
+      "requirement": "SUPPRESSION USES THE EXISTING REFERENCE-COUNTED MOVEMENT RESTRICTION ON PlayerMovement AND INVENTS NO SECOND MECHANISM. PlayerMovement already exposes RequestMovementRestriction(), ReleaseMovementRestriction() and IsMovementRestricted, and Fireball's charge already holds one, so the two must compose rather than fight: exactly ONE restriction is held while the action is down and released exactly ONCE on release, so a charge held across a Z press and release does not leave the wizard frozen or prematurely freed. The restriction is also released when gameplay input is suspended, so a title-screen transition mid-hold cannot strand it."
     },
     {
       "criterion_id": "AC-004",
@@ -88,6 +88,17 @@
     "origin": "ger_agent_contract_request",
     "parent_contract_revision": null,
     "parent_contract_sha256": null,
-    "parent_task_id": null
+    "parent_task_id": null,
+    "contract_followups": [
+      {
+        "date": "2026-09-26",
+        "reason": "AC-001 and AC-003: Vincent moved the binding from either Shift key to Z after playing the WebGL build; AC-002 (held, not toggled) survives unchanged and all provenance is left as spoken",
+        "source_head": "ac8f9250b06cc0a6e1c8c786c330ffb5acc5f85e",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "07ec324bfa05c512a73393afb77335bcb54b89591d242d48609192deb7d75529",
+        "revised_contract_sha256": "c324af59ce0e5800afb55ae5e91e129a4b340233a8feeb674ae02943f29b8458",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   }
 }
