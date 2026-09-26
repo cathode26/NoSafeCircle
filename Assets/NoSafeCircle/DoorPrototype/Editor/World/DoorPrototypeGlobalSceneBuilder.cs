@@ -928,7 +928,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
 
             var startButton = buttonObject.GetComponent<Button>();
             startButton.targetGraphic = buttonImage;
-            startButton.navigation = new Navigation { mode = Navigation.Mode.None };
+            startButton.navigation = new UnityEngine.UI.Navigation { mode = UnityEngine.UI.Navigation.Mode.None };
             ColorBlock buttonColors = startButton.colors;
             buttonColors.normalColor = Color.white;
             buttonColors.highlightedColor = new Color32(255, 211, 225, 255);
@@ -1048,7 +1048,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             Button confirmButton = confirmObject.GetComponent<Button>();
             confirmButton.targetGraphic = confirmImage;
             confirmButton.interactable = false;
-            confirmButton.navigation = new Navigation { mode = Navigation.Mode.None };
+            confirmButton.navigation = new UnityEngine.UI.Navigation { mode = UnityEngine.UI.Navigation.Mode.None };
             ColorBlock confirmColors = confirmButton.colors;
             confirmColors.normalColor = Color.white;
             confirmColors.highlightedColor = new Color32(255, 211, 225, 255);
@@ -1137,7 +1137,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
 
             Button optionButton = optionObject.GetComponent<Button>();
             optionButton.targetGraphic = optionImage;
-            optionButton.navigation = new Navigation { mode = Navigation.Mode.None };
+            optionButton.navigation = new UnityEngine.UI.Navigation { mode = UnityEngine.UI.Navigation.Mode.None };
             ColorBlock optionColors = optionButton.colors;
             optionColors.normalColor = Color.white;
             optionColors.highlightedColor = new Color32(255, 222, 235, 255);

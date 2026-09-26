@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using deVoid.Utils;
 using System.Threading;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -173,6 +174,12 @@ namespace NoSafeCircle.DoorPrototype.World
                 int created = spawner.Spawn();
                 total += created;
 
+                // ANNOUNCE IT RATHER THAN LETTING ANYONE GO LOOKING. Vincent, 2026-09-26: "you
+                // avoid needing to wire objects together with Signals." A listener holds no
+                // reference to this object, so there is no slot to drag anything into and no
+                // serialized field two lanes can fight over.
+                Signals.Get<WorldSignals.PhaseCompleted>().Dispatch(spawner.Phase, created);
+
                 if (logPhases)
                 {
                     Debug.Log($"[{nameof(GameBootstrap)}] {spawner.Phase} "
@@ -182,6 +189,11 @@ namespace NoSafeCircle.DoorPrototype.World
 
             SpawnedCount = total;
             HasBuilt = true;
+
+            // The readiness announcement consumers actually use. HasBuilt exists only so a fixture
+            // can assert the build ran - standard 7.2 forbids "exposing initialization as a bool
+            // that every consumer polls", and this is what it is forbidden in favour of.
+            Signals.Get<WorldSignals.WorldBuilt>().Dispatch(total);
             return total;
         }
 
