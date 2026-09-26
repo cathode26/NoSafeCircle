@@ -28,12 +28,32 @@ namespace NoSafeCircle.DoorPrototype.Tests
         [UnityTearDown]
         public IEnumerator UnloadCommittedSceneWithoutSaving()
         {
-            Scene scene = SceneManager.GetSceneByName("DoorPrototype");
+            Scene scene = SceneManager.GetSceneByName("RuntimeWorld");
             if (!scene.IsValid() || !scene.isLoaded) yield break;
 
             Scene cleanupScene = SceneManager.CreateScene("EnemyAnimationTestCleanup");
             SceneManager.SetActiveScene(cleanupScene);
             yield return SceneManager.UnloadSceneAsync(scene);
+        }
+
+        // The new world does not exist until GameBootstrap runs: the wait is not optional. See
+        // e82bd6f23 (TitleScreenPlayModeTests) for why two frames plus HasBuilt, not a frame count.
+        private static IEnumerator WaitForWorldBuilt()
+        {
+            yield return null;
+            GameObject managers = GameObject.Find("GameManagers");
+            Assert.IsNotNull(managers,
+                "RuntimeWorld.unity carries no GameManagers object, so nothing builds the world.");
+            var bootstrap = managers.GetComponent<World.GameBootstrap>();
+            Assert.IsNotNull(bootstrap, "GameManagers carries no GameBootstrap.");
+
+            yield return null;
+            yield return null;
+
+            Assert.IsTrue(bootstrap.HasBuilt,
+                "GameBootstrap had not built after three frames, so every assertion below would "
+                + "fail on an empty world rather than on the thing under test. SpawnedCount = "
+                + bootstrap.SpawnedCount + ".");
         }
 
         // NSC-077 AC-005 and VAL-004: both generated state families use the specified fixed-camera
@@ -375,8 +395,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
         [UnityTest]
         public IEnumerator SavedSceneEnemiesUseProductionAnimationAndLanternWisp()
         {
-            yield return SceneManager.LoadSceneAsync("DoorPrototype", LoadSceneMode.Single);
-            Scene scene = SceneManager.GetSceneByName("DoorPrototype");
+            yield return SceneManager.LoadSceneAsync("RuntimeWorld", LoadSceneMode.Single);
+            yield return WaitForWorldBuilt();
+            Scene scene = SceneManager.GetSceneByName("RuntimeWorld");
             Assert.IsTrue(scene.IsValid() && scene.isLoaded);
 
             GameObject player = FindRoot(scene, "Player");
@@ -687,11 +708,30 @@ namespace NoSafeCircle.DoorPrototype.Tests
             return "north-west";
         }
 
+        // NOT root-scoped: RuntimeWorld nests every spawned object under its spawner
+        // (GameManagers -> <Family>Spawner -> the object), never at the scene root, unlike the
+        // old committed scene this helper was written against - "Enemies" is EnemySpawner's own
+        // child, per EnemySpawner.cs's EnemiesRootName comment. Recurses the whole loaded scene
+        // instead and keeps the original "expect exactly one" guarantee.
         private static GameObject FindRoot(Scene scene, string name)
         {
-            GameObject result = scene.GetRootGameObjects().SingleOrDefault(root => root.name == name);
-            Assert.IsNotNull(result, "Expected one " + name + " root in " + scene.path);
-            return result;
+            var matches = new System.Collections.Generic.List<GameObject>();
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                CollectByName(root.transform, name, matches);
+            }
+            Assert.AreEqual(1, matches.Count,
+                "Expected exactly one " + name + " object in loaded scene " + scene.path + ", found " + matches.Count + ".");
+            return matches[0];
+        }
+
+        private static void CollectByName(Transform node, string name, System.Collections.Generic.List<GameObject> matches)
+        {
+            if (node.name == name) matches.Add(node.gameObject);
+            for (int i = 0; i < node.childCount; i++)
+            {
+                CollectByName(node.GetChild(i), name, matches);
+            }
         }
 
         private static GameObject[] DirectChildren(GameObject parent)
