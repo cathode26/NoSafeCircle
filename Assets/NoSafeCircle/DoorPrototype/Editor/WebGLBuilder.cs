@@ -6,9 +6,9 @@ using UnityEngine;
 
 namespace NoSafeCircle.DoorPrototype.Editor
 {
-    // Batchmode-invocable WebGL build entry point. Rebuilds the canonical scene first so the
-    // player build always matches the committed builder, then writes a WebGL player to a
-    // caller-supplied output directory. Invoked as:
+    // Batchmode-invocable WebGL build entry point. Ships RuntimeWorld.unity, which builds its
+    // world AT PLAY from prefabs, then writes a WebGL player to a caller-supplied output
+    // directory. Invoked as:
     //   Unity.exe -batchmode -quit -projectPath <repo> -executeMethod
     //     NoSafeCircle.DoorPrototype.Editor.WebGLBuilder.BuildFinal -nsc-output <dir>
     internal static class WebGLBuilder
@@ -21,11 +21,24 @@ namespace NoSafeCircle.DoorPrototype.Editor
         {
             string outputDirectory = ResolveOutputDirectory();
 
-            // The enemy and every other authored object come from the scene builder, so rebuild
-            // and save before packaging rather than shipping whatever was last left on disk.
-            DoorPrototypeSceneBuilder.Build();
-
-            string[] scenes = { "Assets/Scenes/DoorPrototype.unity" };
+            // NO PRE-BUILD STEP, AND THAT IS THE POINT OF THE NEW WORLD. RuntimeWorld.unity holds
+            // three roots - GameManagers, Main Camera, Directional Light - and GameBootstrap
+            // instantiates everything else at Play from prefabs it discovers in
+            // Resources/Spawners. There is nothing to bake, so there is nothing that can be stale.
+            //
+            // WHAT THIS REPLACED, AND WHY IT MATTERED MORE THAN IT LOOKED. This shipped
+            // Assets/Scenes/DoorPrototype.unity and called DoorPrototypeSceneBuilder.Build() first,
+            // so the PLAYER BUILD WAS THE OLD COMPOSED WORLD even after the instantiate path landed
+            // on main and was played in the editor. Nothing but tests referenced RuntimeWorld.unity,
+            // so the new world could be complete, merged and demonstrated while every build anyone
+            // actually played contained none of it.
+            //
+            // Content reaches the player through Resources, not Addressables - the spawn path has
+            // zero Addressables calls, and Resources folders are included in a build by
+            // construction - so no content-build step belongs here. If a lane later loads content
+            // through Addressables it must add that step, and it must not use WaitForCompletion to
+            // avoid it: standard 7.2 forbids that on WebGL.
+            string[] scenes = { "Assets/Scenes/RuntimeWorld.unity" };
             Directory.CreateDirectory(outputDirectory);
 
             var options = new BuildPlayerOptions
