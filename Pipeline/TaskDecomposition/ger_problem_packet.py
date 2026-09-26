@@ -27,7 +27,7 @@ import re
 from typing import Any, Mapping
 
 from TaskDecomposition.context_builder import ContextPackage
-from TaskDecomposition.contracts import DecompositionResult
+from TaskDecomposition.contracts import TASK_ID_BODY, DecompositionResult
 from TaskDecomposition.review_contracts import DecompositionReviewResult
 from TaskDecomposition.round_robin_decomposition import candidate_sha256
 from TaskDecomposition.run_diagnosis import (
@@ -40,8 +40,8 @@ from TaskDecomposition.run_diagnosis import (
 PACKET_SCHEMA_VERSION = "decomposition-ger-problem/v1"
 AUTHORITY = "diagnostic_only_not_applied"
 PROVIDER_IDENTIFIERS = {"claude": "claude-code", "codex": "openai-codex"}
-_CLAUSE_REFERENCE = re.compile(r"(NSC-\d+)\s+([A-Z]{2,4}-\d+)")
-_TASK_REFERENCE = re.compile(r"NSC-\d+")
+_CLAUSE_REFERENCE = re.compile(rf"({TASK_ID_BODY})\s+([A-Z]{{2,4}}-[0-9]+)")
+_TASK_REFERENCE = re.compile(TASK_ID_BODY)
 _ENTRY_COLLECTIONS = (
     ("acceptance_criteria", "criterion_id"),
     ("completion_gates", "gate_id"),
