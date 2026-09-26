@@ -55,7 +55,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Environment
             };
 
         // Read from the builder rather than restated, so a change to the band cannot pass here.
-        private static int ExpectedSortingOrder => DoorPrototypeSceneBuilder.WorldSpriteSortingOrder;
+        private static int ExpectedSortingOrder => WorldSpriteConvention.SortingOrder;
 
         private static string ExpectedSortingLayer =>
             WorldSpriteConvention.SortingLayerName;

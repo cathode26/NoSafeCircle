@@ -8,6 +8,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using NoSafeCircle.DoorPrototype.World;
 
 namespace NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing
 {
@@ -87,7 +88,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing
                     // Catalog_ObeysTheSortingRuleItDeclares still checks them against the rule
                     // the catalog declares; they are simply not what the renderer carries.
                     Assert.AreEqual(
-                        NoSafeCircle.DoorPrototype.Editor.DoorPrototypeSceneBuilder.WorldSpriteSortingOrder,
+                        WorldSpriteConvention.SortingOrder,
                         renderer.sortingOrder,
                         placement.instance_id + " must sit in the shared world-sprite band, not "
                         + "carry an authored order that outranks the camera axis.");

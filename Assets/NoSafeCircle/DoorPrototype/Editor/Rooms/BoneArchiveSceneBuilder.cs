@@ -126,7 +126,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
 
             Tilemap floor = CreateVisualTilemap(gridObject.transform, "FloorTilemap",
                 new Vector3(0f, 0.01f, 0f), Quaternion.Euler(-90f, 0f, 0f),
-                DoorPrototypeSceneBuilder.BackgroundGroundSortingOrder);
+                WorldSpriteConvention.BackgroundGroundSortingOrder);
             PaintFloor(floor, floorTile);
 
             // North and west are the FAR walls under the isometric camera and stay full

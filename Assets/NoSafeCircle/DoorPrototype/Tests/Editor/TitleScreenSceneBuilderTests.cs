@@ -146,9 +146,9 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             // BackgroundSortingBandTests job, computed from the catalogs. The literals that
             // used to be here passed for the wrong reason and would have kept passing while
             // 189 authored props sat underneath the floor.
-            Assert.AreEqual(DoorPrototypeSceneBuilder.BackgroundGroundSortingOrder, floor.sortingOrder);
+            Assert.AreEqual(WorldSpriteConvention.BackgroundGroundSortingOrder, floor.sortingOrder);
             Assert.AreEqual(
-                DoorPrototypeSceneBuilder.BackgroundArchitecturalBorderSortingOrder, border.sortingOrder);
+                WorldSpriteConvention.BackgroundArchitecturalBorderSortingOrder, border.sortingOrder);
             Assert.AreEqual(0, walls.sortingOrder);
             Assert.AreEqual(0, player.sortingOrder);
             Assert.AreEqual(WorldSpriteConvention.SortingLayerName, walls.sortingLayerName);

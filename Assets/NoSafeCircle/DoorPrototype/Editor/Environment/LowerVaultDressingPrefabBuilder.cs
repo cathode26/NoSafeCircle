@@ -127,7 +127,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Environment
                 // against the catalogs own declared rule by Catalog_ObeysTheSortingRuleItDeclares.
                 // It is simply no longer applied to a renderer.
                 renderer.sortingOrder =
-                    NoSafeCircle.DoorPrototype.Editor.DoorPrototypeSceneBuilder.WorldSpriteSortingOrder;
+                    WorldSpriteConvention.SortingOrder;
                 renderer.spriteSortPoint = SpriteSortPoint.Pivot;
 
                 // No collider is added, ever. Dressing is scenery and must not change where the

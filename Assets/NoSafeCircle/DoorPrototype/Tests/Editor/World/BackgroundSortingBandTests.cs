@@ -40,11 +40,11 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
             CatalogSweep sweep = SweepCatalogs();
 
             Assert.Less(
-                DoorPrototypeSceneBuilder.BackgroundGroundSortingOrder,
+                WorldSpriteConvention.BackgroundGroundSortingOrder,
                 sweep.MinimumSortingOrder,
                 "The ground band must sit strictly below every authored dressing sorting_order, or "
                 + "the floor paints over the props. Band is "
-                + DoorPrototypeSceneBuilder.BackgroundGroundSortingOrder + ", lowest authored order is "
+                + WorldSpriteConvention.BackgroundGroundSortingOrder + ", lowest authored order is "
                 + sweep.MinimumSortingOrder + " (" + sweep.MinimumSource + "), across "
                 + sweep.PlacementCount + " placements in " + sweep.CatalogCount + " catalogs.");
 
@@ -52,11 +52,11 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
             // props stand on it too and it is subject to the same rule. Checked separately because a
             // band with one of its two members raised back above the catalogs is the likely mistake.
             Assert.Less(
-                DoorPrototypeSceneBuilder.BackgroundArchitecturalBorderSortingOrder,
+                WorldSpriteConvention.BackgroundArchitecturalBorderSortingOrder,
                 sweep.MinimumSortingOrder,
                 "The architectural border band must also sit strictly below every authored dressing "
                 + "sorting_order. Border is "
-                + DoorPrototypeSceneBuilder.BackgroundArchitecturalBorderSortingOrder
+                + WorldSpriteConvention.BackgroundArchitecturalBorderSortingOrder
                 + ", lowest authored order is " + sweep.MinimumSortingOrder + ".");
         }
 
@@ -67,8 +67,8 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
             // to draw AFTER the floor. Both being below the catalogs is not enough; their order
             // relative to each other is a separate statement and nothing else asserts it.
             Assert.Less(
-                DoorPrototypeSceneBuilder.BackgroundGroundSortingOrder,
-                DoorPrototypeSceneBuilder.BackgroundArchitecturalBorderSortingOrder,
+                WorldSpriteConvention.BackgroundGroundSortingOrder,
+                WorldSpriteConvention.BackgroundArchitecturalBorderSortingOrder,
                 "The floor must draw beneath the ground-flush architectural border.");
         }
 
@@ -86,8 +86,8 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
             // slack left, so any future nudge downward wraps on the first run.
             foreach (KeyValuePair<string, int> member in new Dictionary<string, int>
                      {
-                         { "BackgroundGroundSortingOrder", DoorPrototypeSceneBuilder.BackgroundGroundSortingOrder },
-                         { "BackgroundArchitecturalBorderSortingOrder", DoorPrototypeSceneBuilder.BackgroundArchitecturalBorderSortingOrder },
+                         { "BackgroundGroundSortingOrder", WorldSpriteConvention.BackgroundGroundSortingOrder },
+                         { "BackgroundArchitecturalBorderSortingOrder", WorldSpriteConvention.BackgroundArchitecturalBorderSortingOrder },
                      })
             {
                 Assert.GreaterOrEqual(member.Value, (int)short.MinValue,
@@ -109,7 +109,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
             // Assets/Scenes/DoorPrototype.unity is deliberately NOT checked here: it is
             // binary-serialized, so there is no text to read. The prototype scene's band is covered
             // by TitleScreenSceneBuilderTests, which builds it in memory.
-            int expected = DoorPrototypeSceneBuilder.BackgroundGroundSortingOrder;
+            int expected = WorldSpriteConvention.BackgroundGroundSortingOrder;
 
             // (?![0-9]) matters: "m_SortingOrder: -100" is a SUBSTRING of "m_SortingOrder: -10000",
             // so a plain search for the old literal matches the new value and this test would pass

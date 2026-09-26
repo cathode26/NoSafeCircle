@@ -222,7 +222,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             Assert.AreEqual(1, visuals.GetComponentsInChildren<Grid>().Length);
 
             RequireTilemapConfiguration(gridTransform, "FloorTilemap", new Vector3(0f, 0.01f, 0f), Quaternion.Euler(-90f, 0f, 0f),
-                DoorPrototypeSceneBuilder.BackgroundGroundSortingOrder);
+                WorldSpriteConvention.BackgroundGroundSortingOrder);
             RequireTilemapConfiguration(gridTransform, "NorthFullWallTilemap", new Vector3(0.5f, 0f, 53.849f), Quaternion.identity, 0);
             RequireTilemapConfiguration(gridTransform, "SouthLowWallTilemap", new Vector3(0.5f, 0f, 20.151f), Quaternion.identity, 0);
             RequireTilemapConfiguration(gridTransform, "WestFullWallTilemap", new Vector3(-17.849f, 0f, -0.5f), Quaternion.Euler(0f, 90f, 0f), 0);
