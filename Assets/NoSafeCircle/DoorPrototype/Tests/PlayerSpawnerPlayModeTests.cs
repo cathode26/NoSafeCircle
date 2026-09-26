@@ -446,7 +446,19 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 + " wanted=" + target
                 + " at=" + movement.transform.position
                 + " liveCameras=" + Camera.allCamerasCount
-                + " doorsRegistered=" + DoorInteractable.ActiveDoors.Count;
+                + " doorsRegistered=" + DoorInteractable.ActiveDoors.Count
+                // THE DEVICE READINGS. pointerTarget landing bottom-left of the wanted point is
+                // what a pointer position of (0,0) projects to, which happens when PlayerMovement
+                // reads a DIFFERENT Mouse than the one this fixture queues events to. Nine
+                // InputTestFixtures add and remove devices; the action binds to whatever the
+                // Input System resolves, which need not be ours.
+                + " devices=" + UnityEngine.InputSystem.InputSystem.devices.Count
+                + " mice=" + CountMice()
+                + " mouseCurrentIsOurs=" + (UnityEngine.InputSystem.Mouse.current == mouse)
+                + " ourMousePos=" + mouse.position.ReadValue()
+                + " currentMousePos=" + (UnityEngine.InputSystem.Mouse.current == null
+                    ? "NO-CURRENT"
+                    : UnityEngine.InputSystem.Mouse.current.position.ReadValue().ToString());
 
             Assert.Less(remaining, leg - 0.5f,
                 "The wizard did not move toward the clicked point at all (" + remaining + " of "
@@ -618,6 +630,20 @@ namespace NoSafeCircle.DoorPrototype.Tests
             yield return null;
         }
 
+
+        private static int CountMice()
+        {
+            int mice = 0;
+            foreach (UnityEngine.InputSystem.InputDevice device in UnityEngine.InputSystem.InputSystem.devices)
+            {
+                if (device is UnityEngine.InputSystem.Mouse)
+                {
+                    mice++;
+                }
+            }
+
+            return mice;
+        }
         private void SetMouse(Vector2 screenPosition, bool leftButtonPressed)
         {
             InputSystem.QueueStateEvent(mouse, new MouseState
