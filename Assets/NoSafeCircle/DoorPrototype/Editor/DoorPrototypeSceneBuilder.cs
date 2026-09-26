@@ -68,18 +68,30 @@ namespace NoSafeCircle.DoorPrototype.Editor
         // transparency axis configured in BuildCamera, so a prop authored at -1165 loses to a
         // floor at -100 whatever its world position - the axis never gets to arbitrate.
         //
-        // The numbers themselves are arbitrary; only the RELATION matters, and it is NOT
-        // asserted here. BackgroundSortingBandTests recomputes the minimum from the catalogs
-        // at test time and fails with the actual margin, so a deeper prop authored later
-        // cannot reintroduce this silently. Do not turn that computation back into a literal:
-        // -1165 is the minimum TODAY and nothing stops a catalog being authored past it.
+        // THE VALUES ARE VINCENT'S, COPIED FROM HIS OWN ISOMETRIC GAME. Asked how to get floor,
+        // player and prop sorting right, he said to look at how he had already done it, and
+        // F:/Petnip/MoveProblems/client/Assets/Resources/Prefabs/Wilds.prefab pins its ground
+        // renderers at -32768 and -32767 - short.MinValue and one above it - with everything
+        // dynamic in a small positive band. The three sorting layers in that project's
+        // TagManager are vestigial; nothing uses them.
         //
-        // PUBLIC for the same reason WorldSpriteSortingLayerName above is public: the five
-        // room builders and the separate Editor test assembly must reach one definition
-        // instead of restating the number. Every room builder used to pass a bare -100 at its
-        // own floor call site, which is how one band came to live in six places at once.
-        public const int BackgroundGroundSortingOrder = -10000;
-        public const int BackgroundArchitecturalBorderSortingOrder = -9990;
+        // WHY THAT BEATS A MERELY LOW NUMBER, which is what this was first written as (-10000).
+        // A chosen number needs headroom, and headroom needs somebody to keep checking that the
+        // deepest authored prop has not eaten it. short.MinValue is the floor of the range Unity
+        // can represent at all, so NOTHING CAN BE AUTHORED BELOW IT without wrapping - the
+        // guarantee stops being a margin anyone maintains and becomes a property of the type.
+        //
+        // BackgroundSortingBandTests still recomputes the catalogs' minimum at test time and
+        // still holds no expected sorting_order of its own. Do not turn that computation into a
+        // literal: it is what proves the relation rather than assuming it, and it is the guard
+        // on any future decision to raise this band back up.
+        //
+        // PUBLIC for the same reason WorldSpriteSortingLayerName above is public: the five room
+        // builders and the separate Editor test assembly must reach one definition instead of
+        // restating the number. Every room builder used to pass a bare -100 at its own floor
+        // call site, which is how one band came to live in six places at once.
+        public const int BackgroundGroundSortingOrder = short.MinValue;
+        public const int BackgroundArchitecturalBorderSortingOrder = short.MinValue + 1;
 
         // AC-001/VAL-002: this task adopts the WorldSprites sorting layer that
         // ProjectSettings/TagManager.asset already declares as an orphan entry; it does not

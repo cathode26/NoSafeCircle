@@ -78,9 +78,12 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
             // Renderer.sortingOrder is an int in the API and a SIGNED 16-BIT field in the sorting
             // key Unity actually builds. A band pushed past that range wraps to a LARGE POSITIVE
             // order, which does not throw and does not warn - it silently inverts this whole
-            // fixture's relation and draws the floor over everything. Lowering the band is the
-            // obvious response to a future catalog going deeper, so this is the guard on the
-            // obvious response rather than on today's value.
+            // fixture's relation and draws the floor over everything.
+            //
+            // The band deliberately SITS AT that boundary: the ground is short.MinValue, copied
+            // from Vincent's own isometric game, precisely so nothing can be authored beneath it.
+            // That makes this assertion tight rather than theoretical - there is exactly zero
+            // slack left, so any future nudge downward wraps on the first run.
             foreach (KeyValuePair<string, int> member in new Dictionary<string, int>
                      {
                          { "BackgroundGroundSortingOrder", DoorPrototypeSceneBuilder.BackgroundGroundSortingOrder },
