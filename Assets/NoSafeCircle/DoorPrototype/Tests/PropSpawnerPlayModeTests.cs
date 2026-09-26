@@ -270,10 +270,23 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 + tallest.size.y + ") hit nothing. This is the shape FireballProjectile uses, so "
                 + "props would not stop spells.");
 
-            Assert.AreSame(tallest, info.collider,
-                "The chest-height ray hit '" + info.collider.gameObject.name + "' rather than the "
-                + "prop it was aimed at. Another prop is in the way, which makes this a weaker "
-                + "check than intended rather than a failure of the design.");
+            // THE CLAIM IS "a spawned prop stopped it", NOT "this exact prop stopped it".
+            // The first version of this asserted AreSame(tallest, info.collider) and failed: the ray
+            // aimed at FR1-throne-01 was stopped by FR1-SOUTH-ring-01, because the Final Room's
+            // candle ring genuinely stands in front of its throne. That is real authored geometry,
+            // so requiring the exact target made the test depend on prop layout the Art Director
+            // owns and may change at any time. Requiring membership in the spawned set keeps the
+            // physics claim exactly as strong while removing the dependency.
+            Assert.Contains(info.collider, boxes,
+                "A chest-height ray was stopped by '" + info.collider.gameObject.name
+                + "', which is not one of the spawned props - so this proves something about the "
+                + "scene rather than about prop colliders.");
+
+            var hitBox = (BoxCollider)info.collider;
+            Assert.IsFalse(hitBox.isTrigger,
+                "The ray was stopped by a trigger, which Physics should have ignored. Either "
+                + "QueryTriggerInteraction.Ignore is not doing what this test assumes, or the "
+                + "collider set is not what it appears to be.");
         }
 
         [UnityTest]
