@@ -22,7 +22,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             "Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles";
         private const string WallTilePath = ArchitecturalTileFolder + "/WallTile.asset";
         private const float WallVisualOffset = 0.151f;
-        private static readonly Vector3 LowWallCellScale = new Vector3(1f, 0.2f, 1f);
+        private static readonly Vector3 LowWallCellScale = new Vector3(1f, 1.11875f, 1f);
 
         // NSC-109 AC-001/AC-002: this room's own floor Tile, owned and materialized here rather
         // than borrowed from a room-agnostic shared asset, so it can be bound to this room's own

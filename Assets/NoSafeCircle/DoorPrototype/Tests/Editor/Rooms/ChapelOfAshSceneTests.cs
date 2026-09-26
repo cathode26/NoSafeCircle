@@ -190,7 +190,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             Assert.AreEqual(Tile.ColliderType.None, farWallTile.colliderType);
             Assert.AreEqual(Tile.ColliderType.None, cutawayWallTile.colliderType);
             Assert.That(farWallTile.sprite.bounds.size.y, Is.EqualTo(2.5f).Within(0.001f));
-            Assert.That(cutawayWallTile.sprite.bounds.size.y, Is.EqualTo(0.5f).Within(0.001f));
+            Assert.That(cutawayWallTile.sprite.bounds.size.y, Is.EqualTo(2.796875f).Within(0.001f));
 
             // NSC-109 AC-001/VAL-001: both wall Tiles must resolve to their committed source
             // sprites rather than to a procedurally generated texture, whether the persisted
