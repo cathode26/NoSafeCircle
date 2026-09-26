@@ -146,6 +146,36 @@ def check_prefab(path: pathlib.Path, known_guids: set) -> list:
     return failures
 
 
+def collect_package_guids(project_root: pathlib.Path) -> dict:
+    """Every guid declared by a .meta in the resolved package cache.
+
+    THIS IS THE ROOT FIX FOR A HOLE THREE LANES WORKED AROUND SEPARATELY. The Assets index cannot
+    contain a package guid - packages live under Library/PackageCache, outside Assets by
+    construction - so any prefab referencing a package component failed the reference check. The
+    door lane hit it on uGUI's Image, the player and enemies lanes both hit it on
+    NavMeshModifier, and each one was told to route around it. Three workarounds for one missing
+    directory.
+
+    An ALLOWLIST would have been the third wrong answer: it grows forever, every entry is a
+    hand-copied 32-hex string nobody re-verifies, and it is wrong the moment a package updates.
+    Reading the cache is the same check the Assets index performs, pointed at the other place
+    Unity keeps assets.
+
+    Returns guid -> a single synthetic owner, because two PACKAGES sharing a guid is not a defect
+    this project can cause or fix; only duplicate claims inside Assets are ours.
+    """
+    cache = project_root / "Library" / "PackageCache"
+    if not cache.is_dir():
+        return {}
+
+    guids = {}
+    for meta in cache.rglob("*.meta"):
+        match = GUID_PATTERN.search(meta.read_bytes().decode("utf-8", errors="replace"))
+        if match:
+            guids.setdefault(match.group(1), ["<package>"])
+    return guids
+
+
 def collect_guid_owners(root: pathlib.Path) -> dict:
     """Every guid any .meta declares, mapped to the file(s) that declare it.
 
@@ -217,7 +247,13 @@ def main() -> int:
         return 2
 
     guid_owners = {} if arguments.skip_guid_resolution else collect_guid_owners(assets)
-    known_guids = set(guid_owners)
+
+    # Duplicate detection runs over the ASSETS index only - see collect_package_guids for why -
+    # so the package guids are merged into the known set AFTER that dict is built, and the two
+    # counts are reported separately rather than as one number that hides which is which.
+    package_guids = {} if arguments.skip_guid_resolution else collect_package_guids(
+        assets.parent if assets.name == "Assets" else pathlib.Path("."))
+    known_guids = set(guid_owners) | set(package_guids)
 
     # Duplicates first: a collision makes every OTHER finding about those files unreliable, because
     # the reference that resolves may not resolve to the file you are reading.
@@ -231,8 +267,9 @@ def main() -> int:
             for failure in failures:
                 print("FAIL {0}: {1}".format(prefab.as_posix(), failure))
 
-    print("prefab_lint: {0} prefab(s) checked, {1} with failures, {2} guid(s) indexed, "
-          "{3} duplicated.".format(len(prefabs), failed, len(known_guids), duplicate_guids))
+    print("prefab_lint: {0} prefab(s) checked, {1} with failures, {2} project guid(s) + "
+          "{3} package guid(s) indexed, {4} duplicated.".format(
+              len(prefabs), failed, len(guid_owners), len(package_guids), duplicate_guids))
     return 1 if (failed or duplicate_guids) else 0
 
 
