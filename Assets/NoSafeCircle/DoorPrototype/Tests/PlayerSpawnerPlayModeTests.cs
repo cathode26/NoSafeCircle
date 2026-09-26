@@ -415,10 +415,42 @@ namespace NoSafeCircle.DoorPrototype.Tests
             SetMouse(spawner.Camera.WorldToScreenPoint(target), false);
 
             float remaining = HorizontalDistance(spawner.Player.transform.position, target);
+
+            // THE MESSAGE NAMES THE BROKEN LINK INSTEAD OF LISTING SUSPECTS.
+            //
+            // This test is ORDER-DEPENDENT: it passes alone, with its own fixture (15/15), paired
+            // with HudSpawner (28/28), with HoldPosition (21/21), with each Door fixture singly,
+            // and with all five Door fixtures together - and FAILS only with all nine of the
+            // BoneArchive/Door fixtures present. So the cause is CUMULATIVE, and a bisect that
+            // assumes one culprit cannot find it: every subset passes while the whole fails.
+            //
+            // Five plausible readings of the source were wrong (camera retirement order, gameplay
+            // input suspension, a missing ground collider, HUD binding, the project input asset).
+            // An order-dependent failure is invisible to source reading BY CONSTRUCTION, because
+            // every file involved is individually correct. The old message listed three suspects
+            // and distinguished none of them, so a failing CI run told the reader nothing.
+            //
+            // PlayerMovement returns SILENTLY from UpdatePointerWorldTarget when Camera.main is
+            // null, and from HandleMoveToCursorInput when HasPointerWorldTarget is false. Both
+            // produce exactly "moved zero units". These readings separate them.
+            Camera main = Camera.main;
+            PlayerMovement movement = spawner.Player;
+            string state =
+                " | camera.main=" + (main == null ? "NULL" : main.name)
+                + " isSpawnerCamera=" + (main == spawner.Camera)
+                + " gameplayEnabled=" + movement.IsGameplayEnabled
+                + " movementRestricted=" + movement.IsMovementRestricted
+                + " hasPointerTarget=" + movement.HasPointerWorldTarget
+                + " pointerTarget=" + movement.PointerWorldTarget
+                + " hasDestination=" + movement.HasActiveDestination
+                + " wanted=" + target
+                + " at=" + movement.transform.position
+                + " liveCameras=" + Camera.allCamerasCount
+                + " doorsRegistered=" + DoorInteractable.ActiveDoors.Count;
+
             Assert.Less(remaining, leg - 0.5f,
                 "The wizard did not move toward the clicked point at all (" + remaining + " of "
-                + leg + " units remain). Either the input asset is not wired, Camera.main is wrong, "
-                + "or the click never reached PlayerMovement.");
+                + leg + " units remain)." + state);
             Assert.LessOrEqual(remaining, leg - expectedTravel + 0.1f,
                 "After " + seconds + " s at " + moveSpeed + " u/s the wizard should be within "
                 + (leg - expectedTravel) + " of the target; " + remaining + " remain.");
