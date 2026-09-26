@@ -953,6 +953,13 @@ def apply_pin_rebind(
     stamped = _git_text(
         repository, "log", "-1", "--format=%an%x1f%ae%x1f%cn%x1f%ce", rebound_commit
     ).strip().split("\x1f")
+    # BREAKING EITHER HALF ALONE IS SAFE AND BREAKING BOTH IS THE DEFECT, which is why no single
+    # revert fails a test here. Removing this read-back leaves 35 of 35 green, because `-c` cannot
+    # lose to global configuration. Removing the `-c` arguments ALSO leaves the identity checkable --
+    # and then THIS is what catches it, which the failing-before confirmed: the host-identity revert
+    # fails eleven tests through this line. So it is load-bearing enforcement, not ceremony, and its
+    # own failure path is unreachable while the mechanism above it is intact. Stated rather than
+    # papered over with a mocked-out git.
     if stamped != [author_name, author_email, author_name, author_email]:
         raise ValidationPolicyAuditError(
             "policy rebind commit %s carries identity %r rather than the validated automation"
