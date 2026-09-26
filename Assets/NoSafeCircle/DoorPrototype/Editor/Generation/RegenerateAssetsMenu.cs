@@ -133,10 +133,41 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
         // ------------------------------------------------------------------------------------
 
         [MenuItem("No Safe Circle/Regenerate All Generated Assets")]
+        /// <summary>Rebuilds the enemy animation clips and both enemy animator controllers.</summary>
+        /// <remarks>
+        /// FOUND BY ARITHMETIC, NOT BY READING. RegenerateAll produced a 97-file diff where a full
+        /// DoorPrototypeSceneBuilder.Build() produces 211. The 114-file gap was the ENEMY animation
+        /// assets, and chasing it found a THIRD generator with the same defect the other two had:
+        /// EnemyAnimationAssetBuilder has ZERO MenuItems and its only callers are
+        /// DoorPrototypeGlobalSceneBuilder (:398 :400 :401 :438), which dies with the old scenes.
+        /// Its output - Art/Enemies/Generated/LanternWraithAnimator.controller and
+        /// MeleeEnemyAnimator.controller - is committed, so deleting the builders would have left it
+        /// present and unregenerable with no test failing.
+        ///
+        /// Had the two numbers matched, this would have shipped as a hole. A diff whose SHAPE
+        /// differs from a known baseline is a finding even when every file in it is correct.
+        /// </remarks>
+        [MenuItem("No Safe Circle/Regenerate Enemy Animations")]
+        public static void RegenerateEnemyAnimations()
+        {
+            Debug.LogWarning("RegenerateEnemyAnimations: reimports every enemy source sprite and " +
+                "will dirty committed .meta files with trailing-whitespace churn. Never run this " +
+                "against the canonical checkout.");
+
+            // Mirrors DoorPrototypeGlobalSceneBuilder's regeneration branch at :401
+            // (EnemyAnimationAssetBuilder.Build, as opposed to its load-existing branch, .Load).
+            World.EnemyAnimationAssetBuilder.Build();
+
+            AssetDatabase.SaveAssets();
+            Debug.Log("RegenerateEnemyAnimations: done - the enemy animator controllers and their " +
+                "clips were rebuilt from source sprites.");
+        }
+
         public static void RegenerateAll()
         {
             RegenerateArchitecturalTiles();
             RegenerateWizardAnimations();
+            RegenerateEnemyAnimations();
         }
     }
 }
