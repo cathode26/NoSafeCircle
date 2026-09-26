@@ -308,13 +308,31 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "NavMeshObstacle count after two runs.");
         }
 
-        // THE WRONG ORDER, ON PURPOSE. This is the only test that says WHY Navigation runs before
-        // Doors: a door standing in the opening at bake time is baked AROUND, and the hole it
-        // leaves survives the door opening. The legacy builder measured exactly this at D1 ("no
-        // walkable surface at the doorway centre, nearest 0.67 units away") and had to suppress
-        // every door collider around its bake; the phase order makes that hack unnecessary.
+        // THE WRONG ORDER, ON PURPOSE - AND THE DOOR MUST NOW SURVIVE IT.
+        //
+        // WHAT THIS TEST USED TO ASSERT, AND WHY IT CHANGED. It required that a door standing in
+        // the opening at bake time DID leave a permanent hole, and it was the only place recording
+        // WHY Navigation(2) runs before Doors(3). The legacy builder measured that hazard at D1
+        // ("no walkable surface at the doorway centre, nearest 0.67 units away") and suppressed
+        // every door collider around its bake by hand; the phase order replaced that hack.
+        //
+        // IT CONTRADICTED THE NAVIGATION LANE'S OWN DIAGNOSTIC, AND NOTHING COULD SEE IT UNTIL BOTH
+        // LANES' TESTS RAN TOGETHER FOR THE FIRST TIME. NavigationSpawner logs an ERROR naming any
+        // solid collider that a phase AFTER Navigation leaves alive without
+        // NavMeshModifier.ignoreFromBuild, because a RE-BAKE finds the previous build's doors still
+        // standing. Doors are phase 3, so that diagnostic demands the modifier on Door.prefab - and
+        // with the modifier present a door cannot punch a hole in EITHER order. One lane required
+        // the exclusion; this test required its absence. Both shipped green in isolation.
+        //
+        // THE EXCLUSION WINS, because it is the only one of the two that also covers a RE-BAKE, and
+        // because the doorway's real passability is carved at runtime by DoorEnemyPassability's
+        // NavMeshObstacle rather than by the bake. The phase order is kept as defence in depth.
+        //
+        // SO THIS ASSERTS THE PROPERTY THAT PROTECTS THE GAME rather than demonstrating a hazard
+        // that no longer exists - and it asserts the MECHANISM first, so a pass can never come from
+        // the door being absent or from the bake having silently done nothing.
         [UnityTest]
-        public IEnumerator ADoorSpawnedBeforeNavigationLeavesAPermanentHole()
+        public IEnumerator ADoorPresentAtBakeTimeIsExcludedAndLeavesNoPermanentHole()
         {
             SpawnDoors();
             yield return null;
@@ -328,10 +346,21 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsTrue(d1.IsOpen, "Setup: D1 must be open.");
             yield return SettleCarving();
 
-            Assert.IsFalse(NavMesh.SamplePosition(d1.transform.position, out _, 0.5f, NavMesh.AllAreas),
-                "A door baked into the navmesh left NO permanent hole. That would be good news, and it "
-                + "would mean the Navigation-before-Doors ordering no longer carries the reason recorded "
-                + "here; measure before removing either.");
+            // THE MECHANISM. Asked through the navigation lane's own helper rather than by naming
+            // NavMeshModifier: that type lives in Unity.AI.Navigation, which only the RUNTIME
+            // assembly references, and NavMeshRebakeExclusion exists precisely so a test can state
+            // this property without naming it. Empty means the door can be left alive through a
+            // re-bake without changing the surface.
+            Assert.IsEmpty(DoorPrototype.Navigation.NavMeshRebakeExclusion.FindCollected(d1.transform),
+                "The door still has colliders a bake would collect, so Door.prefab is missing its "
+                + "NavMeshModifier with ignoreFromBuild and applyToChildren. NavigationSpawner "
+                + "reports exactly these before every bake.");
+
+            // AND THE CONSEQUENCE, which is what the player experiences.
+            Assert.IsTrue(NavMesh.SamplePosition(d1.transform.position, out _, 0.5f, NavMesh.AllAreas),
+                "An OPEN door left a permanent hole in the navmesh at its own position, so it was "
+                + "collected by the bake anyway. Enemies cannot path through this doorway however "
+                + "the door behaves afterwards.");
         }
 
         private void BakeNavigation()
