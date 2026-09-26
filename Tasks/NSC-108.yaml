@@ -36,7 +36,7 @@
     {
       "gate_id": "VAL-002",
       "reference": "NSC-066 VAL-003; owner revision 2026-09-15 (T4)",
-      "requirement": "Vincent opens Assets/Scenes/DoorPrototype.unity in Play Mode and confirms: the title reads over the live chase with no solid panel; all three sayings are present; the chunky Start Game Button is on the left; pairings cycle through all 4 mages and both enemies; and starting the game clears the chase and moves to wizard selection."
+      "requirement": "Vincent opens Assets/Scenes/RuntimeWorld.unity in Play Mode and confirms: the title reads over the live chase with no solid panel; all three sayings are present; the chunky Start Game Button is on the left; pairings cycle through all 4 mages and both enemies; and starting the game clears the chase and moves to wizard selection. THE SCENE NAMED IN THIS GATE WAS REPOINTED 2026-09-26 FROM Assets/Scenes/DoorPrototype.unity TO Assets/Scenes/RuntimeWorld.unity, ON VINCENT'S OWN INSTRUCTION THAT THE OLD WORLD IS BEING REMOVED. NOTHING ELSE IN THIS GATE CHANGED: what the reviewer does, looks at and approves is untouched, and no criterion was weakened to make it satisfiable. RuntimeWorld.unity holds only GameManagers, a camera and a light; all content is instantiated at Play by the spawners under Resources/Spawners, so this gate is a PLAY MODE review and must not be read as asking for any object to be present in the saved scene."
     },
     {
       "gate_id": "VAL-003",
@@ -46,7 +46,7 @@
   ],
   "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "decomposition_reason": "Covers the parent's layout criterion including the revision-7 hierarchy pin, the builder idempotence criterion, the builder half of the chase-lane criterion, the builder half of the serialized-data criterion, VAL-002, the human Play Mode review, and the scene-bytes exclusion. It depends on both siblings because it references the TitleScreenChaseBackdrop type and wires the Start Game Button to TitleScreenController.StartGame.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -82,7 +82,18 @@
     "origin": "progressive_decomposition",
     "parent_contract_revision": 7,
     "parent_contract_sha256": "f6c2bdb4110b2c8719d09298ccdfbdbf3ef957eb3af032a985e94cce3511a673",
-    "parent_task_id": "NSC-066"
+    "parent_task_id": "NSC-066",
+    "contract_followups": [
+      {
+        "date": "2026-09-26",
+        "reason": "VAL-002: repoint Vincent's human review from the old composed scene to RuntimeWorld.unity on his instruction that the old world is removed; the review itself is unchanged",
+        "source_head": "34c69ea0d3a43f7cbb71b1cfcb762bd64ff3a054",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "497079563d0512c750f003a08ba28d09bd4e4634791e70c563517c050cd9e389",
+        "revised_contract_sha256": "9cf98b1468b28a7cc2c12855ef4f71ece5096e552f8f06e5508395ce02643dfb",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   },
   "reconciliation_key": "title-screen-transparent-layout-build",
   "repository_evidence_at_bootstrap": [],
