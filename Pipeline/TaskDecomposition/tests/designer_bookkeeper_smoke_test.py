@@ -986,20 +986,23 @@ def _notes_case(model_notes: Any, *, notes_rule: str | None = NOTES_RULE_ADDITIO
     return design, result["children"][0]["notes"]
 
 
-def test_additions_rule_drops_near_copy_paragraphs() -> None:
+def test_additions_rule_drops_near_copy_sentences() -> None:
     for transform in (lambda d: d[:-1], lambda d: d.upper().replace(" ", "  "),
-                      lambda d: d.split(". ")[0],
-                      lambda d: d[:-1] + "! " + "More copied prose. " * 20):
+                      lambda d: d.split(". ")[0]):
         design, notes = _notes_case(transform)
         assert notes == design, notes
+    # A drifted copy followed by new prose keeps the new prose (Astra R1 P1).
+    design, notes = _notes_case(lambda d: d[:-1] + "! " + "More model prose. " * 3)
+    assert notes == design + "\n\n" + " ".join(["More model prose."] * 3), notes
 
 
 def test_additions_rule_detects_long_near_copies_without_popular_text_heuristic() -> None:
     design = ("Use the existing projectile pool and preserve every prefab reference. "
               "Check collision, damage, reset and projectile return in Play Mode. ") * 8
-    for extra in ("", " More model prose." * 50):
-        _, notes = _notes_case(lambda d: "X" + d[1:] + extra, design_notes=design)
-        assert notes == design
+    _, notes = _notes_case(lambda d: "X" + d[1:], design_notes=design)
+    assert notes == design
+    _, notes = _notes_case(lambda d: "X" + d[1:] + " More model prose." * 2, design_notes=design)
+    assert notes == design + "\n\nMore model prose. More model prose."
 
 
 def test_additions_rule_keeps_only_separate_additions_after_near_copy() -> None:
@@ -1009,12 +1012,15 @@ def test_additions_rule_keeps_only_separate_additions_after_near_copy() -> None:
     assert notes.count(design) == 1
 
 
-def test_additions_rule_keeps_exact_copy_behavior() -> None:
+def test_additions_rule_removes_exact_copies() -> None:
+    # Exact copies are removed too, so the designer's notes appear once (Astra R1 P3).
     for transform in (lambda d: d, lambda d: "  " + d + "\n\nRecord the prefab check.  ",
-                      lambda d: "Record the prefab check.\n\n" + d):
+                      lambda d: "Record the prefab check.\n\n" + d,
+                      lambda d: d + "\n\n" + d + "\n\nRecord the prefab check."):
         design, notes = _notes_case(transform)
-        assert notes == transform(design).strip()
-        assert notes == _notes_case(transform, notes_rule=None)[1]
+        expected = design if transform(design).strip() == design else design + "\n\nRecord the prefab check."
+        assert notes == expected, notes
+        assert notes.count(design) == 1
     design = "  Keep the prefab reference.\n"
     assert _notes_case(lambda d: d, design_notes=design)[1] == design
 
@@ -1133,11 +1139,32 @@ def test_unmarked_v2_evidence_still_replays_initial_and_revision_retries() -> No
         assert "notes_rule" not in run.verify()["bookkeeping"]
 
 
+def test_additions_notes_keep_real_additions_and_drop_only_drifted_copies() -> None:
+    from TaskDecomposition.bookkeeping_skeleton import NOTES_RULE_ADDITIONS, _preserved_notes
+
+    design = ("NSC-020 owns DoorInteractable. The projectile checks it through TryBreak. "
+              "Check the projectile prefab in Play Mode.")
+    drifted = design.replace("TryBreak.", "TryBreak!")
+
+    def notes(model: str) -> str:
+        return _preserved_notes(design, model, notes_rule=NOTES_RULE_ADDITIONS)
+
+    addition = "NSC-123 owns the projectile pool. Do not create another pool in this child."
+    assert notes(design[:-1] + "! " + addition) == f"{design}\n\n{addition}"
+    assert notes("Check the projectile prefab in Edit Mode.") == (
+        f"{design}\n\nCheck the projectile prefab in Edit Mode.")
+    for copies in (drifted + "\n\n" + drifted, design + "\n\n" + design,
+                   design + "\n\n" + drifted, design, "", None):
+        assert notes(copies) == design, copies
+    # Unmarked runs keep today's behaviour, duplicates included.
+    assert _preserved_notes(design, drifted) == f"{design}\n\n{drifted}"
+
+
 TESTS = (
-    test_additions_rule_drops_near_copy_paragraphs,
+    test_additions_rule_drops_near_copy_sentences,
     test_additions_rule_detects_long_near_copies_without_popular_text_heuristic,
     test_additions_rule_keeps_only_separate_additions_after_near_copy,
-    test_additions_rule_keeps_exact_copy_behavior,
+    test_additions_rule_removes_exact_copies,
     test_additions_rule_keeps_unrelated_notes_and_handles_empty_output,
     test_unmarked_notes_keep_the_old_duplicate_behavior,
     test_bookkeeper_prompt_bytes_change_only_with_notes_rule,
@@ -1149,6 +1176,7 @@ TESTS = (
     test_revision_context_includes_citations_from_review_feedback,
     test_sheet_review_schema_and_policy_refuse_invalid_reviews,
     test_the_bookkeeper_gets_only_the_cited_gdd_lines,
+    test_additions_notes_keep_real_additions_and_drop_only_drifted_copies,
     test_legacy_replay_keeps_the_old_whitespace_notes_behaviour,
     test_entry_references_survive_mislabelled_entry_ids,
     test_repeated_requirements_pair_up_in_order,

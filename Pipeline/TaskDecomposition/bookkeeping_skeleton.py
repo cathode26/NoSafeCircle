@@ -123,6 +123,8 @@ def _preserved_notes(design_notes: str, model_notes: Any, *, legacy: bool = Fals
     """
 
     validate_notes_rule(notes_rule)
+    if notes_rule == NOTES_RULE_ADDITIONS:
+        return _additions_notes(design_notes, model_notes)
     written = model_notes.strip() if isinstance(model_notes, str) else ""
     if design_notes in written:
         return written
@@ -130,27 +132,52 @@ def _preserved_notes(design_notes: str, model_notes: Any, *, legacy: bool = Fals
     # recognise them in the unstripped text rather than duplicating them.
     if not legacy and isinstance(model_notes, str) and design_notes in model_notes:
         return model_notes
-    if notes_rule == NOTES_RULE_ADDITIONS:
-        normalized_design = " ".join(design_notes.split()).casefold()
-        kept = []
-        for paragraph in re.split(r"\n\s*\n", written):
-            paragraph = paragraph.strip()
-            normalized = " ".join(paragraph.split()).casefold()
-            if not normalized:
-                continue
-            # Repeated characters in long prose must not be discarded as junk.
-            near_copy = (normalized in normalized_design
-                         or SequenceMatcher(None, normalized, normalized_design, autojunk=False).ratio() >= 0.9)
-            if not near_copy and len(normalized) > len(normalized_design):
-                # A longer paragraph can start with a drifted copy, then append prose.
-                # Compare that paragraph's design-note-length prefix to the design notes.
-                near_copy = SequenceMatcher(
-                    None, normalized[:len(normalized_design)], normalized_design, autojunk=False,
-                ).ratio() >= 0.9
-            if not near_copy:
-                kept.append(paragraph)
-        written = "\n\n".join(kept)
     return f"{design_notes}\n\n{written}" if written else design_notes
+
+
+def _sentences(text: str) -> list[str]:
+    return [part.strip() for part in re.split(r"(?<=[.!?])\s+|\n+", text) if part.strip()]
+
+
+def _normalized(text: str) -> str:
+    return " ".join(text.split()).casefold()
+
+
+def _changed_characters(first: str, second: str) -> int:
+    # autojunk off: long prose repeats characters, which the heuristic would discard.
+    opcodes = SequenceMatcher(None, first, second, autojunk=False).get_opcodes()
+    return sum(max(i2 - i1, j2 - j1) for tag, i1, i2, j1, j2 in opcodes if tag != "equal")
+
+
+def _drifted_copy(sentence: str, design_sentences: list[str]) -> bool:
+    """A sentence that differs from a designer sentence by transcription drift only.
+
+    The bound is deliberately tight (at most max(2, 2%) changed characters) so a
+    genuinely different note such as Edit Mode versus Play Mode is kept: a
+    duplicate a reviewer can see is better than an addition silently lost.
+    """
+
+    return any(_changed_characters(sentence, design) <= max(2, len(design) // 50)
+               for design in design_sentences)
+
+
+def _additions_notes(design_notes: str, model_notes: Any) -> str:
+    """Designer notes once, word for word, followed only by the model's additions."""
+
+    text = model_notes if isinstance(model_notes, str) else ""
+    if design_notes.strip():
+        text = text.replace(design_notes, "\n\n")
+    design_sentences = [_normalized(sentence) for sentence in _sentences(design_notes)]
+    paragraphs = []
+    for paragraph in re.split(r"\n\s*\n", text):
+        kept = [sentence for sentence in _sentences(paragraph)
+                if not _drifted_copy(_normalized(sentence), design_sentences)]
+        if kept:
+            paragraphs.append(" ".join(kept))
+    additions = "\n\n".join(paragraphs)
+    if not design_notes:
+        return additions
+    return f"{design_notes}\n\n{additions}" if additions else design_notes
 
 
 def impose_skeleton(skeleton: Mapping[str, Any], output: Any, *, legacy_notes: bool = False,
