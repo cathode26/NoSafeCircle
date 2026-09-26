@@ -134,56 +134,62 @@ def _preserved_notes(design_notes: str, model_notes: Any, *, legacy: bool = Fals
     return f"{design_notes}\n\n{written}" if written else design_notes
 
 
-# A sentence ends at . ! or ?, optionally followed by closing quotes or brackets,
-# before whitespace; a blank line also ends one. Line wraps inside a sentence do not.
-_SENTENCE_END = re.compile(r"(?<=[.!?])[\"'\u201d\u2019)\]]*\s+|\s*\n\s*\n\s*")
-_BLANK_LINE = re.compile(r"\n\s*\n")
+_PARAGRAPH_BREAK = re.compile(r"\n[ \t]*\n\s*")
 
 
-def _sentence_key(sentence: str) -> str:
-    """Whitespace, case and end punctuation only: never a difference of content."""
+def _paragraph_key(paragraph: str) -> str:
+    """Whitespace and case only: never punctuation, never content."""
 
-    return " ".join(sentence.split()).casefold().rstrip(".!?;:\"'\u201d\u2019)] ")
+    return " ".join(paragraph.split()).casefold()
 
 
-def _sentence_spans(text: str) -> list[tuple[str, str]]:
-    """Each sentence exactly as written, with the separator that follows it."""
+def _paragraph_spans(text: str) -> list[tuple[int, int]]:
+    """(start, end) of each paragraph, where end includes the break that follows it."""
 
     spans = []
     position = 0
-    for match in _SENTENCE_END.finditer(text):
-        closers = match.group(0)[:len(match.group(0)) - len(match.group(0).lstrip("\"'\u201d\u2019)]"))]
-        spans.append((text[position:match.start()] + closers, match.group(0)[len(closers):]))
+    for match in _PARAGRAPH_BREAK.finditer(text):
+        spans.append((position, match.end()))
         position = match.end()
-    if position < len(text):
-        spans.append((text[position:], ""))
-    return [(sentence, separator) for sentence, separator in spans if sentence.strip()]
+    spans.append((position, len(text)))
+    return spans
 
 
 def _additions_notes(design_notes: str, model_notes: Any) -> str:
-    """Designer notes once, word for word, followed by the model's other sentences.
+    """Designer notes exactly once where the model repeats them whole; never a lost note.
 
-    A model sentence is dropped only when it is the same as a designer sentence
-    apart from whitespace, case and end punctuation. Nothing fuzzier is removed:
-    a one-character difference (Enemy01 and Enemy02, 10 and 10.5) can be the
-    whole meaning, so a reworded copy stays visible rather than risking a lost
-    note. The additions-only prompt is what keeps paraphrases out. Kept text is
-    copied exactly; normalisation is used only to compare.
+    Only whole paragraphs equal to a designer paragraph (apart from whitespace
+    and case) are removed, and every other character of the model's text is
+    kept exactly, so a genuine addition cannot be lost or altered. When the
+    model's notes already contain the designer's notes word for word, that
+    occurrence is kept where the model put it; otherwise the designer's notes
+    come first. A partial or reworded copy stays visible for a reviewer; the
+    additions-only prompt is what keeps copies out.
     """
 
     text = model_notes if isinstance(model_notes, str) else ""
-    design_keys = {_sentence_key(sentence) for sentence, _ in _sentence_spans(design_notes)}
-    pieces: list[str] = []
-    for sentence, separator in _sentence_spans(text):
-        if _sentence_key(sentence) not in design_keys:
-            pieces.extend((sentence.strip(), separator))
-        elif pieces and _BLANK_LINE.search(separator) and not _BLANK_LINE.search(pieces[-1]):
-            # Keep the paragraph break a dropped sentence carried.
-            pieces[-1] = separator
-    additions = "".join(pieces).strip()
+    design_keys = {_paragraph_key(text_part) for text_part in _PARAGRAPH_BREAK.split(design_notes)
+                   if text_part.strip()}
+    kept_start = kept_end = -1
+    # The designer's notes count as present only where they stand whole: a
+    # substring such as "Damage is 10." inside "Damage is 10.5" is not them.
+    whole = re.search(r"(?<!\S)" + re.escape(design_notes) + r"(?!\S)", text) if design_notes.strip() else None
+    if whole is not None:
+        kept_start, kept_end = whole.span()
+    pieces = []
+    for start, end in _paragraph_spans(text):
+        inside_kept = start < kept_end and end > kept_start
+        if not inside_kept and _paragraph_key(text[start:end]) in design_keys:
+            continue
+        pieces.append(text[start:end])
+    joined = "".join(pieces)
+    result = joined.strip()
+    if kept_start >= 0:
+        # Designer notes may begin or end with whitespace; never strip into them.
+        return result if design_notes in result else joined
     if not design_notes:
-        return additions
-    return f"{design_notes}\n\n{additions}" if additions else design_notes
+        return result
+    return f"{design_notes}\n\n{result}" if result else design_notes
 
 
 def impose_skeleton(skeleton: Mapping[str, Any], output: Any, *, legacy_notes: bool = False,

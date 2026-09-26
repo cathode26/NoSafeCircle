@@ -986,60 +986,6 @@ def _notes_case(model_notes: Any, *, notes_rule: str | None = NOTES_RULE_ADDITIO
     return design, result["children"][0]["notes"]
 
 
-def test_additions_rule_drops_near_copy_sentences() -> None:
-    for transform in (lambda d: d[:-1], lambda d: d.upper().replace(" ", "  "),
-                      lambda d: d.split(". ")[0]):
-        design, notes = _notes_case(transform)
-        assert notes == design, notes
-    # A drifted copy followed by new prose keeps the new prose (Astra R1 P1).
-    design, notes = _notes_case(lambda d: d[:-1] + "! " + "More model prose. " * 3)
-    assert notes == design + "\n\n" + " ".join(["More model prose."] * 3), notes
-
-
-def test_additions_rule_removes_only_identical_sentences() -> None:
-    # Astra R2: only whitespace, case and end punctuation are ignored. A changed
-    # character can carry the meaning, so such a sentence is always kept.
-    design = ("Use the existing projectile pool and preserve every prefab reference. "
-              "Check collision, damage, reset and projectile return in Play Mode.")
-    _, notes = _notes_case(lambda d: "X" + d[1:], design_notes=design)
-    assert notes == design + "\n\nXse the existing projectile pool and preserve every prefab reference."
-    _, notes = _notes_case(lambda d: d.replace(" in ", "\nin ") + " More model prose.", design_notes=design)
-    assert notes == design + "\n\nMore model prose."
-    for designer, model in (("Damage is 10.", "Damage is 10.5 for the alternate projectile prefab."),
-                            ("Validate Enemy01.prefab in Play Mode.", "Validate Enemy02.prefab in Play Mode.")):
-        _, notes = _notes_case(model, design_notes=designer)
-        assert notes == designer + "\n\n" + model, notes
-
-
-def test_additions_rule_keeps_only_separate_additions_after_near_copy() -> None:
-    additions = "Record the prefab inspection result.\n\nDocument its scene path."
-    design, notes = _notes_case(lambda d: d[:-1] + "!\n \n" + additions)
-    assert notes == design + "\n\n" + additions
-    assert notes.count(design) == 1
-
-
-def test_additions_rule_removes_exact_copies() -> None:
-    # Exact copies are removed too, so the designer's notes appear once (Astra R1 P3).
-    for transform in (lambda d: d, lambda d: "  " + d + "\n\nRecord the prefab check.  ",
-                      lambda d: "Record the prefab check.\n\n" + d,
-                      lambda d: d + "\n\n" + d + "\n\nRecord the prefab check."):
-        design, notes = _notes_case(transform)
-        expected = design if transform(design).strip() == design else design + "\n\nRecord the prefab check."
-        assert notes == expected, notes
-        assert notes.count(design) == 1
-    design = "  Keep the prefab reference.\n"
-    assert _notes_case(lambda d: d, design_notes=design)[1] == design
-
-
-def test_additions_rule_keeps_unrelated_notes_and_handles_empty_output() -> None:
-    additions = "Record the prefab inspection result.\n\nDocument its scene path."
-    design, notes = _notes_case("  " + additions + "  ")
-    assert notes == design + "\n\n" + additions
-    for empty in (None, "", " \n\n  "):
-        design, notes = _notes_case(empty)
-        assert notes == design
-
-
 def test_unmarked_notes_keep_the_old_duplicate_behavior() -> None:
     design, notes = _notes_case(lambda d: d[:-1], notes_rule=None)
     assert notes == design + "\n\n" + design[:-1]
@@ -1111,7 +1057,9 @@ def test_notes_rule_evidence_verifies_and_refuses_marker_tampering() -> None:
         assert run.result["run_status"] == "review_ready", run.result["rejection_reasons"]
         assert run.verify()["notes_rule"] == NOTES_RULE_ADDITIONS
         notes = json.loads((run.run_dir / "decomposition_result.json").read_text(encoding="utf-8"))["children"][0]["notes"]
-        assert notes == run.sheet["children"][0]["design_notes"] + "\n\nCheck the prefab in Play Mode."
+        design = run.sheet["children"][0]["design_notes"]
+        # A copy with one changed character is kept visibly, never guessed away.
+        assert notes == design + "\n\n" + design[:-1] + "!\n\nCheck the prefab in Play Mode.", notes
         request_path = run.run_dir / "decomposition_request.json"
         original = request_path.read_bytes()
         pinned = json.loads(original)
@@ -1145,49 +1093,44 @@ def test_unmarked_v2_evidence_still_replays_initial_and_revision_retries() -> No
         assert "notes_rule" not in run.verify()["bookkeeping"]
 
 
-def test_additions_notes_keep_real_additions_and_drop_only_drifted_copies() -> None:
+def test_additions_notes_remove_only_whole_repeats_and_never_lose_a_note() -> None:
+    # The final contract after four Astra review rounds: only whole paragraphs
+    # equal to a designer paragraph (whitespace and case aside) are removed, the
+    # designer's notes count as present only where they stand whole, and every
+    # other character is kept exactly. Partial or reworded copies stay visible.
     from TaskDecomposition.bookkeeping_skeleton import NOTES_RULE_ADDITIONS, _preserved_notes
 
-    design = ("NSC-020 owns DoorInteractable. The projectile checks it through TryBreak. "
-              "Check the projectile prefab in Play Mode.")
-    drifted = design.replace("TryBreak.", "TryBreak!")
-
-    def notes(model: str) -> str:
-        return _preserved_notes(design, model, notes_rule=NOTES_RULE_ADDITIONS)
-
-    addition = "NSC-123 owns the projectile pool. Do not create another pool in this child."
-    assert notes(design[:-1] + "! " + addition) == f"{design}\n\n{addition}"
-    assert notes("Check the projectile prefab in Edit Mode.") == (
-        f"{design}\n\nCheck the projectile prefab in Edit Mode.")
-    for copies in (drifted + "\n\n" + drifted, design + "\n\n" + design,
-                   design + "\n\n" + drifted, design, "", None):
-        assert notes(copies) == design, copies
+    d = ("NSC-020 owns DoorInteractable. The projectile checks it through TryBreak. "
+         "Check the projectile prefab in Play Mode.")
+    q = 'Set the status label to "Ready."'
+    cases = (
+        (d, d, d),
+        (d, d + "\n\n" + d, d),
+        (d, d + " Record it.", d + " Record it."),
+        (d, "First.\n\n" + d, "First.\n\n" + d),
+        (d, d.replace(" The ", "\nThe "), d),
+        (d, d[:-1] + "! More.", d + "\n\n" + d[:-1] + "! More."),
+        ("Damage is 10.", "Damage is 10.5 for x.", "Damage is 10.\n\nDamage is 10.5 for x."),
+        ("Validate Enemy01.", "Validate Enemy02.", "Validate Enemy01.\n\nValidate Enemy02."),
+        (d, 'Use Join("  ", v).', d + '\n\nUse Join("  ", v).'),
+        (q, q + " " + q, q + " " + q),
+        ('Set "Ready!"', 'Set "Ready?"', 'Set "Ready!"\n\nSet "Ready?"'),
+        (q, q + " only after init.", q + " only after init."),
+        ("Use [0, 1].", "Use [0, 1).", "Use [0, 1].\n\nUse [0, 1)."),
+        ("A one.\n\nB two.", "b  TWO.\n\nNew note.", "A one.\n\nB two.\n\nNew note."),
+        (d, None, d),
+        (d, "", d),
+        (" Clarify ownership.", " Clarify ownership.", " Clarify ownership."),
+        (" Clarify ownership.", " Clarify ownership.\n\nMore.", " Clarify ownership.\n\nMore."),
+    )
+    for design, model, expected in cases:
+        assert _preserved_notes(design, model, notes_rule=NOTES_RULE_ADDITIONS) == expected, (design, model)
     # Unmarked runs keep today's behaviour, duplicates included.
-    assert _preserved_notes(design, drifted) == f"{design}\n\n{drifted}"
-
-
-def test_additions_rule_copies_kept_text_exactly() -> None:
-    # Astra R3: normalisation is for comparing only; kept text is byte-for-byte.
-    from TaskDecomposition.bookkeeping_skeleton import NOTES_RULE_ADDITIONS, _preserved_notes
-
-    def notes(design: str, model: str) -> str:
-        return _preserved_notes(design, model, notes_rule=NOTES_RULE_ADDITIONS)
-
-    design = "Check the projectile prefab in Play Mode."
-    joined = 'Use string.Join("  ", values) for the score label.'
-    assert notes(design, joined) == f"{design}\n\n{joined}"
-    quoted = 'Set the status label to "Ready."'
-    assert notes(quoted, quoted + " " + quoted) == quoted
-    assert notes(design, "First addition.\n\n" + design + "\n\nSecond addition.") == (
-        f"{design}\n\nFirst addition.\n\nSecond addition.")
+    drifted = d.replace("TryBreak.", "TryBreak!")
+    assert _preserved_notes(d, drifted) == f"{d}\n\n{drifted}"
 
 
 TESTS = (
-    test_additions_rule_drops_near_copy_sentences,
-    test_additions_rule_removes_only_identical_sentences,
-    test_additions_rule_keeps_only_separate_additions_after_near_copy,
-    test_additions_rule_removes_exact_copies,
-    test_additions_rule_keeps_unrelated_notes_and_handles_empty_output,
     test_unmarked_notes_keep_the_old_duplicate_behavior,
     test_bookkeeper_prompt_bytes_change_only_with_notes_rule,
     test_notes_rule_protocol_refuses_unbound_or_unsupported_markers,
@@ -1198,8 +1141,7 @@ TESTS = (
     test_revision_context_includes_citations_from_review_feedback,
     test_sheet_review_schema_and_policy_refuse_invalid_reviews,
     test_the_bookkeeper_gets_only_the_cited_gdd_lines,
-    test_additions_notes_keep_real_additions_and_drop_only_drifted_copies,
-    test_additions_rule_copies_kept_text_exactly,
+    test_additions_notes_remove_only_whole_repeats_and_never_lose_a_note,
     test_legacy_replay_keeps_the_old_whitespace_notes_behaviour,
     test_entry_references_survive_mislabelled_entry_ids,
     test_repeated_requirements_pair_up_in_order,
