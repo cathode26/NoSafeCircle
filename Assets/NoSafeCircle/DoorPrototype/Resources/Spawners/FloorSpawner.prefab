@@ -1,0 +1,59 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &3200000000000000001
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 3200000000000000002}
+  - component: {fileID: 3200000000000000003}
+  m_Layer: 0
+  m_Name: FloorSpawner
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &3200000000000000002
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3200000000000000001}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &3200000000000000003
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3200000000000000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 850fe8bb9b3edb52146325ce9026f0e2, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  roomFloorPrefab: {fileID: 3100000000000000001, guid: 9bbe1fe908705bf703a79b71b0ed86d1, type: 3}
+  rooms:
+  - room: 0
+    tile: {fileID: 11400000, guid: 15278209768061e4194aed452f7d1d22, type: 2}
+  - room: 1
+    tile: {fileID: 11400000, guid: 0d977402c254ba24ab8cc0664ed1d8b3, type: 2}
+  - room: 2
+    tile: {fileID: 11400000, guid: 77485e30a0137514fb2cb3f9a1700cfb, type: 2}
+  - room: 3
+    tile: {fileID: 11400000, guid: a6439de0e13fb364fbb26916f56a22f3, type: 2}
+  - room: 4
+    tile: {fileID: 11400000, guid: d60072aba7a7f014886c89d82df497a9, type: 2}
+  floorsRoot: {fileID: 0}

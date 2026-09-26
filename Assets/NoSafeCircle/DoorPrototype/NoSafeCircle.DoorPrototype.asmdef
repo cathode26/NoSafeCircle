@@ -6,7 +6,9 @@
         "Unity.AI.Navigation",
         "Unity.InputSystem",
         "UnityEngine.UI",
-        "DOTween"
+        "DOTween",
+        "Unity.Addressables",
+        "Unity.ResourceManager"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

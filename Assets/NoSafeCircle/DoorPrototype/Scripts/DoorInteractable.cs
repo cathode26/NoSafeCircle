@@ -158,6 +158,22 @@ namespace NoSafeCircle.DoorPrototype
             PublishEnemyPassability();
         }
 
+        /// <summary>
+        /// Sets identity BEFORE Awake. The editor wrote these two fields through SerializedObject
+        /// (DoorSequenceBuilder.ConfigureDoor); a runtime spawner has none, so DoorSpawner
+        /// instantiates the door prefab inactive, calls this, then activates it. After Awake the
+        /// identity has already been read by the sprite binder, the HUD and the restart
+        /// controller, so a late call is a programming error and throws at this boundary rather
+        /// than leaving a door that reports one id and renders another. The guard is the engine's
+        /// own record of Awake having run, not a flag kept here alongside it.
+        /// </summary>
+        public void Configure(World.DoorId id, bool isFinal)
+        {
+            if (didAwake) throw new System.InvalidOperationException(name + ": Configure after Awake.");
+            doorId = id;
+            isFinalDoor = isFinal;
+        }
+
         private void OnEnable()
         {
             activeDoors.Add(this);
@@ -168,10 +184,9 @@ namespace NoSafeCircle.DoorPrototype
             activeDoors.Remove(this);
         }
 
-        private void Update()
-        {
-            Tick(Time.deltaTime);
-        }
+        // Expression-bodied so Configure above fits under Tools/component_size_lint.py's 200-line
+        // ceiling: this file measured 195 significant lines before Configure was added.
+        private void Update() => Tick(Time.deltaTime);
 
         /// Advances the interaction timer by deltaTime. Public so Play Mode tests
         /// can drive the timer deterministically without waiting on real frames.
