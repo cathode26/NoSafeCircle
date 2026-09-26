@@ -129,10 +129,10 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
         }
 
         // ------------------------------------------------------------------------------------
-        // Convenience: both of the above in one interactive click or one batchmode invocation.
+        // From Editor/World/EnemyAnimationAssetBuilder.cs, which has no MenuItem of its own and
+        // was reached only through DoorPrototypeGlobalSceneBuilder's regeneration branch.
         // ------------------------------------------------------------------------------------
 
-        [MenuItem("No Safe Circle/Regenerate All Generated Assets")]
         /// <summary>Rebuilds the enemy animation clips and both enemy animator controllers.</summary>
         /// <remarks>
         /// FOUND BY ARITHMETIC, NOT BY READING. RegenerateAll produced a 97-file diff where a full
@@ -163,6 +163,24 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
                 "clips were rebuilt from source sprites.");
         }
 
+        // ------------------------------------------------------------------------------------
+        // Convenience: all three of the above in one interactive click or one batchmode
+        // invocation.
+        //
+        // THE [MenuItem] BELOW USED TO SIT ABOVE RegenerateEnemyAnimations' DOC COMMENT, so it
+        // decorated THAT method instead of this one. Clicking "Regenerate All Generated Assets"
+        // in the editor regenerated ONLY the enemy animations, and RegenerateAll had no menu
+        // entry at all - reachable by -executeMethod alone, which is how every verification of
+        // this file has invoked it, and -executeMethod never reads the attribute. So the menu
+        // was wrong and every check of it was green.
+        //
+        // A MenuItem attribute binds to the next MEMBER. A doc comment is not a member, so
+        // putting one between an attribute and its method silently moves the attribute onto
+        // whatever member comes next, and MenuItem allows multiples, so it compiles clean and
+        // Unity shows both entries pointing at the same method.
+        // ------------------------------------------------------------------------------------
+
+        [MenuItem("No Safe Circle/Regenerate All Generated Assets")]
         public static void RegenerateAll()
         {
             RegenerateArchitecturalTiles();
