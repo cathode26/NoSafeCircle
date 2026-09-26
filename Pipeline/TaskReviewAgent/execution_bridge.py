@@ -82,14 +82,26 @@ SWEEP_NO_CONTAINERS = "no_containers"
 SWEEP_STOPPED = "stopped"
 SWEEP_STOP_FAILED = "stop_failed"
 SWEEP_NOT_SWEPT = "not_swept"
+# The long-lived shared Compose project. It is the bridge constructor's DEFAULT, so a sweep
+# that trusted whatever it was handed could stop containers belonging to the whole workspace
+# rather than to one crew run. Refused explicitly instead.
+SHARED_COMPOSE_PROJECT = "nosafecircle"
 
 
 def crew_compose_project(run_id: str) -> str:
-    """The compose project a crew run's containers carry.
+    """The compose project a crew run's containers carry, derived from its RESERVATION run id.
 
     Derived exactly as the worker derives it (AssistantControl/crew_worker.py), and duplicated
     rather than imported so TaskReviewAgent keeps no dependency on AssistantControl. A test pins
-    the two against each other; if they ever disagree the sweep silently targets nothing.
+    the two against each other.
+
+    NEVER USE THIS TO WORK OUT WHAT A RUNNING COMMAND USED. The bridge is HANDED its project and
+    builds `docker compose -p self.compose_project`, so `self.compose_project` is the only
+    authoritative identity -- and a local rehearsal overwrites it with a project this function
+    cannot produce at all. A sweep that re-derived a project here queried one nothing carried and
+    reported `no_containers` while the crew kept spending: the two derivations agreed perfectly and
+    the ARGUMENT was a pooled invocation id rather than a reservation run id. Agreement between two
+    derivations is necessary and not sufficient.
     """
     return "assistant-crew-" + hashlib.sha256(run_id.encode("utf-8")).hexdigest()[:20]
 
@@ -117,7 +129,7 @@ def _docker(args: Sequence[str], timeout_seconds: float) -> tuple[int, str, str]
 
 
 def sweep_orphaned_crew_containers(
-    run_id: str | None,
+    project: str | None,
     *,
     docker: Callable[[Sequence[str], float], tuple[int, str, str]] | None = None,
 ) -> dict[str, Any]:
@@ -129,6 +141,10 @@ def sweep_orphaned_crew_containers(
 
     Scoped to one run by compose-project label, so a concurrent crew is never touched.
 
+    ``project`` is the Compose project THE LAUNCH COMMAND USED -- pass ``self.compose_project``,
+    never a value re-derived from a run id. The shared workspace project is refused rather than
+    swept, because it is the constructor default and its containers do not belong to one run.
+
     ``outcome`` is one of:
       ``no_containers``  the sweep ran and this run had none -- nothing was orphaned
       ``stopped``        containers existed and every one stopped
@@ -136,10 +152,13 @@ def sweep_orphaned_crew_containers(
       ``not_swept``      the sweep could not run; orphan status UNKNOWN, which is not clean
     """
     run = docker if docker is not None else _docker
-    if not run_id:
-        return {"outcome": SWEEP_NOT_SWEPT, "reason": "run_id_unknown", "project": None,
+    project = (project or "").strip()
+    if not project:
+        return {"outcome": SWEEP_NOT_SWEPT, "reason": "project_unknown", "project": None,
                 "containers": [], "stopped": [], "failed": []}
-    project = crew_compose_project(run_id)
+    if project == SHARED_COMPOSE_PROJECT:
+        return {"outcome": SWEEP_NOT_SWEPT, "reason": "shared_project_refused",
+                "project": project, "containers": [], "stopped": [], "failed": []}
     code, out, err = run(
         ("ps", "--all", "--quiet", "--filter", f"label=com.docker.compose.project={project}"),
         CONTAINER_LIST_TIMEOUT_SECONDS,
@@ -867,9 +886,11 @@ class ExecutionCrewBridge:
             # The host tree is dead but the container is not in it. Stop it before quarantining,
             # and carry the outcome into the reason: a run that timed out with a container still
             # running is still SPENDING, and that must not read like a clean shutdown.
-            sweep = sweep_orphaned_crew_containers(
-                None if pool_assignment is None else str(pool_assignment.get("run_id") or "")
-            )
+            # THE PROJECT THE COMMAND ACTUALLY USED. It was previously derived from
+            # pool_assignment["run_id"], the POOLED INVOCATION id, which differs from the
+            # reservation run id the worker hashed -- so the sweep queried a project nothing
+            # carried, found nothing, and reported a clean shutdown over a running crew.
+            sweep = sweep_orphaned_crew_containers(self.compose_project)
             exc.container_sweep = sweep
             self._quarantine_terminal_pool(
                 pool_owner, pool_assignment, f"{exc} [{describe_sweep(sweep)}]"

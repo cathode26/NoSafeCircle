@@ -34,6 +34,7 @@ if str(ROOT) not in sys.path:
 
 from Pipeline.TaskReviewAgent.execution_bridge import (  # noqa: E402
     CONTAINER_LIST_TIMEOUT_SECONDS,
+    SHARED_COMPOSE_PROJECT,
     CONTAINER_STOP_GRACE_SECONDS,
     CONTAINER_STOP_TIMEOUT_SECONDS,
     SWEEP_NOT_SWEPT,
@@ -47,6 +48,9 @@ from Pipeline.TaskReviewAgent.execution_bridge import (  # noqa: E402
 
 BRIDGE = ROOT / "Pipeline/TaskReviewAgent/execution_bridge.py"
 RUN_ID = "nsc-049-pooled-0123456789abcdef"
+# The sweep takes the project the LAUNCH COMMAND used. A run id is only one way to arrive at
+# one, and arriving at it the wrong way is exactly what F1 was.
+PROJECT = crew_compose_project(RUN_ID)
 
 
 class FakeDocker:
@@ -80,6 +84,16 @@ class ComposeProjectTests(unittest.TestCase):
 
         self.assertEqual(_compose_project(RUN_ID), crew_compose_project(RUN_ID))
 
+    def test_agreeing_derivations_were_not_enough_and_the_suite_says_why(self):
+        """A standing note, asserted so it cannot be quietly deleted.
+
+        This class's pin passed throughout the period the sweep was broken. Keep it -- a divergence
+        would still be silent -- but the identity pin lives in ScopeTests, against the launch
+        command, because that is where the defect actually was.
+        """
+        source = Path(__file__).read_text(encoding="utf-8")
+        self.assertIn("THE WRONG VALUE BEING PASSED IN", source)
+
     def test_different_runs_get_different_projects(self):
         self.assertNotEqual(crew_compose_project(RUN_ID), crew_compose_project(RUN_ID + "x"))
 
@@ -88,25 +102,49 @@ class SweepOutcomeTests(unittest.TestCase):
 
     def test_a_run_with_no_container_is_not_the_same_as_a_sweep_that_could_not_run(self):
         """The distinction this suite exists for. Both have an empty container list."""
-        clean = sweep_orphaned_crew_containers(RUN_ID, docker=FakeDocker(listing=(0, "\n", "")))
+        clean = sweep_orphaned_crew_containers(PROJECT, docker=FakeDocker(listing=(0, "\n", "")))
         blind = sweep_orphaned_crew_containers(
-            RUN_ID, docker=FakeDocker(listing=(127, "", "docker executable not found"))
+            PROJECT, docker=FakeDocker(listing=(127, "", "docker executable not found"))
         )
         self.assertEqual(SWEEP_NO_CONTAINERS, clean["outcome"])
         self.assertEqual(SWEEP_NOT_SWEPT, blind["outcome"])
         self.assertEqual(clean["containers"], blind["containers"])  # identical evidence...
         self.assertNotEqual(clean["outcome"], blind["outcome"])  # ...different conclusion
 
-    def test_an_unknown_run_id_is_not_swept_rather_than_clean(self):
-        for value in (None, ""):
-            with self.subTest(run_id=value):
+    def test_an_unknown_project_is_not_swept_rather_than_clean(self):
+        for value in (None, "", "   "):
+            with self.subTest(project=value):
                 sweep = sweep_orphaned_crew_containers(value, docker=FakeDocker())
                 self.assertEqual(SWEEP_NOT_SWEPT, sweep["outcome"])
-                self.assertEqual("run_id_unknown", sweep["reason"])
+                self.assertEqual("project_unknown", sweep["reason"])
+
+    def test_the_shared_workspace_project_is_refused_rather_than_swept(self):
+        """It is the bridge constructor's DEFAULT, so a sweep must never accept it.
+
+        Its containers belong to the whole workspace rather than to one crew run, and the default
+        means a bridge built without an explicit project would otherwise aim the sweep at them.
+        Refusing is not a missing feature: an unknown-ownership sweep must stay visibly uncertain.
+        """
+        docker = FakeDocker(listing=(0, "abc123\n", ""))
+        sweep = sweep_orphaned_crew_containers(SHARED_COMPOSE_PROJECT, docker=docker)
+        self.assertEqual(SWEEP_NOT_SWEPT, sweep["outcome"])
+        self.assertEqual("shared_project_refused", sweep["reason"])
+        self.assertEqual([], docker.calls, "it must not even list containers for the shared project")
+
+    def test_the_project_is_queried_verbatim_and_never_re_derived(self):
+        """Pass something no hash could produce; the filter must carry it unchanged.
+
+        This is what stops a re-derivation creeping back in: if anything hashed the argument, a
+        plainly non-hash project would not appear in the filter.
+        """
+        docker = FakeDocker(listing=(0, "", ""))
+        sweep_orphaned_crew_containers("assistant-crew-NOT-A-HASH", docker=docker)
+        (args, _timeout), = [call for call in docker.calls if call[0][0] == "ps"]
+        self.assertIn("label=com.docker.compose.project=assistant-crew-NOT-A-HASH", args)
 
     def test_every_container_stopped_reports_stopped(self):
         docker = FakeDocker(listing=(0, "abc123\ndef456\n", ""))
-        sweep = sweep_orphaned_crew_containers(RUN_ID, docker=docker)
+        sweep = sweep_orphaned_crew_containers(PROJECT, docker=docker)
         self.assertEqual(SWEEP_STOPPED, sweep["outcome"])
         self.assertEqual(["abc123", "def456"], sweep["stopped"])
         self.assertEqual([], sweep["failed"])
@@ -117,14 +155,14 @@ class SweepOutcomeTests(unittest.TestCase):
             listing=(0, "abc123\ndef456\n", ""),
             stops={"def456": (1, "", "permission denied")},
         )
-        sweep = sweep_orphaned_crew_containers(RUN_ID, docker=docker)
+        sweep = sweep_orphaned_crew_containers(PROJECT, docker=docker)
         self.assertEqual(SWEEP_STOP_FAILED, sweep["outcome"])
         self.assertEqual(["abc123"], sweep["stopped"])
         self.assertEqual([{"container": "def456", "error": "permission denied"}], sweep["failed"])
 
     def test_a_failed_listing_names_why_instead_of_returning_clean(self):
         sweep = sweep_orphaned_crew_containers(
-            RUN_ID, docker=FakeDocker(listing=(1, "", "Cannot connect to the Docker daemon"))
+            PROJECT, docker=FakeDocker(listing=(1, "", "Cannot connect to the Docker daemon"))
         )
         self.assertEqual(SWEEP_NOT_SWEPT, sweep["outcome"])
         self.assertIn("Cannot connect to the Docker daemon", sweep["reason"])
@@ -135,7 +173,7 @@ class BoundednessTests(unittest.TestCase):
     def test_every_docker_call_carries_a_bound(self):
         """It runs while an error propagates; an unbounded call there hangs the whole failure path."""
         docker = FakeDocker(listing=(0, "abc123\n", ""))
-        sweep_orphaned_crew_containers(RUN_ID, docker=docker)
+        sweep_orphaned_crew_containers(PROJECT, docker=docker)
         self.assertTrue(docker.calls, "the sweep made no docker call at all")
         for args, timeout_seconds in docker.calls:
             with self.subTest(args=args):
@@ -163,7 +201,7 @@ class BoundednessTests(unittest.TestCase):
             (125, "", "docker ps could not run: [WinError 5]"),
         ):
             with self.subTest(failure=failure[0]):
-                sweep = sweep_orphaned_crew_containers(RUN_ID, docker=FakeDocker(listing=failure))
+                sweep = sweep_orphaned_crew_containers(PROJECT, docker=FakeDocker(listing=failure))
                 self.assertEqual(SWEEP_NOT_SWEPT, sweep["outcome"])
 
     def test_the_real_docker_helper_converts_a_missing_binary_into_an_outcome(self):
@@ -189,10 +227,70 @@ class ScopeTests(unittest.TestCase):
     def test_the_listing_is_scoped_to_this_run_only(self):
         """A concurrent crew must never be stopped by another run's failure path."""
         docker = FakeDocker(listing=(0, "", ""))
-        sweep_orphaned_crew_containers(RUN_ID, docker=docker)
+        sweep_orphaned_crew_containers(PROJECT, docker=docker)
         (args, _timeout), = [call for call in docker.calls if call[0][0] == "ps"]
-        self.assertIn(f"label=com.docker.compose.project={crew_compose_project(RUN_ID)}", args)
+        self.assertIn(f"label=com.docker.compose.project={PROJECT}", args)
         self.assertIn("--quiet", args)
+
+    def test_the_sweep_targets_THE_ATTRIBUTE_THE_LAUNCH_COMMAND_USES(self):
+        """F1's pin, and the reason the old one could not catch it.
+
+        The previous load-bearing test compared `crew_compose_project` with the worker's
+        `_compose_project`. They agreed -- they still do -- and the sweep was still broken, because
+        the CALLER passed `pool_assignment["run_id"]`, the pooled invocation id, instead of the
+        reservation run id the worker had hashed. The launched project and the queried project were
+        different strings and no test could see it: A TEST THAT PINS HOW A VALUE IS COMPUTED CANNOT
+        SEE THE WRONG VALUE BEING PASSED IN.
+
+        So this takes its expectation from the launch command itself. `_command` builds
+        `docker compose -p <X> run ...`; whatever `<X>` is, the sweep must be handed the same thing.
+        Both are read out of the syntax tree, so the two can never drift apart silently again.
+        """
+        tree = ast.parse(BRIDGE.read_text(encoding="utf-8"))
+
+        def attribute_after_dash_p(node):
+            """The element following a literal "-p" in a list of command parts."""
+            for index, element in enumerate(node.elts[:-1]):
+                if isinstance(element, ast.Constant) and element.value == "-p":
+                    return node.elts[index + 1]
+            return None
+
+        launched = [
+            attribute_after_dash_p(node) for node in ast.walk(tree)
+            if isinstance(node, ast.List) and attribute_after_dash_p(node) is not None
+        ]
+        self.assertEqual(1, len(launched),
+                         "expected exactly one docker-compose -p construction in the bridge")
+        launched_attr = launched[0]
+        self.assertIsInstance(launched_attr, ast.Attribute)
+        self.assertEqual("compose_project", launched_attr.attr)
+
+        swept = [
+            node.args[0] for node in ast.walk(tree)
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+            and node.func.id == "sweep_orphaned_crew_containers" and node.args
+        ]
+        self.assertEqual(1, len(swept), "expected exactly one sweep call site")
+        self.assertIsInstance(swept[0], ast.Attribute,
+                              "the sweep is being handed an expression rather than the project"
+                              " attribute the command used")
+        self.assertEqual(launched_attr.attr, swept[0].attr,
+                         "the sweep targets a different value from the one the command launched")
+        self.assertEqual("self", getattr(swept[0].value, "id", None))
+
+    def test_no_pooled_invocation_id_reaches_the_sweep_call(self):
+        """The exact wrong input, named so it cannot come back as a plausible-looking fix."""
+        tree = ast.parse(BRIDGE.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                    and node.func.id == "sweep_orphaned_crew_containers"):
+                source = ast.dump(node)
+                self.assertNotIn("pool_assignment", source,
+                                 "the sweep is deriving its project from the pooled invocation"
+                                 " again; the container carries the reservation-derived project")
+                self.assertNotIn("crew_compose_project", source,
+                                 "the sweep is re-deriving a project instead of using the launched"
+                                 " one")
 
 
 class DescriptionTests(unittest.TestCase):
