@@ -29,6 +29,7 @@ from typing import Any, Iterable
 from Pipeline.AgentRuntime.json_values import thaw_json
 from Pipeline.TaskExecution.contracts import TaskContractIdentity
 from TaskDecomposition.author_checklist import with_author_checklist
+from TaskDecomposition.bookkeeping_skeleton import NOTES_RULE_ADDITIONS
 from TaskDecomposition.context_builder import (
     DecompositionPreflightError,
     build_context,
@@ -105,7 +106,7 @@ def continuable_problem(
 
     sheet_mode = any(key in value for value in (run_result, request or {}) for key in (
         "designer_bookkeeper", "bookkeeper_model", "bookkeeper_provider",
-        "designer_bookkeeper_version", "ownership_sheet_review_version"))
+        "designer_bookkeeper_version", "ownership_sheet_review_version", "notes_rule"))
     if sheet_mode:
         metadata = run_result.get("designer_bookkeeper")
         if (not isinstance(metadata, dict) or metadata.get("schema_version") != "2.0"
@@ -113,13 +114,16 @@ def continuable_problem(
                 or not isinstance(metadata.get("bookkeeper_model"), str)
                 or not metadata["bookkeeper_model"].strip()
                 or not isinstance(metadata.get("compilations"), list)
-                or not isinstance(metadata.get("latest_sheet"), dict)):
+                or not isinstance(metadata.get("latest_sheet"), dict)
+                or ("notes_rule" in metadata and metadata["notes_rule"] != NOTES_RULE_ADDITIONS)):
             return BOOKKEEPER_CONTINUATION_PROBLEM
         if request is not None and (
                 request.get("designer_bookkeeper_version") != "2.0"
                 or request.get("ownership_sheet_review_version") != "1.1"
                 or request.get("bookkeeper_provider") != metadata["bookkeeper_provider"]
-                or request.get("bookkeeper_model") != metadata["bookkeeper_model"]):
+                or request.get("bookkeeper_model") != metadata["bookkeeper_model"]
+                or request.get("notes_rule") != metadata.get("notes_rule")
+                or ("notes_rule" in request and request["notes_rule"] != NOTES_RULE_ADDITIONS)):
             return BOOKKEEPER_CONTINUATION_PROBLEM
     if run_result.get("run_status") != "needs_human":
         return f"the run ended {run_result.get('run_status')!r}; only a run that stopped after a revision continues"
@@ -348,6 +352,7 @@ def run_continuation(
             "schema_version": "2.0", "bookkeeper_provider": settings["bookkeeper_provider"],
             "bookkeeper_model": settings["bookkeeper_model"], "bookkeeping_calls_used": 0,
             "compilations": [], "latest_sheet": seed["latest_sheet"],
+            **({"notes_rule": settings["notes_rule"]} if "notes_rule" in settings else {}),
         }
         compile_settings = {
             "run_dir": run_dir, "task_id": task_id, "run_id": selected_run_id,
@@ -356,6 +361,7 @@ def run_continuation(
             "context_paths": context_paths, "task_contract_identity": task_contract_identity,
             "budgets": generator_budget, "heartbeat_seconds": heartbeat_interval(),
             "reporter": reporter, "source_identity": source_identity,
+            "notes_rule": settings.get("notes_rule"),
         }
 
     for round_number in range(first_round, first_round + max_calls):

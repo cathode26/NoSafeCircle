@@ -69,6 +69,7 @@ from TaskDecomposition.bookkeeper_prompts import (
     build_designer_prompt,
 )
 from TaskDecomposition.bookkeeping_skeleton import (
+    NOTES_RULE_ADDITIONS,
     impose_skeleton,
     result_skeleton,
     structural_slips,
@@ -786,6 +787,7 @@ def _run_bookkeeping(
     reporter: ProgressReporter,
     source_identity: SourceIdentity,
     revision_input: Mapping[str, Any] | None = None,
+    notes_rule: str | None = None,
 ) -> tuple[CandidateSnapshot | None, list[dict[str, Any]], list[str], bool]:
     """Write the result from the frozen sheet: one attempt, then at most one retry.
 
@@ -801,12 +803,12 @@ def _run_bookkeeping(
     skeleton = result_skeleton(sheet)
     for attempt in range(1, BOOKKEEPER_MAX_ATTEMPTS + 1):
         if revision_input is None:
-            prompt = (build_bookkeeper_prompt(context, sheet) if attempt == 1
-                      else build_bookkeeper_retry_prompt(sheet, rejected, problems))
+            prompt = (build_bookkeeper_prompt(context, sheet, notes_rule=notes_rule) if attempt == 1
+                      else build_bookkeeper_retry_prompt(sheet, rejected, problems, notes_rule=notes_rule))
         else:
-            prompt = (build_bookkeeper_revision_prompt(context, sheet, **revision_input) if attempt == 1
+            prompt = (build_bookkeeper_revision_prompt(context, sheet, notes_rule=notes_rule, **revision_input) if attempt == 1
                       else build_bookkeeper_revision_retry_prompt(
-                          context, sheet, rejected, problems, **revision_input))
+                          context, sheet, rejected, problems, notes_rule=notes_rule, **revision_input))
         directory = _round_directory_name(round_number, bookkeeping_attempt=attempt)
         result, exception, duration, invocation_id = _invoke_round(
             run_dir=run_dir, round_number=round_number, task_id=task_id, run_id=run_id,
@@ -852,7 +854,7 @@ def _run_bookkeeping(
         # The model's structural slips are corrected, not retried; they are
         # recorded so a run shows how often the skeleton was needed.
         record["structural_slips_corrected"] = structural_slips(sheet, output)
-        rejected = impose_skeleton(skeleton, output)
+        rejected = impose_skeleton(skeleton, output, notes_rule=notes_rule)
         problems = conformance_problems(sheet, rejected)
         candidate: CandidateSnapshot | None = None
         if not problems:
@@ -907,6 +909,7 @@ def _compile_design(
     reporter: ProgressReporter,
     source_identity: SourceIdentity,
     revision_input: Mapping[str, Any] | None = None,
+    notes_rule: str | None = None,
 ) -> tuple[CandidateSnapshot | None, dict[str, Any], list[str], bool]:
     """Publish one validated sheet and compile it without promoting the candidate."""
 
@@ -924,7 +927,7 @@ def _compile_design(
         context=context, context_payload=context_payload, graph=graph,
         context_paths=context_paths, task_contract_identity=task_contract_identity,
         budgets=budgets, heartbeat_seconds=heartbeat_seconds, reporter=reporter,
-        source_identity=source_identity, revision_input=revision_input,
+        source_identity=source_identity, revision_input=revision_input, notes_rule=notes_rule,
     )
     record = {
         "round_number": round_number,
@@ -1082,6 +1085,7 @@ def run_round_robin_decomposition(
                 "ownership_sheet_review_version": "1.1",
                 "bookkeeper_provider": order[0],
                 "bookkeeper_model": bookkeeper_model,
+                "notes_rule": NOTES_RULE_ADDITIONS,
                 "author_timeout_seconds": generator_budget.timeout_seconds,
                 "reviewer_timeout_seconds": reviewer_budget.timeout_seconds,
             }),
@@ -1126,6 +1130,7 @@ def run_round_robin_decomposition(
             "schema_version": "2.0",
             "bookkeeper_provider": order[0],
             "bookkeeper_model": bookkeeper_model,
+            "notes_rule": NOTES_RULE_ADDITIONS,
             "bookkeeping_calls_used": 0,
             "compilations": [],
             "latest_sheet": None,
@@ -1137,6 +1142,7 @@ def run_round_robin_decomposition(
                 order[0], source_identity.root, provider_factory, role=BOOKKEEPER_ROLE,
                 codex_resume_sandbox_argument=codex_resume_sandbox_argument,
             ), bookkeeper_model),
+            "notes_rule": NOTES_RULE_ADDITIONS,
             "context": context, "context_payload": context_payload, "graph": graph,
             "context_paths": context_paths, "task_contract_identity": task_contract_identity,
             "budgets": generator_budget, "heartbeat_seconds": heartbeat_seconds,

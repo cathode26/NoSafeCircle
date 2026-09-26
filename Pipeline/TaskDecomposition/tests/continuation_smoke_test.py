@@ -40,7 +40,7 @@ from TaskDecomposition.tests.round_robin_decomposition_smoke_test import (  # no
 from TaskDecomposition.tests.test_support import create_repository, decomposed_result  # noqa: E402
 
 from TaskDecomposition.tests.designer_bookkeeper_smoke_test import (  # noqa: E402
-    BOOKKEEPER_MODEL, RevisionRun, blank_reference, sheet_review,
+    BOOKKEEPER_MODEL, RevisionRun, blank_reference, retain_unmarked_v2, sheet_review,
 )
 from TaskDecomposition.bookkeeping_skeleton import impose_skeleton, result_skeleton  # noqa: E402
 from TaskDecomposition.review_schemas import OWNERSHIP_SHEET_REVIEW_SCHEMA  # noqa: E402
@@ -274,9 +274,11 @@ def test_bookkeeper_continued_revision_uses_pinned_configuration_then_other_prov
         record = result["designer_bookkeeper"]
         assert record["bookkeeper_provider"] == "claude" and record["bookkeeper_model"] == BOOKKEEPER_MODEL
         assert record["bookkeeping_calls_used"] == 1
+        assert record["notes_rule"] == chain.prior["designer_bookkeeper"]["notes_rule"] == "additions-1"
         attempt = record["compilations"][0]["attempts"][0]
         assert attempt["actual_model"] == BOOKKEEPER_MODEL and attempt["requested_provider"] == "claude"
         request = json.loads((chain.output / "sheet-revise" / "decomposition_request.json").read_text())
+        assert request["notes_rule"] == record["notes_rule"]
         assert request["author_timeout_seconds"] == TIMEOUTS["task_decomposer"]
         assert request["reviewer_timeout_seconds"] == TIMEOUTS["decomposition_reviewer"]
         assert chain.providers["claude"].requests[0].budgets.timeout_seconds == TIMEOUTS["task_decomposer"]
@@ -444,7 +446,84 @@ def test_bookkeeper_checklist_is_inherited_and_marker_tampering_is_refused() -> 
         assert not calls and not (chain.output / "must-not-start").exists()
 
 
+def test_notes_rule_eligibility_preserves_absence_and_refuses_mismatch() -> None:
+    """Pure/component regression: no files, Unity assets, or provider calls."""
+    candidate = {"sha256": "a" * 64}
+    metadata = {"schema_version": "2.0", "bookkeeper_provider": "claude", "bookkeeper_model": "fixture",
+                "compilations": [{"round_number": 3, "status": "candidate_accepted",
+                                  "accepted_candidate": candidate}],
+                "latest_sheet": {"candidate_sha256": candidate["sha256"]}}
+    prior = {"designer_bookkeeper": metadata, "run_status": "needs_human", "latest_candidate": candidate,
+             "rounds": [{"round_number": 3, "status": "revised_candidate_valid", "candidate_after": candidate}],
+             "unresolved_findings": [{"finding_id": "round-03-prose"}]}
+    request = {"designer_bookkeeper_version": "2.0", "ownership_sheet_review_version": "1.1",
+               "bookkeeper_provider": "claude", "bookkeeper_model": "fixture"}
+    assert continuable_problem(prior, request=request) is None
+    metadata["notes_rule"] = "additions-1"
+    assert continuable_problem(prior, request=request) is not None
+    request["notes_rule"] = "additions-1"
+    assert continuable_problem(prior, request=request) is None
+    for marker in (None, "other-rule"):
+        metadata["notes_rule"] = request["notes_rule"] = marker
+        assert continuable_problem(prior, request=request) is not None
+
+
+def test_unmarked_v2_continuation_inherits_the_old_notes_rule() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-cont-bk-") as text:
+        chain = BookkeeperChain(Path(text))
+        retain_unmarked_v2(chain.initial)
+        assert "notes_rule" not in chain.verify_prior()["settings"]
+        review, raw, sheet, _, digest = chain.revision()
+        result = chain.continue_with("unmarked-revision", {"codex": [review], "claude": [raw, sheet_review(
+            digest, sheet, round_number=5, resolutions=resolved("round-04-prose"))]})
+        assert result["run_status"] == "review_ready", result["rejection_reasons"]
+        request = json.loads((chain.output / "unmarked-revision/decomposition_request.json").read_text())
+        assert "notes_rule" not in request and "notes_rule" not in result["designer_bookkeeper"]
+        assert "keep the designer's notes that are already there" in chain.providers["claude"].requests[0].prompt
+        chain.verify("unmarked-revision", result)
+
+
+def test_bookkeeper_notes_rule_is_inherited_and_mixed_chain_refused() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-cont-bk-") as text:
+        chain = BookkeeperChain(Path(text))
+        assert chain.prior["designer_bookkeeper"]["notes_rule"] == "additions-1"
+        review, raw, _, _, _ = chain.revision()
+        first = chain.continue_with("notes-first", {"codex": [review], "claude": [raw]}, max_calls=1)
+        assert first["run_status"] == "needs_human", first["rejection_reasons"]
+        assert first["designer_bookkeeper"]["notes_rule"] == "additions-1"
+        request_path = chain.output / "notes-first/decomposition_request.json"
+        request = json.loads(request_path.read_text())
+        assert request["notes_rule"] == "additions-1"
+        proof = chain.verify("notes-first", first, open_end=True)
+        assert proof["settings"]["notes_rule"] == "additions-1"
+        # Even changing both retained markers cannot switch the rule midway through a chain.
+        del request["notes_rule"]
+        del first["designer_bookkeeper"]["notes_rule"]
+        request_path.write_text(json.dumps(request), encoding="utf-8")
+        (chain.output / "notes-first/decomposition_run_result.json").write_text(json.dumps(first), encoding="utf-8")
+        try:
+            chain.verify("notes-first", first, open_end=True)
+        except ReviewChainError as exc:
+            assert "settings" in str(exc) or "notes_rule" in str(exc), exc
+        else:
+            raise AssertionError("continuation accepted a mixed notes-rule chain")
+        calls = []
+        try:
+            run_continuation(source=chain.source, output_root=chain.output, task_id="NSC-010",
+                             continue_from="notes-first", provider_order=ORDER, max_calls=1,
+                             run_id="must-not-start", provider_factory=lambda *a, **kw: calls.append(a),
+                             _require_physical_read_only_source=False)
+        except DecompositionPreflightError as exc:
+            assert "notes_rule" in str(exc), exc
+        else:
+            raise AssertionError("a mixed notes-rule seed chain was admitted")
+        assert not calls and not (chain.output / "must-not-start").exists()
+
+
 TESTS = (
+    test_notes_rule_eligibility_preserves_absence_and_refuses_mismatch,
+    test_bookkeeper_notes_rule_is_inherited_and_mixed_chain_refused,
+    test_unmarked_v2_continuation_inherits_the_old_notes_rule,
     test_bookkeeper_checklist_is_inherited_and_marker_tampering_is_refused,
     test_bookkeeper_round_three_continues_to_round_four_pass_without_compilation,
     test_bookkeeper_continued_revision_uses_pinned_configuration_then_other_provider_pass,

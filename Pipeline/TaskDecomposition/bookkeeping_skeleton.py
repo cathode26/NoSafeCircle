@@ -13,9 +13,21 @@ reach the candidate. What survives from the model is exactly its prose.
 from __future__ import annotations
 
 from copy import deepcopy
+from difflib import SequenceMatcher
+import re
 from typing import Any, Mapping
 
 from .ownership_sheet import ENTRY_TYPES, conformance_problems
+
+NOTES_RULE_ADDITIONS = "additions-1"
+
+
+def validate_notes_rule(notes_rule: str | None) -> None:
+    """Refuse unknown rules rather than changing the meaning of recorded evidence."""
+
+    if notes_rule is not None and notes_rule != NOTES_RULE_ADDITIONS:
+        raise ValueError(f"unsupported bookkeeper notes rule: {notes_rule!r}")
+
 
 _ID_FIELDS = {
     "acceptance_criteria": ("criterion_id", "AC"),
@@ -102,13 +114,15 @@ def _as_map(value: Any) -> Mapping[str, Any]:
     return value if isinstance(value, Mapping) else {}
 
 
-def _preserved_notes(design_notes: str, model_notes: Any, *, legacy: bool = False) -> str:
+def _preserved_notes(design_notes: str, model_notes: Any, *, legacy: bool = False,
+                     notes_rule: str | None = None) -> str:
     """The model's notes, always carrying the designer's notes word for word.
 
     ``legacy`` reproduces the pre-v2 behaviour exactly, so evidence recorded
     before the whitespace fix still replays to the candidate it recorded.
     """
 
+    validate_notes_rule(notes_rule)
     written = model_notes.strip() if isinstance(model_notes, str) else ""
     if design_notes in written:
         return written
@@ -116,11 +130,32 @@ def _preserved_notes(design_notes: str, model_notes: Any, *, legacy: bool = Fals
     # recognise them in the unstripped text rather than duplicating them.
     if not legacy and isinstance(model_notes, str) and design_notes in model_notes:
         return model_notes
+    if notes_rule == NOTES_RULE_ADDITIONS:
+        normalized_design = " ".join(design_notes.split()).casefold()
+        kept = []
+        for paragraph in re.split(r"\n\s*\n", written):
+            paragraph = paragraph.strip()
+            normalized = " ".join(paragraph.split()).casefold()
+            if not normalized:
+                continue
+            # Repeated characters in long prose must not be discarded as junk.
+            near_copy = (normalized in normalized_design
+                         or SequenceMatcher(None, normalized, normalized_design, autojunk=False).ratio() >= 0.9)
+            if not near_copy and len(normalized) > len(normalized_design):
+                # A longer paragraph can start with a drifted copy, then append prose.
+                # Compare that paragraph's design-note-length prefix to the design notes.
+                near_copy = SequenceMatcher(
+                    None, normalized[:len(normalized_design)], normalized_design, autojunk=False,
+                ).ratio() >= 0.9
+            if not near_copy:
+                kept.append(paragraph)
+        written = "\n\n".join(kept)
     return f"{design_notes}\n\n{written}" if written else design_notes
 
 
 def impose_skeleton(skeleton: Mapping[str, Any], output: Any, *, legacy_notes: bool = False,
-                    legacy_entry_ids: bool = False) -> dict[str, Any]:
+                    legacy_entry_ids: bool = False,
+                    notes_rule: str | None = None) -> dict[str, Any]:
     """The model's answer with every structural field replaced by the skeleton's.
 
     Prose is matched to the skeleton by stable keys (child local_key, entry
@@ -131,6 +166,7 @@ def impose_skeleton(skeleton: Mapping[str, Any], output: Any, *, legacy_notes: b
     recorded before that change.
     """
 
+    validate_notes_rule(notes_rule)
     answer = _as_map(output)
     result = {key: deepcopy(value) for key, value in answer.items()
               if key not in ("decision", "children", "parent_requirement_coverage", "inbound_dependency_rewrites")}
@@ -147,7 +183,9 @@ def impose_skeleton(skeleton: Mapping[str, Any], output: Any, *, legacy_notes: b
         for field in _STRUCTURAL_CHILD_FIELDS:
             if field not in ENTRY_TYPES:
                 child[field] = deepcopy(planned[field])
-        child["notes"] = _preserved_notes(planned["notes"], model_child.get("notes"), legacy=legacy_notes)
+        child["notes"] = _preserved_notes(
+            planned["notes"], model_child.get("notes"), legacy=legacy_notes, notes_rule=notes_rule,
+        )
         for entry_type in ENTRY_TYPES:
             id_field = _ID_FIELDS[entry_type][0]
             model_entries = [entry for entry in _as_list(model_child.get(entry_type))

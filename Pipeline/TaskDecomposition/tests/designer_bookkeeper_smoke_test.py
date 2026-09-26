@@ -22,8 +22,8 @@ for module_root in (ROOT, ROOT / "Pipeline", ROOT / "Pipeline" / "TaskGraph"):
 from Pipeline.AgentRuntime.json_values import thaw_json  # noqa: E402
 from TaskDecomposition.bookkeeper_context import cited_gdd_lines, compact_bookkeeper_context, gdd_excerpt  # noqa: E402
 from TaskDecomposition.bookkeeping_evidence import BookkeepingEvidenceError, verify_bookkeeping  # noqa: E402
-from TaskDecomposition.bookkeeping_skeleton import impose_skeleton, result_skeleton  # noqa: E402
-from TaskDecomposition.ownership_sheet import sheet_from_result, sheet_sha256  # noqa: E402
+from TaskDecomposition.bookkeeping_skeleton import NOTES_RULE_ADDITIONS, impose_skeleton, result_skeleton  # noqa: E402
+from TaskDecomposition.ownership_sheet import conformance_problems, sheet_from_result, sheet_sha256  # noqa: E402
 from TaskDecomposition.review_chain import ReviewChainError, verify_three_call_chain  # noqa: E402
 from TaskDecomposition.round_robin_decomposition import (  # noqa: E402
     _round_directory_name,
@@ -62,6 +62,13 @@ def blank_reference(result: dict) -> dict:
     return slipped
 
 
+def drifted_notes(result: dict) -> dict:
+    """The live regression: one changed character in a copy, then separate additions."""
+    slipped = deepcopy(result)
+    slipped["children"][0]["notes"] = slipped["children"][0]["notes"][:-1] + "!\n\nCheck the prefab in Play Mode."
+    return slipped
+
+
 def dropped_notes(result: dict) -> dict:
     """The bookkeeper rewrites a child's notes without the designer's constraints."""
     slipped = deepcopy(result)
@@ -77,6 +84,10 @@ class Run:
         self.tasks = create_repository(self.source)
         self.parent = self.tasks["NSC-010"]
         self.good = decomposed_result(self.parent)
+        if "drift" in bookkeeper_outputs:
+            self.good["children"][0]["notes"] = (
+                "Use the existing projectile pool and preserve the prefab references. "
+                "Check collision, damage, reset and projectile return in Play Mode.")
         self.sheet = sheet_from_result(self.good)
         self.refused_sheet = None
         if sheet_change is not None:
@@ -89,11 +100,12 @@ class Run:
         else:
             designs = [self.sheet]
         outputs = {"good": lambda: deepcopy(self.good), "structural": lambda: dropped_entry(self.good),
-                   "prose": lambda: blank_reference(self.good), "notes": lambda: dropped_notes(self.good)}
+                   "prose": lambda: blank_reference(self.good), "notes": lambda: dropped_notes(self.good),
+                   "drift": lambda: drifted_notes(self.good)}
         self.claude = QueueProvider([*designs, *(outputs[kind] for kind in bookkeeper_outputs)])
         # The reviewer passes the candidate the engine builds: the last output on the skeleton.
         last = outputs[bookkeeper_outputs[-1]]() if bookkeeper_outputs else self.good
-        built = impose_skeleton(result_skeleton(self.sheet), last)
+        built = impose_skeleton(result_skeleton(self.sheet), last, notes_rule=NOTES_RULE_ADDITIONS)
         try:
             good_hash = candidate_sha256(validated_candidate(built, self.parent, self.tasks))
         except Exception:
@@ -145,7 +157,7 @@ class RevisionRun:
         good = decomposed_result(self.parent)
         self.sheet = sheet_from_result(good)
         self.sheets = [self.sheet]
-        initial = impose_skeleton(result_skeleton(self.sheet), good)
+        initial = impose_skeleton(result_skeleton(self.sheet), good, notes_rule=NOTES_RULE_ADDITIONS)
         self.candidates = [initial]
         self.hashes = [candidate_sha256(validated_candidate(initial, self.parent, self.tasks))]
         outputs: dict[str, list[Any]] = {"claude": [], "codex": []}
@@ -172,7 +184,7 @@ class RevisionRun:
             for kind in attempts:
                 outputs["claude"].append(blank_reference(raw) if kind == "prose" else
                                          dropped_entry(raw) if kind == "structural" else deepcopy(raw))
-            compiled = impose_skeleton(result_skeleton(sheet), raw)
+            compiled = impose_skeleton(result_skeleton(sheet), raw, notes_rule=NOTES_RULE_ADDITIONS)
             self.candidates.append(compiled)
             self.hashes.append(self.hashes[-1] if refused_sheet else
                                candidate_sha256(validated_candidate(compiled, self.parent, self.tasks)))
@@ -204,6 +216,41 @@ class RevisionRun:
             providers=("claude", "codex"), candidate_digest=digest_for(self.source),
             timeouts=TIMEOUTS, parent_contract=self.parent,
         )
+
+
+def retain_unmarked_v2(run: Run | RevisionRun) -> None:
+    """Build historical v2 test evidence; only exact-copy fixtures keep their candidate bytes."""
+    from TaskDecomposition.bookkeeper_prompts import (
+        build_bookkeeper_prompt, build_bookkeeper_retry_prompt,
+        build_bookkeeper_revision_prompt, build_bookkeeper_revision_retry_prompt,
+    )
+    context = ContextPackage.from_payload(json.loads((run.run_dir / "context.json").read_text(encoding="utf-8")))
+    for compilation in run.result["designer_bookkeeper"]["compilations"]:
+        inputs = json.loads((run.run_dir / compilation["bookkeeping_input_path"]).read_text(encoding="utf-8"))
+        sheet, revision = inputs["sheet"], inputs["revision_input"]
+        rejected, problems = None, []
+        for attempt in compilation["attempts"]:
+            base = run.run_dir / "rounds" / attempt["directory"] / "agent_runtime" / attempt["invocation_id"]
+            request_path = base / "request.json"
+            request = json.loads(request_path.read_text(encoding="utf-8"))
+            if revision is None:
+                prompt = (build_bookkeeper_prompt(context, sheet) if attempt["attempt"] == 1
+                          else build_bookkeeper_retry_prompt(sheet, rejected, problems))
+            else:
+                prompt = (build_bookkeeper_revision_prompt(context, sheet, **revision) if attempt["attempt"] == 1
+                          else build_bookkeeper_revision_retry_prompt(context, sheet, rejected, problems, **revision))
+            request["prompt"] = prompt
+            request_path.write_text(json.dumps(request), encoding="utf-8")
+            raw = json.loads((base / "result.json").read_text(encoding="utf-8"))["structured_output"]
+            rejected = impose_skeleton(result_skeleton(sheet), raw)
+            assert rejected == impose_skeleton(result_skeleton(sheet), raw, notes_rule=NOTES_RULE_ADDITIONS)
+            problems = attempt["problems"]
+    request_path = run.run_dir / "decomposition_request.json"
+    request = json.loads(request_path.read_text(encoding="utf-8"))
+    request.pop("notes_rule")
+    request_path.write_text(json.dumps(request), encoding="utf-8")
+    run.result["designer_bookkeeper"].pop("notes_rule")
+    (run.run_dir / "decomposition_run_result.json").write_text(json.dumps(run.result), encoding="utf-8")
 
 
 def refused(action: Callable[[], Any], text: str) -> None:
@@ -752,7 +799,7 @@ def test_legacy_round_one_bookkeeping_evidence_remains_readable() -> None:
                                         "attempts": compilation["attempts"]}
         request_path = run.run_dir / "decomposition_request.json"
         request = json.loads(request_path.read_text(encoding="utf-8"))
-        for key in ("designer_bookkeeper_version", "ownership_sheet_review_version", "bookkeeper_provider"):
+        for key in ("designer_bookkeeper_version", "ownership_sheet_review_version", "bookkeeper_provider", "notes_rule"):
             request.pop(key)
         request_path.write_text(json.dumps(request), encoding="utf-8")
         assert run.verify(result)["attempts"] == 2
@@ -921,7 +968,182 @@ def test_repeated_requirements_pair_up_in_order() -> None:
     assert [entry["reference"] for entry in imposed] == ["REF-1", "REF-2"], imposed
 
 
+def _notes_case(model_notes: Any, *, notes_rule: str | None = NOTES_RULE_ADDITIONS,
+                design_notes: str | None = None) -> tuple[str, str]:
+    from TaskDecomposition.tests.test_support import task
+    parent = task("NSC-010", "selected-parent", "implementation", "NSC-002",
+                  "needs_execution_decomposition", "concrete", dependencies=("NSC-003",),
+                  resources=("repo-file:Assets/Shared.cs", "unity-scene:Assets/Synthetic.unity"))
+    sheet = sheet_from_result(decomposed_result(parent))
+    design = design_notes or ("Use the existing projectile pool and preserve the prefab references. "
+                              "The child must check collision, damage, reset and projectile return in Play Mode.")
+    sheet["children"][0]["design_notes"] = design
+    skeleton = result_skeleton(sheet)
+    raw = deepcopy(skeleton)
+    raw["children"][0]["notes"] = model_notes(design) if callable(model_notes) else model_notes
+    result = impose_skeleton(skeleton, raw, notes_rule=notes_rule)
+    assert not conformance_problems(sheet, result)
+    return design, result["children"][0]["notes"]
+
+
+def test_additions_rule_drops_near_copy_paragraphs() -> None:
+    for transform in (lambda d: d[:-1], lambda d: d.upper().replace(" ", "  "),
+                      lambda d: d.split(". ")[0],
+                      lambda d: d[:-1] + "! " + "More copied prose. " * 20):
+        design, notes = _notes_case(transform)
+        assert notes == design, notes
+
+
+def test_additions_rule_detects_long_near_copies_without_popular_text_heuristic() -> None:
+    design = ("Use the existing projectile pool and preserve every prefab reference. "
+              "Check collision, damage, reset and projectile return in Play Mode. ") * 8
+    for extra in ("", " More model prose." * 50):
+        _, notes = _notes_case(lambda d: "X" + d[1:] + extra, design_notes=design)
+        assert notes == design
+
+
+def test_additions_rule_keeps_only_separate_additions_after_near_copy() -> None:
+    additions = "Record the prefab inspection result.\n\nDocument its scene path."
+    design, notes = _notes_case(lambda d: d[:-1] + "!\n \n" + additions)
+    assert notes == design + "\n\n" + additions
+    assert notes.count(design) == 1
+
+
+def test_additions_rule_keeps_exact_copy_behavior() -> None:
+    for transform in (lambda d: d, lambda d: "  " + d + "\n\nRecord the prefab check.  ",
+                      lambda d: "Record the prefab check.\n\n" + d):
+        design, notes = _notes_case(transform)
+        assert notes == transform(design).strip()
+        assert notes == _notes_case(transform, notes_rule=None)[1]
+    design = "  Keep the prefab reference.\n"
+    assert _notes_case(lambda d: d, design_notes=design)[1] == design
+
+
+def test_additions_rule_keeps_unrelated_notes_and_handles_empty_output() -> None:
+    additions = "Record the prefab inspection result.\n\nDocument its scene path."
+    design, notes = _notes_case("  " + additions + "  ")
+    assert notes == design + "\n\n" + additions
+    for empty in (None, "", " \n\n  "):
+        design, notes = _notes_case(empty)
+        assert notes == design
+
+
+def test_unmarked_notes_keep_the_old_duplicate_behavior() -> None:
+    design, notes = _notes_case(lambda d: d[:-1], notes_rule=None)
+    assert notes == design + "\n\n" + design[:-1]
+
+
+def test_bookkeeper_prompt_bytes_change_only_with_notes_rule() -> None:
+    from TaskDecomposition.bookkeeper_prompts import (
+        build_bookkeeper_prompt, build_bookkeeper_retry_prompt,
+        build_bookkeeper_revision_prompt, build_bookkeeper_revision_retry_prompt,
+    )
+    context = ContextPackage.from_payload({"selected_task": {"d1a_semantic_parent_identity": {},
+                                                           "task_execution_identity": {}},
+                                           "canonical_gdd": {"full_committed_utf8_text":
+                                               "# Prefab checks\nCheck the prefab.", "exact_byte_sha256": "0" * 64}})
+    sheet = {"schema_version": "1", "rationale": "Split prefab checks.",
+             "children": [], "inbound_dependency_rewrites": []}
+    revision = dict(previous_candidate={"children": []}, review={"findings": []}, unresolved_findings=[])
+    # SHA-256 of these four prompts from main 29e87d845, before additions-1.
+    cases = (
+        (build_bookkeeper_prompt, (context, sheet), {},
+         "1ffb326d4cab02efd6038b991dbe23caf6c0b007a188265872b58597e0989fb4"),
+        (build_bookkeeper_retry_prompt, (sheet, {}, ["Reference is blank"]), {},
+         "d42a4138b43f32728e6332530275d533affb4a84f24f81fd5dc4a63b298f9701"),
+        (build_bookkeeper_revision_prompt, (context, sheet), revision,
+         "73dd95a3eb0509b2dbadf404916df50d18906e48eb79fdd318741270948f6696"),
+        (build_bookkeeper_revision_retry_prompt, (context, sheet, {}, ["Reference is blank"]), revision,
+         "44338db4ad12336fd5980a16ac5f720a02102166ded63aa64d0b0bb9f24de887"),
+    )
+    for build, args, kwargs, expected in cases:
+        old = build(*args, **kwargs)
+        assert old == build(*args, notes_rule=None, **kwargs)
+        assert hashlib.sha256(old.encode("utf-8")).hexdigest() == expected
+        current = build(*args, notes_rule=NOTES_RULE_ADDITIONS, **kwargs)
+        assert current != old
+        assert "write ONLY notes the rules require beyond the designer's notes" in current
+        assert "Code places the designer's notes first word for word" in current
+        assert "do not copy or paraphrase them" in current
+        try:
+            build(*args, notes_rule="unknown", **kwargs)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("unknown notes rule accepted")
+
+
+def test_notes_rule_protocol_refuses_unbound_or_unsupported_markers() -> None:
+    from unittest.mock import patch
+    from TaskDecomposition import bookkeeping_evidence as evidence
+    request = {"designer_bookkeeper_version": "2.0", "ownership_sheet_review_version": "1.1",
+               "bookkeeper_provider": "claude", "bookkeeper_model": BOOKKEEPER_MODEL}
+    record = {"schema_version": "2.0", "bookkeeper_provider": "claude", "bookkeeper_model": BOOKKEEPER_MODEL}
+    result = {"designer_bookkeeper": record}
+    with patch.object(evidence._Files, "json", return_value=request):
+        assert evidence.sheet_review_protocol(Path("unused"), result)
+        request["notes_rule"] = record["notes_rule"] = NOTES_RULE_ADDITIONS
+        assert evidence.sheet_review_protocol(Path("unused"), result)
+        for target in (request, record):
+            target.pop("notes_rule")
+            refused(lambda: evidence.sheet_review_protocol(Path("unused"), result), "notes_rule")
+            target["notes_rule"] = NOTES_RULE_ADDITIONS
+        for unsupported in (None, "unknown", ""):
+            request["notes_rule"] = record["notes_rule"] = unsupported
+            refused(lambda: evidence.sheet_review_protocol(Path("unused"), result), "unsupported notes_rule")
+
+
+def test_notes_rule_evidence_verifies_and_refuses_marker_tampering() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-bk-") as text:
+        run = Run(Path(text), ["prose", "drift"])
+        assert run.result["run_status"] == "review_ready", run.result["rejection_reasons"]
+        assert run.verify()["notes_rule"] == NOTES_RULE_ADDITIONS
+        notes = json.loads((run.run_dir / "decomposition_result.json").read_text(encoding="utf-8"))["children"][0]["notes"]
+        assert notes == run.sheet["children"][0]["design_notes"] + "\n\nCheck the prefab in Play Mode."
+        request_path = run.run_dir / "decomposition_request.json"
+        original = request_path.read_bytes()
+        pinned = json.loads(original)
+        assert pinned["notes_rule"] == run.result["designer_bookkeeper"]["notes_rule"] == NOTES_RULE_ADDITIONS
+        for replacement in ("remove", "unknown", None):
+            for target in ("request", "result", "both"):
+                request, result = deepcopy(pinned), deepcopy(run.result)
+                for value in ([request] if target == "request" else [result["designer_bookkeeper"]]
+                              if target == "result" else [request, result["designer_bookkeeper"]]):
+                    if replacement == "remove":
+                        value.pop("notes_rule")
+                    else:
+                        value["notes_rule"] = replacement
+                request_path.write_text(json.dumps(request), encoding="utf-8")
+                try:
+                    refused(lambda: run.verify(result), "prompt differs" if target == "both" and replacement == "remove"
+                            else "notes_rule")
+                finally:
+                    request_path.write_bytes(original)
+        run.verify()
+
+
+def test_unmarked_v2_evidence_still_replays_initial_and_revision_retries() -> None:
+    with tempfile.TemporaryDirectory(prefix="nsc-bk-") as text:
+        run = Run(Path(text), ["prose", "good"])
+        retain_unmarked_v2(run)
+        assert "notes_rule" not in run.verify()
+    with tempfile.TemporaryDirectory(prefix="nsc-bk-") as text:
+        run = RevisionRun(Path(text), attempts=("prose", "good"))
+        retain_unmarked_v2(run)
+        assert "notes_rule" not in run.verify()["bookkeeping"]
+
+
 TESTS = (
+    test_additions_rule_drops_near_copy_paragraphs,
+    test_additions_rule_detects_long_near_copies_without_popular_text_heuristic,
+    test_additions_rule_keeps_only_separate_additions_after_near_copy,
+    test_additions_rule_keeps_exact_copy_behavior,
+    test_additions_rule_keeps_unrelated_notes_and_handles_empty_output,
+    test_unmarked_notes_keep_the_old_duplicate_behavior,
+    test_bookkeeper_prompt_bytes_change_only_with_notes_rule,
+    test_notes_rule_protocol_refuses_unbound_or_unsupported_markers,
+    test_notes_rule_evidence_verifies_and_refuses_marker_tampering,
+    test_unmarked_v2_evidence_still_replays_initial_and_revision_retries,
     test_unsupported_bookkeeper_continuation_protocol_requires_a_fresh_run,
     test_non_bookkeeper_bytes_match_legacy_goldens,
     test_revision_context_includes_citations_from_review_feedback,

@@ -48,6 +48,7 @@ from TaskDecomposition.author_checklist import (  # noqa: E402
 from Pipeline.AgentRuntime.contracts import AGENT_INVOCATION_REQUEST_SCHEMA_VERSION  # noqa: E402
 from TaskDecomposition.context_builder import ContextPackage, DecompositionPreflightError  # noqa: E402
 from TaskDecomposition.bookkeeping_evidence import BookkeepingEvidenceError, verify_bookkeeping  # noqa: E402
+from TaskDecomposition.bookkeeping_skeleton import NOTES_RULE_ADDITIONS  # noqa: E402
 from TaskDecomposition.live_decomposition import _model_value_problem  # noqa: E402
 from TaskDecomposition.continuation import (  # noqa: E402
     BOOKKEEPER_CONTINUATION_PROBLEM,
@@ -794,6 +795,10 @@ def _verify_inherited_settings(record: Mapping[str, Any], settings: Mapping[str,
     if not (isinstance(profile, Mapping) and set(profile) == set(TIMEOUT_ENVIRONMENT)
             and all(type(value) in (int, float) and value > 0 for value in profile.values())):
         raise ValueError("Continuation record carries no valid inherited timeout profile")
+    if (record.get("notes_rule") != settings.get("notes_rule")
+            or any("notes_rule" in value and value["notes_rule"] != NOTES_RULE_ADDITIONS
+                   for value in (record, settings))):
+        raise ValueError("Continuation inherited notes_rule differs; bookkeeper settings cannot be overridden")
     for name, wanted in settings.items():
         if record.get(name) != wanted:
             raise ValueError(
@@ -857,7 +862,7 @@ def _prepare_continuation(
                 f"Decomposition record for {current.get('run_id')} ({current.get('status')}) is not the "
                 f"stopped run {continue_from}; it was preserved")
         if any(key in current for key in ("bookkeeper_model", "bookkeeper_provider",
-                                          "designer_bookkeeper_version", "ownership_sheet_review_version")):
+                                          "designer_bookkeeper_version", "ownership_sheet_review_version", "notes_rule")):
             if settings is None:
                 raise ValueError(
                     f"Decomposition run {continue_from} cannot be continued: "
@@ -1074,8 +1079,11 @@ def _verify_three_call_run_binding(record: dict[str, Any], run_result: dict[str,
                                     run_result.get("d1a_semantic_parent_identity")),
     }
     if record.get("designer_bookkeeper_version") == "2.0":
+        if any("notes_rule" in value and value["notes_rule"] != NOTES_RULE_ADDITIONS
+               for value in (request, record)):
+            raise ValueError("Three-call run evidence has an unsupported request notes_rule")
         for name in ("designer_bookkeeper_version", "ownership_sheet_review_version",
-                     "bookkeeper_provider", "bookkeeper_model"):
+                     "bookkeeper_provider", "bookkeeper_model", "notes_rule"):
             bindings[f"request {name}"] = (request.get(name), record.get(name))
         profile = record["timeout_profile"]
         bindings["request author timeout"] = (
@@ -1142,13 +1150,18 @@ def _verify_bookkeeping_binding(record: dict[str, Any], run_result: dict[str, An
 
     recorded = record.get("bookkeeper_model")
     evidence = run_result.get("designer_bookkeeper")
-    pinned = "designer_bookkeeper_version" in record or "ownership_sheet_review_version" in record
+    pinned = any(name in record for name in (
+        "designer_bookkeeper_version", "ownership_sheet_review_version", "notes_rule"))
     if recorded is None and "designer_bookkeeper" not in run_result and not pinned:
         return
     if recorded is None or not isinstance(evidence, Mapping) or evidence.get("bookkeeper_model") != recorded:
         raise ValueError(
             f"Decomposition bookkeeper model is {evidence.get('bookkeeper_model') if isinstance(evidence, Mapping) else evidence!r}, "
             f"the record launched {recorded!r}")
+    if (record.get("notes_rule") != evidence.get("notes_rule")
+            or any("notes_rule" in value and value["notes_rule"] != NOTES_RULE_ADDITIONS
+                   for value in (record, evidence))):
+        raise ValueError("Decomposition bookkeeper notes_rule disagrees with its launch record")
     if pinned or evidence.get("schema_version") == "2.0":
         if (record.get("designer_bookkeeper_version") != "2.0"
                 or record.get("ownership_sheet_review_version") != "1.1"
@@ -1378,7 +1391,8 @@ def run(
             **({} if timeout_profile is None else {"timeout_profile": timeout_profile}),
             **({} if bookkeeper_model is None else {
                 "bookkeeper_model": bookkeeper_model, "bookkeeper_provider": provider_order[0],
-                "designer_bookkeeper_version": "2.0", "ownership_sheet_review_version": "1.1"}),
+                "designer_bookkeeper_version": "2.0", "ownership_sheet_review_version": "1.1",
+                "notes_rule": NOTES_RULE_ADDITIONS}),
             **({} if continue_from is None else {"continue_from": continue_from}),
             **({} if inherited_settings is None else inherited_settings),
         }
