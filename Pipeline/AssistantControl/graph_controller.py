@@ -247,24 +247,105 @@ def _test_sources(source: Path, commit: str) -> list[str]:
     )
 
 
+def _filter_clauses(test_filter: str) -> list[str]:
+    """The test classes ONE filter entry names.
+
+    The Unity test runner joins several classes with ";", and eleven entries
+    across nine live contracts use it -- it is the runner's syntax, not a typo.
+    Splitting here is not cosmetic: the resolver below walks DOT segments in
+    reverse, and on a joined string the last dot segment is the LAST class, so
+    a filter naming thirteen classes resolved to exactly one and raised nothing.
+    Worse, when that one did not match, the reverse walk carried on past the
+    semicolon into the PREVIOUS clause's segments, where every candidate is a
+    string like "WizardArtIntegrationTests;NoSafeCircle" that can never be a
+    file stem -- so the refusal quoted the whole blob and named no class at all.
+
+    Reported by the GER Agent, which measured the refusals and explicitly
+    refused to rewrite the contract entries to make scheduling work.
+    """
+    return [clause.strip() for clause in test_filter.split(";") if clause.strip()]
+
+
+def _declared_test_paths(task: Mapping[str, Any]) -> dict[str, list[str]]:
+    """Test files this task's OWN contract declares, committed or not, by stem.
+
+    THE DEADLOCK THIS RESOLVES. The planner already supports a test that does
+    not exist yet: an uncommitted path in ``exclusive_resources`` lands in
+    ``new_test_paths`` and plans fine. The SAME file named through a validation
+    FILTER used to hard-raise, so a task whose whole purpose is to write that
+    test could never be scoped, and therefore never dispatched.
+
+    Measured over all 128 committed contracts at 2026-09-25: ten refuse on a
+    validation filter, and six of them -- NSC-008 Frost Field, NSC-009 Force
+    Wave, NSC-055 Lantern Wraith, NSC-072 Chapel of Ash, NSC-084 First Wing,
+    NSC-107 Title Screen Chase -- name only tests their own contract declares.
+    Two of those are required spells.
+
+    Resolving from the declaration grants NO new authority: a declared path is
+    already in the plan, put there by the ``exclusive_resources`` loop in
+    ``automatic_scope_plan``. This only stops the raise.
+    """
+    by_stem: dict[str, list[str]] = {}
+    for resource in task.get("exclusive_resources") or []:
+        if not isinstance(resource, str):
+            continue
+        kind, separator, raw_path = resource.partition(":")
+        if not separator or kind not in {"repo-file", "unity-scene"}:
+            continue
+        path = raw_path.replace("\\", "/").strip("/")
+        if (path and path.casefold().endswith(".cs")
+                and "/tests/" in f"/{path.casefold()}"):
+            by_stem.setdefault(PurePosixPath(path).stem, []).append(path)
+    return by_stem
+
+
 def _resolve_test_paths(source: Path, task: Mapping[str, Any], commit: str) -> list[str]:
+    """Committed test files the task's validation filters name.
+
+    Every clause must resolve to exactly one test file -- committed, or declared
+    by this task's own contract -- and an unresolvable clause is named
+    individually rather than hidden inside the filter string it came from.
+
+    ONLY COMMITTED PATHS ARE RETURNED. A clause that resolves from the
+    declaration contributes nothing here because the caller already planned it
+    from ``exclusive_resources``; returning it again would be a duplicate, and
+    returning an UNDECLARED uncommitted path would invent write authority the
+    contract never granted.
+    """
     sources = _test_sources(source, commit)
     by_stem: dict[str, list[str]] = {}
     for path in sources:
         by_stem.setdefault(PurePosixPath(path).stem, []).append(path)
+    declared = _declared_test_paths(task)
     resolved: list[str] = []
+    unresolved: list[str] = []
     for test_filter in _test_filters(source, task, commit):
-        matches: list[str] = []
-        for name in reversed(test_filter.split(".")):
-            if name in by_stem:
-                matches = by_stem[name]
-                break
-        if len(matches) != 1:
-            raise ValueError(
-                f"{task.get('id')} validation filter {test_filter!r} does not resolve "
-                "to exactly one committed C# test file; provide a scope override"
-            )
-        resolved.append(matches[0])
+        for clause in _filter_clauses(test_filter):
+            matches: list[str] = []
+            committed = False
+            for name in reversed(clause.split(".")):
+                if name in by_stem:
+                    matches, committed = by_stem[name], True
+                    break
+                if name in declared:
+                    matches = declared[name]
+                    break
+            if len(matches) != 1:
+                unresolved.append(
+                    f"{clause!r} matches "
+                    + (f"{len(matches)} committed test files"
+                       if matches else
+                       "no committed test file and is not declared by this task"))
+                continue
+            if committed:
+                resolved.append(matches[0])
+    if unresolved:
+        raise ValueError(
+            f"{task.get('id')} validation filter clauses do not each resolve to "
+            f"exactly one C# test file: " + "; ".join(unresolved)
+            + ". Provide a scope override, or declare the test in "
+            "exclusive_resources if this task is meant to write it"
+        )
     return list(dict.fromkeys(resolved))
 
 
