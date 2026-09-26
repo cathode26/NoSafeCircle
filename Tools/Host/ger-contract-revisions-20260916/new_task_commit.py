@@ -3,7 +3,10 @@
     python -B new_task_commit.py --new NSC-095=<json> [--new NSC-096=<json> ...] --template NSC-093 --reason <text>
         [--policy-filters-file <json {"NSC-095": {"EditMode": "..."}}>] [--review <text>] [--commit]
 
-GER Agent tool (2026-09-17). The same rules as runbook_contract_commit.py, adapted to new tasks:
+GER Agent tool (2026-09-17). The same rules as the contract-revision committer, adapted to new tasks.
+(That committer was named runbook_contract_commit.py and NO LIVE FILE OF THAT NAME EXISTS: it was
+retired 2026-09-17 and is kept beside this file as runbook_contract_commit.retired-20260917.py. The
+live successor is Tools/Host/ger/contract_commit.py. Corrected 2026-09-26.)
 - Every Tasks/ file, WORK_ID_MAP.json, RESOURCE_GROUPS.yaml and the validation policy must match HEAD
   (line endings aside); nothing may be staged.
 - New IDs must be absent and contiguous from the highest existing NSC number (the decomposition allocator

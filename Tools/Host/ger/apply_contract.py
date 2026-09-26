@@ -134,7 +134,21 @@ def validate_policy_filters(policy_filters: dict | None) -> None:
 
 def plan_policy_rebind(policy_data: dict, policy_crlf: bool, task_id: str, blob_sha: str,
                        policy_filters: dict | None, drop_policy: bool) -> tuple[bytes | None, str | None]:
-    """Mirror of runbook_contract_commit.py's validation-policy rebind (same key order and formatting).
+    """THE authority for validation-policy entry shape: key order and formatting are defined here.
+
+    This docstring read "Mirror of runbook_contract_commit.py's validation-policy rebind" until
+    2026-09-26. NO LIVE FILE OF THAT NAME EXISTS - it was retired on 2026-09-17 and survives only as
+    Tools/Host/ger-contract-revisions-20260916/runbook_contract_commit.retired-20260917.py and
+    .before-policy.bak.py. So this function has been the sole live authority for nine days while
+    describing itself as a copy of one. Found by the Pipeline Maintainer 2026-09-26 while deciding
+    which implementation an apply-side rebind should reuse - a dead citation is worst exactly there,
+    because it sends the reader to a retired file to learn what the live rule is.
+
+    Two live implementations exist and this is one: this function (three callers) and
+    Tools/Host/ger-contract-revisions-20260916/policy_rebind_commit.py, which rebinds a pin in place
+    WITHOUT normalizing key order, deliberately, so that "only task_contract_sha256 changed" stays a
+    checkable refusal. All 63 committed entries were in canonical order on 2026-09-26, so the two
+    agree today; an entry authored out of order would make them differ.
 
     Mutates `policy_data["tasks"]` in place (the caller re-serializes with `serialize`, matching
     `policy_crlf` to the existing file). Returns `(policy_bytes, message)`; `policy_bytes` is None when
