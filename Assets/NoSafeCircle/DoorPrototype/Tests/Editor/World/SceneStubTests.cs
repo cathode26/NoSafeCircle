@@ -180,5 +180,59 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
                 }
             }
         }
+
+        [Test]
+        public void ThePlaceholderCameraUsesTheGamesIsometricConvention()
+        {
+            // A SCENE YOU CANNOT SEE ANYTHING IN IS NOT USEFUL, and the default camera Unity puts
+            // in a new scene is perspective, size 5, at (0,1,-10) looking down +Z. Against a level
+            // spanning Z -26 to 104 that frames nothing at all.
+            //
+            // THE FOUR VALUES BELOW ARE LITERALS ON PURPOSE. The builder's own constants -
+            // DoorPrototypeGlobalSceneBuilder.IsometricCameraEulerAngles and
+            // IsometricOrthographicSize - are `internal` to the Editor assembly, which this test
+            // assembly cannot see (no InternalsVisibleTo exists anywhere under Assets; that exact
+            // fact is what left NSC-045 unrecoverable). Reading them would also be the WRONG shape
+            // even if it compiled: an expected value taken from the thing under test agrees with it
+            // by construction. An independent literal is what pins a convention.
+            Scene scene = OpenSceneForReading();
+            Camera camera = null;
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                Camera found = root.GetComponentInChildren<Camera>(true);
+                if (found != null)
+                {
+                    camera = found;
+                }
+            }
+
+            Assert.IsNotNull(camera, "The runtime scene has no camera, so Play renders nothing.");
+
+            Assert.IsTrue(camera.orthographic,
+                "The camera is perspective. The game's presentation is fixed 2:1 dimetric "
+                + "isometric, which requires an orthographic camera - a perspective one projects "
+                + "the tilemap a second time and the floor diamonds stop lining up.");
+            Assert.AreEqual(8f, camera.orthographicSize, 0.001f,
+                "The camera's orthographic size is " + camera.orthographicSize
+                + "; the game uses 8.");
+
+            Vector3 euler = camera.transform.rotation.eulerAngles;
+            Assert.AreEqual(30f, Mathf.DeltaAngle(0f, euler.x), 0.01f,
+                "Camera tilt is " + euler.x + " degrees, not the 30 the isometric convention uses.");
+            Assert.AreEqual(-45f, Mathf.DeltaAngle(0f, euler.y), 0.01f,
+                "Camera yaw is " + euler.y + " degrees, not the -45 that faces a corner.");
+
+            // THE SORTING CONVENTION IS THE PART THAT FAILS SILENTLY. transparencySortMode and
+            // transparencySortAxis are not serialized into a scene by every supported editor
+            // version - IsometricCameraFollow says so in its own comment and re-applies both in
+            // OnEnable, which is why the COMPONENT is what this asserts rather than the fields.
+            // Without it, world sprites sort by distance instead of along the isometric axis and a
+            // door renders in front of a wizard standing south of it. That bug has happened here.
+            var follow = camera.GetComponent<NoSafeCircle.DoorPrototype.IsometricCameraFollow>();
+            Assert.IsNotNull(follow,
+                "The camera has no IsometricCameraFollow, so nothing re-applies "
+                + "transparencySortMode = CustomAxis and the isometric sort axis when the scene "
+                + "loads. Sprite sorting will be wrong and it will look like an art bug.");
+        }
     }
 }
