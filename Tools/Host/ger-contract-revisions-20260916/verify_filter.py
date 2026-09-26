@@ -15,6 +15,16 @@ has no such type at HEAD before it runs, so a bare "type not found" is expected 
 check reads the task's exclusive_resources and reports those as informational (`--`) instead of failures.
 A missing type the task does NOT claim is a real defect.
 
+THAT EXEMPTION HAS TO FOLLOW THREE EDGES, NOT ONE, AND IT ONLY FOLLOWED TWO UNTIL 2026-09-26. A task may
+declare the fixture itself; a DEPENDENCY may author it (NSC-096 binds NSC-095's audit fixture); or the
+task may be a DECOMPOSED PARENT whose CHILDREN author everything while the parent declares nothing. The
+third edge runs the wrong way - children name their `parent`, so no depends_on walk reaches them - and
+without it every aggregate parent false-FAILs on its own decomposition. NSC-007 is the case: it declares
+no resources at all, and its three "TYPE NOT FOUND" clauses are declared by NSC-118
+(FireballCastAndChargePlayModeTests, FireballLifecyclePlayModeTests) and NSC-119
+(FireballCommittedSceneConformanceTests). Those filters were CORRECT the whole time - they name exactly
+what the decomposition will produce. The tool reported them as defects for as long as it has existed.
+
 What it checks, per semicolon-separated name in the filter:
   - the type is DECLARED in committed file CONTENT (never a filename match - fixtures are often partial
     classes living in differently named files);
@@ -145,6 +155,41 @@ def main() -> int:
         jobs.append(("(given)", {args.platform: args.filter}, set()))
     if args.task or args.all:
         tasks = json.loads(git("show", f"{args.commit}:{POLICY}"))["tasks"]
+        # A DECOMPOSED PARENT DECLARES NOTHING AND ITS CHILDREN AUTHOR EVERYTHING, and the
+        # children point UP via `parent`, so no depends_on edge leads to them. Without this
+        # index an aggregate parent false-FAILs on every fixture its own decomposition will
+        # write. NSC-007 did: all three of its "TYPE NOT FOUND" clauses are declared by
+        # NSC-118 and NSC-119. Built once; the walk is transitive so a child that is itself
+        # decomposed still reaches its grandchildren.
+        kids: dict[str, list[str]] = {}
+        contracts: dict[str, dict] = {}
+        for line in git("ls-tree", "-r", "--name-only", args.commit, "--", "Tasks").decode(
+                "utf-8", "replace").split("\n"):
+            if not line.endswith(".yaml"):
+                continue
+            tid = line.rsplit("/", 1)[-1][:-5]
+            try:
+                contracts[tid] = json.loads(git("show", f"{args.commit}:{line}"))
+            except Exception:
+                continue
+            parent = contracts[tid].get("parent")
+            if parent:
+                kids.setdefault(parent, []).append(tid)
+
+        def declared_cs(tid: str) -> set:
+            contract = contracts.get(tid) or {}
+            return {r.partition(":")[2] for r in (contract.get("exclusive_resources") or [])
+                    if r.startswith("repo-file:") and r.endswith(".cs")}
+
+        def descendants(tid: str, seen: set | None = None) -> set:
+            seen = seen if seen is not None else set()
+            out: set = set()
+            for kid in kids.get(tid, []):
+                if kid in seen:
+                    continue
+                seen.add(kid)
+                out |= declared_cs(kid) | descendants(kid, seen)
+            return out
         for task_id, entry in sorted(tasks.items()):
             if args.all or task_id == args.task:
                 try:
@@ -161,6 +206,8 @@ def main() -> int:
                             continue
                         claimed |= {r.partition(":")[2] for r in (dep_contract.get("exclusive_resources") or [])
                                     if r.startswith("repo-file:") and r.endswith(".cs")}
+                    # ...and everything this task DECOMPOSES INTO. See the kids index above.
+                    claimed |= descendants(task_id)
                 except Exception:
                     claimed = set()
                 jobs.append((task_id, entry.get("test_filters") or {}, claimed))
