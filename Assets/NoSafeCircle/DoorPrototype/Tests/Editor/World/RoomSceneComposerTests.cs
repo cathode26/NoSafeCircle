@@ -111,7 +111,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
             // the constant, not a literal, so this setup cannot go stale the way AC-007's
             // pinned literal assertions did.
             var spriteRenderer = spriteObject.AddComponent<SpriteRenderer>();
-            spriteRenderer.sortingLayerName = DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
+            spriteRenderer.sortingLayerName = WorldSpriteConvention.SortingLayerName;
             spriteRenderer.spriteSortPoint = SpriteSortPoint.Pivot;
 
             var gameplayGeometry =
@@ -188,7 +188,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
                 Assert.IsFalse(result.IsValid);
                 Assert.IsTrue(
                     result.Errors.Contains(
-                        $"SpriteRenderer 'Sprite' must use the shared '{DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName}' sorting layer."),
+                        $"SpriteRenderer 'Sprite' must use the shared '{WorldSpriteConvention.SortingLayerName}' sorting layer."),
                     string.Join("\n", result.Errors));
             }
             finally

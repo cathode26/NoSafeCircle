@@ -133,7 +133,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             TilemapRenderer renderer = tilemapObject.AddComponent<TilemapRenderer>();
             renderer.mode = TilemapRenderer.Mode.Individual;
             renderer.sortOrder = TilemapRenderer.SortOrder.TopRight;
-            renderer.sortingLayerName = DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
+            renderer.sortingLayerName = WorldSpriteConvention.SortingLayerName;
             renderer.sortingOrder = sortingOrder;
             return tilemap;
         }

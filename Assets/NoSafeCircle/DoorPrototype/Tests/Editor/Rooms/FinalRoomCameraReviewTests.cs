@@ -10,6 +10,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
+using NoSafeCircle.DoorPrototype.World;
 
 namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
 {
@@ -112,7 +113,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
                 // The durable relation, not the value it currently happens to have. A literal
                 // "Default" passes today only because the constant equals it, and would keep
                 // passing while the wizard sorted wrongly against every world sprite.
-                wizardRenderer.sortingLayerName = DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
+                wizardRenderer.sortingLayerName = WorldSpriteConvention.SortingLayerName;
                 wizardRenderer.sortingOrder = 0;
 
                 cameraObject = new GameObject(

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using NoSafeCircle.DoorPrototype.Editor;
 using UnityEditor;
 using UnityEngine;
+using NoSafeCircle.DoorPrototype.World;
 
 namespace NoSafeCircle.DoorPrototype.Editor.Rooms
 {
@@ -468,7 +469,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
 
             SpriteRenderer renderer = instance.AddComponent<SpriteRenderer>();
             renderer.sprite = sprite;
-            renderer.sortingLayerName = DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
+            renderer.sortingLayerName = WorldSpriteConvention.SortingLayerName;
             // NSC-100 AC-006: accents are world sprites and must sort by their GROUND CONTACT,
             // not their centre, or a tall accent's mid-point decides its isometric depth. The
             // shared convention in DoorPrototypeSceneBuilder has always required this; the accent

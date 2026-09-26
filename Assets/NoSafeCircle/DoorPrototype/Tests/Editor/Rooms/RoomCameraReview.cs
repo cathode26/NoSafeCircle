@@ -6,6 +6,7 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.Tilemaps;
+using NoSafeCircle.DoorPrototype.World;
 
 namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
 {
@@ -61,7 +62,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             renderer.sprite = sprite;
             // The durable relation, not the value it currently has. A literal "Default" passes
             // today only because the constant equals it, and would keep passing after it moves.
-            renderer.sortingLayerName = DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
+            renderer.sortingLayerName = WorldSpriteConvention.SortingLayerName;
             renderer.sortingOrder = 0;
             return wizard;
         }

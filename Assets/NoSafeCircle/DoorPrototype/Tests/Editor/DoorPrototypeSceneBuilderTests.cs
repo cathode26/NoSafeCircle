@@ -1294,7 +1294,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             var doorSpriteRenderer = GameObject.Find("DoorRoot/DoorVisual/DoorSprite")?.GetComponent<SpriteRenderer>();
             Assert.IsNotNull(doorSpriteRenderer, "Expected a 'DoorSprite' SpriteRenderer child under DoorVisual.");
             Assert.IsNotNull(doorSpriteRenderer.sprite, "Door world sprite must have a sprite assigned to be visible.");
-            Assert.AreEqual(DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName, doorSpriteRenderer.sortingLayerName);
+            Assert.AreEqual(WorldSpriteConvention.SortingLayerName, doorSpriteRenderer.sortingLayerName);
             Assert.AreEqual(0, doorSpriteRenderer.sortingOrder);
 
             Assert.IsNull(doorVisual.GetComponent<MeshRenderer>(),
@@ -1434,7 +1434,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             var playerSpriteRenderer = playerSpriteObject.GetComponent<SpriteRenderer>();
             Assert.IsNotNull(playerSpriteRenderer, "Expected a SpriteRenderer on the Player's Visual child.");
             Assert.IsNotNull(playerSpriteRenderer.sprite, "Wizard placeholder world sprite must have a sprite assigned.");
-            Assert.AreEqual(DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName, playerSpriteRenderer.sortingLayerName);
+            Assert.AreEqual(WorldSpriteConvention.SortingLayerName, playerSpriteRenderer.sortingLayerName);
             Assert.AreEqual(0, playerSpriteRenderer.sortingOrder);
 
             Assert.IsNull(playerSpriteObject.GetComponent<Collider>(),
@@ -1575,7 +1575,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             var prefabRenderer = prefabAsset.GetComponent<SpriteRenderer>();
             Assert.IsNotNull(prefabRenderer,
                 "The shared Prefab asset must itself carry the SpriteRenderer sorting convention.");
-            Assert.AreEqual(DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName, prefabRenderer.sortingLayerName);
+            Assert.AreEqual(WorldSpriteConvention.SortingLayerName, prefabRenderer.sortingLayerName);
             Assert.AreEqual(0, prefabRenderer.sortingOrder);
         }
 

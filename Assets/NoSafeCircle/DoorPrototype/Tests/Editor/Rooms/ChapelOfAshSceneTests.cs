@@ -770,7 +770,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
                 Assert.IsNotNull(wizardRenderer);
                 Assert.IsNotNull(wizardRenderer.sprite);
                 Assert.AreEqual(SpriteSortPoint.Pivot, wizardRenderer.spriteSortPoint);
-                Assert.AreEqual(DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName, wizardRenderer.sortingLayerName);
+                Assert.AreEqual(WorldSpriteConvention.SortingLayerName, wizardRenderer.sortingLayerName);
 
                 Camera camera = cameraObject.GetComponent<Camera>();
                 Assert.IsNotNull(camera);
@@ -846,7 +846,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             Assert.IsNotNull(renderer);
             Assert.AreEqual(TilemapRenderer.Mode.Individual, renderer.mode);
             Assert.AreEqual(TilemapRenderer.SortOrder.TopRight, renderer.sortOrder);
-            Assert.AreEqual(DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName, renderer.sortingLayerName);
+            Assert.AreEqual(WorldSpriteConvention.SortingLayerName, renderer.sortingLayerName);
             Assert.AreEqual(sortingOrder, renderer.sortingOrder);
             return tilemap;
         }
@@ -909,7 +909,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             SpriteRenderer renderer = child.GetComponent<SpriteRenderer>();
             Assert.IsNotNull(renderer, $"Expected {name} to carry a SpriteRenderer.");
             Assert.AreEqual(SpriteSortPoint.Pivot, renderer.spriteSortPoint);
-            Assert.AreEqual(DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName, renderer.sortingLayerName);
+            Assert.AreEqual(WorldSpriteConvention.SortingLayerName, renderer.sortingLayerName);
             Assert.AreEqual(0, renderer.sortingOrder);
             Assert.IsNull(child.GetComponent<Collider>());
         }

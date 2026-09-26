@@ -112,7 +112,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             GameObject standIn = new GameObject("WizardReviewStandIn");
             SpriteRenderer standInRenderer = standIn.AddComponent<SpriteRenderer>();
             standInRenderer.sprite = AssetDatabase.LoadAssetAtPath<Sprite>(WizardReviewSpritePath);
-            standInRenderer.sortingLayerName = DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
+            standInRenderer.sortingLayerName = WorldSpriteConvention.SortingLayerName;
             standInRenderer.spriteSortPoint = SpriteSortPoint.Pivot;
 
             DoorPrototypeGlobalSceneBuilder.BuildCamera(standIn.transform);
@@ -230,7 +230,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             TilemapRenderer renderer = tilemapObject.AddComponent<TilemapRenderer>();
             renderer.mode = TilemapRenderer.Mode.Individual;
             renderer.sortOrder = TilemapRenderer.SortOrder.TopRight;
-            renderer.sortingLayerName = DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
+            renderer.sortingLayerName = WorldSpriteConvention.SortingLayerName;
             renderer.sortingOrder = sortingOrder;
             return tilemap;
         }
@@ -330,7 +330,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
 
             SpriteRenderer renderer = instance.GetComponent<SpriteRenderer>();
             renderer.sprite = proxySprite;
-            renderer.sortingLayerName = DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
+            renderer.sortingLayerName = WorldSpriteConvention.SortingLayerName;
             renderer.sortingOrder = 0;
         }
 

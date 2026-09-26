@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using NoSafeCircle.DoorPrototype.World;
 
 namespace NoSafeCircle.DoorPrototype.Editor.Environment
 {
@@ -57,7 +58,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Environment
         private static int ExpectedSortingOrder => DoorPrototypeSceneBuilder.WorldSpriteSortingOrder;
 
         private static string ExpectedSortingLayer =>
-            DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName;
+            WorldSpriteConvention.SortingLayerName;
 
         [MenuItem("Tools/No Safe Circle/Verify Prop Prefabs")]
         public static void Verify()
