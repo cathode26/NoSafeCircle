@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 7757404654765007140}
   - component: {fileID: 1046253120080023231}
   - component: {fileID: 6500000000000000001}
-  m_Layer: 0
+  m_Layer: 8
   m_Name: re_debris_broken_handcart
   m_TagString: Untagged
   m_Icon: {fileID: 0}
