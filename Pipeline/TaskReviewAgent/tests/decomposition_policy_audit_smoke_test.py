@@ -1137,6 +1137,16 @@ def test_a_pin_already_stale_before_the_apply_is_not_blamed_on_the_apply() -> No
         require(item["stale_before_this_apply"] is True, str(item))
         require(item["rewritten_by_this_apply"] is False, str(item))
         require("did not cause it" in item["detail"], item["detail"])
+        # And it must NOT stop there. "This apply did not cause it" is true and sends the
+        # reader hunting a second cause class; traced across main's history every pin that
+        # ever went stale was broken by a decomposition apply, so the finding has to say
+        # the inherited case is a backlog of the same defect.
+        require("BACKLOG OF THIS SAME DEFECT" in item["detail"], item["detail"])
+        require("do not go looking outside the apply path" in item["detail"], item["detail"])
+        broke = next(entry for entry in stale if entry["task_id"] == APPLY_PARENT)
+        require("THIS APPLY BROKE IT" in broke["detail"], broke["detail"])
+        require("BACKLOG" not in broke["detail"],
+                "a pin this apply broke was described as inherited")
         parent = next(entry for entry in stale if entry["task_id"] == APPLY_PARENT)
         require(parent["stale_before_this_apply"] is False,
                 "the apply's own damage was mislabelled as pre-existing")

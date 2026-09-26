@@ -636,13 +636,22 @@ def applied_policy_findings(
     hours later, as a red CI job or as a child with no validation plan.
 
     THE DAMAGE IS NOT LIMITED TO THE PARENT, which is the part the original report
-    of this defect did not carry. Measured on the two applies that caused it:
-    ``644e3c4f`` rewrote ten contracts and broke three pins -- NSC-007 the parent,
-    and NSC-098 which is not part of the decomposition at all and was rewritten only
-    because it referenced the parent -- while ``b5c64602`` broke NSC-099 the same
-    way and left its own parent's pin alone, because NSC-015 carries no entry. So
-    two of the three pins an apply broke belonged to bystanders. Scoping this to the
-    parent would have found one of them.
+    of this defect did not carry. Traced to the commit that FIRST broke each pin,
+    across main's whole history -- four applies, five pins, and four of the five are
+    bystanders:
+
+        9a93f926  apply NSC-066  broke NSC-067  bystander
+        84437aa2  apply NSC-088  broke NSC-087  bystander
+        644e3c4f  apply NSC-007  broke NSC-007  THE PARENT
+        644e3c4f  apply NSC-007  broke NSC-098  bystander
+        b5c64602  apply NSC-015  broke NSC-099  bystander
+
+    A bystander is a task that was not being decomposed at all: the apply rewrote it
+    because it named the parent in ``depends_on``, bumped nothing of its own, and
+    re-serialized it. **So scoping a repair to the parent finds one pin in five.**
+    Main holds nineteen applies and only four broke a pin, because a bystander breaks
+    one only if it already HAS an entry -- which is why this gets worse as policy
+    coverage grows rather than better.
 
     The stale rule is not restated here. ``downstream_resilience.validation_plan_for``
     refuses an entry whose ``task_contract_sha256`` differs from the contract's own,
@@ -716,13 +725,18 @@ def applied_policy_findings(
             "condition": POLICY_PIN_STALE,
             "task_id": task_id,
             "detail": (
-                "%s pins a contract this apply no longer matches: %s. It was %s"
-                " immediately before the apply, so this apply %s. Rebinding the entry"
-                " to the committed contract bytes is the whole repair."
+                "%s pins a contract this apply no longer matches: %s. %s Rebinding the"
+                " entry to the committed contract bytes is the whole repair."
                 % (
                     task_id, role,
-                    "consistent" if was_fresh else "ALREADY stale",
-                    "broke it" if was_fresh else "did not cause it",
+                    "It was consistent immediately before the apply, so THIS APPLY"
+                    " BROKE IT." if was_fresh else
+                    "It was ALREADY stale immediately before the apply, so this apply"
+                    " did not cause it -- but do not go looking outside the apply path"
+                    " for what did. Traced across main's history, every pin that ever"
+                    " went stale was broken by a decomposition apply, so an inherited"
+                    " stale pin is a BACKLOG OF THIS SAME DEFECT rather than a second"
+                    " cause.",
                 )
             ),
             "rewritten_by_this_apply": task_id in rewritten,
