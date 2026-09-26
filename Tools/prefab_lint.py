@@ -123,20 +123,44 @@ def check_prefab(path: pathlib.Path, known_guids: set) -> list:
     return failures
 
 
-def collect_known_guids(root: pathlib.Path) -> set:
-    """Every guid any .meta in the project declares.
+def collect_guid_owners(root: pathlib.Path) -> dict:
+    """Every guid any .meta declares, mapped to the file(s) that declare it.
 
     A CONTROL, NOT A CONVENIENCE: without it the reference checks silently pass on a typo, because
     an unresolvable guid looks exactly like a resolvable one in text.
+
+    AND IT IS A DICT RATHER THAN A SET FOR A MEASURED REASON. The first version of this function
+    built a set, and an adversarial review pointed out what that costs: two files claiming the SAME
+    guid do not collide in a set, they DEDUPE - so the one failure that parallel authoring actually
+    produces was the one failure this tool could not see. Unity resolves a duplicated guid by
+    picking one file arbitrarily and the other asset silently stops existing.
     """
-    guids = set()
+    owners = {}
     for meta in root.rglob("*.meta"):
         if "Library" in meta.parts or "Temp" in meta.parts:
             continue
         match = GUID_PATTERN.search(meta.read_bytes().decode("utf-8", errors="replace"))
         if match:
-            guids.add(match.group(1))
-    return guids
+            owners.setdefault(match.group(1), []).append(meta.as_posix())
+    return owners
+
+
+def report_duplicate_guids(owners: dict) -> int:
+    """Prints every guid claimed by more than one .meta. Returns how many were found.
+
+    THIS IS THE CHECK THAT MATTERS WHEN SEVEN WORKERS AUTHOR YAML IN PARALLEL. Each derives its
+    guids deterministically and each checks against the guids that existed when it STARTED, so two
+    lanes adding a file at the same relative path - or two deterministic derivations that happen to
+    collide - are invisible from inside either branch. Only the merged tree shows it.
+    """
+    duplicates = 0
+    for guid, paths in sorted(owners.items()):
+        if len(paths) > 1:
+            duplicates += 1
+            print("FAIL guid {0} is claimed by {1} files:".format(guid, len(paths)))
+            for path in sorted(paths):
+                print("       " + path)
+    return duplicates
 
 
 def main() -> int:
@@ -162,7 +186,12 @@ def main() -> int:
         print("FAIL: no .prefab files under '{0}'. Nothing was checked.".format(scan_root))
         return 2
 
-    known_guids = set() if arguments.skip_guid_resolution else collect_known_guids(assets)
+    guid_owners = {} if arguments.skip_guid_resolution else collect_guid_owners(assets)
+    known_guids = set(guid_owners)
+
+    # Duplicates first: a collision makes every OTHER finding about those files unreliable, because
+    # the reference that resolves may not resolve to the file you are reading.
+    duplicate_guids = report_duplicate_guids(guid_owners)
 
     failed = 0
     for prefab in prefabs:
@@ -172,9 +201,9 @@ def main() -> int:
             for failure in failures:
                 print("FAIL {0}: {1}".format(prefab.as_posix(), failure))
 
-    print("prefab_lint: {0} prefab(s) checked, {1} with failures, {2} guid(s) indexed.".format(
-        len(prefabs), failed, len(known_guids)))
-    return 1 if failed else 0
+    print("prefab_lint: {0} prefab(s) checked, {1} with failures, {2} guid(s) indexed, "
+          "{3} duplicated.".format(len(prefabs), failed, len(known_guids), duplicate_guids))
+    return 1 if (failed or duplicate_guids) else 0
 
 
 if __name__ == "__main__":

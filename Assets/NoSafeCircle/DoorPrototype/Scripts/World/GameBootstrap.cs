@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using UnityEngine;
 
 namespace NoSafeCircle.DoorPrototype.World
@@ -70,18 +72,89 @@ namespace NoSafeCircle.DoorPrototype.World
         /// </summary>
         public bool HasBuilt { get; private set; }
 
-        private void Start()
+        private async void Start()
         {
-            if (buildOnStart)
+            if (!buildOnStart)
             {
-                BuildWorld();
+                return;
+            }
+
+            // async void, and this is the ONE place it is allowed: standard 7.2 permits it for a
+            // lifecycle entry point that catches and reports its own exceptions, and forbids it
+            // everywhere else. An unhandled exception in an async void is lost entirely, so the
+            // try/catch is not decoration - it is the whole reason this is permitted.
+            try
+            {
+                await BuildWorldAsync(destroyCancellation.Token);
+            }
+            catch (System.OperationCanceledException)
+            {
+                // The object was destroyed mid-preload. Not a failure.
+            }
+            catch (System.Exception error)
+            {
+                Debug.LogError($"{nameof(GameBootstrap)}: the world failed to build. " + error);
             }
         }
 
         /// <summary>
-        /// Instantiates the spawner prefabs, runs them in phase order, and returns the total number
-        /// of objects created. Synchronous from the first line to the last.
+        /// The full build: instantiate the spawners, AWAIT every preload, then run the synchronous
+        /// placement pass.
         /// </summary>
+        /// <remarks>
+        /// THE TWO PASSES ARE THE WHOLE DESIGN AND THE PRELOAD HALF WAS MISSING UNTIL AN ADVERSARIAL
+        /// REVIEW FOUND IT. Content loading is asynchronous; PLACEMENT is not. Everything a spawner
+        /// needs is resident before its phase runs, so <see cref="ISpawner.Spawn"/> can be
+        /// synchronous - which is what keeps standard 7.2 satisfiable, because a synchronous Spawn
+        /// has no reason to reach for Addressables WaitForCompletion and no way to block the main
+        /// thread waiting for content.
+        /// </remarks>
+        public async Task<int> BuildWorldAsync(CancellationToken cancellationToken)
+        {
+            InstantiateSpawnerPrefabs();
+            await PreloadAllAsync(cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            return BuildWorld();
+        }
+
+        /// <summary>
+        /// Awaits every <see cref="IContentPreloader"/> under this object. They run CONCURRENTLY -
+        /// preloading is independent per lane by construction, and serialising seven waits would
+        /// make the loading screen as long as their sum instead of their maximum.
+        /// </summary>
+        public async Task PreloadAllAsync(CancellationToken cancellationToken)
+        {
+            var preloaders = new List<IContentPreloader>(
+                GetComponentsInChildren<IContentPreloader>(true));
+            if (preloaders.Count == 0)
+            {
+                return;
+            }
+
+            var pending = new List<Task>(preloaders.Count);
+            foreach (IContentPreloader preloader in preloaders)
+            {
+                pending.Add(preloader.PreloadAsync(cancellationToken));
+            }
+
+            await Task.WhenAll(pending);
+
+            if (logPhases)
+            {
+                Debug.Log($"[{nameof(GameBootstrap)}] preloaded {preloaders.Count} content set(s).");
+            }
+        }
+
+        /// <summary>
+        /// The SYNCHRONOUS placement pass alone: instantiates the spawner prefabs, runs them in
+        /// phase order, and returns the total created.
+        /// </summary>
+        /// <remarks>
+        /// THIS DOES NOT PRELOAD. Call <see cref="BuildWorldAsync"/> for the full build. This
+        /// overload exists for tests and for a world whose content is already resident - and it is
+        /// kept public rather than hidden because the distinction is exactly the thing that was
+        /// documented and not implemented once already.
+        /// </remarks>
         public int BuildWorld()
         {
             InstantiateSpawnerPrefabs();
@@ -122,7 +195,7 @@ namespace NoSafeCircle.DoorPrototype.World
         /// immediately, which would place that family before this method has even returned - out of
         /// phase order, and before Rooms exist. PropSpawner's own <c>spawnOnAwake</c> exists for
         /// exactly this and ships false. A lane that self-spawns breaks the order for everyone, so
-        /// SpawnerPrefabTests asserts the folder's prefabs do not.
+        /// SceneStubTests asserts the folder's prefabs do not.
         /// </remarks>
         public void InstantiateSpawnerPrefabs()
         {
