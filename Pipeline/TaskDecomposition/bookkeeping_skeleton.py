@@ -13,7 +13,6 @@ reach the candidate. What survives from the model is exactly its prose.
 from __future__ import annotations
 
 from copy import deepcopy
-from difflib import SequenceMatcher
 import re
 from typing import Any, Mapping
 
@@ -135,43 +134,33 @@ def _preserved_notes(design_notes: str, model_notes: Any, *, legacy: bool = Fals
     return f"{design_notes}\n\n{written}" if written else design_notes
 
 
-def _sentences(text: str) -> list[str]:
-    return [part.strip() for part in re.split(r"(?<=[.!?])\s+|\n+", text) if part.strip()]
+def _sentence_key(sentence: str) -> str:
+    """Whitespace, case and end punctuation only: never a difference of content."""
+
+    return " ".join(sentence.split()).casefold().rstrip(".!?;: ")
 
 
-def _normalized(text: str) -> str:
-    return " ".join(text.split()).casefold()
-
-
-def _changed_characters(first: str, second: str) -> int:
-    # autojunk off: long prose repeats characters, which the heuristic would discard.
-    opcodes = SequenceMatcher(None, first, second, autojunk=False).get_opcodes()
-    return sum(max(i2 - i1, j2 - j1) for tag, i1, i2, j1, j2 in opcodes if tag != "equal")
-
-
-def _drifted_copy(sentence: str, design_sentences: list[str]) -> bool:
-    """A sentence that differs from a designer sentence by transcription drift only.
-
-    The bound is deliberately tight (at most max(2, 2%) changed characters) so a
-    genuinely different note such as Edit Mode versus Play Mode is kept: a
-    duplicate a reviewer can see is better than an addition silently lost.
-    """
-
-    return any(_changed_characters(sentence, design) <= max(2, len(design) // 50)
-               for design in design_sentences)
+def _sentences(paragraph: str) -> list[str]:
+    # Whitespace is collapsed first so a line-wrapped copy is still one sentence.
+    return [part for part in re.split(r"(?<=[.!?])\s+", " ".join(paragraph.split())) if part]
 
 
 def _additions_notes(design_notes: str, model_notes: Any) -> str:
-    """Designer notes once, word for word, followed only by the model's additions."""
+    """Designer notes once, word for word, followed by the model's other sentences.
+
+    A model sentence is dropped only when it is the same as a designer sentence
+    apart from whitespace, case and end punctuation. Nothing fuzzier is removed:
+    a one-character difference (Enemy01 and Enemy02, 10 and 10.5) can be the
+    whole meaning, so a reworded copy stays visible rather than risking a lost
+    note. The additions-only prompt is what keeps paraphrases out.
+    """
 
     text = model_notes if isinstance(model_notes, str) else ""
-    if design_notes.strip():
-        text = text.replace(design_notes, "\n\n")
-    design_sentences = [_normalized(sentence) for sentence in _sentences(design_notes)]
+    design_keys = {_sentence_key(sentence) for paragraph in re.split(r"\n\s*\n", design_notes)
+                   for sentence in _sentences(paragraph)}
     paragraphs = []
     for paragraph in re.split(r"\n\s*\n", text):
-        kept = [sentence for sentence in _sentences(paragraph)
-                if not _drifted_copy(_normalized(sentence), design_sentences)]
+        kept = [sentence for sentence in _sentences(paragraph) if _sentence_key(sentence) not in design_keys]
         if kept:
             paragraphs.append(" ".join(kept))
     additions = "\n\n".join(paragraphs)

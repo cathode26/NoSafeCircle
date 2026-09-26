@@ -996,13 +996,19 @@ def test_additions_rule_drops_near_copy_sentences() -> None:
     assert notes == design + "\n\n" + " ".join(["More model prose."] * 3), notes
 
 
-def test_additions_rule_detects_long_near_copies_without_popular_text_heuristic() -> None:
+def test_additions_rule_removes_only_identical_sentences() -> None:
+    # Astra R2: only whitespace, case and end punctuation are ignored. A changed
+    # character can carry the meaning, so such a sentence is always kept.
     design = ("Use the existing projectile pool and preserve every prefab reference. "
-              "Check collision, damage, reset and projectile return in Play Mode. ") * 8
+              "Check collision, damage, reset and projectile return in Play Mode.")
     _, notes = _notes_case(lambda d: "X" + d[1:], design_notes=design)
-    assert notes == design
-    _, notes = _notes_case(lambda d: "X" + d[1:] + " More model prose." * 2, design_notes=design)
-    assert notes == design + "\n\nMore model prose. More model prose."
+    assert notes == design + "\n\nXse the existing projectile pool and preserve every prefab reference."
+    _, notes = _notes_case(lambda d: d.replace(" in ", "\nin ") + " More model prose.", design_notes=design)
+    assert notes == design + "\n\nMore model prose."
+    for designer, model in (("Damage is 10.", "Damage is 10.5 for the alternate projectile prefab."),
+                            ("Validate Enemy01.prefab in Play Mode.", "Validate Enemy02.prefab in Play Mode.")):
+        _, notes = _notes_case(model, design_notes=designer)
+        assert notes == designer + "\n\n" + model, notes
 
 
 def test_additions_rule_keeps_only_separate_additions_after_near_copy() -> None:
@@ -1162,7 +1168,7 @@ def test_additions_notes_keep_real_additions_and_drop_only_drifted_copies() -> N
 
 TESTS = (
     test_additions_rule_drops_near_copy_sentences,
-    test_additions_rule_detects_long_near_copies_without_popular_text_heuristic,
+    test_additions_rule_removes_only_identical_sentences,
     test_additions_rule_keeps_only_separate_additions_after_near_copy,
     test_additions_rule_removes_exact_copies,
     test_additions_rule_keeps_unrelated_notes_and_handles_empty_output,
