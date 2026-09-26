@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-075",
-  "contract_revision": 7,
+  "contract_revision": 8,
   "contract_disposition": "active",
   "title": "Unity Eight-Direction Wizard Locomotion Integration",
   "reconciliation_key": "wizard-eight-direction-locomotion-integration",
@@ -99,7 +99,7 @@
     {
       "gate_id": "VAL-005",
       "reference": "Vincent all-four visual approval",
-      "requirement": "Vincent tests the exact candidate in Assets/Scenes/DoorPrototype.unity with all four wizard choices, holds movement through all eight screen directions long enough to see each walk loop, confirms stable facing and continuous identity, confirms the wizard reads in perspective like the Dungeon Brute and Lantern Wraith - crisp and upright, without leaning or thinning while turning - fits the 2x2-unit character box beside them, confirms the feet sit on the floor and neither float nor jump while turning or between idle and walk, and sorts correctly in front of and behind the D1 door frame, and approves the exact candidate before integration. A wall sorting defect seen in this review is recorded for the wall-owning task instead of blocking this approval."
+      "requirement": "Vincent tests the exact candidate in Assets/Scenes/RuntimeWorld.unity with all four wizard choices, holds movement through all eight screen directions long enough to see each walk loop, confirms stable facing and continuous identity, confirms the wizard reads in perspective like the Dungeon Brute and Lantern Wraith - crisp and upright, without leaning or thinning while turning - fits the 2x2-unit character box beside them, confirms the feet sit on the floor and neither float nor jump while turning or between idle and walk, and sorts correctly in front of and behind the D1 door frame, and approves the exact candidate before integration. A wall sorting defect seen in this review is recorded for the wall-owning task instead of blocking this approval. THE SCENE NAMED IN THIS GATE WAS REPOINTED 2026-09-26 FROM Assets/Scenes/DoorPrototype.unity TO Assets/Scenes/RuntimeWorld.unity, ON VINCENT'S OWN INSTRUCTION THAT THE OLD WORLD IS BEING REMOVED. NOTHING ELSE IN THIS GATE CHANGED: what the reviewer does, looks at and approves is untouched, and no criterion was weakened to make it satisfiable. RuntimeWorld.unity holds only GameManagers, a camera and a light; all content is instantiated at Play by the spawners under Resources/Spawners, so this gate is a PLAY MODE review and must not be read as asking for any object to be present in the saved scene."
     },
     {
       "gate_id": "VAL-006",
@@ -194,6 +194,15 @@
         "previous_contract_revision": 6,
         "base_contract_sha256": "06aed44b26e91eb81d36f3d2f49787d55252d9356b62f459e0dd88409fbd5357",
         "revised_contract_sha256": "7364d7a94934187b06aa136933ab420a7c8275e9aefa51c1e869d3a288bd7668",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-26",
+        "reason": "VAL-005: repoint Vincent's human review from the old composed scene to RuntimeWorld.unity on his instruction that the old world is removed; the review itself is unchanged",
+        "source_head": "4bae9f3b4f291d881357bfdeb6ceeb6551dcdcc6",
+        "previous_contract_revision": 7,
+        "base_contract_sha256": "4f0e4d00148cb082e209c1a3342bebc88bc1fbfcb5075e9810fc2fbf7aca5392",
+        "revised_contract_sha256": "5b2d1824e674c0eac7c28f328e01640764680110f0f31c259e65ff77043c45f3",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
