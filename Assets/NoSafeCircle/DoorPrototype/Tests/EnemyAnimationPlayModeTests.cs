@@ -605,17 +605,38 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Physics.SyncTransforms();
         }
 
+        // Matches on the HORIZONTAL (X,Z) spawn position only, not full 3D distance.
+        //
+        // MeleeEnemy.prefab carries a NavMeshAgent with m_BaseOffset: 0, so the instant it is
+        // enabled it snaps its transform's Y to the baked NavMesh surface height at that XZ -
+        // not to the spawn table's flat Y=0. Measured directly (Unity log, instrumented run):
+        // the ChapelOfAsh melee spawn (-2,0,36) settles at Y=0.04 within the three-frame
+        // WaitForWorldBuilt window, well before this fixture's later
+        // `WaitForCondition(() => agent.isOnNavMesh, ...)` even runs - so there is no earlier
+        // point in this fixture at which the pre-snap Y could be observed, and the snap is not
+        // "movement" a wait could dodge. LanternWraith.prefab carries no NavMeshAgent and its Y
+        // measured exactly 0.00 in the same run, unchanged from the spawn table. So the Y drift
+        // is the NavMeshAgent's own legitimate placement (the same bake-precision slack the
+        // LV-H1 ramp comments above document elsewhere in this builder), not a spawn defect -
+        // the enemy IS at its authored spawn's horizontal position, which is what the spawn
+        // table and BuilderSpawnInRoom actually control. Do not widen this into a 3D tolerance:
+        // that would also accept a wrongly-placed enemy that drifted horizontally.
         private static GameObject FindEnemyAtSpawn(
             GameObject enemiesRoot,
             string enemyName,
             Vector3 spawnPosition)
         {
+            Vector2 spawnXZ = new Vector2(spawnPosition.x, spawnPosition.z);
             GameObject enemy = DirectChildren(enemiesRoot).SingleOrDefault(candidate =>
-                candidate.name == enemyName &&
-                (candidate.transform.position - spawnPosition).sqrMagnitude < 0.0001f);
+            {
+                Vector2 candidateXZ = new Vector2(candidate.transform.position.x, candidate.transform.position.z);
+                return candidate.name == enemyName &&
+                    (candidateXZ - spawnXZ).sqrMagnitude < 0.0001f;
+            });
             Assert.IsNotNull(
                 enemy,
-                "Expected " + enemyName + " at builder spawn " + spawnPosition + ".");
+                "Expected " + enemyName + " at builder spawn " + spawnPosition
+                    + " (matched on X,Z; a NavMeshAgent enemy's Y is NavMesh-owned, not spawn-table-owned).");
             return enemy;
         }
 
