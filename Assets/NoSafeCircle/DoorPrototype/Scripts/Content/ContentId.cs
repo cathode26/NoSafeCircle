@@ -46,6 +46,21 @@ namespace NoSafeCircle.DoorPrototype.Content
             Data = 4
         }
 
+        /// <summary>A platform variant of a family's content. ENGINEERING_STANDARDS 8.7 names exactly
+        /// these three; <see cref="Shared"/> is the tree every platform loads and the one every
+        /// fallback order must end on.</summary>
+        public enum Variant
+        {
+            /// <summary>Loaded by every platform. The only tree that exists today.</summary>
+            Shared = 0,
+
+            /// <summary>A WebGL-only replacement for a shared asset of the same id.</summary>
+            WebGL = 1,
+
+            /// <summary>A desktop-player-only replacement for a shared asset of the same id.</summary>
+            Desktop = 2
+        }
+
         /// <summary>Root of all runtime-loaded content. NOT a Resources folder - see the note on
         /// <see cref="ContentRoot"/>'s value.</summary>
         /// <remarks>
@@ -85,6 +100,31 @@ namespace NoSafeCircle.DoorPrototype.Content
             }
         }
 
+        /// <summary>The project folder holding a family's shared tree - what the editor setup registers
+        /// as that family's group entry. An asset path, never an address.</summary>
+        public static string FolderPath(Family family) => ContentRoot + "/" + FolderName(family);
+
+        /// <summary>The top-level folder a platform variant tree lives under, or an empty string for
+        /// <see cref="Variant.Shared"/>, which has no prefix.</summary>
+        /// <remarks>
+        /// THE PLATFORM IS THE OUTERMOST PARTITION, DELIBERATELY. A platform build includes or excludes
+        /// whole groups (STANDARDS 8.7), and a group is made of folder entries, so a variant tree has to
+        /// be a folder that can be registered on its own - <c>Content/WebGL/Props</c> - rather than a
+        /// subfolder inside the shared family folder, which the shared folder entry would swallow.
+        /// </remarks>
+        public static string VariantFolderName(Variant variant)
+        {
+            switch (variant)
+            {
+                case Variant.Shared: return string.Empty;
+                case Variant.WebGL: return "WebGL";
+                case Variant.Desktop: return "Desktop";
+                default:
+                    throw new System.ArgumentOutOfRangeException(nameof(variant),
+                        variant, "No folder is defined for this platform variant.");
+            }
+        }
+
         /// <summary>The address of one asset in one family. The ONLY place a content path is formed.</summary>
         public static string Address(Family family, string assetId)
         {
@@ -94,6 +134,42 @@ namespace NoSafeCircle.DoorPrototype.Content
             }
 
             return FolderName(family) + "/" + assetId;
+        }
+
+        /// <summary>The address of one asset in one platform variant of a family. Shared is the plain
+        /// family address; a platform tree is prefixed by its folder.</summary>
+        public static string Address(Family family, Variant variant, string assetId)
+        {
+            if (variant == Variant.Shared)
+            {
+                return Address(family, assetId);
+            }
+
+            return VariantFolderName(variant) + "/" + Address(family, assetId);
+        }
+
+        /// <summary>The logical address of a catalog key: the key with the file extension a folder
+        /// entry appends stripped off. The ONLY place that normalisation happens (STANDARDS 8.3).</summary>
+        /// <remarks>
+        /// MEASURED, NOT ASSUMED: Addressables 2.3.16 gives every asset under a folder entry the
+        /// address <c>folderAddress + file.Substring(folderPath.Length)</c>
+        /// (<c>Editor/Settings/AddressableAssetEntry.cs:546</c> and <c>:639</c>), so the catalog key for
+        /// the pew is <c>Props/ca_pew_row_a.prefab</c> while <see cref="Address(Family, string)"/> forms
+        /// <c>Props/ca_pew_row_a</c>. Both are wanted - the folder entry is what makes a new prefab
+        /// addressable with no group edit, and an extensionless id is what keeps a spawner from knowing
+        /// whether it asked for a prefab or a text file - so the loader indexes catalog keys by THIS and
+        /// a caller never sees the extension.
+        /// </remarks>
+        public static string LogicalAddress(string primaryKey)
+        {
+            if (string.IsNullOrEmpty(primaryKey))
+            {
+                throw new System.ArgumentException("A catalog key is required.", nameof(primaryKey));
+            }
+
+            int lastSlash = primaryKey.LastIndexOf('/');
+            int lastDot = primaryKey.LastIndexOf('.');
+            return lastDot > lastSlash + 1 ? primaryKey.Substring(0, lastDot) : primaryKey;
         }
 
         /// <summary>The label naming a whole family as a logical set, for a load-by-label preload.</summary>

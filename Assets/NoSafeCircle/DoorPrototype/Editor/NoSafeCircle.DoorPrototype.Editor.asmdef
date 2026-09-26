@@ -4,7 +4,10 @@
     "references": [
         "NoSafeCircle.DoorPrototype",
         "Unity.InputSystem",
-        "UnityEngine.UI"
+        "UnityEngine.UI",
+        "Unity.Addressables.Editor",
+        "Unity.Addressables",
+        "Unity.ResourceManager"
     ],
     "includePlatforms": [
         "Editor"
