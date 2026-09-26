@@ -651,3 +651,157 @@ An exception is acceptable when it is:
 - not used as accidental precedent for unrelated code.
 
 Legacy code may be improved incrementally. New code should not reproduce a known legacy compromise merely to remain consistent with it.
+## 19. Runtime world composition
+
+**APPENDED AS 19 RATHER THAN INSERTED NEAR ITS SUBJECT ON PURPOSE.** Sections 4.1, 5.3, 5.4, 7.2 and
+9 are cited by number in task contracts and in code comments. Inserting a section mid-document
+renumbers every one of those citations silently, so this goes at the end even though it reads oddly
+after Exceptions.
+
+### 19.1 The world is built at runtime. A scene holds one object.
+
+`Assets/Scenes/RuntimeWorld.unity` contains `GameManagers` and nothing else. Every room, wall, floor,
+prop, door, the wizard, the camera, the enemies and the HUD are **instantiated at Play** from
+prefabs. Do not compose content into a scene and commit the result.
+
+This is not a style preference. A composed scene is a single file that every contributor must edit,
+which makes it the one guaranteed merge conflict on a project with parallel work; and a committed
+scene can silently become the **sole carrier** of art nothing regenerates, so deleting it loses work
+with no test failing.
+
+**What you do:** add content by shipping a prefab and a spawner. Never by editing a scene.
+
+### 19.2 A prefab is a text file. Author it.
+
+Unity prefabs, scenes and `.asset` files are YAML. **You can write one with an editor and you do not
+need to click anything.** Reference another asset by the `guid` in its `.meta`.
+
+A whole content pipeline was once written as edit-time generators on the belief that an agent cannot
+author assets. That belief was false, and the generators were a large, permanent cost paid to avoid
+a text file.
+
+**What you do:** write the `.prefab`, run `Tools/prefab_lint.py` (`--package-cache
+Library/PackageCache`, so package guids resolve), and read a real example from the package's own
+`Samples~` before guessing a serialized field's format. A field whose YAML form you guessed can
+deserialize to a legal-but-wrong value - an omitted list becomes empty, which for
+`NavMeshModifier.m_AffectedAgents` means "None" while the C# default is "All". Nothing warns.
+
+### 19.3 Spawners are discovered, never listed
+
+`GameBootstrap` finds spawner prefabs by scanning `Resources/Spawners`. There is **no serialized list
+and no registry file**.
+
+The reason is mechanical: a shared list is a single file every contributor must append to, so it
+becomes the merge hotspot the folder scan exists to remove. A lane ships **one prefab no other branch
+contains** and it is picked up with no edit to anything shared.
+
+**What you do:** to add a system, drop `Resources/Spawners/<Name>Spawner.prefab` in the folder. Do
+not add it to a list; there isn't one.
+
+### 19.4 The seam: `ISpawner` and `SpawnPhase`
+
+```csharp
+public interface ISpawner
+{
+    SpawnPhase Phase { get; }
+    int Spawn();                 // returns how many objects it created
+}
+```
+
+`Spawn()` is **synchronous on purpose**: section 7.2 forbids blocking for content and forbids
+`WaitForCompletion` on WebGL, so a spawner cannot legally wait inside it. Content that must be
+preloaded implements the separate `IContentPreloader` interface, which `GameBootstrap` awaits before
+any `Spawn()` runs. Keeping that off `ISpawner` is deliberate - a member added to a shared interface
+breaks every in-flight implementation at once.
+
+Phase order is explicit because it is sorted on:
+
+```
+Rooms(0)  Props(1)  Navigation(2)  Doors(3)  Player(4)  Enemies(5)  Hud(6)
+```
+
+**Phase order is a contract between systems, not a hint.** Navigation bakes at 2, before Doors at 3,
+so no door stands in an opening at bake time. Player at 4 precedes Enemies at 5 because enemies
+acquire the wizard as a target, and precedes Hud at 6 because the HUD binds to him.
+
+**What you do:** pick your phase from what must already exist. If your spawner leaves a solid
+collider alive and runs after Navigation, put a `NavMeshModifier` with `ignoreFromBuild` and
+`applyToChildren` on your prefab root - a re-bake finds the previous build's objects still standing
+and bakes them as walls.
+
+### 19.5 Wire with Signals, not with serialized slots
+
+Cross-lane notification uses deVoid Signals (`Assets/Plugins/deVoid`, namespace `deVoid.Utils`),
+already referenced by the runtime assembly. `WorldSignals` declares the world-build facts:
+`WorldBuilt`, `PlayerSpawned`, `PhaseCompleted`.
+
+Sections 5.3 and 5.4 already prefer signals for typed one-to-many notification. **The composition
+reason is additional and is why it matters here:** a listener holds no reference to the emitter, so
+there is no serialized slot to drag an object into and no shared field for two lanes to fight over.
+Combined with 19.2 and 19.3, **nothing in the build path requires a mouse.**
+
+This does not widen 5.3. A spawner talking to a prefab it just instantiated uses the reference it
+already has. Signals are for genuinely cross-system, one-to-many facts. Subscribe in `OnEnable`,
+remove in `OnDisable`, never with an anonymous lambda.
+
+**What you do:** if you need another lane's object, listen for its signal. Do not use
+`GameObject.Find`, and do not add a reflection binder.
+
+### 19.6 Verify C# without opening Unity
+
+`Tools/compile_check.ps1` compiles every project assembly with Unity's own Roslyn, in seconds, with
+no editor. **Many workers can run it at once where none can share an editor.**
+
+Read its exit codes exactly: `0` every assembly compiled, `1` a real compile failure, `2` **nothing
+was checked** - which is never a pass, and is what you get before Unity has imported once.
+
+It is close to Unity's compile, not identical: defines and asmdef resolution are Unity's. **A FAILURE
+here is proof. A PASS is strong evidence.** Two known limits: immediately after a `Library` wipe it
+exits 2 until Unity imports once, and a test assembly's references point at the last import's DLLs,
+so new types added since then can read as missing. Those are phantoms; re-import and re-run before
+believing them.
+
+**What you do:** run it before every Unity run and before handing work on.
+
+### 19.7 An asset and its `.meta` ship in the same commit
+
+Commit a `.cs`, `.prefab` or `.asset` without its `.meta` and Unity generates one on the next import
+- which is a repository mutation **during** a test run, and the runner correctly refuses to report
+results from a run that changed the tree under itself (exit 40).
+
+**What you do:** `git status` after adding any file under `Assets/`. If a `.meta` appears, it belongs
+in that commit.
+
+### 19.8 What a test must assert here
+
+These are not general testing advice; each one has cost this project a wrong answer in this
+architecture.
+
+- **When an operation's job is to REMOVE or EXCLUDE something, count what survives.** A suite of
+  assertions that an object is *correct* cannot detect that the object should not exist, and adding
+  more such assertions deepens the blind spot rather than closing it.
+- **Assert the durable relation, not today's number.** "Two jambs per doorway, against the doors the
+  world builds" survives a content change; "18 jambs" does not, and freezing a number is how a
+  defect gets locked in as an expectation.
+- **Before comparing two artifacts, check they are commensurable.** The per-room room scenes and the
+  single combined world both describe one world and count shared doorways differently - 18 and 10,
+  both correct. A **total** is where that hides. Compare per role, per kind, per category.
+- **Derive the expectation from a different artifact than the one under test.** An expectation copied
+  from the code it checks is self-consistent by construction and passes while proving nothing.
+- **Guard against the vacuous pass.** `Assert.Greater(count, 0)` beside the real assertion, so a
+  match on an empty set cannot read as success.
+- **A test that passes alone and fails in the suite is an ORDER-DEPENDENT LEAK, not a broken test.**
+  Diagnose it by running it alone, then with its own fixture, then with suspects - not by reading the
+  source, which cannot show it because every file involved is individually correct.
+- **Zero discovered tests is a FAILURE, never a pass.** A comma-separated Unity test filter is read
+  as one group name and silently matches nothing; use regex alternation `(A|B)`.
+
+### 19.9 Re-derive what you are handed
+
+Every bounded worker that built this architecture found an error in its own brief: a piece count that
+was wrong, a tile size that was wrong, a named asset that did not exist, a prescribed test that could
+not compile, an address that could never match its catalog, and a task id that named the wrong task.
+**Every one was caught by re-deriving the brief from source rather than trusting it.**
+
+A brief is a starting point and its line numbers are stale the moment `main` moves. Verify what you
+are given, and report what you could not verify alongside what you did.
