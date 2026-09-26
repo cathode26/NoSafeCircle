@@ -107,8 +107,20 @@ def check_prefab(path: pathlib.Path, known_guids: set) -> list:
     if not text.startswith("%YAML 1.1"):
         failures.append("does not begin with the '%YAML 1.1' header Unity writes")
 
-    if b"\r\n" in raw:
-        failures.append("contains CRLF line endings; Unity writes LF and a mixed file re-serializes")
+    # THE ORIGINAL CHECK WAS `b"\r\n" in raw`, which fails a UNIFORM CRLF file exactly as hard as a
+    # genuinely mixed one - and on this host core.autocrlf converts every committed LF blob to CRLF
+    # on checkout, so a perfectly clean, unmodified checkout fails all 73 committed prefabs on line
+    # endings alone, while the committed blobs themselves pass every content check. The comment
+    # this check ships with says what it meant to catch: "a MIXED file re-serializes" - Unity writes
+    # one style consistently, and it is an INCONSISTENT file within itself that causes a diff on
+    # re-serialization, not a uniformly-CRLF file that a working-tree filter produced. So detect
+    # MIXED endings rather than requiring an LF checkout, which would be changing the policy to
+    # match the bug rather than fixing the bug.
+    has_crlf = b"\r\n" in raw
+    has_bare_lf = b"\n" in raw.replace(b"\r\n", b"")
+    if has_crlf and has_bare_lf:
+        failures.append("mixes CRLF and bare LF line endings within one file; Unity writes one "
+                         "style consistently and a mixed file re-serializes")
 
     anchors = ANCHOR_PATTERN.findall(text)
     if not anchors:

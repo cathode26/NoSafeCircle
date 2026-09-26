@@ -26,6 +26,7 @@ import argparse
 import pathlib
 import subprocess
 import sys
+import uuid
 
 
 def git(repo, *args, check=False):
@@ -117,15 +118,32 @@ def main() -> int:
         print("FAIL: could not build a trial-merge commit: " + trial)
         return 1
 
-    worktree = str(pathlib.Path(repo).parent / ("lane-verify-" + arguments.branch.replace("/", "-")))
-    git(repo, "worktree", "remove", "--force", worktree)
+    # A FRESH, UNIQUELY-OWNED verification path, never a predictable one. The old scheme derived
+    # this path from the branch name alone - "lane-verify-" + branch - so a second report of the
+    # same branch, or anyone who had checked out that same path by hand to investigate a failed
+    # lane, collided with it. This tool then force-removed whatever was registered there before
+    # ADDING and again in `finally`, unconditionally, with no ownership check and no dirty check -
+    # discarding another person's uncommitted work with no warning. The fix is not a dirty-check
+    # (the workspace lifecycle policy reserves destructive actions for Vincent, so a tool that
+    # force-removes at all is the violation, not how often it does it) - it is to never need to
+    # remove anything this run did not itself create. The uuid4 suffix makes a same-path collision
+    # between two concurrent reports (or with a leftover manual checkout) astronomically unlikely,
+    # and `git worktree add` WITHOUT --force is itself the "fails if the path exists" primitive -
+    # git refuses to add over an existing non-empty directory or a path already registered as a
+    # worktree, which is exactly the atomic check-then-create git already does internally, instead
+    # of this tool doing its own check-then-mkdir race in Python.
+    worktree = str(pathlib.Path(repo).parent /
+                   ("lane-verify-" + arguments.branch.replace("/", "-") + "-" + uuid.uuid4().hex[:10]))
     code, out = git(repo, "worktree", "add", "--detach", worktree, trial)
     if code != 0:
         print("")
         print("FAIL: could not materialize the merged tree for linting: " + out)
+        print("(this tool never removes a path it did not create itself - if '{0}' already "
+              "exists, something else owns it)".format(worktree))
         return 1
 
     print("trial merge commit " + trial + " (dangling, not a ref)")
+    print("verification worktree " + worktree + " (this run's own, uniquely named)")
 
     try:
         failures = 0
@@ -145,7 +163,16 @@ def main() -> int:
             if lint_code != 0:
                 failures += 1
     finally:
-        git(repo, "worktree", "remove", "--force", worktree)
+        # Only ever removes the path THIS RUN created two dozen lines above, and never with
+        # --force: the lints are read-only, so a clean removal should always succeed. If it does
+        # not - something wrote into the worktree unexpectedly - retain it for inspection instead
+        # of forcing it away, which is the whole point of a failed lane's checkout surviving.
+        remove_code, remove_out = git(repo, "worktree", "remove", worktree)
+        if remove_code != 0:
+            print("\nWARNING: could not remove this run's own verification worktree '{0}': {1}"
+                  .format(worktree, remove_out))
+            print("Retained for inspection rather than forced away; remove it by hand once you "
+                  "have looked at it.")
 
     print("\nSTILL UNVERIFIED AND ONLY THE INTEGRATOR CAN DO IT:")
     print("   compilation   - nothing here compiles C#")
