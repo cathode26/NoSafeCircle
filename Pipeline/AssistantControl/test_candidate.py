@@ -291,3 +291,115 @@ class CandidateRecoveryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
+
+class ReceiptDeclineDiagnosisTests(unittest.TestCase):
+    """`require` used to answer ONE sentence for eight different causes.
+
+    "candidate integration requires the current run_id" named the caller's
+    argument for every decline in `_load_current`, including the ones where the
+    argument was perfectly correct. Two crew results sat unharvested from
+    2026-09-23 behind that wording -- NSC-082's candidate.patch is 56,073 bytes of
+    paid output, and `CLAUDE.md` cites that very run by name.
+
+    These drive the bridge directly with a SimpleNamespace scope, the shape
+    `quota_failover_smoke_test.py` already uses, because `_load_current` and
+    `require` read only `scope.task_id` and `scope.accepted` -- and because
+    reconstructing a real scope is a separate mechanism that refuses for its own
+    reasons and hid these messages on my first attempt.
+    """
+
+    TASK = "NSC-042"
+    RUN = "nsc-042-20260923t094010z"
+
+    def setUp(self):
+        import tempfile
+        from types import SimpleNamespace
+        temporary = tempfile.TemporaryDirectory(prefix="receipt-decline-")
+        self.addCleanup(temporary.cleanup)
+        self.root = Path(temporary.name)
+        self.checkout = self.root / "checkout"
+        self.checkout.mkdir()
+        outputs = self.root / "outputs"
+        outputs.mkdir()
+        self.result_path = outputs / "crew_result.json"
+        self.candidate_path = outputs / "candidate.patch"
+        self.result_path.write_bytes(b'{"status": "review_ready"}\n')
+        self.candidate_path.write_bytes(b"diff --git a/x b/x\n")
+        self.accepted = SimpleNamespace(
+            task_id=self.TASK, lease_id="lease-1", plan_id="plan-1",
+            source_head="0" * 40, task_contract_sha256="a" * 64)
+        self.scope = SimpleNamespace(task_id=self.TASK, accepted=self.accepted)
+
+    def receipt(self, **overrides):
+        import hashlib
+        fields = dict(
+            run_id=self.RUN, task_id=self.TASK, lease_id="lease-1", plan_id="plan-1",
+            provider="claude", execution_model="claude-sonnet-5",
+            execution_reasoning_effort=None, crew_profile="full",
+            validation_profile="full_relevant", source_head="0" * 40,
+            task_contract_sha256="a" * 64, crew_status="review_ready",
+            result_path=str(self.result_path),
+            result_sha256=hashlib.sha256(self.result_path.read_bytes()).hexdigest(),
+            candidate_path=str(self.candidate_path),
+            candidate_sha256=hashlib.sha256(self.candidate_path.read_bytes()).hexdigest(),
+            final_actual_changed_paths=(), returncode=0, rejection_reasons=(),
+        )
+        fields.update(overrides)
+        return ExecutionCrewReceipt(**fields)
+
+    def bridge(self, **overrides):
+        options = dict(checkout=self.checkout, scope=self.scope,
+                       execution_model="claude-sonnet-5", crew_profile="full",
+                       validation_profile="full_relevant")
+        options.update(overrides)
+        return ExecutionCrewBridge(**options)
+
+    def test_no_persisted_receipt_says_so_instead_of_blaming_the_run_id(self):
+        with self.assertRaises(Exception) as caught:
+            self.bridge().require(self.RUN)
+        message = str(caught.exception)
+        self.assertIn("no authenticated ExecutionCrew receipt is loaded", message)
+        self.assertIn("has ever been persisted", message)
+        self.assertIn("NSC-042.execution.json", message)
+        self.assertNotIn("requires the current run_id", message)
+
+    def test_a_receipt_that_does_not_match_this_bridge_names_the_field_and_both_values(self):
+        """A later session rebuilds the bridge from the crew's own config, and one
+        wrong field used to decline in silence. Name it, and name what each side holds."""
+
+        self.bridge()._persist(self.receipt())
+        with self.assertRaises(Exception) as caught:
+            self.bridge(execution_model="a-different-model").require(self.RUN)
+        message = str(caught.exception)
+        self.assertIn("does not belong to this bridge", message)
+        self.assertIn("execution_model", message)
+        self.assertIn("a-different-model", message)
+        self.assertIn("claude-sonnet-5", message)
+
+    def test_a_loaded_receipt_for_another_run_names_both_runs(self):
+        """The OTHER fault the single sentence conflated. It must stay separable:
+        this one really IS about the run_id, and only this one."""
+
+        self.bridge()._persist(self.receipt())
+        with self.assertRaises(Exception) as caught:
+            self.bridge().require("a-run-this-bridge-never-saw")
+        message = str(caught.exception)
+        self.assertIn(self.RUN, message)
+        self.assertIn("a-run-this-bridge-never-saw", message)
+        self.assertNotIn("no authenticated ExecutionCrew receipt is loaded", message)
+
+    def test_a_receipt_this_bridge_accepts_is_loaded_by_a_SECOND_bridge(self):
+        """The control, and it is the claim the whole investigation turned on.
+
+        The report that routed this to me concluded a crew whose session ended can
+        never be harvested, because `self._receipt` is None at construction. It is
+        -- and then `_load_current()` runs on the next line. A second, freshly
+        built bridge adopts the persisted receipt, which is what makes an
+        after-the-fact harvest possible at all.
+        """
+
+        self.bridge()._persist(self.receipt())
+        adopted = self.bridge().require(self.RUN)
+        self.assertEqual(self.RUN, adopted.run_id)
+        self.assertEqual(str(self.candidate_path), adopted.candidate_path)

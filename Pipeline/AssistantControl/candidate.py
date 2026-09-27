@@ -253,8 +253,13 @@ def register_candidate(
         except Exception as exc:
             if recovery_root is not None and recovery_root.exists():
                 _cleanup_recovery(recovery_root, checkouts.records)
+            # CARRY THE REASON. `from exc` preserves the chain, but the CLI prints
+            # this message and not the traceback, so the cause was invisible where
+            # it is actually read. NSC-082's crew result sat unharvested from
+            # 2026-09-23 while this sentence said only that something was wrong.
             raise CandidateRegistrationError(
-                "ExecutionCrew receipt was not authenticated; candidate was not registered"
+                "ExecutionCrew receipt was not authenticated, so no candidate was"
+                " registered: %s" % exc
             ) from exc
         accepted = scope.accepted
         if accepted is None or not isinstance(execution, ExecutionCrewReceipt):
