@@ -676,7 +676,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-130": {
-      "task_contract_sha256": "e04e4b65f19c232f67e2e18da3ff93e65b307cd025d3145c7dc6e731f7f80785",
+      "task_contract_sha256": "a61403105ad76ffd71b903a3ff6fde665021b10b29b93ce58240b5514533af96",
       "required_test_platforms": [
         "EditMode"
       ],
