@@ -817,6 +817,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 floorStart,
                 floorEnd);
             backdrop.ConfigureMotion(2.5f, 10f, 20f, 1.5f, 2.5f, 0.5f, 6f);
+            SetPrivateFieldValue(backdrop, "wizardVisualScale", 1f);
 
             string[] gameplayNames =
             {

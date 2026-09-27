@@ -91,7 +91,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 Assign(chaseSerialized, "wizardAnimatorController", wizard);
                 Assign(chaseSerialized, "meleeAnimatorController", melee);
                 Assign(chaseSerialized, "wraithAnimatorController", wraith);
-                AssignFloat(chaseSerialized, "wizardVisualScale", 2f);
+                AssignFloat(chaseSerialized, "wizardVisualScale", 1f);
                 AssignFloat(chaseSerialized, "pursuerVisualScale", 2f);
                 chaseSerialized.ApplyModifiedPropertiesWithoutUndo();
 

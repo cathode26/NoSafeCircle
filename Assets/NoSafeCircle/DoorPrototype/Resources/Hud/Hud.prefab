@@ -309,7 +309,7 @@ MonoBehaviour:
   pursuerSeparation: 2.5
   fadeDuration: 0.5
   minLaneLength: 6
-  wizardVisualScale: 2
+  wizardVisualScale: 1
   pursuerVisualScale: 2
 --- !u!114 &2285380109521794148
 MonoBehaviour:
