@@ -87,12 +87,22 @@ namespace NoSafeCircle.DoorPrototype.Diagnostics
         /// <remarks>
         /// Suffixes the second-resolution stamp until a free name is found, so a capture
         /// started inside the same second as the previous one gets its own directory
-        /// instead of overwriting it. Directory.Exists is checked before each create
-        /// because CreateDirectory reports success for a directory that is already there.
+        /// instead of overwriting it. This does NOT check Directory.Exists and then call
+        /// Directory.CreateDirectory: that pair leaves a window between the check and
+        /// the create, and CreateDirectory reports success for a directory that is
+        /// already there, so two sessions starting together can both see the path
+        /// absent and both proceed -- sharing one directory and overwriting each
+        /// other's frames. Ownership of each candidate path is instead decided by a
+        /// marker file opened with FileMode.CreateNew, which the runtime documents as
+        /// throwing when the file already exists and which is a single atomic call
+        /// into the OS (NTFS/SMB honour this as CreateFile with CREATE_NEW), so at
+        /// most one caller can ever observe success for the same candidate however
+        /// many start at once. See <see cref="TryClaimDirectoryExclusively"/>.
         /// </remarks>
         // PUBLIC so the data-loss rule can be proven by a test rather than trusted.
         // Overwriting a previous walkthrough is silent and unrecoverable, so this one
-        // gets a guard that fails if the allocator ever hands out the same path twice.
+        // gets a guard that fails if the allocator ever hands out the same path twice,
+        // including when two sessions call it at the same instant.
         public static bool TryCreateFreshDirectory(
             string root, string day, string stamp, out string created)
         {
@@ -103,12 +113,10 @@ namespace NoSafeCircle.DoorPrototype.Diagnostics
                     : stamp + "-" + attempt.ToString(CultureInfo.InvariantCulture);
                 string candidate = Path.Combine(root, day, leaf);
 
+                bool claimed;
                 try
                 {
-                    if (Directory.Exists(candidate))
-                    {
-                        continue;
-                    }
+                    claimed = TryClaimDirectoryExclusively(candidate);
                 }
                 catch (Exception exception)
                 {
@@ -118,10 +126,15 @@ namespace NoSafeCircle.DoorPrototype.Diagnostics
                     return false;
                 }
 
-                if (TryCreateDirectory(candidate, out created))
+                if (claimed)
                 {
+                    created = candidate;
                     return true;
                 }
+
+                // Someone else's marker got there first for this exact candidate --
+                // never delete it and never fall back to the racy check; just try the
+                // next suffix.
             }
 
             Debug.LogError("Walkthrough capture found no free session directory after 100 attempts.");
@@ -129,18 +142,53 @@ namespace NoSafeCircle.DoorPrototype.Diagnostics
             return false;
         }
 
-        private static bool TryCreateDirectory(string path, out string created)
+        // Zero-byte; its existence is the exclusive claim on the directory, nothing
+        // reads its content. Left in place afterwards -- deleting it would only
+        // recreate the same race one level down, between the delete and a retry.
+        private const string DirectoryOwnershipMarkerFileName = ".walkthrough-session-owner";
+
+        /// <summary>
+        /// True when THIS call is the one that gets to use <paramref name="candidate"/>.
+        /// </summary>
+        /// <remarks>
+        /// Directory.CreateDirectory is idempotent -- it succeeds whether or not the
+        /// directory already existed -- so calling it here is safe for every racing
+        /// caller and decides nothing about ownership by itself. Ownership is decided
+        /// immediately afterwards by opening <see cref="DirectoryOwnershipMarkerFileName"/>
+        /// with <see cref="FileMode.CreateNew"/>: the framework throws
+        /// <see cref="IOException"/> when that file already exists, and the underlying
+        /// OS call (CreateFile with CREATE_NEW on NTFS and over SMB; open() with
+        /// O_CREAT|O_EXCL elsewhere) makes the existence check and the create a single
+        /// atomic operation, not two operations with a window between them. That is
+        /// the property Directory.Exists-then-CreateDirectory did not have.
+        /// <para>
+        /// NOT PROVEN: this assumes the filesystem honours CREATE_NEW's atomicity.
+        /// NTFS and SMB do; an exotic or non-conformant filesystem that allowed two
+        /// concurrent CreateNew calls to both "succeed" would silently reopen the same
+        /// race this method exists to close. Any OTHER failure creating the marker
+        /// (permissions, a full disk, a path too long) also throws IOException here
+        /// and is read the same as "already claimed" -- so a genuine I/O problem on
+        /// one candidate is not fatal, it just moves the caller to the next suffix,
+        /// and a real, non-transient problem still ends in the existing "found no free
+        /// session directory after 100 attempts" error rather than a silent abort.
+        /// </para>
+        /// </remarks>
+        private static bool TryClaimDirectoryExclusively(string candidate)
         {
+            Directory.CreateDirectory(candidate);
+
+            string marker = Path.Combine(candidate, DirectoryOwnershipMarkerFileName);
+
             try
             {
-                Directory.CreateDirectory(path);
-                created = path;
+                using (new FileStream(marker, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+                {
+                }
+
                 return true;
             }
-            catch (Exception exception)
+            catch (IOException)
             {
-                Debug.LogWarning("Walkthrough capture could not create '" + path + "': " + exception.Message);
-                created = null;
                 return false;
             }
         }
