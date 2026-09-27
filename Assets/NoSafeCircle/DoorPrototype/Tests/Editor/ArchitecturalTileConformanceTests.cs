@@ -31,7 +31,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         private const string FloorSpriteFolder = "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/floors";
         private const string WallSpriteFolder = "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls";
 
-        private struct ExpectedTile
+        public struct ExpectedTile
         {
             public readonly string DisplayName;
             public readonly string TilePath;
