@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-070",
-  "contract_revision": 4,
+  "contract_revision": 5,
   "contract_disposition": "active",
   "title": "Four-Wizard Directional Animation State Repair",
   "reconciliation_key": "wizard-animation-audit-repair",
@@ -68,7 +68,7 @@
     {
       "gate_id": "VAL-004",
       "reference": "Unity builder and focused automated validation",
-      "requirement": "On the exact candidate, run DoorPrototypeSceneBuilder.Build twice, require a clean compile, then pass the task's WizardArtIntegrationTests Edit Mode fixture and WizardAnimationPlayModeTests Play Mode fixture. Commit only builder-materialized outputs registered by this task."
+      "requirement": "On the exact candidate, require a clean compile, then pass the task's WizardArtIntegrationTests Edit Mode fixture and WizardAnimationPlayModeTests Play Mode fixture against the world the runtime builder produces. *** DO NOT RUN DoorPrototypeSceneBuilder.Build, AND DO NOT ACCEPT A RECORD THAT DID. *** Measured 2026-09-27: DoorPrototypeSceneBuilder.cs:20 sets ScenePath to Assets/Scenes/DoorPrototype.unity and :193 does EditorSceneManager.SaveScene(scene, ScenePath), and that path was DELETED at fe4c95ad - so running Build re-creates a deliberately deleted world as an untracked file and dirties the tree, which blocks every other role's merge and decompose. EditorBuildSettings ships Assets/Scenes/RuntimeWorld.unity and nothing else, so the old clause asked for a write nobody plays at a cost everybody pays. THE PROPERTY THIS GATE IS FOR IS RUNTIME BEHAVIOUR: this task repairs four-wizard directional animation STATE, which the spawners build at Play, so the Play Mode fixture against the built world is the evidence and the Edit Mode fixture supports it. WHERE AN EDITOR-BUILT SCENE IS GENUINELY NEEDED AS A TEST FIXTURE, the entry point is DoorPrototypeSceneBuilder.BuildInMemoryForTests() at :201/:208, which SAVES NOTHING - that is what the three existing Build_RunTwice_* tests already call, and an idempotency assertion written that way is about keeping the shared editor fixture order-independent, never about shipped behaviour, and must not be recorded as if it were. Commit only outputs this task registers; this task materializes no scene."
     },
     {
       "gate_id": "VAL-005",
@@ -142,6 +142,15 @@
         "previous_contract_revision": 3,
         "base_contract_sha256": "02a7a9c8d27b9140c2391ea8ad1eeb4f15e28b7abba37e0848af0c78a0fefc17",
         "revised_contract_sha256": "8da1b14905e8792fc5e6d50c3bd02bdb1e4a08d2ae776926a7ead21ebc0f8e87",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-27",
+        "reason": "VAL-004 required running DoorPrototypeSceneBuilder.Build twice. That method saves to Assets/Scenes/DoorPrototype.unity (cs:20 and :193), a path deleted at fe4c95ad, so the gate asked for a deleted world to be re-created as an untracked file - dirtying canonical, which blocks every other role - while EditorBuildSettings ships only RuntimeWorld.unity. Repointed at the runtime behaviour this task is actually for, and BuildInMemoryForTests named as the saves-nothing entry point the three existing Build_RunTwice tests already use. NSC-062 and NSC-068 are DELIVERED and are deliberately NOT revised: their evidence used the right in-memory tests, so only their wording is imprecise and un-delivering two sound records to fix wording is the wrong trade.",
+        "source_head": "e61ba879ae50d7cbc2b9ccd9f4423e9e2b2edd25",
+        "previous_contract_revision": 4,
+        "base_contract_sha256": "aa320637b9a8c7bfbca770641f6afe7c8bf2bf315ef687d55eb88a2fda2e3b7b",
+        "revised_contract_sha256": "174b6b23c343c93269da498b23d1fc5816d9f35da3333110da6165f262abd712",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
