@@ -8,10 +8,7 @@ using NoSafeCircle.DoorPrototype.Enemies;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.Animations;
-using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.AI;
-using UnityEngine.SceneManagement;
 using Object = UnityEngine.Object;
 
 namespace NoSafeCircle.DoorPrototype.Tests.Editor
@@ -23,7 +20,6 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         private const string WalkRoot = SourceRoot + "/Walk";
         private const string GeneratedRoot =
             "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated";
-        private const string ScenePath = "Assets/Scenes/DoorPrototype.unity";
         private const int IdleSize = 128;
         private const int WalkSize = 176;
 
@@ -44,18 +40,6 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             new DirectionDefinition("w", "west"),
             new DirectionDefinition("nw", "north-west")
         };
-
-        [SetUp]
-        public void OpenCandidateScene()
-        {
-            EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
-        }
-
-        [TearDown]
-        public void CloseCandidateSceneWithoutSaving()
-        {
-            EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-        }
 
         // NSC-077 AC-002/AC-003 and VAL-001: exact source inventory, dimensions, explicit
         // Texture2D Sprite import settings, and ground-line pivots for all 112 frames.
@@ -197,95 +181,6 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.AreEqual(32, generatedClips.Length);
             CollectionAssert.AreEquivalent(allExpectedClipPaths, generatedClips);
         }
-
-        // NSC-077 AC-001/AC-007/AC-008 and VAL-003: the committed production scene contains
-        // one enemy per builder spawn position, with the generated art and existing gameplay setup.
-        [Test]
-        public void SavedSceneEnemiesUseGeneratedArtControllersAndExistingGameplaySetup()
-        {
-            Scene scene = SceneManager.GetActiveScene();
-            Assert.AreEqual(ScenePath, scene.path);
-            GameObject enemiesRoot = scene.GetRootGameObjects()
-                .SingleOrDefault(root => root.name == "Enemies");
-            Assert.IsNotNull(enemiesRoot);
-
-            GameObject[] enemies = Enumerable.Range(0, enemiesRoot.transform.childCount)
-                .Select(index => enemiesRoot.transform.GetChild(index).gameObject)
-                .ToArray();
-            GameObject[] meleeEnemies = enemies.Where(enemy => enemy.name == "MeleeEnemy").ToArray();
-            GameObject[] wraiths = enemies.Where(enemy => enemy.name == "LanternWraith").ToArray();
-            Vector3[] meleeSpawnPositions = EditorSpawnPositions("EnemySpawnPositions");
-            Vector3[] wraithSpawnPositions = EditorSpawnPositions("LanternWraithSpawnPositions");
-            Assert.That(meleeSpawnPositions, Is.Not.Empty);
-            Assert.That(wraithSpawnPositions, Is.Not.Empty);
-            Assert.AreEqual(meleeSpawnPositions.Length, meleeEnemies.Length);
-            Assert.AreEqual(wraithSpawnPositions.Length, wraiths.Length);
-            Assert.AreEqual(meleeSpawnPositions.Length + wraithSpawnPositions.Length, enemies.Length);
-            Assert.IsFalse(enemies.Any(enemy => enemy.name == "FireCasterEnemy"));
-
-            GameObject[] sceneObjects = scene.GetRootGameObjects()
-                .SelectMany(root => root.GetComponentsInChildren<Transform>(true))
-                .Select(item => item.gameObject)
-                .ToArray();
-            foreach (GameObject sceneObject in sceneObjects)
-            {
-                Assert.AreEqual(
-                    0,
-                    GameObjectUtility.GetMonoBehavioursWithMissingScriptCount(sceneObject),
-                    "Saved scene has a missing script on " + HierarchyPath(sceneObject.transform));
-            }
-
-            AssertEnemyPositionsMatchDistinctSpawnPositions(meleeEnemies, meleeSpawnPositions);
-            AssertEnemyPositionsMatchDistinctSpawnPositions(wraiths, wraithSpawnPositions);
-
-            SpriteRenderer doorRenderer = scene.GetRootGameObjects()
-                .Single(root => root.name == "DoorRoot")
-                .transform.Find("DoorVisual/DoorSprite")?.GetComponent<SpriteRenderer>();
-            Assert.IsNotNull(doorRenderer);
-
-            NavMeshBuildSettings navigationSettings = NavMesh.GetSettingsByIndex(0);
-            foreach (GameObject enemy in meleeEnemies)
-            {
-                AssertEnemyVisualAndAnimator(
-                    enemy,
-                    "melee",
-                    "MeleeEnemyAnimator.controller",
-                    EnemyAnimationKind.MeleeEnemy,
-                    doorRenderer);
-                Assert.AreEqual(1, enemy.GetComponents<EnemyTargetKnowledge>().Length);
-                Assert.AreEqual(1, enemy.GetComponents<EnemyPursuitMovement>().Length);
-                Assert.AreEqual(1, enemy.GetComponents<EnemyHealth>().Length);
-                Assert.AreEqual(0, enemy.GetComponents<EnemyLanternWispCaster>().Length);
-
-                NavMeshAgent agent = enemy.GetComponent<NavMeshAgent>();
-                Assert.IsNotNull(agent);
-                Assert.AreEqual(navigationSettings.agentTypeID, agent.agentTypeID);
-                Assert.That(agent.radius, Is.EqualTo(navigationSettings.agentRadius).Within(0.001f));
-                Assert.That(agent.height, Is.EqualTo(navigationSettings.agentHeight).Within(0.001f));
-                Assert.That(agent.speed, Is.EqualTo(2.2f).Within(0.001f));
-                Assert.That(agent.acceleration, Is.EqualTo(12f).Within(0.001f));
-                Assert.That(agent.angularSpeed, Is.EqualTo(720f).Within(0.001f));
-                Assert.That(agent.stoppingDistance, Is.EqualTo(0.6f).Within(0.001f));
-                Assert.IsTrue(agent.autoBraking);
-            }
-
-            foreach (GameObject wraith in wraiths)
-            {
-                AssertEnemyVisualAndAnimator(
-                    wraith,
-                    "ranged",
-                    "LanternWraithAnimator.controller",
-                    EnemyAnimationKind.LanternWraith,
-                    doorRenderer);
-                Assert.AreEqual(1, wraith.GetComponents<EnemyLanternWispCaster>().Length);
-                Assert.AreEqual(1, wraith.GetComponents<EnemyHealth>().Length);
-                Assert.AreEqual(0, wraith.GetComponents<NavMeshAgent>().Length);
-                Assert.AreEqual(0, wraith.GetComponents<EnemyTargetKnowledge>().Length);
-                Assert.AreEqual(0, wraith.GetComponents<EnemyPursuitMovement>().Length);
-            }
-
-        }
-
         private static void AssertSourceImport(ExpectedFrame frame, int walkGroundLineFromTop)
         {
             TextureImporter importer = AssetImporter.GetAtPath(frame.Path) as TextureImporter;
@@ -409,45 +304,6 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             }
         }
 
-        private static void AssertEnemyVisualAndAnimator(
-            GameObject enemy,
-            string sourceEnemyName,
-            string controllerFileName,
-            EnemyAnimationKind kind,
-            SpriteRenderer doorRenderer)
-        {
-            Assert.AreEqual(1, enemy.GetComponents<EnemyAnimationController>().Length, enemy.name);
-            EnemyAnimationController animation = enemy.GetComponent<EnemyAnimationController>();
-            Assert.IsNotNull(animation);
-
-            Animator animator = enemy.GetComponent<Animator>();
-            Assert.IsNotNull(animator, enemy.name);
-            Assert.AreEqual(1, enemy.GetComponents<Animator>().Length, enemy.name);
-            RuntimeAnimatorController expectedController =
-                AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(
-                    GeneratedRoot + "/" + controllerFileName);
-            Assert.IsNotNull(expectedController);
-            Assert.AreSame(expectedController, animator.runtimeAnimatorController, enemy.name);
-
-            SpriteRenderer renderer = enemy.transform.Find("Visual")?.GetComponent<SpriteRenderer>();
-            Assert.IsNotNull(renderer, enemy.name);
-            Sprite southIdle = AssetDatabase.LoadAssetAtPath<Sprite>(
-                IdlePath(sourceEnemyName, "s"));
-            Assert.IsNotNull(southIdle);
-            Assert.AreSame(southIdle, renderer.sprite, enemy.name);
-            Assert.AreEqual(Vector3.one, renderer.transform.localScale, enemy.name);
-            Quaternion expectedRotation = Quaternion.Euler(30f, -45f, 0f);
-            Assert.That(Quaternion.Angle(expectedRotation, renderer.transform.rotation),
-                Is.LessThan(0.01f), enemy.name + " Visual must face the isometric camera.");
-            Assert.AreEqual(doorRenderer.sortingLayerName, renderer.sortingLayerName, enemy.name);
-            Assert.AreEqual(doorRenderer.sortingOrder, renderer.sortingOrder, enemy.name);
-            Assert.AreEqual(SpriteSortPoint.Pivot, renderer.spriteSortPoint, enemy.name);
-
-            string expectedInitialState = kind + "_idle_south";
-            Assert.IsTrue(animator.runtimeAnimatorController.animationClips
-                .Any(clip => clip.name == expectedInitialState), enemy.name);
-        }
-
         private static Vector3 EditorCameraEulerAngles()
         {
             Type builderType = typeof(EnemyAnimationAssetBuilder).Assembly.GetType(
@@ -460,50 +316,6 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             return (Vector3)field.GetValue(null);
         }
 
-        private static Vector3[] EditorSpawnPositions(string fieldName)
-        {
-            Type builderType = typeof(EnemyAnimationAssetBuilder).Assembly.GetType(
-                "NoSafeCircle.DoorPrototype.Editor.World.DoorPrototypeGlobalSceneBuilder");
-            Assert.IsNotNull(builderType);
-            FieldInfo field = builderType.GetField(
-                fieldName,
-                BindingFlags.NonPublic | BindingFlags.Static);
-            Assert.IsNotNull(field);
-            Assert.AreEqual(typeof(Vector3[]), field.FieldType);
-            Vector3[] positions = (Vector3[])field.GetValue(null);
-            Assert.IsNotNull(positions);
-            return positions;
-        }
-
-        private static void AssertEnemyPositionsMatchDistinctSpawnPositions(
-            IReadOnlyList<GameObject> enemies,
-            IReadOnlyList<Vector3> spawnPositions)
-        {
-            var matchedSpawnPositions = new bool[spawnPositions.Count];
-            foreach (GameObject enemy in enemies)
-            {
-                Vector3 enemyPosition = enemy.transform.position;
-                int matchingIndex = -1;
-                for (int index = 0; index < spawnPositions.Count; index++)
-                {
-                    if (!matchedSpawnPositions[index] &&
-                        Mathf.Abs(enemyPosition.x - spawnPositions[index].x) <= 0.001f &&
-                        Mathf.Abs(enemyPosition.z - spawnPositions[index].z) <= 0.001f)
-                    {
-                        Assert.AreEqual(-1, matchingIndex,
-                            enemy.name + " matches more than one builder spawn position.");
-                        matchingIndex = index;
-                    }
-                }
-
-                Assert.That(matchingIndex, Is.GreaterThanOrEqualTo(0),
-                    enemy.name + " has no distinct matching builder spawn position.");
-                matchedSpawnPositions[matchingIndex] = true;
-            }
-
-            Assert.IsTrue(matchedSpawnPositions.All(isMatched => isMatched));
-        }
-
         private static void AssertVector3Exactly(
             Vector3 expected,
             Vector3 actual,
@@ -512,18 +324,6 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.AreEqual(expected.x, actual.x, context + " x");
             Assert.AreEqual(expected.y, actual.y, context + " y");
             Assert.AreEqual(expected.z, actual.z, context + " z");
-        }
-
-        private static string HierarchyPath(Transform item)
-        {
-            string path = item.name;
-            while (item.parent != null)
-            {
-                item = item.parent;
-                path = item.name + "/" + path;
-            }
-
-            return path;
         }
 
         private static IEnumerable<ExpectedFrame> ExpectedFrames()

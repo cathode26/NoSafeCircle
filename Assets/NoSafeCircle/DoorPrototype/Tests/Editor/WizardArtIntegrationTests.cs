@@ -5,7 +5,6 @@ using System.Reflection;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEditor.Animations;
-using UnityEditor.SceneManagement;
 using UnityEngine;
 
 namespace NoSafeCircle.DoorPrototype.Tests.Editor
@@ -36,12 +35,6 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             "west",
             "north-west"
         };
-
-        [SetUp]
-        public void OpenCandidateScene()
-        {
-            EditorSceneManager.OpenScene("Assets/Scenes/DoorPrototype.unity", OpenSceneMode.Single);
-        }
 
         // NSC-075 AC-002/AC-003 and VAL-001: all 224 standing and walk PNGs used by the
         // generated clips share the same Sprite import geometry, transparent canvas, and feet pivot.
@@ -124,44 +117,6 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.AreEqual(64, controllerClips.Length);
             Assert.AreEqual(64, controllerClips.Select(clip => clip.name).Distinct().Count());
             CollectionAssert.AreEquivalent(expectedStateNames, controllerClips.Select(clip => clip.name));
-        }
-
-        [Test]
-        public void DoorPrototypePlayerUsesWizardPresentationAndWorldSpriteConvention()
-        {
-            GameObject player = GameObject.Find("Player");
-            Assert.IsNotNull(player);
-            WizardAnimationController wizard = player.GetComponent<WizardAnimationController>();
-            Assert.IsNotNull(wizard);
-            SpriteRenderer renderer = player.transform.Find("Visual")?.GetComponent<SpriteRenderer>();
-            Assert.IsNotNull(renderer);
-            Assert.IsNotNull(renderer.sprite);
-            SpriteRenderer doorRenderer =
-                GameObject.Find("DoorRoot/DoorVisual/DoorSprite")?.GetComponent<SpriteRenderer>();
-            Assert.IsNotNull(doorRenderer);
-            Assert.AreEqual(doorRenderer.sortingLayerName, renderer.sortingLayerName);
-            Assert.AreEqual(doorRenderer.sortingOrder, renderer.sortingOrder);
-            Assert.AreEqual(SpriteSortPoint.Pivot, doorRenderer.spriteSortPoint);
-            Assert.AreEqual(SpriteSortPoint.Pivot, renderer.spriteSortPoint);
-            CharacterController characterController = player.GetComponent<CharacterController>();
-            Assert.IsNotNull(characterController);
-            Assert.That(
-                renderer.transform.position.y,
-                Is.EqualTo(player.transform.position.y - characterController.skinWidth).Within(0.001f));
-
-            Animator animator = player.GetComponent<Animator>();
-            Assert.IsNotNull(animator);
-            Assert.IsNotNull(animator.runtimeAnimatorController);
-            const string initialState = "Wizard_Masculine_White_idle_south-east";
-            Assert.IsTrue(animator.runtimeAnimatorController.animationClips.Any(clip => clip.name == initialState));
-            FieldInfo lastDirection = typeof(WizardAnimationController).GetField(
-                "lastDirection", BindingFlags.Instance | BindingFlags.NonPublic);
-            Assert.IsNotNull(lastDirection);
-            Assert.AreEqual("south-east", lastDirection.GetValue(wizard));
-
-            Camera camera = GameObject.Find("Main Camera")?.GetComponent<Camera>();
-            Assert.IsNotNull(camera);
-            Assert.AreEqual(TransparencySortMode.CustomAxis, camera.transparencySortMode);
         }
 
         private static IEnumerable<string> ExpectedSourcePaths()

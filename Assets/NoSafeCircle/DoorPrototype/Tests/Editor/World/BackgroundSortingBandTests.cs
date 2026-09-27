@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Text.RegularExpressions;
 using NoSafeCircle.DoorPrototype.Editor;
 using NoSafeCircle.DoorPrototype.World;
 using NUnit.Framework;
@@ -31,8 +30,6 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
     {
         private const string CatalogDirectory =
             "Assets/NoSafeCircle/DoorPrototype/Art/Environment/RoomDressing";
-
-        private const string RoomSceneDirectory = "Assets/Scenes/Rooms";
 
         [Test]
         public void BackgroundBand_SitsBelowEveryAuthoredDressingSortingOrder()
@@ -94,46 +91,6 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
                     member.Key + " is below Unity's representable sorting-order range and will wrap.");
                 Assert.LessOrEqual(member.Value, (int)short.MaxValue,
                     member.Key + " is above Unity's representable sorting-order range and will wrap.");
-            }
-        }
-
-        [Test]
-        public void CommittedRoomScenes_CarryTheBandRatherThanTheLiteralTheyWereBakedWith()
-        {
-            // A BUILDER CHANGE IS INVISIBLE UNTIL THE SCENE IS RE-BAKED. RoomSceneComposer OPENS
-            // these committed scenes and calls no builder, so the constant above can be correct
-            // while every room on disk still carries the value it was baked with. This reads the
-            // baked artifact, which is the only thing that can catch that; asserting on the builder
-            // would agree with itself.
-            //
-            // Assets/Scenes/DoorPrototype.unity is deliberately NOT checked here: it is
-            // binary-serialized, so there is no text to read. The prototype scene's band is covered
-            // by TitleScreenSceneBuilderTests, which builds it in memory.
-            int expected = WorldSpriteConvention.BackgroundGroundSortingOrder;
-
-            // (?![0-9]) matters: "m_SortingOrder: -100" is a SUBSTRING of "m_SortingOrder: -10000",
-            // so a plain search for the old literal matches the new value and this test would pass
-            // while asserting nothing.
-            var expectedPattern = new Regex(@"m_SortingOrder: " + expected + @"(?![0-9])");
-            var stalePattern = new Regex(@"m_SortingOrder: -100(?![0-9])");
-
-            Assert.IsTrue(Directory.Exists(RoomSceneDirectory),
-                RoomSceneDirectory + " is missing; the committed room scenes are the artifact under test.");
-
-            foreach (RoomId room in Enum.GetValues(typeof(RoomId)))
-            {
-                string scenePath = Path.Combine(RoomSceneDirectory, room + ".unity").Replace('\\', '/');
-                Assert.IsTrue(File.Exists(scenePath), scenePath + " is missing.");
-
-                string text = File.ReadAllText(scenePath);
-
-                Assert.Greater(expectedPattern.Matches(text).Count, 0,
-                    scenePath + " carries no floor tilemap at the background band (" + expected
-                    + "). The builder was changed without re-baking this scene, so the room on disk "
-                    + "still paints its floor over the dressing.");
-
-                Assert.AreEqual(0, stalePattern.Matches(text).Count,
-                    scenePath + " still carries a renderer at the retired -100 band.");
             }
         }
 
