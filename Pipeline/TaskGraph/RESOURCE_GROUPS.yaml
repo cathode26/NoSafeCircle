@@ -309,13 +309,9 @@
       ]
     },
     {
-      "reconciliation_keys": [
-        "bone-archive-navigation-validation"
-      ],
+      "reconciliation_keys": [],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs",
-      "work_ids": [
-        "NSC-071"
-      ]
+      "work_ids": []
     },
     {
       "reconciliation_keys": [

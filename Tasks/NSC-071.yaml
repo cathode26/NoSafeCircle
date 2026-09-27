@@ -16,7 +16,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 6,
+  "contract_revision": 7,
   "decomposition_reason": "One focused Play Mode test file owns the combined real-room navigation and enemy-movement proof transferred from NSC-025 and NSC-014.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -25,9 +25,7 @@
     "NSC-092"
   ],
   "downstream_integration_obligations": [],
-  "exclusive_resources": [
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs"
-  ],
+  "exclusive_resources": [],
   "execution_reason": "One agent can add the focused Play Mode validation after the authored Bone Archive, shared navigation configuration, and enemy pursuit/search movement are delivered.",
   "execution_scope": "single_agent",
   "gdd_evidence": [
@@ -38,7 +36,7 @@
   ],
   "id": "NSC-071",
   "kind": "implementation",
-  "notes": "This follow-up validates committed room geometry with the delivered navigation agent and enemy movement; it does not edit the room scene, its builder, or its layout data. The one focused test closes NSC-025 INT-001 and NSC-014 INT-001 without treating synthetic geometry as equivalent proof. REVISION 5, 2026-09-22 - the design review this task never received. It and NSC-072 both fell out of the 2026-09-14 GER cohort and were reviewed by neither the released nor the active list for eight days. Two defects, both of them undefined sets, and both turned out to be citable rather than genuinely open: \"every intended lane\" and \"an impassable APPROVED lane\" named no authority, while BoneArchiveLayout and the committed Edit Mode test Layout_PreservesLaneWidthsAndBypasses enumerate exactly five lanes between them. Naming that set beats inventing one, because a test author faced with an undefined set invents a set and the gate then passes on whatever was invented. THE MORE IMPORTANT CHANGE IS WHAT THE GATE PROVES. With agentRadius 0.5 every lane here clears the agent arithmetically, so a width-comparing gate can never fail and the Edit Mode test already compares widths; the Play Mode gate now has to assert PathComplete on the baked surface, which is the only failure this task can actually detect. Pre-checked before revising: NSC-071 is not_delivered with no selected record and no committed delivery, baseline or revalidation evidence, so no revision here un-delivers anything. Its dependencies NSC-089 and NSC-092 are both conformant; NSC-045 is not, so this task waits on the Bone Archive blockout rather than on anything in this contract. NSC-025 and NSC-014 were verified to be live active tasks in conformant state, not superseded ids, so the references naming them stand. The em dash and section marks in the reference field are correct UTF-8 and were NOT repaired - they render as replacement characters in a Windows console, which is a reader artifact and not damage to the contract. REVISION 6, 2026-09-22, answering a \"revise\" verdict from the post-commit contract check on revision 5 - job codex-closure-NSC-071-rev5-20260922-2119, report at C:\\\\nscrev\\\\codex-jobs\\\\, run through the repaired run_closure_review.sh, which resolved Codex v0.155.0-alpha.9.2. It was the first live contract review through that script since its 2026-09-20 repair, and it returned three findings that were all real. Each was verified here at source before being acted on. TWO OF THEM ARE THE SAME MISTAKE SEEN FROM DIFFERENT SIDES. Revision 5 took the lane set from BoneArchiveLayout and the Edit Mode test on main, which is a real authority that exists and is checkable, and was pleased to have found it instead of inventing one. It is the WRONG authority: NSC-071 runs after NSC-045 rewrites this room, so the geometry that governs is the dependency's, and NSC-045 INT-002 had already named the six lanes this task must validate. Proving the haystack exists does not establish it is the right haystack. And revision 5's gate asserted PathComplete between the ends of each lane, in a room whose own acceptance criteria REQUIRE parallel independent routes - so a severed pinch would have routed around Shelf C and passed. A gate that cannot fail was the defect revision 5 was written to fix, and it reintroduced it one level up, in the mechanism instead of the measurement. DOWNSTREAM DEBT, recorded and deliberately not acted on: the check notes that NSC-025 INT-001 and NSC-089 INT-001 still carry the \"every intended lane\" wording. Both tasks are conformant, and revising a delivered task's obligation text risks its evidence, so that is a separate decision with a cost rather than a tidy-up to fold in here.",
+  "notes": "This follow-up validates committed room geometry with the delivered navigation agent and enemy movement; it does not edit the room scene, its builder, or its layout data. The one focused test closes NSC-025 INT-001 and NSC-014 INT-001 without treating synthetic geometry as equivalent proof. REVISION 5, 2026-09-22 - the design review this task never received. It and NSC-072 both fell out of the 2026-09-14 GER cohort and were reviewed by neither the released nor the active list for eight days. Two defects, both of them undefined sets, and both turned out to be citable rather than genuinely open: \"every intended lane\" and \"an impassable APPROVED lane\" named no authority, while BoneArchiveLayout and the committed Edit Mode test Layout_PreservesLaneWidthsAndBypasses enumerate exactly five lanes between them. Naming that set beats inventing one, because a test author faced with an undefined set invents a set and the gate then passes on whatever was invented. THE MORE IMPORTANT CHANGE IS WHAT THE GATE PROVES. With agentRadius 0.5 every lane here clears the agent arithmetically, so a width-comparing gate can never fail and the Edit Mode test already compares widths; the Play Mode gate now has to assert PathComplete on the baked surface, which is the only failure this task can actually detect. Pre-checked before revising: NSC-071 is not_delivered with no selected record and no committed delivery, baseline or revalidation evidence, so no revision here un-delivers anything. Its dependencies NSC-089 and NSC-092 are both conformant; NSC-045 is not, so this task waits on the Bone Archive blockout rather than on anything in this contract. NSC-025 and NSC-014 were verified to be live active tasks in conformant state, not superseded ids, so the references naming them stand. The em dash and section marks in the reference field are correct UTF-8 and were NOT repaired - they render as replacement characters in a Windows console, which is a reader artifact and not damage to the contract. REVISION 6, 2026-09-22, answering a \"revise\" verdict from the post-commit contract check on revision 5 - job codex-closure-NSC-071-rev5-20260922-2119, report at C:\\\\nscrev\\\\codex-jobs\\\\, run through the repaired run_closure_review.sh, which resolved Codex v0.155.0-alpha.9.2. It was the first live contract review through that script since its 2026-09-20 repair, and it returned three findings that were all real. Each was verified here at source before being acted on. TWO OF THEM ARE THE SAME MISTAKE SEEN FROM DIFFERENT SIDES. Revision 5 took the lane set from BoneArchiveLayout and the Edit Mode test on main, which is a real authority that exists and is checkable, and was pleased to have found it instead of inventing one. It is the WRONG authority: NSC-071 runs after NSC-045 rewrites this room, so the geometry that governs is the dependency's, and NSC-045 INT-002 had already named the six lanes this task must validate. Proving the haystack exists does not establish it is the right haystack. And revision 5's gate asserted PathComplete between the ends of each lane, in a room whose own acceptance criteria REQUIRE parallel independent routes - so a severed pinch would have routed around Shelf C and passed. A gate that cannot fail was the defect revision 5 was written to fix, and it reintroduced it one level up, in the mechanism instead of the measurement. DOWNSTREAM DEBT, recorded and deliberately not acted on: the check notes that NSC-025 INT-001 and NSC-089 INT-001 still carry the \"every intended lane\" wording. Both tasks are conformant, and revising a delivered task's obligation text risks its evidence, so that is a separate decision with a cost rather than a tidy-up to fold in here. *** REVISION 7, 2026-09-27: THE VALIDATION POLICY ENTRY IS REMOVED AND THE DEAD RESOURCE IS DROPPED - AND A REBIND WOULD HAVE BEEN A LIE, WHICH IS THE POINT WORTH KEEPING. *** The entry bound PlayMode to BoneArchiveNavigationPlayModeTests, DELETED at fe4c95ad, which was also the ONE test file this task owns. VAL-001 DOES name two classes that are alive on main - DoorPassabilityConnectionPlayModeTests and DoorEnemyPassabilityPlayModeTests - AND THEY ARE NOT THIS GATE'S FIXTURE. It cites them as a PATTERN TO FOLLOW (\"this is the status [they] already assert\", \"as the two door tests do\"), and binding the policy to them would claim this task is validated by tests that prove DOOR passability rather than Bone Archive's six lanes. NAMED IN A GATE IS NOT NOMINATED BY IT, and that distinction is exactly what my own guarantee - a filter must be reachable from the task's own gates - has to mean in practice. AND THE GATE IS UNSATISFIABLE FOR A SECOND, DEEPER REASON: VAL-001 requires loading Assets/Scenes/Rooms/BoneArchive.unity - \"the committed Bone Archive scene asset, not a builder-produced in-memory scene\" - and that scene was DELETED at fe4c95ad too. REPAIRING THAT IS A COMPLETION_GATES CHANGE, WHICH IS INSIDE THE DELIVERED SCOPE AND WOULD DROP THIS TASK TO needs_replan. It is therefore deliberately NOT done here, and is the open item: this gate cannot be satisfied until someone decides what replaces a committed room scene in a world that is now built at runtime. WHY THIS IS SAFE ON A DELIVERED TASK, AND WHY I PREVIOUSLY REFUSED IT: I had concluded that ANY revision un-delivers, from current_conformance.py's needs_replan/contract_changed message. THAT WAS WRONG AND THE FUNCTION'S OWN DOCSTRING SAYS SO IN ITS FIRST LINE - _delivered_scope_unchanged: \"A revision or provenance edit does not undo an approved delivery. A changed acceptance criterion or completion gate still needs a new decision.\" It compares exactly five fields - kind, type, execution_scope, acceptance_criteria, completion_gates - and :485's ancestry test short-circuits the staleness branch, which CLAUDE.md already documents. I read the condition and never read the semantics, with the file open. Corrected by the Pipeline Maintainer, which also measured 13 tasks currently conformant AFTER a post-delivery revision against a control of 48 whose revisions match. This revision touches notes, provenance and exclusive_resources ONLY - none of the five - so the approved delivery stands and earns at most one more advisory.",
   "parent": "NSC-029",
   "provenance": {
     "accepted_contract_transfers": [
@@ -55,29 +53,38 @@
     ],
     "approved_at_utc_date": "2026-09-12",
     "approved_by": "Vincent",
-    "origin": "room_construction_validation_split",
-    "preserved_gate_id": "VAL-001",
-    "source_task_id": "NSC-045",
     "contract_followups": [
       {
-        "date": "2026-09-22",
-        "reason": "Name the five lanes BoneArchiveLayout defines instead of 'every intended lane', and make the gate prove a baked PathComplete rather than a width every lane already passes",
-        "source_head": "da943424a12959d037c1b7a5f4ea6ed85340535f",
-        "previous_contract_revision": 4,
         "base_contract_sha256": "dbaba464dfc8f7cacb93f8144c4f3af2dd3cf45a39a2c12f13f710b3c8304d41",
+        "date": "2026-09-22",
+        "previous_contract_revision": 4,
+        "reason": "Name the five lanes BoneArchiveLayout defines instead of 'every intended lane', and make the gate prove a baked PathComplete rather than a width every lane already passes",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)",
         "revised_contract_sha256": "10079b62e9d6fff796b4d47d12a826651f7e4788b05cbab9062bf6c7fb9166e6",
-        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+        "source_head": "da943424a12959d037c1b7a5f4ea6ed85340535f"
       },
       {
-        "date": "2026-09-22",
-        "reason": "Contract check returned revise: the lane set must come from NSC-045 INT-002 rather than the pre-NSC-045 geometry on main, and PathComplete between a lane's ends cannot detect a severed pinch in a room designed with parallel routes",
-        "source_head": "12d3f1e74a958f140f850b793599476905ab68e9",
-        "previous_contract_revision": 5,
         "base_contract_sha256": "30ff980a7073149ce7fb1e92a5f0db0c6c9100949d8cca367f0cfd8280279001",
+        "date": "2026-09-22",
+        "previous_contract_revision": 5,
+        "reason": "Contract check returned revise: the lane set must come from NSC-045 INT-002 rather than the pre-NSC-045 geometry on main, and PathComplete between a lane's ends cannot detect a severed pinch in a room designed with parallel routes",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)",
         "revised_contract_sha256": "cd87350ca27071fbb2fda6c8e4aa0c62097b2c0aba1439214a9626d5bd2f4b0d",
+        "source_head": "12d3f1e74a958f140f850b793599476905ab68e9"
+      },
+      {
+        "date": "2026-09-27",
+        "reason": "Rev 7 removes the validation policy entry and drops the dead resource, and a rebind would have been a lie. The entry bound PlayMode to BoneArchiveNavigationPlayModeTests, deleted at fe4c95ad, which was also the one test file this task owns. VAL-001 does name two classes alive on main, DoorPassabilityConnectionPlayModeTests and DoorEnemyPassabilityPlayModeTests, AND THEY ARE NOT THIS GATE'S FIXTURE - it cites them as a pattern to follow, and binding the policy to them would claim this task is validated by tests that prove door passability rather than Bone Archive's six lanes. Named in a gate is not nominated by it. The gate is also unsatisfiable for a deeper reason: VAL-001 requires loading the committed Assets/Scenes/Rooms/BoneArchive.unity, deleted at fe4c95ad, and repairing that is a completion_gates change inside the delivered scope which would drop this task to needs_replan - deliberately not done here.",
+        "source_head": "57b97b5430e706ebd092b621e56f24845caca182",
+        "previous_contract_revision": 6,
+        "base_contract_sha256": "c0121f1556823ed8be6c5f44f3f692dd2f24e653ebc033890c25fb39928381f6",
+        "revised_contract_sha256": "69dd6cf6331c64d4a7e1c1f17b8e6bb694fab37c09eb6a6ec8808d6f3f04680e",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
-    ]
+    ],
+    "origin": "room_construction_validation_split",
+    "preserved_gate_id": "VAL-001",
+    "source_task_id": "NSC-045"
   },
   "reconciliation_key": "bone-archive-navigation-validation",
   "repository_evidence_at_bootstrap": [],
