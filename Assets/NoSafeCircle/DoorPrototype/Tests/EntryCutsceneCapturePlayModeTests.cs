@@ -81,7 +81,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             var manifest = new StringBuilder();
             manifest.AppendLine("Unity " + Application.unityVersion);
             manifest.AppendLine("Revision " + Environment.GetEnvironmentVariable("NSC_CAPTURE_REVISION"));
-            manifest.AppendLine("Scene RuntimeWorld.unity; selected wizard option 0");
+            manifest.AppendLine("Scene RuntimeWorld.unity; selected wizard option 2 (Feminine White)");
             manifest.AppendLine("Frames are 1920x1080 manual Camera.Render plus UI canvas composition.");
 
             Capture(output, "00-title", gameCamera, canvas, manifest, entry, chase, startDoor);
@@ -91,7 +91,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Capture(output, "01-selection", gameCamera, canvas, manifest, entry, chase,
                 startDoor);
 
-            selection.SelectOption(0);
+            selection.SelectOption(2);
             Assert.IsTrue(selection.IsConfirmationAvailable);
             selection.ConfirmSelection();
             yield return null;
@@ -111,10 +111,27 @@ namespace NoSafeCircle.DoorPrototype.Tests
             yield return WaitForActiveObject("TitleEntryFireball_1", VisualWaitSeconds);
             Capture(output, "03-second-fireball-miss", gameCamera, canvas, manifest,
                 entry, chase, startDoor);
+            yield return WaitForPhase(() => chase.IsEntryWizardTurningToShoot,
+                "wizard turning to shoot", VisualWaitSeconds);
+            WizardAnimationController firingWizard =
+                chase.EntryWizardTransform.GetComponent<WizardAnimationController>();
+            Assert.AreEqual("south-west", firingWizard.LastDirection,
+                "The northbound wizard must turn to face the pursuer before firing.");
+            StringAssert.EndsWith("_idle_south-west", firingWizard.CurrentState);
+            Assert.AreEqual(2, chase.FiredEntryShotCount);
+            Capture(output, "04-wizard-turn-to-fire", gameCamera, canvas, manifest,
+                entry, chase, startDoor);
             yield return WaitForActiveObject("TitleEntryFireball_2", VisualWaitSeconds);
-            Capture(output, "04-third-fireball-hit-flight", gameCamera, canvas, manifest,
+            Assert.IsTrue(chase.IsEntryWizardTurningToShoot,
+                "The final fireball must launch while the wizard holds the turned pose.");
+            Capture(output, "04a-third-fireball-hit-flight", gameCamera, canvas, manifest,
                 entry, chase, startDoor);
             yield return WaitForActiveObject("TitleEntryFireballImpact", VisualWaitSeconds);
+            Assert.IsTrue(chase.IsEntryPursuerStunned,
+                "The fireball hit must freeze the pursuer before the run resumes.");
+            chase.AutomaticTick = false;
+            Vector3 stunnedPursuerPosition = chase.EntryPursuerTransform.position;
+            Vector3 stunnedWizardPosition = chase.EntryWizardTransform.position;
             Assert.IsTrue(startDoor.IsOpen,
                 "The door sealed before the wizard's fireball hit was shown.");
             Assert.IsTrue(doorVisual.gameObject.activeInHierarchy,
@@ -131,6 +148,15 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsFalse(doorObstacle.enabled);
             Capture(output, "05-fireball-hit-impact", gameCamera, canvas, manifest,
                 entry, chase, startDoor);
+            chase.Tick(0.15f);
+            Assert.IsTrue(chase.IsEntryPursuerStunned);
+            Assert.Less(Vector3.Distance(stunnedPursuerPosition,
+                chase.EntryPursuerTransform.position), 0.01f);
+            Assert.Less(Vector3.Distance(stunnedWizardPosition,
+                chase.EntryWizardTransform.position), 0.01f);
+            Capture(output, "05a-pursuer-stunned", gameCamera, canvas, manifest,
+                entry, chase, startDoor);
+            chase.AutomaticTick = true;
 
             float deadline = Time.realtimeSinceStartup + MaximumEntrySeconds;
             while (startDoor.IsOpen && Time.realtimeSinceStartup < deadline)
@@ -192,6 +218,16 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 yield return null;
             Assert.IsNotNull(GameObject.Find(name),
                 "The cutscene did not present " + name + " before the timeout.");
+        }
+
+        private static IEnumerator WaitForPhase(Func<bool> phase,
+            string description, float maximumSeconds)
+        {
+            float deadline = Time.realtimeSinceStartup + maximumSeconds;
+            while (!phase() && Time.realtimeSinceStartup < deadline)
+                yield return null;
+            Assert.IsTrue(phase(),
+                "The cutscene did not present " + description + " before the timeout.");
         }
 
         private static SpriteRenderer FindEntranceWallSprite()

@@ -58,13 +58,20 @@ namespace NoSafeCircle.DoorPrototype
             public float DoorCloseTriggerZ;
             public bool MovesNorth;
             public float Duration;
+            public float TotalDuration;
             public float DoorCrossingTime;
+            public float FinalTurnStartsAt;
+            public float HitCastAt;
+            public float HitImpactAt;
+            public float ResumeAt;
             public float Elapsed;
             public int NextShot;
             public bool DoorwayNotified;
             public bool EndingNotified;
             public GameObject Wizard;
             public SpriteRenderer WizardRenderer;
+            public WizardAnimationController WizardAnimation;
+            public int WizardPose;
             public GameObject Brute;
             public SpriteRenderer BruteRenderer;
             public EnemyAnimationController BruteAnimation;
@@ -84,9 +91,12 @@ namespace NoSafeCircle.DoorPrototype
         private const float LegacyBruteStopZ = 0.75f;
         private const float EntryShotFlightSeconds = 0.28f;
         private const float EntryImpactSeconds = 0.28f;
-        // Space shots across the approach to the door, so all three remain visible
-        // before it seals regardless of how far the wizard keeps running afterward.
-        private static readonly float[] EntryShotProgress = { 0.18f, 0.45f, 0.72f };
+        private const float EntryTurnSeconds = 0.5f;
+        private const float EntryStunSeconds = 0.5f;
+        private const float EntryHitShotLeadSeconds = EntryTurnSeconds - EntryShotFlightSeconds;
+        // The third shot starts an early turn, leaving the Brute room to visibly
+        // stop on impact before it reaches its scripted end position.
+        private static readonly float[] EntryShotProgress = { 0.18f, 0.45f, 0.60f };
 
         [Header("Title and art")]
         [SerializeField] private TitleScreenController titleScreen;
@@ -141,6 +151,10 @@ namespace NoSafeCircle.DoorPrototype
         public int FiredEntryShotCount { get; private set; }
         public int EntryImpactCount { get; private set; }
         public bool IsEntryChaseRunning => entry != null;
+        public bool IsEntryWizardTurningToShoot => entry != null &&
+            entry.Elapsed >= entry.FinalTurnStartsAt && entry.Elapsed < entry.HitImpactAt;
+        public bool IsEntryPursuerStunned => entry != null &&
+            entry.Elapsed >= entry.HitImpactAt && entry.Elapsed < entry.ResumeAt;
         public Transform EntryWizardTransform => entry != null && entry.Wizard != null
             ? entry.Wizard.transform : null;
         public Transform EntryPursuerTransform => entry != null && entry.Brute != null
@@ -286,7 +300,7 @@ namespace NoSafeCircle.DoorPrototype
         /// <summary>
         /// Starts one cosmetic entrance after the selected wizard has left the menus. The caller
         /// owns the real door, camera follow, and gameplay handoff; this component only animates
-        /// the chosen wizard, a Brute behind them, and three harmless backward fireballs.
+        /// the chosen wizard, a Brute behind them, two misses, and one cosmetic hit.
         /// </summary>
         public bool BeginEntryChase(ConfirmedWizardSelection selection,
             Vector3 entryStart, Vector3 gameplayDestination)
@@ -344,13 +358,19 @@ namespace NoSafeCircle.DoorPrototype
             sequence.DoorCrossingTime = sequence.Duration *
                 ((doorCloseTriggerZ - entryStart.z) /
                  (gameplayDestination.z - entryStart.z));
+            sequence.FinalTurnStartsAt = sequence.DoorCrossingTime *
+                EntryShotProgress[EntryShotProgress.Length - 1];
+            sequence.HitCastAt = sequence.FinalTurnStartsAt + EntryHitShotLeadSeconds;
+            sequence.HitImpactAt = sequence.FinalTurnStartsAt + EntryTurnSeconds;
+            sequence.ResumeAt = sequence.HitImpactAt + EntryStunSeconds;
+            sequence.TotalDuration = sequence.Duration + EntryTurnSeconds + EntryStunSeconds;
             sequence.Wizard = CreateActor("TitleEntryWizard_" + WizardName(choiceIndex),
                 wizardAnimatorController, entryStart, out sequence.WizardRenderer);
             Transform wizardVisual = sequence.Wizard.transform.Find("Visual");
             wizardVisual.localRotation = Quaternion.identity;
             wizardVisual.localScale = new Vector3(wizardVisualScale, wizardVisualScale, 1f);
-            sequence.Wizard.AddComponent<WizardAnimationController>()
-                .ApplyPresentation(selection.Presentation, selection.Skin);
+            sequence.WizardAnimation = sequence.Wizard.AddComponent<WizardAnimationController>();
+            sequence.WizardAnimation.ApplyPresentation(selection.Presentation, selection.Skin);
 
             sequence.Brute = CreateActor("TitleEntryPursuer_DungeonBrute",
                 meleeAnimatorController, bruteStart, out sequence.BruteRenderer);
@@ -655,20 +675,53 @@ namespace NoSafeCircle.DoorPrototype
         {
             EntrySequence sequence = entry;
             float previous = sequence.Elapsed;
-            sequence.Elapsed = Mathf.Min(sequence.Duration, previous + deltaTime);
+            sequence.Elapsed = Mathf.Min(sequence.TotalDuration, previous + deltaTime);
             float elapsed = sequence.Elapsed;
+            Vector3 forward = (sequence.Destination - sequence.Start).normalized;
+            float wizardTravel = elapsed < sequence.FinalTurnStartsAt
+                ? elapsed
+                : elapsed < sequence.ResumeAt
+                    ? sequence.FinalTurnStartsAt
+                    : elapsed - EntryTurnSeconds - EntryStunSeconds;
+            float bruteTravel = elapsed < sequence.HitImpactAt
+                ? elapsed
+                : elapsed < sequence.ResumeAt
+                    ? sequence.HitImpactAt
+                    : elapsed - EntryStunSeconds;
 
             sequence.Wizard.transform.position = Vector3.Lerp(
-                sequence.Start, sequence.Destination, elapsed / sequence.Duration);
+                sequence.Start, sequence.Destination, wizardTravel / sequence.Duration);
             sequence.Brute.transform.position = Vector3.MoveTowards(
-                sequence.BruteStart, sequence.BruteStop, BruteEntrySpeed * elapsed);
+                sequence.BruteStart, sequence.BruteStop, BruteEntrySpeed * bruteTravel);
             sequence.BruteAnimation.Tick(elapsed - previous);
+            bool stunned = elapsed >= sequence.HitImpactAt && elapsed < sequence.ResumeAt;
+            if (stunned && previous < sequence.HitImpactAt)
+                sequence.BruteAnimation.Tick(0f);
+
+            int desiredPose = elapsed < sequence.FinalTurnStartsAt ? 0
+                : elapsed < sequence.HitImpactAt ? 1
+                : elapsed < sequence.ResumeAt ? 2 : 3;
+            if (sequence.WizardPose != desiredPose)
+            {
+                sequence.WizardPose = desiredPose;
+                if (desiredPose == 1)
+                    sequence.WizardAnimation.FaceForCutscene(-forward);
+                else if (desiredPose == 2)
+                    sequence.WizardAnimation.FaceForCutscene(forward);
+                else if (desiredPose == 3)
+                    sequence.WizardAnimation.ResumeForCutscene(forward);
+            }
 
             while (sequence.NextShot < EntryShotProgress.Length &&
-                   sequence.DoorCrossingTime * EntryShotProgress[sequence.NextShot] <= elapsed)
+                   (sequence.NextShot == EntryShotProgress.Length - 1
+                       ? sequence.HitCastAt
+                       : sequence.DoorCrossingTime * EntryShotProgress[sequence.NextShot])
+                   <= elapsed)
             {
-                FireEntryShot(sequence, sequence.NextShot,
-                    sequence.DoorCrossingTime * EntryShotProgress[sequence.NextShot]);
+                float firedAt = sequence.NextShot == EntryShotProgress.Length - 1
+                    ? sequence.HitCastAt
+                    : sequence.DoorCrossingTime * EntryShotProgress[sequence.NextShot];
+                FireEntryShot(sequence, sequence.NextShot, firedAt);
                 sequence.NextShot++;
             }
 
@@ -676,7 +729,7 @@ namespace NoSafeCircle.DoorPrototype
             {
                 EntryShot shot = sequence.Shots[index];
                 float flight = (elapsed - shot.FiredAt) / EntryShotFlightSeconds;
-                if (flight >= 1f)
+                if (shot.HitsPursuer ? elapsed >= sequence.HitImpactAt : flight >= 1f)
                 {
                     if (shot.HitsPursuer)
                         ShowEntryImpact(sequence, shot.End, shot.FiredAt + EntryShotFlightSeconds);
@@ -706,13 +759,13 @@ namespace NoSafeCircle.DoorPrototype
                 EntryWizardCrossedDoorway?.Invoke();
             }
 
-            if (!sequence.EndingNotified && elapsed >= sequence.Duration - 0.3f)
+            if (!sequence.EndingNotified && elapsed >= sequence.TotalDuration - 0.3f)
             {
                 sequence.EndingNotified = true;
                 EntryChaseEnding?.Invoke();
             }
 
-            if (elapsed >= sequence.Duration)
+            if (elapsed >= sequence.TotalDuration)
             {
                 ClearActors();
                 EntryChaseCompleted?.Invoke();
@@ -722,13 +775,14 @@ namespace NoSafeCircle.DoorPrototype
         private void FireEntryShot(EntrySequence sequence, int shotIndex, float firedAt)
         {
             float arrival = firedAt + EntryShotFlightSeconds;
+            bool hits = shotIndex == EntryShotProgress.Length - 1;
+            float wizardTravelAtFire = hits ? sequence.FinalTurnStartsAt : firedAt;
             Vector3 wizardPosition = Vector3.Lerp(
-                sequence.Start, sequence.Destination, firedAt / sequence.Duration);
+                sequence.Start, sequence.Destination, wizardTravelAtFire / sequence.Duration);
             Vector3 brutePosition = Vector3.MoveTowards(
                 sequence.BruteStart, sequence.BruteStop, BruteEntrySpeed * arrival);
             Vector3 origin = wizardPosition + Vector3.up * 1.15f;
             Vector3 target = brutePosition + Vector3.up * 1.15f;
-            bool hits = shotIndex == EntryShotProgress.Length - 1;
             if (!hits)
                 target.x += shotIndex == 0 ? -1.75f : 1.75f;
 

@@ -152,7 +152,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         }
 
         [Test]
-        public void EntryChase_FiresTwoMissesThenOneHit_ClosesDoorAndKeepsRunning()
+        public void EntryChase_FiresTwoMissesThenOneHit_StunsBruteAndReachesDoor()
         {
             backdrop.TitlePreviewLoopEnabled = false;
             title.StartGame();
@@ -182,26 +182,37 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsNotNull(GameObject.Find("TitleEntryFireball_0"));
             Assert.IsNull(GameObject.Find("TitleEntryFireball_0").GetComponent<Collider>());
 
-            backdrop.Tick(1.7f);
-            Assert.AreEqual(1, backdrop.FiredEntryShotCount);
-            backdrop.Tick(0.2f);
+            for (int step = 0; step < 500 &&
+                 !backdrop.IsEntryWizardTurningToShoot; step++)
+                backdrop.Tick(0.02f);
+            Assert.IsTrue(backdrop.IsEntryWizardTurningToShoot,
+                "The wizard must stop and turn for the final shot.");
             Assert.AreEqual(2, backdrop.FiredEntryShotCount);
-            backdrop.Tick(1.7f);
-            Assert.AreEqual(2, backdrop.FiredEntryShotCount);
-            backdrop.Tick(0.2f);
+            Vector3 shootingPosition = wizard.transform.position;
+            for (int step = 0; step < 50 &&
+                 !backdrop.IsEntryPursuerStunned; step++)
+                backdrop.Tick(0.02f);
+            Assert.IsTrue(backdrop.IsEntryPursuerStunned,
+                "The final shot must stun the pursuer.");
             Assert.AreEqual(3, backdrop.FiredEntryShotCount);
-            Assert.AreEqual(0, backdrop.EntryImpactCount);
-            Vector3 beforeHit = wizard.transform.position;
-            backdrop.Tick(0.2f);
             Assert.AreEqual(1, backdrop.EntryImpactCount,
                 "Only the final of three cosmetic shots should hit the Brute.");
-            Assert.Greater(Vector3.Distance(beforeHit, wizard.transform.position), 0.5f,
-                "The wizard keeps running while the hit effect plays.");
+            Assert.Less(Vector3.Distance(shootingPosition, wizard.transform.position), 0.01f,
+                "The wizard must hold the turned firing pose until impact.");
             Assert.AreEqual(0, doorwayCalls);
             Assert.GreaterOrEqual(brute.transform.position.z, -1f,
                 "The cosmetic Brute must stay behind the wizard's door.");
 
-            backdrop.Tick(1.7f);
+            Vector3 stunnedWizardPosition = wizard.transform.position;
+            backdrop.Tick(0.25f);
+            Assert.IsTrue(backdrop.IsEntryPursuerStunned);
+            Assert.Less(Vector3.Distance(stunnedWizardPosition, wizard.transform.position), 0.01f);
+            backdrop.Tick(0.3f);
+            Assert.IsFalse(backdrop.IsEntryPursuerStunned);
+            Assert.Greater(Vector3.Distance(stunnedWizardPosition, wizard.transform.position), 0.01f,
+                "The wizard must resume toward the entrance after the brief stun.");
+            for (int step = 0; step < 500 && doorwayCalls == 0; step++)
+                backdrop.Tick(0.02f);
             Assert.AreEqual(1, doorwayCalls);
             Assert.IsTrue(backdrop.IsEntryChaseRunning);
             Assert.GreaterOrEqual(brute.transform.position.z, -1f);
@@ -259,6 +270,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 pursuerStopZ);
 
             backdrop.Tick(1f);
+            Assert.AreEqual(0, gateCalls,
+                "The half-second turn and stun must delay the doorway crossing.");
+            backdrop.Tick(1f);
             Assert.AreEqual(1, gateCalls);
             Assert.AreEqual(0, completionCalls);
             Assert.IsTrue(backdrop.IsEntryChaseRunning);
@@ -272,6 +286,110 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.AreEqual(1, gateCalls);
             Assert.IsFalse(backdrop.IsEntryChaseRunning);
             Assert.IsNull(backdrop.EntryPursuerTransform);
+        }
+
+        [Test]
+        public void NorthboundChase_TurnsForHalfSecond_StunsForHalfSecond_ThenResumes()
+        {
+            backdrop.TitlePreviewLoopEnabled = false;
+            title.StartGame();
+            Assert.IsTrue(backdrop.BeginEntryChase(OrderedWizards[2],
+                new Vector3(0f, 0f, -30f), new Vector3(0f, 0f, -6f),
+                -8.75f, -11.5f));
+
+            Transform wizard = backdrop.EntryWizardTransform;
+            Transform brute = backdrop.EntryPursuerTransform;
+            WizardAnimationController animation = wizard.GetComponent<WizardAnimationController>();
+            EnemyAnimationController bruteAnimation = brute.GetComponent<EnemyAnimationController>();
+            for (int step = 0; step < 1000 &&
+                 !backdrop.IsEntryWizardTurningToShoot; step++)
+                backdrop.Tick(0.01f);
+
+            Assert.IsTrue(backdrop.IsEntryWizardTurningToShoot);
+            Assert.AreEqual(2, backdrop.FiredEntryShotCount,
+                "Only the two misses should have fired before the wizard turns.");
+            Assert.AreEqual("south-west", animation.LastDirection,
+                "A northbound wizard must turn to face the pursuer to the south.");
+            StringAssert.EndsWith("_idle_south-west", animation.CurrentState,
+                "The turned wizard must visibly hold a backward-facing idle pose.");
+            Vector3 firingPosition = wizard.position;
+            Vector3 bruteBeforeShot = brute.position;
+            float turnDuration = 0f;
+            while (backdrop.IsEntryWizardTurningToShoot && turnDuration < 1f)
+            {
+                backdrop.Tick(0.01f);
+                turnDuration += 0.01f;
+                Assert.Less(Vector3.Distance(firingPosition, wizard.position), 0.01f,
+                    "The wizard moved while aiming and firing.");
+            }
+
+            Assert.That(turnDuration, Is.InRange(0.47f, 0.53f),
+                "The backward-facing firing beat should last half a second.");
+            Assert.AreEqual(3, backdrop.FiredEntryShotCount);
+            Assert.AreEqual(1, backdrop.EntryImpactCount);
+            Assert.IsTrue(backdrop.IsEntryPursuerStunned,
+                "The hit should begin a distinct pursuer stun beat.");
+            StringAssert.StartsWith("MeleeEnemy_idle_", bruteAnimation.CurrentState,
+                "The stunned pursuer must stop its walking animation.");
+            Assert.Greater(Vector3.Distance(bruteBeforeShot, brute.position), 0.5f,
+                "The pursuer should still be advancing before the impact.");
+            Vector3 stunnedBrutePosition = brute.position;
+            Vector3 stunnedWizardPosition = wizard.position;
+            float stunDuration = 0f;
+            while (backdrop.IsEntryPursuerStunned && stunDuration < 1f)
+            {
+                backdrop.Tick(0.01f);
+                stunDuration += 0.01f;
+                if (backdrop.IsEntryPursuerStunned)
+                {
+                    Assert.Less(Vector3.Distance(stunnedBrutePosition, brute.position), 0.01f,
+                        "The hit pursuer must remain in place throughout the stun.");
+                    Assert.Less(Vector3.Distance(stunnedWizardPosition, wizard.position), 0.01f,
+                        "The wizard should wait for the stunned pursuer before running on.");
+                }
+            }
+
+            Assert.That(stunDuration, Is.InRange(0.47f, 0.53f),
+                "The pursuer stun should last half a second.");
+            backdrop.Tick(0.1f);
+            Assert.Greater(wizard.position.z, stunnedWizardPosition.z + 0.1f,
+                "The wizard must resume north toward the door after the stun.");
+            Assert.Greater(brute.position.z, stunnedBrutePosition.z + 0.1f,
+                "The pursuer must resume its chase after the stun.");
+            StringAssert.StartsWith("MeleeEnemy_walk_", bruteAnimation.CurrentState);
+            Assert.AreEqual("north-east", animation.LastDirection,
+                "The wizard should face the entrance again after turning back.");
+        }
+
+        [Test]
+        public void EntryChase_LargeTickCrossingBothPauses_NotifiesDoorAndCompletionOnce()
+        {
+            backdrop.TitlePreviewLoopEnabled = false;
+            title.StartGame();
+            int doorCalls = 0;
+            int endingCalls = 0;
+            int completionCalls = 0;
+            backdrop.EntryWizardCrossedDoorway += () => doorCalls++;
+            backdrop.EntryChaseEnding += () => endingCalls++;
+            backdrop.EntryChaseCompleted += () => completionCalls++;
+            Assert.IsTrue(backdrop.BeginEntryChase(OrderedWizards[2],
+                new Vector3(0f, 0f, -30f), new Vector3(0f, 0f, -6f),
+                -8.75f, -11.5f));
+
+            backdrop.Tick(100f);
+            Assert.AreEqual(3, backdrop.FiredEntryShotCount);
+            Assert.AreEqual(1, backdrop.EntryImpactCount);
+            Assert.AreEqual(1, doorCalls);
+            Assert.AreEqual(1, endingCalls);
+            Assert.AreEqual(1, completionCalls);
+            Assert.IsFalse(backdrop.IsEntryChaseRunning);
+            Assert.AreEqual(0, backdrop.ActiveActorCount);
+            Assert.AreEqual(0, backdrop.ActiveFireballCount);
+
+            backdrop.Tick(100f);
+            Assert.AreEqual(1, doorCalls);
+            Assert.AreEqual(1, endingCalls);
+            Assert.AreEqual(1, completionCalls);
         }
 
         [Test]
