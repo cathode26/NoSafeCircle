@@ -31,7 +31,6 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         private const string LowWallTilePath = ArchitecturalTileFolder + "/" + LowWallTileName + ".asset";
         private const string FullWallTilePath = ArchitecturalTileFolder + "/WallTile.asset";
         private const float WallVisualOffset = 0.151f;
-        private static readonly List<Object> TransientTileObjects = new List<Object>();
 
         // NSC-109 AC-001/AC-004: the committed art the Art Director delivered for this room and
         // for the shared low/broken-wall module. Applied as-authored; no local pixel edits.
@@ -61,20 +60,20 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             Debug.Log($"Ruined Entry scene built at {ScenePath}");
         }
 
+        // F4 audit fix (2026-09-26): this already never reached ArchitecturalTileGenerator's
+        // write-capable LoadOrCreateSpriteTile (only Build() below does) - it had its own local
+        // read-only duplicate (CreateTransientTile/CleanupTransientTiles). Routed through the
+        // generator's centralized read-only twin instead, so this room's test path shares one
+        // audited implementation with BoneArchive/ChapelOfAsh/LowerVault/FinalRoom rather than
+        // repeating it a fourth time. No behaviour change: still reads the committed tile as-is,
+        // still falls back to an in-memory transient tile when absent.
         public static void BuildInMemoryForTests()
         {
-            CleanupTransientTiles();
-            Tile floorTile = AssetDatabase.LoadAssetAtPath<Tile>(FloorTilePath);
-            if (floorTile == null)
-            {
-                floorTile = CreateTransientTile(FloorTileName, FloorSpriteSourcePath);
-            }
-
-            Tile lowWallTile = AssetDatabase.LoadAssetAtPath<Tile>(LowWallTilePath);
-            if (lowWallTile == null)
-            {
-                lowWallTile = CreateTransientTile(LowWallTileName, LowWallSpriteSourcePath);
-            }
+            ArchitecturalTileGenerator.CleanupTransientObjects();
+            Tile floorTile = ArchitecturalTileGenerator.RuinedEntry.LoadSpriteTileForTests(
+                ArchitecturalTileFolder, FloorTileName, FloorSpriteSourcePath);
+            Tile lowWallTile = ArchitecturalTileGenerator.RuinedEntry.LoadSpriteTileForTests(
+                ArchitecturalTileFolder, LowWallTileName, LowWallSpriteSourcePath);
             RebuildSceneContents(SceneManager.GetActiveScene(), floorTile, lowWallTile);
         }
 
@@ -322,36 +321,6 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
 
             Directory.CreateDirectory(folder);
             AssetDatabase.Refresh();
-        }
-
-        private static Tile CreateTransientTile(string tileName, string sourceSpritePath)
-        {
-            Sprite sourceSprite = AssetDatabase.LoadAssetAtPath<Sprite>(sourceSpritePath);
-            if (sourceSprite == null)
-            {
-                throw new InvalidOperationException(
-                    $"Ruined Entry requires the committed sprite at '{sourceSpritePath}'.");
-            }
-
-            Tile tile = ScriptableObject.CreateInstance<Tile>();
-            tile.name = tileName;
-            tile.colliderType = Tile.ColliderType.None;
-            tile.hideFlags = HideFlags.HideAndDontSave;
-            tile.sprite = sourceSprite;
-            TransientTileObjects.Add(tile);
-            return tile;
-        }
-
-        private static void CleanupTransientTiles()
-        {
-            for (int index = TransientTileObjects.Count - 1; index >= 0; index--)
-            {
-                if (TransientTileObjects[index] != null)
-                {
-                    Object.DestroyImmediate(TransientTileObjects[index]);
-                }
-            }
-            TransientTileObjects.Clear();
         }
 
         /// <summary>The Art Director's tint for the two rubble blockers.</summary>
