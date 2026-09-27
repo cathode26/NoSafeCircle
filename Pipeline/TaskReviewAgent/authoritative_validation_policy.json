@@ -676,12 +676,14 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-130": {
-      "task_contract_sha256": "0f2de4757c527101b20b2e7e82aa9e1e2174000ad34c1af61e14fe8446c4aa63",
+      "task_contract_sha256": "8128f1a7f0aa4b8443567788c600fc1b12a9a4405eaa0976f33f465ee9c03136",
       "required_test_platforms": [
-        "EditMode"
+        "EditMode",
+        "PlayMode"
       ],
       "test_filters": {
-        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.PropPrefabVerifierTests"
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.PropPrefabVerifierTests",
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.PropSightOcclusionPlayModeTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
