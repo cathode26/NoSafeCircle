@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="2" result="Passed" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-27 13:32:56Z" end-time="2026-09-27 13:32:57Z" duration="0.9671818">
+  <test-suite type="TestSuite" id="1000" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="326" result="Passed" start-time="2026-09-27 13:32:56Z" end-time="2026-09-27 13:32:57Z" duration="0.967182" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1379" name="NoSafeCircle.DoorPrototype.Tests.Editor.dll" fullname="C:/nscrev/doormeta/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.Editor.dll" runstate="Runnable" testcasecount="325" result="Passed" start-time="2026-09-27 13:32:56Z" end-time="2026-09-27 13:32:57Z" duration="0.927095" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="47652" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1380" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="325" result="Passed" start-time="2026-09-27 13:32:56Z" end-time="2026-09-27 13:32:57Z" duration="0.908760" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1381" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="325" result="Passed" start-time="2026-09-27 13:32:56Z" end-time="2026-09-27 13:32:57Z" duration="0.885459" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1382" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="325" result="Passed" start-time="2026-09-27 13:32:56Z" end-time="2026-09-27 13:32:57Z" duration="0.867339" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestSuite" id="1383" name="Editor" fullname="NoSafeCircle.DoorPrototype.Tests.Editor" runstate="Runnable" testcasecount="325" result="Passed" start-time="2026-09-27 13:32:56Z" end-time="2026-09-27 13:32:57Z" duration="0.842070" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="TestFixture" id="1149" name="WizardSelectionSceneBuilderTests" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardSelectionSceneBuilderTests" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardSelectionSceneBuilderTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-09-27 13:32:56Z" end-time="2026-09-27 13:32:57Z" duration="0.819247" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1150" name="Build_OptionsResolveToFourDistinctCompleteNsc062Presentations" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardSelectionSceneBuilderTests.Build_OptionsResolveToFourDistinctCompleteNsc062Presentations" methodname="Build_OptionsResolveToFourDistinctCompleteNsc062Presentations" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardSelectionSceneBuilderTests" runstate="Runnable" seed="1847782352" result="Passed" start-time="2026-09-27 13:32:56Z" end-time="2026-09-27 13:32:56Z" duration="0.494533" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1151" name="Build_RunTwice_LeavesOneSelectionControllerFourOptionsAndOnePlayer" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardSelectionSceneBuilderTests.Build_RunTwice_LeavesOneSelectionControllerFourOptionsAndOnePlayer" methodname="Build_RunTwice_LeavesOneSelectionControllerFourOptionsAndOnePlayer" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardSelectionSceneBuilderTests" runstate="Runnable" seed="1340603484" result="Passed" start-time="2026-09-27 13:32:56Z" end-time="2026-09-27 13:32:57Z" duration="0.290244" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                  <output><![CDATA[Saving results to: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-db69ba69ebb846c084c9972aa84c28ac\test-results.xml
+]]></output>
+                </test-case>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>
