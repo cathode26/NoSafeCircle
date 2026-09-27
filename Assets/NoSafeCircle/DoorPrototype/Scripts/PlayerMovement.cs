@@ -114,7 +114,7 @@ namespace NoSafeCircle.DoorPrototype
             if (holdPositionAction == null)
             {
                 Debug.LogWarning("PlayerMovement could not find the 'HoldPosition' action on the Player action " +
-                    "map; holding Shift to suppress movement will be unavailable.");
+                    "map; holding Z to suppress movement will be unavailable.");
             }
         }
 
@@ -155,7 +155,7 @@ namespace NoSafeCircle.DoorPrototype
         }
 
         /// AC-001/AC-002: reads only the 'HoldPosition' action (no hardware polling). True for
-        /// exactly as long as either physical Shift key is held.
+        /// exactly as long as the Z key is held.
         private bool IsHoldPositionHeld => holdPositionAction != null && holdPositionAction.IsPressed();
 
         /// AC-002/AC-003: holds/releases the existing reference-counted movement restriction for
@@ -208,9 +208,9 @@ namespace NoSafeCircle.DoorPrototype
             var isFreshPress = isPressed && !wasMoveToCursorPressed;
             wasMoveToCursorPressed = isPressed;
 
-            // AC-005: while Shift is held, a fresh press starts no destination and no door
+            // AC-005: while Z is held, a fresh press starts no destination and no door
             // approach. wasMoveToCursorPressed above is still updated while held, so a press
-            // held across Shift's release is not replayed/queued as a fresh press once Shift
+            // held across Z's release is not replayed/queued as a fresh press once Z
             // comes back up.
             if (IsHoldPositionHeld) return;
 
@@ -487,7 +487,7 @@ namespace NoSafeCircle.DoorPrototype
             ClearDestination();
 
             // AC-003: a title-screen transition mid-hold must not strand this restriction;
-            // release it here rather than waiting for a Shift release that may never come
+            // release it here rather than waiting for a Z release that may never come
             // while gameplay input is suspended.
             if (isHoldingPositionRestriction)
             {
