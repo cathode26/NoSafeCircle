@@ -257,12 +257,21 @@ namespace NoSafeCircle.DoorPrototype.Tests
             var expectedTicks = Mathf.CeilToInt(distance / moveSpeed / TickDeltaTime);
             var maxTicks = Mathf.Max(TickBudgetFloor, Mathf.CeilToInt(expectedTicks * TickBudgetSafetyFactor));
 
+            // A PHYSICS STEP, NOT A RENDERED FRAME, IS WHAT DISPATCHES A TRIGGER CALLBACK -
+            // DoorInteractable's own ForwardCrossingRelay.OnTriggerEnter included. Measured the
+            // hard way: an earlier version of this loop yielded a rendered frame
+            // (`yield return null;`) after each Tick(), which moved the CharacterController and
+            // reached every target room's RoomBounds correctly, yet every door's HasCrossedForward
+            // stayed false - the exact failure mode
+            // FiveRoomDoorSequencePlayModeTests.TeleportIntoDoorRange's own remarks name for its
+            // sibling arm's-reach trigger ("a teleport followed only by Tick calls never runs a
+            // physics step"). WaitForFixedUpdate is the fix there and the fix here.
             var ticks = 0;
             while (movement.HasActiveDestination && ticks < maxTicks)
             {
                 movement.Tick(TickDeltaTime);
                 ticks++;
-                yield return null;
+                yield return new WaitForFixedUpdate();
             }
 
             movement.DestinationReached -= OnReached;
