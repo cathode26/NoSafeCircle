@@ -120,6 +120,19 @@ jobs:
             Write-Host "Legacy PR head predates Unity evidence-log hygiene; compatibility whitespace policy still applies."
           }
 
+      - name: Unity testing policy and clean-runner safeguards
+        shell: pwsh
+        run: |
+          $test = "Pipeline/Testing/testing_policy_smoke_test.py"
+          if (Test-Path -LiteralPath $test -PathType Leaf) {
+            python $test
+            if ($LASTEXITCODE -ne 0) {
+              throw "Unity testing policy safeguards failed."
+            }
+          } else {
+            Write-Host "Legacy PR head predates the Unity testing policy smoke test."
+          }
+
       - name: Python compile check
         run: python -m compileall -q Pipeline/GDDRAG Pipeline/TaskDecomposition Pipeline/TaskGraph Pipeline/AgentRuntime Pipeline/TaskExecution Pipeline/Testing
 
