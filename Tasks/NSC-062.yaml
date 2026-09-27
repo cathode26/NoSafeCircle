@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-062",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Animated Wizard Unity Integration",
   "reconciliation_key": "animated-wizard-unity-integration",
@@ -21,8 +21,7 @@
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardAnimationController.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardArtIntegrationTests.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/WizardAnimationPlayModeTests.cs",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/WizardAnimationPlayModeTests.cs"
   ],
   "acceptance_criteria": [
     {
@@ -80,7 +79,7 @@
     {
       "gate_id": "VAL-005",
       "reference": "Developer visual approval",
-      "requirement": "Vincent opens Assets/Scenes/DoorPrototype.unity in Play Mode, checks all four presentation/skin combinations, and approves their appearance, idle and walking loops in every direction, gameplay-scale readability, respectful treatment, ground contact, and sorting beside the current walls and door."
+      "requirement": "Vincent enters Play Mode in the scene registered in EditorBuildSettings - named as a RELATION, not a path, because the scene this clause used to name (Assets/Scenes/DoorPrototype.unity) was deleted at fe4c95ad and a literal would only die again at the next rename, and checks all four presentation/skin combinations, and approves their appearance, idle and walking loops in every direction, gameplay-scale readability, respectful treatment, ground contact, and sorting beside the walls and door the runtime builder produces. The world does not exist until GameBootstrap has run, so this is a check on the BUILT world and never on the scene as committed; GameBootstrap.HasBuilt is the fixture-level readiness evidence for that and is named here as evidence the hook exists, not as a requirement to keep it."
     }
   ],
   "downstream_integration_obligations": [],
@@ -114,6 +113,17 @@
   "provenance": {
     "origin": "human_approved_gameplay_presentation_followup",
     "art_source_task_id": "NSC-061",
-    "approved_at_utc_date": "2026-09-12"
+    "approved_at_utc_date": "2026-09-12",
+    "contract_followups": [
+      {
+        "date": "2026-09-27",
+        "reason": "Deletion fallout: drop the owned unity-scene resource for Assets/Scenes/DoorPrototype.unity, deleted at fe4c95ad, and repoint VAL-005's human visual approval at the scene registered in EditorBuildSettings. The world is built at runtime by GameBootstrap, so a gate naming a committed scene was unsatisfiable.",
+        "source_head": "26fb14edb55210df47796c1f51c391535ee549be",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "56d2e1d0034102ccba0c0751ae6beac9eae4f1e7506d3fa95682af145a6a5d84",
+        "revised_contract_sha256": "aab767eacf63c4a5d548b855028e65a5ed3de0491f706ba8ed7a40f48b2405d2",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   }
 }
