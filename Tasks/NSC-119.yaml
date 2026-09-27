@@ -13,7 +13,7 @@
     {
       "criterion_id": "AC-003",
       "reference": "NSC-007 AC-009",
-      "requirement": "Update DoorPrototypeGlobalSceneBuilder.BuildPlayer to add exactly one Fireball to the Player, with references to the existing PlayerMovement, PlayerMana, PlayerHealth and project InputActionAsset. Update DoorPrototypeSceneBuilder.cs to route the Fireball reference needed by title and game-entry wiring. Create FireballCommittedSceneConformanceTests.cs. The authorized No Safe Circle/Build Door Prototype Scene command materializes the result into Assets/Scenes/DoorPrototype.unity. Implementation code and tests never hand-edit, reconstruct or save the serialized scene."
+      "requirement": "Update DoorPrototypeGlobalSceneBuilder.BuildPlayer to add exactly one Fireball to the Player, with references to the existing PlayerMovement, PlayerMana, PlayerHealth and project InputActionAsset. Update DoorPrototypeSceneBuilder.cs to route the Fireball reference needed by title and game-entry wiring. Create FireballCommittedSceneConformanceTests.cs. The authorized No Safe Circle/Build Door Prototype Scene command produces the result in the scene it builds; nothing is materialized into a committed scene file, because the world is built at runtime by GameBootstrap and Assets/Scenes/DoorPrototype.unity was deleted at fe4c95ad. Implementation code and tests never hand-edit, reconstruct or save the serialized scene."
     },
     {
       "criterion_id": "AC-004",
@@ -31,7 +31,7 @@
     {
       "gate_id": "VAL-001",
       "reference": "NSC-007 VAL-005",
-      "requirement": "FireballCommittedSceneConformanceTests opens Assets/Scenes/DoorPrototype.unity additively, limits object lookup to that scene and closes it without saving. Verify the Player's Fireball references PlayerMovement, PlayerMana, PlayerHealth and the committed InputActionAsset. TitleScreenController and WizardGameEntryController must both reference that Fireball. gameplayInputBehaviours must exclude Fireball and still contain exactly DebugDamageControl and DebugManaSpendControl. An Edit Mode test in the same file loads Assets/InputSystem_Actions.inputactions directly. Player/Fireball must be Button type with exactly one <Mouse>/rightButton binding whose groups contain only Keyboard&Mouse. It must have no gamepad, joystick, touch or XR binding, and no other Player action may use that path. Attack must retain exactly its six base bindings. Compare scene bytes before and after, and record clean tracked and untracked repository state before and after validation."
+      "requirement": "FireballCommittedSceneConformanceTests exercises the world the builder produces, limits object lookup to the scene under test and closes it without saving. THE FIXTURE'S NAME PREDATES THE RUNTIME WORLD: there is no committed scene left to conform to - the world is built at runtime by GameBootstrap and Assets/Scenes/DoorPrototype.unity was deleted at fe4c95ad - so the fixture asserts against the BUILT world. The name is left alone here only because the validation-policy filter binds it; whoever implements this task may rename both together. Verify the Player's Fireball references PlayerMovement, PlayerMana, PlayerHealth and the committed InputActionAsset. TitleScreenController and WizardGameEntryController must both reference that Fireball. gameplayInputBehaviours must exclude Fireball and still contain exactly DebugDamageControl and DebugManaSpendControl. An Edit Mode test in the same file loads Assets/InputSystem_Actions.inputactions directly. Player/Fireball must be Button type with exactly one <Mouse>/rightButton binding whose groups contain only Keyboard&Mouse. It must have no gamepad, joystick, touch or XR binding, and no other Player action may use that path. Attack must retain exactly its six base bindings. Compare scene bytes before and after, and record clean tracked and untracked repository state before and after validation."
     },
     {
       "gate_id": "VAL-002",
@@ -41,7 +41,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "decomposition_reason": "This is the single final assembly step. It owns every shared input, builder and scene resource and verifies them with one Edit Mode conformance fixture after both runtime children are complete.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -59,7 +59,6 @@
     "repo-file:Assets/InputSystem_Actions.inputactions",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FireballCommittedSceneConformanceTests.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FireballCommittedSceneConformanceTests.cs.meta",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs"
@@ -85,7 +84,18 @@
     "origin": "progressive_decomposition",
     "parent_contract_revision": 9,
     "parent_contract_sha256": "10acb112a1fa988ca9243ecbb9aeaa1ac928ca430b284ff90542a914441d8920",
-    "parent_task_id": "NSC-007"
+    "parent_task_id": "NSC-007",
+    "contract_followups": [
+      {
+        "date": "2026-09-27",
+        "reason": "Deletion fallout: drop the owned unity-scene resource for Assets/Scenes/DoorPrototype.unity, deleted at fe4c95ad, and replace the clauses that still required a committed scene. DoorPrototypeGlobalSceneBuilder saves no scene and the world is built at runtime by GameBootstrap, so 'materializes into <scene>' named a mechanism that no longer exists; the clauses now state what must hold of the built world.",
+        "source_head": "4181a085e35600cbd9d83002819074f34554bf54",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "3f5611cc94fb5ba2536c639a6ae43d0451dff6b4e404ff1a0d32cb58854fd5de",
+        "revised_contract_sha256": "28f5ab35a99777c6d4cc0ecca881ef65c03065cc3e6c5c6d240110bf91555d05",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   },
   "reconciliation_key": "fireball-input-scene-assembly",
   "repository_evidence_at_bootstrap": [],

@@ -185,8 +185,7 @@
         "victory-trigger-overlay-integration",
         "navmesh-agent-configuration-foundation",
         "title-screen-transparent-layout-build",
-        "spectral-decoy-cast-phantom-cooldown-ui",
-        "fireball-input-scene-assembly"
+        "spectral-decoy-cast-phantom-cooldown-ui"
       ],
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
       "work_ids": [
@@ -211,8 +210,7 @@
         "NSC-086",
         "NSC-089",
         "NSC-108",
-        "NSC-112",
-        "NSC-119"
+        "NSC-112"
       ]
     },
     {
