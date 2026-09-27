@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="2" result="Passed" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-27 14:10:25Z" end-time="2026-09-27 14:10:27Z" duration="2.3744894">
+  <test-suite type="TestSuite" id="1000" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="326" result="Passed" start-time="2026-09-27 14:10:25Z" end-time="2026-09-27 14:10:27Z" duration="2.374489" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1379" name="NoSafeCircle.DoorPrototype.Tests.Editor.dll" fullname="C:/nscrev/doormeta/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.Editor.dll" runstate="Runnable" testcasecount="325" result="Passed" start-time="2026-09-27 14:10:25Z" end-time="2026-09-27 14:10:27Z" duration="2.317666" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="49920" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1380" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="325" result="Passed" start-time="2026-09-27 14:10:25Z" end-time="2026-09-27 14:10:27Z" duration="2.294808" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1381" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="325" result="Passed" start-time="2026-09-27 14:10:25Z" end-time="2026-09-27 14:10:27Z" duration="2.264575" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1382" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="325" result="Passed" start-time="2026-09-27 14:10:25Z" end-time="2026-09-27 14:10:27Z" duration="2.243451" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestSuite" id="1383" name="Editor" fullname="NoSafeCircle.DoorPrototype.Tests.Editor" runstate="Runnable" testcasecount="325" result="Passed" start-time="2026-09-27 14:10:25Z" end-time="2026-09-27 14:10:27Z" duration="2.216072" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="TestFixture" id="1136" name="WizardArtIntegrationTests" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardArtIntegrationTests" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardArtIntegrationTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-09-27 14:10:25Z" end-time="2026-09-27 14:10:27Z" duration="2.188200" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1137" name="ApprovedSourceFramesHaveExactImportGeometryAndGroundPivot" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardArtIntegrationTests.ApprovedSourceFramesHaveExactImportGeometryAndGroundPivot" methodname="ApprovedSourceFramesHaveExactImportGeometryAndGroundPivot" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardArtIntegrationTests" runstate="Runnable" seed="833742861" result="Passed" start-time="2026-09-27 14:10:25Z" end-time="2026-09-27 14:10:27Z" duration="2.016700" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1138" name="GeneratedWizardControllerHasExactStateClipAndSpriteMappings" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardArtIntegrationTests.GeneratedWizardControllerHasExactStateClipAndSpriteMappings" methodname="GeneratedWizardControllerHasExactStateClipAndSpriteMappings" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardArtIntegrationTests" runstate="Runnable" seed="494727368" result="Passed" start-time="2026-09-27 14:10:27Z" end-time="2026-09-27 14:10:27Z" duration="0.129664" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                  <output><![CDATA[Saving results to: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-77dad14968244d11b09215b10be86344\test-results.xml
+]]></output>
+                </test-case>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>
