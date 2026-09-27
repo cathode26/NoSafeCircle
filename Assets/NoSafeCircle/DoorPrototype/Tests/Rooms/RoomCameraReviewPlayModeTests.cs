@@ -39,7 +39,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Rooms
     /// <para>
     /// THE STATIONS ARE WORLD COORDINATES, NOT ROOM-LOCAL, AND THIS WAS VERIFIED ROOM BY ROOM
     /// BEFORE THIS FILE WAS WRITTEN. Every *Layout.cs under Scripts/World/Rooms/ declares its
-    /// MinimumZ/MaximumZ in the SAME shared axis and they are contiguous: RuinedEntry -26..0,
+    /// MinimumZ/MaximumZ in the SAME shared axis and they are contiguous: RuinedEntry -52..0,
     /// BoneArchive 0..~18 (consistent because its room starts at the origin), ChapelOfAsh 20..54,
     /// LowerVault 54..76, FinalRoom's MinimumZ = LowerVaultLayout.MaximumZ (76) .. 104. No room
     /// offset is applied anywhere when the combined world is built, so a station authored against

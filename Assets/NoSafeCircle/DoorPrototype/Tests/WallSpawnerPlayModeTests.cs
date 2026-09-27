@@ -40,7 +40,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         // parser insists the caller declares the grid; this fixture declares it independently of
         // the spawner's own derivation from the rooms.
         private const int Columns = 20;
-        private const int Rows = 71;
+        private const int Rows = 78;
         private const float OriginX = -20f;
         private const float OriginZ = 104f;
 
@@ -90,7 +90,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             public Vector3 Center => new Vector3((XMin + XMax) * 0.5f, 0f, (ZMin + ZMax) * 0.5f);
         }
 
-        // Built from the five progression layouts plus the Entry Chamber annex layout, so a layout edit moves the expectation
+        // Built from the five progression layouts, so a layout edit moves the expectation
         // and a WallRoom table edit does not. Northernmost first, by each room's own ZMax.
         private static List<Room> LayoutRooms()
         {
@@ -145,17 +145,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     Height = RuinedEntryLayout.WallHeight,
                     Doors = new[] {
                         new Vector3(RuinedEntryLayout.DoorCenterX, 0f, RuinedEntryLayout.DoorCenterZ),
-                        EntryChamberLayout.RoomOpening
+                        new Vector3(RuinedEntryLayout.EntryDoorCenterX, 0f,
+                            RuinedEntryLayout.EntryDoorCenterZ)
                     }
-                },
-                new Room
-                {
-                    Name = "EntryChamber",
-                    XMin = EntryChamberLayout.MinimumX, XMax = EntryChamberLayout.MaximumX,
-                    ZMin = EntryChamberLayout.MinimumZ, ZMax = EntryChamberLayout.MaximumZ,
-                    DoorWidth = EntryChamberLayout.OpeningWidth,
-                    Thickness = EntryChamberLayout.WallThickness, Height = EntryChamberLayout.WallHeight,
-                    Doors = new[] { EntryChamberLayout.RoomOpening }
                 }
             };
 
@@ -614,6 +606,21 @@ namespace NoSafeCircle.DoorPrototype.Tests
             yield return null;
             Physics.SyncTransforms();
 
+            Assert.AreEqual(5, rooms.Count, "The exterior approach is not a separate walled room.");
+            Assert.IsNull(spawnerObject.transform.Find("EntryChamberWalls"));
+
+            Transform entryWalls = spawnerObject.transform.Find("RuinedEntryWalls");
+            Assert.IsNotNull(entryWalls);
+            SpriteRenderer[] entranceArt = entryWalls.GetComponentsInChildren<SpriteRenderer>(true);
+            Assert.IsTrue(entranceArt.Any(sprite =>
+                Mathf.Abs(sprite.transform.parent.position.z - RuinedEntryLayout.MinimumZ) < 0.01f &&
+                sprite.transform.parent.position.x < RuinedEntryLayout.EntryDoorCenterX - 1.5f),
+                "The south entrance has no west wall art beside the doorway.");
+            Assert.IsTrue(entranceArt.Any(sprite =>
+                Mathf.Abs(sprite.transform.parent.position.z - RuinedEntryLayout.MinimumZ) < 0.01f &&
+                sprite.transform.parent.position.x > RuinedEntryLayout.EntryDoorCenterX + 1.5f),
+                "The south entrance has no east wall art beside the doorway.");
+
             BoxCollider[] boxes = spawnerObject.GetComponentsInChildren<BoxCollider>(true);
             Assert.Greater(boxes.Length, 0, "No wall collider was spawned, so walls block nothing.");
 
@@ -711,9 +718,13 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.Contains(info.collider, boxes, "The ray was stopped by '" + info.collider.name + "', which is not a spawned wall.");
             Assert.AreEqual("SouthWallEastCollision", info.collider.name);
             Assert.IsFalse(Physics.Raycast(
-                new Vector3(EntryChamberLayout.CenterX, 1f, entry.ZMin + 6f),
+                new Vector3(RuinedEntryLayout.EntryDoorCenterX, 1f, entry.ZMin + 6f),
                 Vector3.back, 12f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore),
-                "The new south opening must let the wizard run from Ruined Entry into the annex.");
+                "The south entrance opening must let the wizard run into Ruined Entry.");
+            Assert.IsTrue(Physics.Raycast(
+                new Vector3(RuinedEntryLayout.EntryDoorCenterX - 4f, 1f, entry.ZMin + 6f),
+                Vector3.back, 12f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore),
+                "The west flank of the south entrance must block walking around the door.");
         }
 
         [UnityTest]

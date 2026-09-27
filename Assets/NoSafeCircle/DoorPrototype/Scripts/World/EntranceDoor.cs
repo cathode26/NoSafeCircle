@@ -5,9 +5,9 @@ using UnityEngine.AI;
 
 namespace NoSafeCircle.DoorPrototype.World
 {
-    /// <summary>The cinematic start gate; it has no D1–D5 progression identity.</summary>
+    /// <summary>The south entrance door; it has no D1–D5 progression identity.</summary>
     [DisallowMultipleComponent]
-    public sealed class EntryChamberStartDoor : MonoBehaviour
+    public sealed class EntranceDoor : MonoBehaviour
     {
         private GameObject leaf;
         private NavMeshObstacle obstacle;
@@ -34,8 +34,8 @@ namespace NoSafeCircle.DoorPrototype.World
         /// <summary>Closes only after the wizard escaped north and the pursuer remains south.</summary>
         public bool CloseAfterEntryCutscene(Vector3 wizardPosition, Vector3 pursuerPosition)
         {
-            if (!IsOpen || wizardPosition.z <= EntryChamberLayout.GateZ + 0.5f ||
-                pursuerPosition.z >= EntryChamberLayout.GateZ - 0.5f)
+            if (!IsOpen || wizardPosition.z <= EntryApproachLayout.GateZ + 0.5f ||
+                pursuerPosition.z >= EntryApproachLayout.GateZ - 0.5f)
                 return false;
 
             IsOpen = false;

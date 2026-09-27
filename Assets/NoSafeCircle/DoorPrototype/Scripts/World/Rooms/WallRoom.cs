@@ -139,13 +139,8 @@ namespace NoSafeCircle.DoorPrototype.World.Rooms
                 RuinedEntryLayout.DoorOpeningWidth, RuinedEntryLayout.WallThickness,
                 RuinedEntryLayout.WallHeight,
                 new Vector3(RuinedEntryLayout.DoorCenterX, 0f, RuinedEntryLayout.DoorCenterZ),
-                EntryChamberLayout.RoomOpening),
-            new WallRoom("EntryChamber",
-                EntryChamberLayout.MinimumX, EntryChamberLayout.MaximumX,
-                EntryChamberLayout.MinimumZ, EntryChamberLayout.MaximumZ,
-                EntryChamberLayout.OpeningWidth, EntryChamberLayout.WallThickness,
-                EntryChamberLayout.WallHeight,
-                EntryChamberLayout.RoomOpening)
+                new Vector3(RuinedEntryLayout.EntryDoorCenterX, 0f,
+                    RuinedEntryLayout.EntryDoorCenterZ))
         };
     }
 }

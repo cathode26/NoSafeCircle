@@ -6,12 +6,14 @@ namespace NoSafeCircle.DoorPrototype.World.Rooms
     {
         public const float MinimumX = -14f;
         public const float MaximumX = 14f;
-        public const float MinimumZ = -26f;
+        public const float MinimumZ = -52f;
         public const float MaximumZ = 0f;
 
         public const float DoorCenterX = 0f;
         public const float DoorCenterZ = 0f;
         public const float DoorOpeningWidth = 3f;
+        public const float EntryDoorCenterX = -4f;
+        public const float EntryDoorCenterZ = MinimumZ;
 
         public const float RubbleAMinimumX = 2f;
         public const float RubbleAMaximumX = 8f;
@@ -35,7 +37,7 @@ namespace NoSafeCircle.DoorPrototype.World.Rooms
         public static Bounds RubbleBBounds =>
             CreateGroundBounds(RubbleBMinimumX, RubbleBMaximumX, RubbleBMinimumZ, RubbleBMaximumZ);
 
-        public static Vector3 PlayerStart => new Vector3(-4f, 0f, -22f);
+        public static Vector3 PlayerStart => new Vector3(-4f, 0f, -48f);
 
         public static Bounds DoorStagingBounds => CreateGroundBounds(-2.5f, 2.5f, -5.25f, -0.25f);
 

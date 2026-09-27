@@ -4,9 +4,9 @@ using UnityEngine.AI;
 
 namespace NoSafeCircle.DoorPrototype.World
 {
-    /// <summary>Places the start gate after navigation, preserving D1–D5 in DoorSpawner.</summary>
+    /// <summary>Places the south entrance door after navigation, preserving D1–D5.</summary>
     [DisallowMultipleComponent]
-    public sealed class EntryChamberGateSpawner : MonoBehaviour, ISpawner
+    public sealed class EntranceDoorSpawner : MonoBehaviour, ISpawner
     {
         [SerializeField] private GameObject authoredDoorPrefab;
 
@@ -26,14 +26,14 @@ namespace NoSafeCircle.DoorPrototype.World
                 ? authoredDoorPrefab.transform.Find("DoorVisual") : null;
             if (leafSource == null)
             {
-                Debug.LogError("EntryChamberGateSpawner: Door prefab is missing DoorVisual.");
+                Debug.LogError("EntranceDoorSpawner: Door prefab is missing DoorVisual.");
                 SpawnedCount = 0;
                 return 0;
             }
 
-            GameObject root = new GameObject("EntryChamberStartDoor");
+            GameObject root = new GameObject("EntranceDoor");
             root.transform.SetParent(transform, false);
-            root.transform.position = EntryChamberLayout.StartDoorCenter;
+            root.transform.position = EntryApproachLayout.StartDoorCenter;
 
             // Reuse the same committed leaf, art, and collider as the five progression doors.
             GameObject leaf = Instantiate(leafSource.gameObject, root.transform);
@@ -45,11 +45,11 @@ namespace NoSafeCircle.DoorPrototype.World
             NavMeshObstacle obstacle = root.AddComponent<NavMeshObstacle>();
             obstacle.shape = NavMeshObstacleShape.Box;
             obstacle.center = new Vector3(0f, 1.25f, 0f);
-            obstacle.size = new Vector3(EntryChamberLayout.OpeningWidth,
-                EntryChamberLayout.WallHeight, EntryChamberLayout.WallThickness);
+            obstacle.size = new Vector3(EntryApproachLayout.OpeningWidth,
+                EntryApproachLayout.WallHeight, EntryApproachLayout.WallThickness);
             obstacle.carving = true;
 
-            root.AddComponent<EntryChamberStartDoor>().Configure(leaf);
+            root.AddComponent<EntranceDoor>().Configure(leaf);
             SpawnedCount = 1;
             return 1;
         }

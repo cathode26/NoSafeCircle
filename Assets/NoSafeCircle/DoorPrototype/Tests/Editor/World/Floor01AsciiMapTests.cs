@@ -29,14 +29,14 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
         // AsciiRoomMap.WorldUnitsPerCell, and the first test proves that arithmetic rather than
         // trusting it.
         private const int Columns = 20;
-        private const int Rows = 71;
+        private const int Rows = 78;
 
         // World extent of the floor, from Scripts/World/Rooms/*Layout.cs on main:
         // X from LowerVaultLayout.MinimumX (-20) to MaximumX (+20);
-        // Z from EntryChamberLayout.MinimumZ (-38) to FinalRoomLayout.MaximumZ (104).
+        // Z from RuinedEntryLayout.MinimumZ (-52) to FinalRoomLayout.MaximumZ (104).
         private const float MinimumX = -20f;
         private const float MaximumX = 20f;
-        private const float MinimumZ = EntryChamberLayout.MinimumZ;
+        private const float MinimumZ = RuinedEntryLayout.MinimumZ;
         private const float MaximumZ = 104f;
 
         private static string ReadMap()
@@ -101,7 +101,8 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
 
             // Spawn inside the first room. Row/column from the parser's own ToCell, so this test
             // cannot disagree with the mapping the game will use.
-            AsciiCellIndex spawn = map.ToCell(0f, -22f, MinimumX, MaximumZ);
+            AsciiCellIndex spawn = map.ToCell(RuinedEntryLayout.PlayerStart.x,
+                RuinedEntryLayout.PlayerStart.z, MinimumX, MaximumZ);
             Assert.IsTrue(map.IsWalkable(spawn.Column, spawn.Row),
                 "Spawn cell " + spawn + " is not walkable; the flood fill would prove nothing.");
 
@@ -144,7 +145,8 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
                 ("D3", -8f, 54f, false),
                 ("D4", 4f, 76f, false),
                 ("D5", 0f, 104f, true),   // the floor's northern boundary: one wall row, not two
-                ("EntryChamberJoin", EntryChamberLayout.CenterX, EntryChamberLayout.MaximumZ, false),
+                ("SouthEntrance", RuinedEntryLayout.EntryDoorCenterX,
+                    RuinedEntryLayout.EntryDoorCenterZ, true),
             };
 
             foreach ((string name, float x, float z, bool outerEdge) in doors)
@@ -234,7 +236,6 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
                 new object[] { "ChapelOfAsh", ChapelOfAshLayout.RoomBounds, 0f, 0f },
                 new object[] { "LowerVault", LowerVaultLayout.RoomBounds, 0f, 0f },
                 new object[] { "FinalRoom", FinalRoomLayout.RoomBounds, 1f, 1f },
-                new object[] { "EntryChamber", EntryChamberLayout.RoomBounds, 1f, 1f },
             };
 
             foreach (object[] room in rooms)

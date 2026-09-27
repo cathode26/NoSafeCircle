@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 1002}
   - component: {fileID: 1003}
   m_Layer: 0
-  m_Name: EntryChamberAnnexSpawner
+  m_Name: EntryApproachFloorSpawner
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -46,5 +46,3 @@ MonoBehaviour:
   m_EditorClassIdentifier:
   roomFloorPrefab: {fileID: 3100000000000000001, guid: 9bbe1fe908705bf703a79b71b0ed86d1, type: 3}
   ruinedEntryFloorTile: {fileID: 11400000, guid: 15278209768061e4194aed452f7d1d22, type: 2}
-  wallStraightPrefab: {fileID: 9105351378366925868, guid: 68f061c3098aa704b11ab36417743fdc, type: 3}
-  wallJambPrefab: {fileID: 2912658445218594437, guid: ed32cd1b4b063c588869ef139d80d608, type: 3}
