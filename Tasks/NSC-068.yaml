@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-068",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Selected Wizard World Placement and Gameplay Entry",
   "reconciliation_key": "selected-wizard-world-placement",
@@ -21,8 +21,7 @@
     "logical:wizard-presentation-selection",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardGameEntryController.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/WizardGameEntryPlayModeTests.cs",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/WizardGameEntryPlayModeTests.cs"
   ],
   "acceptance_criteria": [
     {
@@ -33,7 +32,7 @@
     {
       "criterion_id": "AC-002",
       "reference": "Existing Player ownership and canonical world spawn",
-      "requirement": "Apply the selected presentation to the existing Player and place that same Player at the established initial world spawn in Assets/Scenes/DoorPrototype.unity. Do not instantiate a second Player, replace the Player root, move the spawn to suit the artwork, or leave a hidden duplicate behind."
+      "requirement": "Apply the selected presentation to the existing Player and place that same Player at the established initial world spawn in the world the runtime builder produces - the world is built at runtime by GameBootstrap and Assets/Scenes/DoorPrototype.unity was deleted at fe4c95ad, so the spawn is a property of the built world and not of a scene file. Do not instantiate a second Player, replace the Player root, move the spawn to suit the artwork, or leave a hidden duplicate behind."
     },
     {
       "criterion_id": "AC-003",
@@ -111,6 +110,17 @@
     "wizard_integration_task_id": "NSC-062",
     "wizard_selection_task_id": "NSC-067",
     "created_by_human_request": true,
-    "approved_at_utc_date": "2026-09-12"
+    "approved_at_utc_date": "2026-09-12",
+    "contract_followups": [
+      {
+        "date": "2026-09-27",
+        "reason": "Deletion fallout at fe4c95ad: drop the dangling owned resource and replace the clauses that still required a deleted artifact. NSC-086 AC-007's premise is spent - D5 is built at runtime by DoorSpawner, so the final door is reachable in the built world; NSC-100 AC-007's seven-assertion inventory re-swept to zero and is superseded by the relation it was standing in for.",
+        "source_head": "bb27f852bf50eaaebc601b1876f548806a02b186",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "517439b34a9e3aa8f01eb25e72ba4eba105d0274454d94bf296797afd7d68e77",
+        "revised_contract_sha256": "4d0b4529518824787ac94d70f54c96e2d0301515c9524dd9e3cf436f0a9398df",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   }
 }
