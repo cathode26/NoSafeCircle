@@ -11,16 +11,6 @@
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
-    "NSC-042": {
-      "task_contract_sha256": "85b133ffa0af42f6a26c21180878c79ed9121a57ba6df151a88b2c6611d359a0",
-      "required_test_platforms": [
-        "EditMode"
-      ],
-      "test_filters": {
-        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests"
-      },
-      "authority": "committed_task_specific_authoritative_validation_policy"
-    },
     "NSC-044": {
       "task_contract_sha256": "cc41b6b0bc6d0714165420d67bb127b3f27c126c6ab82e25bb73e2fb519536fe",
       "required_test_platforms": [
@@ -112,16 +102,6 @@
       "test_filters": {
         "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.WizardArtIntegrationTests",
         "PlayMode": "NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests"
-      },
-      "authority": "committed_task_specific_authoritative_validation_policy"
-    },
-    "NSC-071": {
-      "task_contract_sha256": "c0121f1556823ed8be6c5f44f3f692dd2f24e653ebc033890c25fb39928381f6",
-      "required_test_platforms": [
-        "PlayMode"
-      ],
-      "test_filters": {
-        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.BoneArchiveNavigationPlayModeTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
     },

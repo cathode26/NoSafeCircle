@@ -175,7 +175,6 @@
         "world-sprite-prefab-sorting",
         "visual-simulation-continuity",
         "door-visual-affordance-feedback",
-        "seamless-scalable-wall-tiling",
         "door-lock-break-state",
         "door-passability-publication",
         "door-breach-feedback",
@@ -208,7 +207,6 @@
         "NSC-039",
         "NSC-040",
         "NSC-041",
-        "NSC-042",
         "NSC-050",
         "NSC-051",
         "NSC-052",
@@ -311,13 +309,9 @@
       ]
     },
     {
-      "reconciliation_keys": [
-        "bone-archive-navigation-validation"
-      ],
+      "reconciliation_keys": [],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/BoneArchiveNavigationPlayModeTests.cs",
-      "work_ids": [
-        "NSC-071"
-      ]
+      "work_ids": []
     },
     {
       "reconciliation_keys": [
@@ -1024,7 +1018,6 @@
       "reconciliation_keys": [
         "isometric-tilemap-visual-layer",
         "world-sprite-prefab-sorting",
-        "seamless-scalable-wall-tiling",
         "door-breach-feedback",
         "world-sprite-sorting-layer-adoption",
         "doorway-opening-seal-and-door-art-binding",
@@ -1034,7 +1027,6 @@
       "work_ids": [
         "NSC-038",
         "NSC-039",
-        "NSC-042",
         "NSC-052",
         "NSC-100",
         "NSC-097",
