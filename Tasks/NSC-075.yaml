@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-075",
-  "contract_revision": 9,
+  "contract_revision": 10,
   "contract_disposition": "active",
   "title": "Unity Eight-Direction Wizard Locomotion Integration",
   "reconciliation_key": "wizard-eight-direction-locomotion-integration",
@@ -56,7 +56,7 @@
     {
       "criterion_id": "AC-005",
       "reference": "Deterministic Unity builder ownership",
-      "requirement": "DoorPrototypeSceneBuilder.Build remains the public materialization command and delegates wizard Animator construction to DoorPrototypeGlobalSceneBuilder. The global builder owns changed Animator controller and clip references and is idempotent across two runs: the second run changes no generated controller, clip, placeholder asset or .meta import setting. No committed scene is compared byte-for-byte: Unity regenerates local fileIDs on every save, and the world is built at runtime by GameBootstrap and Assets/Scenes/DoorPrototype.unity was deleted at fe4c95ad, so there is no committed world scene left to except. The world content this task owns is proven by the VAL-001 and VAL-006 assertions against the built world. The worker edits source and focused tests only; generated Animator assets and scene serialization are produced by the repository's Unity builder and are never hand-edited."
+      "requirement": "DoorPrototypeSceneBuilder remains the public entry point and delegates wizard Animator construction to DoorPrototypeGlobalSceneBuilder. ITS Build MEMBER IS NOT THE MATERIALIZATION PATH FOR ANYTHING THAT SHIPS: DoorPrototypeSceneBuilder.cs:20 sets ScenePath to Assets/Scenes/DoorPrototype.unity and :193 saves to it, and that path was DELETED at fe4c95ad, so running Build re-creates a deliberately deleted world as an untracked file and dirties the tree for every other role, while EditorBuildSettings ships RuntimeWorld.unity alone and the spawners build the world at Play. BuildInMemoryForTests is the member tests use. The global builder owns changed Animator controller and clip references and is idempotent across two runs: the second run changes no generated controller, clip, placeholder asset or .meta import setting. No committed scene is compared byte-for-byte: Unity regenerates local fileIDs on every save, and the world is built at runtime by GameBootstrap and Assets/Scenes/DoorPrototype.unity was deleted at fe4c95ad, so there is no committed world scene left to except. The world content this task owns is proven by the VAL-001 and VAL-006 assertions against the built world. The worker edits source and focused tests only; generated Animator assets and scene serialization are produced by the repository's Unity builder and are never hand-edited."
     },
     {
       "criterion_id": "AC-006",
@@ -93,7 +93,7 @@
     {
       "gate_id": "VAL-004",
       "reference": "Builder materialization and exact candidate validation",
-      "requirement": "On the exact candidate, preserve and pass WizardCardinalSourceAuditTests before integration, run DoorPrototypeSceneBuilder.Build twice and require that the second run changes no file's bytes at all - there is no committed world scene left to except, because the world is built at runtime by GameBootstrap and Assets/Scenes/DoorPrototype.unity was deleted at fe4c95ad, require a clean compile, pass the focused WizardArtIntegrationTests and WizardCardinalSourceAuditTests Edit Mode fixtures and the WizardAnimationPlayModeTests Play Mode fixture, and commit only builder-materialized outputs registered by this task."
+      "requirement": "On the exact candidate, preserve and pass WizardCardinalSourceAuditTests before integration, *** DO NOT RUN DoorPrototypeSceneBuilder.Build - DoorPrototypeSceneBuilder.cs:20 sets ScenePath to Assets/Scenes/DoorPrototype.unity and :193 saves to it, and that path was DELETED at fe4c95ad, so running Build re-creates a deliberately deleted world as an untracked file and dirties the tree for every other role. *** Where a built scene is needed as a test fixture the entry point is DoorPrototypeSceneBuilder.BuildInMemoryForTests() at :201/:208, which saves nothing; run THAT twice and require that the second run changes no file's bytes at all - there is no committed world scene left to except, because the world is built at runtime by GameBootstrap and Assets/Scenes/DoorPrototype.unity was deleted at fe4c95ad, require a clean compile, pass the focused WizardArtIntegrationTests and WizardCardinalSourceAuditTests Edit Mode fixtures and the WizardAnimationPlayModeTests Play Mode fixture, and commit only builder-materialized outputs registered by this task."
     },
     {
       "gate_id": "VAL-005",
@@ -211,6 +211,15 @@
         "previous_contract_revision": 8,
         "base_contract_sha256": "03b11939317aa8f9e83b2864a8ddfb06bafdd4f28eef8349faaa42de4381c4bb",
         "revised_contract_sha256": "70a4d1cc966f3d496bd0467af10201d4b753a5dedd14427165033ce3317dbf0e",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-27",
+        "reason": "Completes the VAL-004 builder ruling across the held tasks. DoorPrototypeSceneBuilder.Build saves to Assets/Scenes/DoorPrototype.unity (cs:20, :193), deleted at fe4c95ad, so a clause requiring it asks for a deleted world to be re-created as an untracked file. NSC-075's VAL-004 literally said 'run Build twice' and I had edited that same sentence earlier today without removing the demand. BuildInMemoryForTests, which saves nothing, is named as the fixture entry point. The remaining mentions are now warnings against running it rather than demands to run it.",
+        "source_head": "2f3f000eb3004cb2071fb579f47bfaa9d0e34761",
+        "previous_contract_revision": 9,
+        "base_contract_sha256": "ddc1216d3d699fb6e4b68be4f6f2bd4c6407d81b1468f7ff02447d581f161a8a",
+        "revised_contract_sha256": "f549c93894e64dd0fba1cf3d14a7920b2fc8cc7971c50f208a9e3482f285c01a",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
