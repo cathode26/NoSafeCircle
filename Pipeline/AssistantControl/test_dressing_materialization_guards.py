@@ -70,6 +70,7 @@ from Pipeline.TaskReviewAgent.door_prototype_materialization import (
     DoorPrototypeMaterializationError,
     DressingPrefabBuilder,
     declares_dressing_entry_point,
+    describe_dressing_entry_point_absence,
     run_door_prototype_builder,
 )
 from Pipeline.TaskReviewAgent.git_identity_guard import validated_agent_git_identity
@@ -106,6 +107,29 @@ def _builder_source_missing_entry_point(dressing: DressingPrefabBuilder) -> str:
         f"    public static class {dressing.class_name}\n"
         "    {\n"
         "        public static void NotBuild() { }\n"
+        "    }\n"
+        "}\n"
+    )
+
+
+def _builder_source_uncallable_entry_point(dressing: DressingPrefabBuilder) -> str:
+    """NSC-082's real shape: declared, correctly named, and not callable.
+
+    The crew authored a three-argument `GameObject Build(...)` at ac6e648f. The
+    witness refuses it correctly -- the pipeline can supply no arguments -- but the
+    error called it `builder_entry_point_missing`, and its reader went looking for
+    a method that was right there.
+    """
+    return (
+        f"namespace {dressing.namespace}\n"
+        "{\n"
+        f"    public static class {dressing.class_name}\n"
+        "    {\n"
+        "        public static GameObject Build(string dressingCatalogPath,\n"
+        "                                      string propCatalogPath, string prefabPath)\n"
+        "        {\n"
+        "            return null;\n"
+        "        }\n"
         "    }\n"
         "}\n"
     )
@@ -1327,6 +1351,70 @@ class DressingBuilderSelectionReadsThePayloadNotTheEnlargedSet(unittest.TestCase
         self.assertEqual(1, len(calls), "Unity must launch exactly once")
         self.assertIn(dressing.prefab_path, result.builder_paths)
         self.assertIn(dressing.prefab_path + ".meta", result.builder_paths)
+
+
+class EntryPointAbsenceDiagnosisTests(unittest.TestCase):
+    """`builder_entry_point_missing` covered four states and named only one.
+
+    The worst of them is a method that IS declared, correctly named, in the right
+    type, and takes arguments the pipeline cannot supply -- which the message
+    called "missing". Reported by the Pipeline Runner after it spent a round
+    assuming absence; NSC-082's crew had authored exactly that.
+
+    `declares_dressing_entry_point` is unchanged and still decides. These test the
+    explanation only, so a diagnosis can never make a candidate pass.
+    """
+
+    def builder(self):
+        # A dict keyed by prefab path, not a sequence -- taking [0] is a KeyError.
+        return DRESSING_PREFAB_BUILDERS[sorted(DRESSING_PREFAB_BUILDERS)[0]]
+
+    def source(self, body: str) -> str:
+        dressing = self.builder()
+        return (f"namespace {dressing.namespace}\n" "{\n"
+                f"    public static class {dressing.class_name}\n" "    {\n"
+                f"{body}" "    }\n" "}\n")
+
+    def test_a_declared_but_uncallable_entry_point_is_not_reported_as_absent(self):
+        dressing = self.builder()
+        source = _builder_source_uncallable_entry_point(dressing)
+        # The witness still refuses -- the diagnosis changes nothing it decides.
+        self.assertFalse(declares_dressing_entry_point(source, dressing))
+        reason = describe_dressing_entry_point_absence(source, dressing)
+        self.assertIn("DECLARED AND NOT CALLABLE", reason)
+        self.assertIn("GameObject", reason)
+        self.assertIn("dressingCatalogPath", reason)
+        self.assertIn("public static void", reason)
+        # and it must NOT claim absence, which is the whole point
+        self.assertNotIn("no member named", reason)
+
+    def test_a_class_with_no_such_member_still_says_absent(self):
+        dressing = self.builder()
+        source = _builder_source_missing_entry_point(dressing)
+        self.assertFalse(declares_dressing_entry_point(source, dressing))
+        reason = describe_dressing_entry_point_absence(source, dressing)
+        self.assertIn("declares no member named", reason)
+        self.assertNotIn("DECLARED AND NOT CALLABLE", reason)
+
+    def test_a_missing_class_and_a_missing_namespace_are_distinguished(self):
+        dressing = self.builder()
+        wrong_class = (f"namespace {dressing.namespace}\n" "{\n"
+                       "    public static class SomethingElse\n    {\n"
+                       "        public static void Build() { }\n    }\n}\n")
+        wrong_namespace = ("namespace Some.Other.Namespace\n" "{\n"
+                           f"    public static class {dressing.class_name}\n    {{\n"
+                           "        public static void Build() { }\n    }\n}\n")
+        self.assertIn("no public static class",
+                      describe_dressing_entry_point_absence(wrong_class, dressing))
+        self.assertIn("is not declared in this file",
+                      describe_dressing_entry_point_absence(wrong_namespace, dressing))
+
+    def test_the_correct_entry_point_needs_no_explanation(self):
+        """The control: the witness passes, so nothing here is ever consulted."""
+
+        dressing = self.builder()
+        source = self.source("        public static void Build() { }\n")
+        self.assertTrue(declares_dressing_entry_point(source, dressing))
 
 
 if __name__ == "__main__":
