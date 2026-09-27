@@ -469,18 +469,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Content
                     completion.TrySetResult(false);
                 }))
                 {
-                    // ConfigureAwait(false) is load-bearing here, not a style choice: this fake's
-                    // whole contract is that a test can drive its completion inline and assert the
-                    // returned Task synchronously ("Completed" below refuses to block). Without it,
-                    // resuming this await is marshalled through SynchronizationContext.Current -
-                    // under the Unity Editor's UnitySynchronizationContext that marshal does not run
-                    // inline: the continuation was measured resuming only after a LATER test's body
-                    // had already executed, which is exactly the environment this fixture must run
-                    // in. Confirmed by diagnostic tracing (removed) that completion.Task itself
-                    // completed synchronously inside the cancellation callback while this awaiter's
-                    // resumption did not. Production code never depends on this seam.
-                    bool r = await completion.Task.ConfigureAwait(false);
-                    return r;
+                    return await completion.Task;
                 }
             }
 
