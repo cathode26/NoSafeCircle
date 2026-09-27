@@ -89,6 +89,18 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsTrue(startDoor.IsOpen, "The gate did not open for the wizard's entry.");
 
             yield return WaitForActiveObject("TitleEntryFireball_0", VisualWaitSeconds);
+            EntryChamberCutsceneOcclusion occlusion =
+                entry.GetComponent<EntryChamberCutsceneOcclusion>();
+            Assert.IsNotNull(occlusion);
+            Assert.IsTrue(occlusion.IsActive,
+                "The foreground wall art did not soften for the chase.");
+            Assert.Greater(occlusion.SouthWallTargetCount, 0);
+            Assert.Greater(occlusion.GateFlankTargetCount, 0);
+            SpriteRenderer gateFlank = GameObject.Find("EntryChamberGateWall")
+                ?.GetComponentInChildren<SpriteRenderer>();
+            Assert.IsNotNull(gateFlank);
+            Assert.Less(gateFlank.color.a, 0.5f,
+                "The gate flank still hides the wizard during fireball shots.");
             Capture(output, "02-first-fireball-miss", gameCamera, canvas, manifest,
                 entry, chase, startDoor);
             yield return WaitForActiveObject("TitleEntryFireball_1", VisualWaitSeconds);
@@ -122,6 +134,10 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsTrue(entry.HasEnteredGameplay,
                 "Entry did not hand control to the player within " + MaximumEntrySeconds + " seconds.");
             Assert.IsFalse(startDoor.IsOpen, "The start door reopened before gameplay began.");
+            Assert.IsFalse(occlusion.IsActive,
+                "The chamber wall art was not restored during the dark handoff.");
+            Assert.Greater(gateFlank.color.a, 0.9f,
+                "The gate flank stayed translucent after gameplay began.");
             Assert.AreEqual(3, chase.FiredEntryShotCount,
                 "The wizard did not fire the two misses and final hit.");
             Assert.AreEqual(1, chase.EntryImpactCount,
