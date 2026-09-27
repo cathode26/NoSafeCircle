@@ -3,6 +3,7 @@ using System.Collections;
 using System.IO;
 using System.Text;
 using NoSafeCircle.DoorPrototype.World;
+using NoSafeCircle.DoorPrototype.World.Rooms;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -20,6 +21,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         private const int Height = 1080;
         private const int TemporaryUiLayer = 31;
         private const float MaximumEntrySeconds = 15f;
+        private const float VisualWaitSeconds = 8f;
 
         [UnityTest]
         [Explicit("Set NSC_ENTRY_CAPTURE_OUTPUT to a new directory outside the project.")]
@@ -52,11 +54,18 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 UnityEngine.Object.FindFirstObjectByType<WizardSelectionController>();
             WizardGameEntryController entry =
                 UnityEngine.Object.FindFirstObjectByType<WizardGameEntryController>();
+            TitleScreenChaseBackdrop chase =
+                UnityEngine.Object.FindFirstObjectByType<TitleScreenChaseBackdrop>();
+            EntryChamberStartDoor startDoor =
+                UnityEngine.Object.FindFirstObjectByType<EntryChamberStartDoor>();
             Assert.IsNotNull(gameCamera);
             Assert.IsNotNull(canvas);
             Assert.IsNotNull(title);
             Assert.IsNotNull(selection);
             Assert.IsNotNull(entry);
+            Assert.IsNotNull(chase, "RuntimeWorld has no entry chase component.");
+            Assert.IsNotNull(startDoor, "RuntimeWorld did not spawn the separate entry gate.");
+            Assert.IsFalse(startDoor.IsOpen, "The gate should begin sealed on the title screen.");
 
             var manifest = new StringBuilder();
             manifest.AppendLine("Unity " + Application.unityVersion);
@@ -64,49 +73,86 @@ namespace NoSafeCircle.DoorPrototype.Tests
             manifest.AppendLine("Scene RuntimeWorld.unity; selected wizard option 0");
             manifest.AppendLine("Frames are 1920x1080 manual Camera.Render plus UI canvas composition.");
 
-            Capture(output, "00-title", gameCamera, canvas, manifest, entry);
+            Capture(output, "00-title", gameCamera, canvas, manifest, entry, chase, startDoor);
             title.StartGame();
             yield return null;
             Assert.IsTrue(selection.IsSelectionVisible);
-            Capture(output, "01-selection", gameCamera, canvas, manifest, entry);
+            Capture(output, "01-selection", gameCamera, canvas, manifest, entry, chase,
+                startDoor);
 
             selection.SelectOption(0);
             Assert.IsTrue(selection.IsConfirmationAvailable);
             selection.ConfirmSelection();
             yield return null;
+            Assert.IsTrue(entry.IsEntryCutsceneRunning,
+                "Wizard control began without the selected-wizard chase.");
+            Assert.IsTrue(startDoor.IsOpen, "The gate did not open for the wizard's entry.");
 
-            // These early samples show the fleeing wizard and backward fireballs without
-            // photographing the dark handoff fade near the end of the cutscene.
-            float elapsed = 0f;
-            float[] chaseTimes = { 0.8f, 1f, 1.2f };
-            for (int index = 0; index < chaseTimes.Length; index++)
-            {
-                float wait = chaseTimes[index] - elapsed;
-                yield return new WaitForSeconds(wait);
-                elapsed = chaseTimes[index];
-                if (!entry.HasEnteredGameplay)
-                {
-                    Capture(output, "02-chase-" + (int)(elapsed * 1000f) + "ms",
-                        gameCamera, canvas, manifest, entry);
-                }
-            }
+            yield return WaitForActiveObject("TitleEntryFireball_0", VisualWaitSeconds);
+            Capture(output, "02-first-fireball-miss", gameCamera, canvas, manifest,
+                entry, chase, startDoor);
+            yield return WaitForActiveObject("TitleEntryFireball_1", VisualWaitSeconds);
+            Capture(output, "03-second-fireball-miss", gameCamera, canvas, manifest,
+                entry, chase, startDoor);
+            yield return WaitForActiveObject("TitleEntryFireball_2", VisualWaitSeconds);
+            Capture(output, "04-third-fireball-hit-flight", gameCamera, canvas, manifest,
+                entry, chase, startDoor);
+            yield return WaitForActiveObject("TitleEntryFireballImpact", VisualWaitSeconds);
+            Capture(output, "05-fireball-hit-impact", gameCamera, canvas, manifest,
+                entry, chase, startDoor);
 
-            while (!entry.HasEnteredGameplay && elapsed < MaximumEntrySeconds)
+            float deadline = Time.realtimeSinceStartup + MaximumEntrySeconds;
+            while (startDoor.IsOpen && Time.realtimeSinceStartup < deadline)
             {
-                yield return new WaitForSeconds(0.1f);
-                elapsed += 0.1f;
+                yield return null;
             }
+            Assert.IsFalse(startDoor.IsOpen, "The start door never sealed behind the wizard.");
+            Transform doorVisual = startDoor.transform.Find("DoorVisual");
+            Assert.IsNotNull(doorVisual);
+            Assert.IsTrue(doorVisual.gameObject.activeSelf,
+                "The start door reports closed but its leaf is hidden.");
+            Assert.IsFalse(entry.HasEnteredGameplay,
+                "The door must visibly seal before control starts.");
+            Capture(output, "06-start-door-sealed", gameCamera, canvas, manifest,
+                entry, chase, startDoor);
+
+            while (!entry.HasEnteredGameplay && Time.realtimeSinceStartup < deadline)
+                yield return null;
 
             Assert.IsTrue(entry.HasEnteredGameplay,
                 "Entry did not hand control to the player within " + MaximumEntrySeconds + " seconds.");
+            Assert.IsFalse(startDoor.IsOpen, "The start door reopened before gameplay began.");
+            Assert.AreEqual(3, chase.FiredEntryShotCount,
+                "The wizard did not fire the two misses and final hit.");
+            Assert.AreEqual(1, chase.EntryImpactCount,
+                "The final fireball did not show its hit effect.");
+            GameObject player = GameObject.Find("Player");
+            PlayerMovement movement = player?.GetComponent<PlayerMovement>();
+            Assert.IsNotNull(movement);
+            Assert.IsTrue(movement.IsGameplayEnabled,
+                "The player still lacks movement after the room reveal.");
+            Assert.Less(Vector3.Distance(player.transform.position,
+                    EntryChamberLayout.FirstRoomArrival), 0.1f,
+                "The player did not start inside Ruined Entry after the chase.");
             yield return null;
-            Capture(output, "03-door-sealed-player-ready", gameCamera, canvas, manifest, entry);
+            Capture(output, "07-first-room-player-ready", gameCamera, canvas, manifest,
+                entry, chase, startDoor);
             File.WriteAllText(Path.Combine(output, "capture-source.txt"), manifest.ToString());
             Debug.Log("Entry cutscene review capture: " + output);
         }
 
+        private static IEnumerator WaitForActiveObject(string name, float maximumSeconds)
+        {
+            float deadline = Time.realtimeSinceStartup + maximumSeconds;
+            while (GameObject.Find(name) == null && Time.realtimeSinceStartup < deadline)
+                yield return null;
+            Assert.IsNotNull(GameObject.Find(name),
+                "The cutscene did not present " + name + " before the timeout.");
+        }
+
         private static void Capture(string output, string name, Camera gameCamera, Canvas canvas,
-            StringBuilder manifest, WizardGameEntryController entry)
+            StringBuilder manifest, WizardGameEntryController entry,
+            TitleScreenChaseBackdrop chase, EntryChamberStartDoor startDoor)
         {
             RenderTexture previousTarget = gameCamera.targetTexture;
             int previousMask = gameCamera.cullingMask;
@@ -184,6 +230,10 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 Assert.Greater(new FileInfo(path).Length, 1000L,
                     "Capture is unexpectedly small: " + name);
                 manifest.AppendLine(name + ": enteredGameplay=" + entry.HasEnteredGameplay
+                    + ", entryChaseRunning=" + entry.IsEntryCutsceneRunning
+                    + ", startDoorOpen=" + startDoor.IsOpen
+                    + ", shotsFired=" + chase.FiredEntryShotCount
+                    + ", hitsShown=" + chase.EntryImpactCount
                     + ", scene=" + SceneManager.GetActiveScene().name);
             }
             finally
