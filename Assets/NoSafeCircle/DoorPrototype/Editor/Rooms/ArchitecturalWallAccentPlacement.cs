@@ -204,7 +204,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         public static float ComputeGroundContactAnchorY(Sprite sprite, float floorY)
         {
             if (sprite == null) throw new ArgumentNullException(nameof(sprite));
-            return floorY - sprite.bounds.min.y; // NEGATIVE CONTROL: temporary, reverted after the run.
+            return floorY;
         }
 
         private static void AddWallSide(
