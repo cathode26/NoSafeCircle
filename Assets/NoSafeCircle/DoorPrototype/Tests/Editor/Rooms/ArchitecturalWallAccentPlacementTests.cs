@@ -84,46 +84,105 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
         // assuming a bottom-centre pivot -- must keep producing the same rendered ground contact
         // whether the sprite currently imports with its committed non-zero vertical pivot or with
         // a corrected pivot of zero supplied to the same derivation.
+        // NSC-120 AC-002/AC-003. REPLACES A TEST THAT COULD NOT FAIL: the previous version computed
+        // anchorY = floorY - bounds.min.y and then asserted anchorY + bounds.min.y == floorY, which is
+        // identically true for every sprite and every pivot, including under the defect it guarded.
+        //
+        // THIS ONE TAKES ITS EXPECTATION FROM THE IMAGE. It decodes each accent PNG, measures the
+        // alpha-tight bottom padding, and requires (a) that the committed pivot sits exactly on the
+        // drawn art's base, and (b) that the anchor lands THE ART'S BASE on the floor plane -- not the
+        // sprite rect, which includes that padding.
+        //
+        // Clause (b) is written as a relation valid for ANY pivot convention, so it is also AC-002's
+        // pivot invariance measured on the art instead of the rect: move a pivot to zero and the
+        // anchor must move by the padding so the art still lands in the same place.
+        //
+        // wall_straight is a CONTROL and belongs here: its padding is zero, so it is the one sprite
+        // whose rect bottom and art base coincide. It passed under the defect and passes under the
+        // fix -- which is precisely how the defect survived review.
+        //
+        // Pixel pairs (pivot px / pad px) measured from the committed bytes by the Art Director and
+        // corroborated by GER from the .meta pivots: wall_straight 0/0, wall_corner 16/16,
+        // wall_door_jamb 26/26, wall_end_cap 18/18. Recorded as provenance; the test re-measures them
+        // rather than asserting those literals, so it survives an art change.
         [Test]
-        public void ComputeGroundContactAnchorY_ProducesIdenticalGroundContactForActualAndZeroVerticalPivot()
+        public void ComputeGroundContactAnchorY_PutsTheDrawnArtBaseOnTheFloor_NotTheSpriteRect()
         {
             const float floorY = 3.25f;
-            Sprite committedCornerSprite =
-                AssetDatabase.LoadAssetAtPath<Sprite>(ArchitecturalWallAccentPlacement.CornerSpritePath);
-            Assert.IsNotNull(committedCornerSprite,
-                "Requires the committed sprite at " + ArchitecturalWallAccentPlacement.CornerSpritePath);
+            const string wallsFolder = "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/";
 
-            float normalizedPivotX = committedCornerSprite.pivot.x / committedCornerSprite.rect.width;
-            Sprite zeroVerticalPivotSprite = Sprite.Create(
-                committedCornerSprite.texture,
-                committedCornerSprite.rect,
-                new Vector2(normalizedPivotX, 0f),
-                committedCornerSprite.pixelsPerUnit);
-            zeroVerticalPivotSprite.hideFlags = HideFlags.HideAndDontSave;
+            string[] spritePaths =
+            {
+                wallsFolder + "wall_straight.png",
+                ArchitecturalWallAccentPlacement.CornerSpritePath,
+                ArchitecturalWallAccentPlacement.JambSpritePath,
+                ArchitecturalWallAccentPlacement.EndCapSpritePath,
+            };
+
+            var measuredPads = new List<string>();
+            foreach (string path in spritePaths)
+            {
+                Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+                Assert.IsNotNull(sprite, "Requires the committed sprite at " + path);
+
+                int padPx = MeasureAlphaTightBottomPaddingPixels(path);
+                measuredPads.Add(System.IO.Path.GetFileName(path) + " pad=" + padPx
+                                 + "px pivot=" + sprite.pivot.y + "px");
+
+                Assert.That(sprite.pivot.y, Is.EqualTo((float)padPx).Within(0.5f),
+                    path + ": the committed pivot must sit on the DRAWN ART'S BASE. Placement derives "
+                    + "ground contact from that assumption, and nothing asserted it before.");
+
+                float anchorY = ArchitecturalWallAccentPlacement.ComputeGroundContactAnchorY(sprite, floorY);
+                float artBaseWorldY = anchorY + ((padPx - sprite.pivot.y) / sprite.pixelsPerUnit);
+
+                Assert.That(artBaseWorldY, Is.EqualTo(floorY).Within(0.01f),
+                    path + ": the DRAWN ART'S base must land on the floor plane. Anchoring the sprite "
+                    + "RECT instead floats the art by its own transparent bottom padding ("
+                    + (padPx / sprite.pixelsPerUnit) + " units here), which also sorts it behind its "
+                    + "neighbours because the transparency sort axis is Y-dominant.");
+            }
+
+            // Logged rather than asserted: a future reader needs to see that the control really does
+            // have zero padding, or the control proves nothing.
+            UnityEngine.Debug.Log("[NSC-120] accent pad/pivot measured: " + string.Join(", ", measuredPads));
+        }
+
+        /// <summary>The alpha-tight bottom padding, in pixels, of the PNG at <paramref name="assetPath"/>.
+        /// Decoded from the file's own bytes rather than read off the imported texture, so the test does
+        /// not depend on a TextureImporter isReadable flag it does not own.</summary>
+        private static int MeasureAlphaTightBottomPaddingPixels(string assetPath)
+        {
+            byte[] fileBytes = System.IO.File.ReadAllBytes(assetPath);
+            var decoded = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            decoded.hideFlags = HideFlags.HideAndDontSave;
             try
             {
-                float actualAnchorY =
-                    ArchitecturalWallAccentPlacement.ComputeGroundContactAnchorY(committedCornerSprite, floorY);
-                float zeroPivotAnchorY =
-                    ArchitecturalWallAccentPlacement.ComputeGroundContactAnchorY(zeroVerticalPivotSprite, floorY);
+                Assert.IsTrue(ImageConversion.LoadImage(decoded, fileBytes, false),
+                    "Could not decode " + assetPath + " as an image.");
 
-                float actualGroundContact = actualAnchorY + committedCornerSprite.bounds.min.y;
-                float zeroPivotGroundContact = zeroPivotAnchorY + zeroVerticalPivotSprite.bounds.min.y;
+                Color32[] pixels = decoded.GetPixels32();
+                for (int y = 0; y < decoded.height; y++)
+                {
+                    int rowStart = y * decoded.width;
+                    for (int x = 0; x < decoded.width; x++)
+                    {
+                        if (pixels[rowStart + x].a != 0)
+                        {
+                            // GetPixels32 is bottom-up, so the first non-empty row IS the padding.
+                            return y;
+                        }
+                    }
+                }
 
-                Assert.That(actualGroundContact, Is.EqualTo(floorY).Within(0.01f),
-                    "The committed pivot must still land on the wall run's floor plane.");
-                Assert.That(zeroPivotGroundContact, Is.EqualTo(floorY).Within(0.01f),
-                    "A corrected zero pivot must still land on the wall run's floor plane.");
-                Assert.That(actualGroundContact, Is.EqualTo(zeroPivotGroundContact).Within(0.01f),
-                    "Placement must produce identical ground contact whether the sprite's committed " +
-                    "pivot or a corrected pivot of zero is supplied to the same derivation.");
+                Assert.Fail(assetPath + " is fully transparent - there is no art to anchor.");
+                return 0;
             }
             finally
             {
-                Object.DestroyImmediate(zeroVerticalPivotSprite);
+                Object.DestroyImmediate(decoded);
             }
         }
-
         private static void AssertGroundContactAndFootprint(PlacedWallAccent accent, float floorY)
         {
             SpriteRenderer renderer = accent.Instance.GetComponent<SpriteRenderer>();

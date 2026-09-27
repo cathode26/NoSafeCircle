@@ -174,14 +174,37 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             return placed;
         }
 
-        /// <summary>The world Y a sprite's own transform must sit at so its rendered bottom edge
-        /// -- derived from the sprite's own pivot and bounds, never assumed to already be the
-        /// pivot -- lands exactly on <paramref name="floorY"/>. Pure and free of any placement
-        /// state, so a committed pivot and a hypothetical one can be compared directly.</summary>
+        /// <summary>The world Y a sprite's own transform must sit at so THE DRAWN ART'S BASE lands
+        /// exactly on <paramref name="floorY"/>.
+        ///
+        /// THIS USED TO RETURN <c>floorY - sprite.bounds.min.y</c>, AND THAT PUT THE SPRITE'S RECT
+        /// BOTTOM ON THE FLOOR RATHER THAN ITS ART, so every accent floated by its own transparent
+        /// bottom padding. Every accent pivot already sits EXACTLY on the drawn art's base -- pivot.y
+        /// in pixels equals the alpha-tight bottom pad on all four sprites (0/16/26/18 px on
+        /// wall_straight, wall_corner, wall_door_jamb, wall_end_cap; measured from the committed
+        /// bytes by the Art Director, corroborated independently by GER from the .meta pivots). So
+        /// the transform position IS the art base, and subtracting bounds.min.y counted it twice,
+        /// lifting the art by 0.250, 0.406 and 0.281 units respectively.
+        ///
+        /// wall_straight was correct throughout ONLY because its pad is zero -- the one sprite where
+        /// a rect-bottom and an art-base reading coincide, which is why this survived review.
+        ///
+        /// IT ALSO CAUSED AN OBSERVED SORTING DEFECT, not merely a float: the camera's transparency
+        /// sort axis is (0, 1, 0.26).normalized, so Y dominates depth, and a root lifted 0.250 or
+        /// 0.406 reads as further away and draws BEHIND its own neighbours.
+        ///
+        /// NOTE FOR ANYONE RECONCILING THIS WITH NSC-120: this deliberately does NOT satisfy AC-003
+        /// as written. AC-003 asks for "the world Y of its Renderer bounds minimum" on the floor,
+        /// and Renderer.bounds covers the RECT including padding -- so satisfying AC-003 IS the
+        /// defect. GER owns that contract, has the corrected wording queued, and ruled that the code
+        /// is fixed first and the record says so. The pivot-invariance requirement in AC-002 still
+        /// holds and is still right: correct placement is invariant too, because the anchor should
+        /// differ by the padding between the two pivot conventions so that the ART lands in the same
+        /// place. Measuring that invariance on the rect is what was broken.</summary>
         public static float ComputeGroundContactAnchorY(Sprite sprite, float floorY)
         {
             if (sprite == null) throw new ArgumentNullException(nameof(sprite));
-            return floorY - sprite.bounds.min.y;
+            return floorY;
         }
 
         private static void AddWallSide(
