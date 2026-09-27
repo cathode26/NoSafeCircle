@@ -1,0 +1,45 @@
+{
+    "schema_version":  "1.1",
+    "manifest_type":  "unity_test_validation",
+    "status":  "passed",
+    "validated_state":  {
+                            "commit":  "9feeb874fa609cd47b3bf8e64ca0bce10bbb44d7",
+                            "tree":  "8636c39a7bffa7be425af37050089ebab95d3a81",
+                            "post_commit":  "9feeb874fa609cd47b3bf8e64ca0bce10bbb44d7",
+                            "post_tree":  "8636c39a7bffa7be425af37050089ebab95d3a81",
+                            "repository_clean_before":  true,
+                            "repository_clean_after":  true
+                        },
+    "unity":  {
+                  "version":  "6000.6.3f1",
+                  "executable":  "C:\\Program Files\\Unity\\Hub\\Editor\\6000.6.3f1\\Editor\\Unity.exe",
+                  "exit_code":  0,
+                  "test_platform":  "PlayMode",
+                  "test_filter":  "NoSafeCircle.DoorPrototype.Tests.TitleScreenChaseBackdropPlayModeTests"
+              },
+    "test_run":  {
+                     "result":  "Passed",
+                     "total":  7,
+                     "passed":  7,
+                     "failed":  0,
+                     "skipped":  0
+                 },
+    "artifacts":  {
+                      "xml":  {
+                                  "relative_path":  "test-results.xml",
+                                  "sha256":  "5411c85b784f222a922909d0b944afe25ac0543a5564deb1ad372cd2f9107bc2",
+                                  "size_bytes":  9460
+                              },
+                      "log":  {
+                                  "relative_path":  "unity.log",
+                                  "sha256":  "6afef17de4d7b798fc1063d64bab5f8abd79a1450c3acc17fa899c68e702b717",
+                                  "size_bytes":  126382
+                              }
+                  },
+    "runner":  {
+                   "path":  "Pipeline/Testing/run_unity_tests_clean.ps1",
+                   "sha256":  "bd2a24b5ca7769b8a176d6a04ee6b5db6fd6be911ae9ce3df845bf93094e30e2",
+                   "source_commit":  "9feeb874fa609cd47b3bf8e64ca0bce10bbb44d7",
+                   "source_tree":  "8636c39a7bffa7be425af37050089ebab95d3a81"
+               }
+}

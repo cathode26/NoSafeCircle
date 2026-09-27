@@ -1,0 +1,71 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "c624c409c8adaf24c8c9d7d45d3eebf7f14cf438",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenChaseBackdrop.cs",
+      "role": "title_chase_runtime_or_test"
+    },
+    {
+      "blob_sha": "15282bf5b284aedefb046a3242720501edf9481d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/TitleScreenChaseBackdrop.cs.meta",
+      "role": "title_chase_runtime_or_test"
+    },
+    {
+      "blob_sha": "fb4a6c57825f9f45cf6af76f2c837b42e8459301",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/TitleScreenChaseBackdropPlayModeTests.cs",
+      "role": "title_chase_runtime_or_test"
+    },
+    {
+      "blob_sha": "8bf038e75b18bd5d8d9e29dc026c8fdb769fd297",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/TitleScreenChaseBackdropPlayModeTests.cs.meta",
+      "role": "title_chase_runtime_or_test"
+    }
+  ],
+  "delivery": {
+    "base_commit": "ea23c351efc4adec1ce30cdf9f31e15ab39637b2",
+    "candidate_commit": "9feeb874fa609cd47b3bf8e64ca0bce10bbb44d7",
+    "integrated_commit": "9feeb874fa609cd47b3bf8e64ca0bce10bbb44d7",
+    "integrated_tree": "8636c39a7bffa7be425af37050089ebab95d3a81"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "4f0213e6e16000c11481c8cadac8825fecd9c66d",
+          "path": "Pipeline/TaskGraph/evidence/NSC-107/artifacts/TitleChasePlayMode-9feeb874fa60.xml"
+        },
+        {
+          "blob_sha": "a624e3c047d07e208a5e3007752132876c0b9bb8",
+          "path": "Pipeline/TaskGraph/evidence/NSC-107/artifacts/TitleChaseValidationManifest-9feeb874fa60.json"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Clean Unity 6000.6.3f1 Play Mode run of all seven title-chase tests on the exact candidate commit; 7/7 passed.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "NSC-107 requires the automated Play Mode gate; human review belongs to NSC-108 VAL-002.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-107-9feeb874fa60",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-27T13:59:28Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-107.yaml",
+    "revision": 1,
+    "sha256": "7f77e981e46d206ea7e449195158f82e1d1037f3e93e66bd79f8414fc98a4c6e"
+  },
+  "task_id": "NSC-107",
+  "validated_state": {
+    "commit": "9feeb874fa609cd47b3bf8e64ca0bce10bbb44d7",
+    "tree": "8636c39a7bffa7be425af37050089ebab95d3a81"
+  }
+}

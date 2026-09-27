@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="7" result="Passed" total="7" passed="7" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-27 13:57:37Z" end-time="2026-09-27 13:57:38Z" duration="0.6161525">
+  <test-suite type="TestSuite" id="1545" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="465" result="Passed" start-time="2026-09-27 13:57:37Z" end-time="2026-09-27 13:57:38Z" duration="0.616153" total="7" passed="7" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <test-suite type="Assembly" id="1531" name="NoSafeCircle.DoorPrototype.Tests.dll" fullname="C:/nscrev/work/game-sprint2/title-chase-20260927/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.dll" runstate="Runnable" testcasecount="461" result="Passed" start-time="2026-09-27 13:57:38Z" end-time="2026-09-27 13:57:38Z" duration="0.555107" total="7" passed="7" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="50928" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <test-suite type="TestSuite" id="1532" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="461" result="Passed" start-time="2026-09-27 13:57:38Z" end-time="2026-09-27 13:57:38Z" duration="0.524090" total="7" passed="7" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1533" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="461" result="Passed" start-time="2026-09-27 13:57:38Z" end-time="2026-09-27 13:57:38Z" duration="0.498820" total="7" passed="7" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1534" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="461" result="Passed" start-time="2026-09-27 13:57:38Z" end-time="2026-09-27 13:57:38Z" duration="0.465732" total="7" passed="7" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1456" name="TitleScreenChaseBackdropPlayModeTests" fullname="NoSafeCircle.DoorPrototype.Tests.TitleScreenChaseBackdropPlayModeTests" classname="NoSafeCircle.DoorPrototype.Tests.TitleScreenChaseBackdropPlayModeTests" runstate="Runnable" testcasecount="7" result="Passed" start-time="2026-09-27 13:57:38Z" end-time="2026-09-27 13:57:38Z" duration="0.431583" total="7" passed="7" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1457" name="FirstPairingAndLaterIntervals_UseTheInjectedThreeTenAndTwentySecondBounds" fullname="NoSafeCircle.DoorPrototype.Tests.TitleScreenChaseBackdropPlayModeTests.FirstPairingAndLaterIntervals_UseTheInjectedThreeTenAndTwentySecondBounds" methodname="FirstPairingAndLaterIntervals_UseTheInjectedThreeTenAndTwentySecondBounds" classname="NoSafeCircle.DoorPrototype.Tests.TitleScreenChaseBackdropPlayModeTests" runstate="Runnable" seed="1397006557" result="Passed" start-time="2026-09-27 13:57:38Z" end-time="2026-09-27 13:57:38Z" duration="0.198982" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1462" name="NarrowAspect_SkipsPairingsBecauseTheClippedLaneIsUnderSixWorldUnits" fullname="NoSafeCircle.DoorPrototype.Tests.TitleScreenChaseBackdropPlayModeTests.NarrowAspect_SkipsPairingsBecauseTheClippedLaneIsUnderSixWorldUnits" methodname="NarrowAspect_SkipsPairingsBecauseTheClippedLaneIsUnderSixWorldUnits" classname="NoSafeCircle.DoorPrototype.Tests.TitleScreenChaseBackdropPlayModeTests" runstate="Runnable" seed="1380195021" result="Passed" start-time="2026-09-27 13:57:38Z" end-time="2026-09-27 13:57:38Z" duration="0.008757" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1458" name="NinePairings_CycleFourWizardIdentitiesAndBothPursuersFromBothEnds" fullname="NoSafeCircle.DoorPrototype.Tests.TitleScreenChaseBackdropPlayModeTests.NinePairings_CycleFourWizardIdentitiesAndBothPursuersFromBothEnds" methodname="NinePairings_CycleFourWizardIdentitiesAndBothPursuersFromBothEnds" classname="NoSafeCircle.DoorPrototype.Tests.TitleScreenChaseBackdropPlayModeTests" runstate="Runnable" seed="164863812" result="Passed" start-time="2026-09-27 13:57:38Z" end-time="2026-09-27 13:57:38Z" duration="0.035803" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-suite type="ParameterizedMethod" id="1461" name="Pairing_StaysOnClippedFloorLaneAndFadesAtBothEnds" fullname="NoSafeCircle.DoorPrototype.Tests.TitleScreenChaseBackdropPlayModeTests.Pairing_StaysOnClippedFloorLaneAndFadesAtBothEnds" classname="NoSafeCircle.DoorPrototype.Tests.TitleScreenChaseBackdropPlayModeTests" runstate="Runnable" testcasecount="2" result="Passed" start-time="2026-09-27 13:57:38Z" end-time="2026-09-27 13:57:38Z" duration="0.041697" total="2" passed="2" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1459" name="Pairing_StaysOnClippedFloorLaneAndFadesAtBothEnds(1920,1080)" fullname="NoSafeCircle.DoorPrototype.Tests.TitleScreenChaseBackdropPlayModeTests.Pairing_StaysOnClippedFloorLaneAndFadesAtBothEnds(1920,1080)" methodname="Pairing_StaysOnClippedFloorLaneAndFadesAtBothEnds" classname="NoSafeCircle.DoorPrototype.Tests.TitleScreenChaseBackdropPlayModeTests" runstate="Runnable" seed="1096262533" result="Passed" start-time="2026-09-27 13:57:38Z" end-time="2026-09-27 13:57:38Z" duration="0.021951" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1460" name="Pairing_StaysOnClippedFloorLaneAndFadesAtBothEnds(1440,1080)" fullname="NoSafeCircle.DoorPrototype.Tests.TitleScreenChaseBackdropPlayModeTests.Pairing_StaysOnClippedFloorLaneAndFadesAtBothEnds(1440,1080)" methodname="Pairing_StaysOnClippedFloorLaneAndFadesAtBothEnds" classname="NoSafeCircle.DoorPrototype.Tests.TitleScreenChaseBackdropPlayModeTests" runstate="Runnable" seed="1088016080" result="Passed" start-time="2026-09-27 13:57:38Z" end-time="2026-09-27 13:57:38Z" duration="0.010736" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+              </test-suite>
+              <test-case id="1463" name="StartGame_ClearsActorsInTheSameCallAndPreventsFuturePairings" fullname="NoSafeCircle.DoorPrototype.Tests.TitleScreenChaseBackdropPlayModeTests.StartGame_ClearsActorsInTheSameCallAndPreventsFuturePairings" methodname="StartGame_ClearsActorsInTheSameCallAndPreventsFuturePairings" classname="NoSafeCircle.DoorPrototype.Tests.TitleScreenChaseBackdropPlayModeTests" runstate="Runnable" seed="1960480040" result="Passed" start-time="2026-09-27 13:57:38Z" end-time="2026-09-27 13:57:38Z" duration="0.007717" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+              </test-case>
+              <test-case id="1464" name="WalkingWizard_UsesItsSelectedPresentationWithoutGameplayComponents" fullname="NoSafeCircle.DoorPrototype.Tests.TitleScreenChaseBackdropPlayModeTests.WalkingWizard_UsesItsSelectedPresentationWithoutGameplayComponents" methodname="WalkingWizard_UsesItsSelectedPresentationWithoutGameplayComponents" classname="NoSafeCircle.DoorPrototype.Tests.TitleScreenChaseBackdropPlayModeTests" runstate="Runnable" seed="102978041" result="Passed" start-time="2026-09-27 13:57:38Z" end-time="2026-09-27 13:57:38Z" duration="0.099050" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-4c2d0efd772a45519a0c1f69f002e3d6\test-results.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>
