@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="10" result="Passed" total="10" passed="10" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-27 22:41:36Z" end-time="2026-09-27 22:41:37Z" duration="1.1468067">
+  <test-suite type="TestSuite" id="1548" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="468" result="Passed" start-time="2026-09-27 22:41:36Z" end-time="2026-09-27 22:41:37Z" duration="1.146807" total="10" passed="10" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <test-suite type="Assembly" id="1534" name="NoSafeCircle.DoorPrototype.Tests.dll" fullname="C:/nscrev/handoff/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.dll" runstate="Runnable" testcasecount="464" result="Passed" start-time="2026-09-27 22:41:36Z" end-time="2026-09-27 22:41:37Z" duration="1.088731" total="10" passed="10" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="8524" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <test-suite type="TestSuite" id="1535" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="464" result="Passed" start-time="2026-09-27 22:41:36Z" end-time="2026-09-27 22:41:37Z" duration="0.486940" total="10" passed="10" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1536" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="464" result="Passed" start-time="2026-09-27 22:41:36Z" end-time="2026-09-27 22:41:37Z" duration="0.470144" total="10" passed="10" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1537" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="464" result="Passed" start-time="2026-09-27 22:41:37Z" end-time="2026-09-27 22:41:37Z" duration="0.446051" total="10" passed="10" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1480" name="WallSpawnerPlayModeTests" fullname="NoSafeCircle.DoorPrototype.Tests.WallSpawnerPlayModeTests" classname="NoSafeCircle.DoorPrototype.Tests.WallSpawnerPlayModeTests" runstate="Runnable" testcasecount="10" result="Passed" start-time="2026-09-27 22:41:37Z" end-time="2026-09-27 22:41:37Z" duration="0.423837" total="10" passed="10" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1486" name="BasePiecesStandOnTheirLineAndInsetTheVisualTowardTheRoom" fullname="NoSafeCircle.DoorPrototype.Tests.WallSpawnerPlayModeTests.BasePiecesStandOnTheirLineAndInsetTheVisualTowardTheRoom" methodname="BasePiecesStandOnTheirLineAndInsetTheVisualTowardTheRoom" classname="NoSafeCircle.DoorPrototype.Tests.WallSpawnerPlayModeTests" runstate="Runnable" seed="2016365651" result="Passed" start-time="2026-09-27 22:41:37Z" end-time="2026-09-27 22:41:37Z" duration="0.118598" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[WallSpawner: spawned 507 wall piece(s) and collider(s) across 5 room(s).
+]]></output>
+              </test-case>
+              <test-case id="1487" name="CornerPostsAndDoorShouldersReproduceTheApprovedPlacerArithmetic" fullname="NoSafeCircle.DoorPrototype.Tests.WallSpawnerPlayModeTests.CornerPostsAndDoorShouldersReproduceTheApprovedPlacerArithmetic" methodname="CornerPostsAndDoorShouldersReproduceTheApprovedPlacerArithmetic" classname="NoSafeCircle.DoorPrototype.Tests.WallSpawnerPlayModeTests" runstate="Runnable" seed="1602032083" result="Passed" start-time="2026-09-27 22:41:37Z" end-time="2026-09-27 22:41:37Z" duration="0.033710" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[WallSpawner: spawned 507 wall piece(s) and collider(s) across 5 room(s).
+]]></output>
+              </test-case>
+              <test-case id="1488" name="EveryCornerAndEndCapDrawnBaseRestsOnTheFloor" fullname="NoSafeCircle.DoorPrototype.Tests.WallSpawnerPlayModeTests.EveryCornerAndEndCapDrawnBaseRestsOnTheFloor" methodname="EveryCornerAndEndCapDrawnBaseRestsOnTheFloor" classname="NoSafeCircle.DoorPrototype.Tests.WallSpawnerPlayModeTests" runstate="Runnable" seed="638793639" result="Passed" start-time="2026-09-27 22:41:37Z" end-time="2026-09-27 22:41:37Z" duration="0.030675" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[WallSpawner: spawned 507 wall piece(s) and collider(s) across 5 room(s).
+]]></output>
+              </test-case>
+              <test-case id="1485" name="EveryWallRendererCarriesTheSortingConvention" fullname="NoSafeCircle.DoorPrototype.Tests.WallSpawnerPlayModeTests.EveryWallRendererCarriesTheSortingConvention" methodname="EveryWallRendererCarriesTheSortingConvention" classname="NoSafeCircle.DoorPrototype.Tests.WallSpawnerPlayModeTests" runstate="Runnable" seed="2025762566" result="Passed" start-time="2026-09-27 22:41:37Z" end-time="2026-09-27 22:41:37Z" duration="0.042303" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[WallSpawner: spawned 507 wall piece(s) and collider(s) across 5 room(s).
+]]></output>
+              </test-case>
+              <test-case id="1483" name="FarSidesAreStraightOrPilasterAndNearSidesAreStubs" fullname="NoSafeCircle.DoorPrototype.Tests.WallSpawnerPlayModeTests.FarSidesAreStraightOrPilasterAndNearSidesAreStubs" methodname="FarSidesAreStraightOrPilasterAndNearSidesAreStubs" classname="NoSafeCircle.DoorPrototype.Tests.WallSpawnerPlayModeTests" runstate="Runnable" seed="636702736" result="Passed" start-time="2026-09-27 22:41:37Z" end-time="2026-09-27 22:41:37Z" duration="0.024714" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[WallSpawner: spawned 507 wall piece(s) and collider(s) across 5 room(s).
+]]></output>
+              </test-case>
+              <test-case id="1484" name="NoPilasterStandsAgainstAJoggedNeighbourRoomsCornerPost" fullname="NoSafeCircle.DoorPrototype.Tests.WallSpawnerPlayModeTests.NoPilasterStandsAgainstAJoggedNeighbourRoomsCornerPost" methodname="NoPilasterStandsAgainstAJoggedNeighbourRoomsCornerPost" classname="NoSafeCircle.DoorPrototype.Tests.WallSpawnerPlayModeTests" runstate="Runnable" seed="1860206784" result="Passed" start-time="2026-09-27 22:41:37Z" end-time="2026-09-27 22:41:37Z" duration="0.028808" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[WallSpawner: spawned 507 wall piece(s) and collider(s) across 5 room(s).
+]]></output>
+              </test-case>
+              <test-case id="1489" name="RunCollidersMatchTheLayoutsAndCoverEachSharedLineExactlyOnce" fullname="NoSafeCircle.DoorPrototype.Tests.WallSpawnerPlayModeTests.RunCollidersMatchTheLayoutsAndCoverEachSharedLineExactlyOnce" methodname="RunCollidersMatchTheLayoutsAndCoverEachSharedLineExactlyOnce" classname="NoSafeCircle.DoorPrototype.Tests.WallSpawnerPlayModeTests" runstate="Runnable" seed="266946127" result="Passed" start-time="2026-09-27 22:41:37Z" end-time="2026-09-27 22:41:37Z" duration="0.042988" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[WallSpawner: spawned 507 wall piece(s) and collider(s) across 5 room(s).
+]]></output>
+              </test-case>
+              <test-case id="1482" name="Spawn_FillsExactlyTheWallSlotsTheMapAndLayoutsDefine" fullname="NoSafeCircle.DoorPrototype.Tests.WallSpawnerPlayModeTests.Spawn_FillsExactlyTheWallSlotsTheMapAndLayoutsDefine" methodname="Spawn_FillsExactlyTheWallSlotsTheMapAndLayoutsDefine" classname="NoSafeCircle.DoorPrototype.Tests.WallSpawnerPlayModeTests" runstate="Runnable" seed="407169897" result="Passed" start-time="2026-09-27 22:41:37Z" end-time="2026-09-27 22:41:37Z" duration="0.034013" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[WallSpawner: spawned 507 wall piece(s) and collider(s) across 5 room(s).
+]]></output>
+              </test-case>
+              <test-case id="1490" name="SpawningTwiceDoesNotDoubleTheWalls" fullname="NoSafeCircle.DoorPrototype.Tests.WallSpawnerPlayModeTests.SpawningTwiceDoesNotDoubleTheWalls" methodname="SpawningTwiceDoesNotDoubleTheWalls" classname="NoSafeCircle.DoorPrototype.Tests.WallSpawnerPlayModeTests" runstate="Runnable" seed="1769212316" result="Passed" start-time="2026-09-27 22:41:37Z" end-time="2026-09-27 22:41:37Z" duration="0.038901" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[WallSpawner: spawned 507 wall piece(s) and collider(s) across 5 room(s).
+WallSpawner: spawned 507 wall piece(s) and collider(s) across 5 room(s).
+]]></output>
+              </test-case>
+              <test-case id="1481" name="ThePrefabDoesNotSpawnOnAwake" fullname="NoSafeCircle.DoorPrototype.Tests.WallSpawnerPlayModeTests.ThePrefabDoesNotSpawnOnAwake" methodname="ThePrefabDoesNotSpawnOnAwake" classname="NoSafeCircle.DoorPrototype.Tests.WallSpawnerPlayModeTests" runstate="Runnable" seed="1092430858" result="Passed" start-time="2026-09-27 22:41:37Z" end-time="2026-09-27 22:41:37Z" duration="0.004050" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[Saving results to: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-16f5c25fc11d46aa9677b9e0dda484fd\test-results.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

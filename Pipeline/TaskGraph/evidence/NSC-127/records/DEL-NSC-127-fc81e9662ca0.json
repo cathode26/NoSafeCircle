@@ -1,0 +1,81 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "739e701edd8f42e2ddf2118024adc0663ccebc02",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Environment/Source/walls/wall_pilaster.png.meta",
+      "role": "The import settings carrying the pilaster art's guid. NOTE: wall_pilaster.png ITSELF is not a surface of this window - it was cropped at c864aaf5, before this record's base commit - so only its .meta falls inside the reviewed range. Stated rather than passed over, because selecting the art here would overclaim."
+    },
+    {
+      "blob_sha": "58d8a6087c9bc5c64547757869ac5c58d1076f3d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Content/Environment/WallPilaster.prefab",
+      "role": "The prefab that carries wall_pilaster.png (guid 49f4e5ab64b64abeab5ca9087c96b359). GER verified this reference by guid rather than by path, with wall_straight's guid appearing zero times in it as the control."
+    },
+    {
+      "blob_sha": "384e93b9ea9efb972ff58570d96e6357b61c6c16",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Resources/Spawners/WallSpawner.prefab",
+      "role": "The runtime spawner. WallPilaster.prefab (guid efdf0b6eba2624de72d6fe2dd33d96c3) is wired into it, which is the last link in the chain proving the pilaster art reaches the played world."
+    },
+    {
+      "blob_sha": "cff0e5b04331712c7dfc377d2cd36aaac586f891",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/World/Rooms/WallPiecePass.cs",
+      "role": "AC-001: the runtime wall pass. Declares PilasterInterval = 4 and implements IsPilasterSlot, which measures the run between a corner and a door's collider edge, excludes the run's first and last slot so a pilaster never abuts a post or jamb, applies on far (straight) sides only, and emits WallPieceKind.Pilaster. This is the path that produces the played world."
+    },
+    {
+      "blob_sha": "6da8dd6d8f0fc540801267b797f6f191b48c00bf",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/World/WallSpawner.cs",
+      "role": "AC-001/AC-002: PrefabFor maps WallPieceKind.Pilaster to the WallPilaster prefab in enum order, and the pilaster is spawned as a visual with no collider, so walkability is unchanged."
+    },
+    {
+      "blob_sha": "208eae386dc089daf2dc567af5f687a0b11a3a94",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/WallSpawnerPlayModeTests.cs",
+      "role": "VAL-001 coverage, and NSC-127's only declared exclusive resource. Re-derives the rhythm in its own private IsPilasterSlot rather than calling the production predicate, so the assertion is not the algebraic inverse of the code under test; carries the explicit non-vacuity assertion that at least one pilaster was placed; holds NoPilasterStandsAgainstAJoggedNeighbourRoomsCornerPost; and SpawningTwiceDoesNotDoubleTheWalls covers AC-005's determinism and duplicate-freedom."
+    }
+  ],
+  "delivery": {
+    "base_commit": "0a59043bc70e9dbd33ea3ca224113e294e457b73",
+    "candidate_commit": "fc81e9662ca0f28203f5a0908382bd0ae445f136",
+    "integrated_commit": "fc81e9662ca0f28203f5a0908382bd0ae445f136",
+    "integrated_tree": "74045e0c1c822321aa4183df7419e63790016534"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "0bb04d59c6e1f51cda2bd634f063861461009247",
+          "path": "Pipeline/TaskGraph/evidence/NSC-127/artifacts/Unity-PlayMode-01-fc81e9662ca0.xml"
+        },
+        {
+          "blob_sha": "a917d8c95d448cef1385d942942d83d331fb3a8a",
+          "path": "Pipeline/TaskGraph/evidence/NSC-127/artifacts/Unity-PlayMode-01-fc81e9662ca0.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "VAL-001 requires BOTH a filtered and an unfiltered Play Mode run, with totals and exit codes, stating which was filtered, and says the unfiltered result governs if the two disagree. BOTH WERE RUN IN BATCHMODE at this exact commit (fc81e9662ca0f28203f5a0908382bd0ae445f136, tree 74045e0c1c822321aa4183df7419e63790016534, clean before and after both). NO LIVE EDITOR WAS USED. (1) FILTERED - bound as artifacts unity_01_results and unity_01_log: -TestPlatform PlayMode -TestFilter NoSafeCircle.DoorPrototype.Tests.WallSpawnerPlayModeTests -> total=10 passed=10 failed=0 skipped=0, Unity exit 0, runner exit 0. The 10 was checked against an INDEPENDENT oracle first - 10 [Test]/[UnityTest] attributes counted in the fixture's own source - so a filter matching nothing could not have read as a pass. (2) UNFILTERED - -TestPlatform PlayMode -TestFilter NoSafeCircle, which is the whole Play Mode suite: verified before use that nothing can fall outside that prefix (exactly two test asmdefs, and zero test .cs files whose namespace is not under NoSafeCircle). Result: total=464 passed=439 failed=12 skipped=13, overall Failed(Child), Unity exit 2, runner exit 20. THE RUNNER BINDS NO MANIFEST FOR A FAILED RUN, so the unfiltered run is recorded here by its counts and exit codes rather than as a bound artifact; its test-results.xml and unity.log are preserved at C:/Users/VincentLiguori/AppData/Local/Temp/NoSafeCircle-UnityTests-4892d72637624aa9ba936d002a050887/. THE TWO RUNS AGREE ON THIS GATE'S FIXTURE: NoSafeCircle.DoorPrototype.Tests.WallSpawnerPlayModeTests passed 10 of 10 in BOTH, so the tie-break never fires. NONE of the 12 failures is in that fixture; they fall in 8 other fixtures - RangedEnemyAttack (4), RangedEnemyKeepDistanceMovement (3), and one each in FiveRoomDoorSequence+FixedSquadSpawnPosition (this is NSC-049's known and expected BoneArchive_Melee_1 failure at 1.0487 units), PlayerSpawner, PropSpawner, SpectralDecoyEnemyTargetKnowledge and RuntimeWorldCapture (which refuses to run without NSC_RUNTIME_CAPTURE_OUTPUT set). NOT CLAIMED: this record does NOT assert the Play Mode suite is green, and it does not touch AC-003's open vertical-alignment question, which the contract deliberately leaves to the Art Director and a render.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "No Safe Circle Game Agent",
+    "decision": "approved",
+    "notes": "NSC-127 HAS NO HUMAN GATE. VAL-001, its sole completion gate, is an automated Play Mode test gate, so there is no Vincent review to quote and none is claimed here. What is approved is the Game Agent's own review of the delivery evidence: the two batchmode runs above, the surface selection, and GER's revision-5 finding that the pilaster art already reaches the played world. Reviewed by the Game Agent on 2026-09-27.",
+    "required": true
+  },
+  "record_id": "DEL-NSC-127-fc81e9662ca0",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-27T22:50:16Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-127.yaml",
+    "revision": 5,
+    "sha256": "afc20b59faae62a5852c02483e5fc04ca1bb6f14bd8eee2145bb43ea4e208e32"
+  },
+  "task_id": "NSC-127",
+  "validated_state": {
+    "commit": "fc81e9662ca0f28203f5a0908382bd0ae445f136",
+    "tree": "74045e0c1c822321aa4183df7419e63790016534"
+  }
+}
