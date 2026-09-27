@@ -9,7 +9,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
     // so it cannot dirty ProjectSettings/EditorBuildSettings.asset or any tracked asset.
     public class WindowsBuildSceneRegistrationTests
     {
-        private const string CanonicalScenePath = "Assets/Scenes/DoorPrototype.unity";
+        private const string CanonicalScenePath = "Assets/Scenes/RuntimeWorld.unity";
         private const string NonCanonicalScenePath = "Assets/Scenes/SampleScene.unity";
 
         [Test]

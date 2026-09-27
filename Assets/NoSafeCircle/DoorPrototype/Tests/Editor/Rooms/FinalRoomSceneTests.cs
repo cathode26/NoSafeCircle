@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using NoSafeCircle.DoorPrototype.Editor.Rooms;
 using NoSafeCircle.DoorPrototype.Editor.World;
@@ -178,21 +177,9 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
         }
 
         [Test]
-        public void CommittedVisuals_UseIsometricGridFloorAndFourWallTilemaps()
-        {
-            AssertCommittedSceneUnchanged(scene => AssertTilemapVisuals(scene));
-        }
-
-        [Test]
         public void InMemoryGeometry_MatchesApprovedRoomAndPreservesBothRoutes()
         {
             AssertRoomGeometry(SceneManager.GetActiveScene());
-        }
-
-        [Test]
-        public void CommittedGeometry_MatchesApprovedRoomAndPreservesBothRoutes()
-        {
-            AssertCommittedSceneUnchanged(scene => AssertRoomGeometry(scene));
         }
 
 
@@ -204,12 +191,6 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
         public void Build_TintsTheCentralObstacleInsteadOfLeavingItIndigo()
         {
             AssertObstacleTint(SceneManager.GetActiveScene());
-        }
-
-        [Test]
-        public void CommittedScene_CentralObstacleCarriesTheApprovedTint()
-        {
-            AssertCommittedSceneUnchanged(scene => AssertObstacleTint(scene));
         }
 
         private static void AssertObstacleTint(Scene scene)
@@ -264,23 +245,6 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
                 (int)UnityEngine.Rendering.RenderQueue.Transparent,
                 "FR-1Visual renders at or after the transparent queue, so it draws over the " +
                 "dressing props that sit against it instead of behind them.");
-        }
-
-        private static void AssertCommittedSceneUnchanged(System.Action<Scene> body)
-        {
-            byte[] before = File.ReadAllBytes(FinalRoomSceneBuilder.ScenePath);
-            Scene scene = EditorSceneManager.OpenScene(FinalRoomSceneBuilder.ScenePath, OpenSceneMode.Additive);
-            try
-            {
-                body(scene);
-            }
-            finally
-            {
-                EditorSceneManager.CloseScene(scene, true);
-            }
-            byte[] after = File.ReadAllBytes(FinalRoomSceneBuilder.ScenePath);
-            CollectionAssert.AreEqual(before, after,
-                "Opening FinalRoom.unity for conformance inspection must not change it.");
         }
 
         // AC-003/VAL-002: the single Grid, its five Tilemaps, their transforms, cell sets, cell

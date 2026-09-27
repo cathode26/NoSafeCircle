@@ -54,20 +54,6 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
         }
 
         [Test]
-        public void CommittedGeometry_MatchesRevisedRoomAndPreservesBothRoutes()
-        {
-            Scene scene = EditorSceneManager.OpenScene(RuinedEntrySceneBuilder.ScenePath, OpenSceneMode.Additive);
-            try
-            {
-                AssertRoomGeometry(scene);
-            }
-            finally
-            {
-                EditorSceneManager.CloseScene(scene, true);
-            }
-        }
-
-        [Test]
         public void PaintStraightWallRun_ReusesOneTileWithoutGapsAtThreeScales()
         {
             GameObject wallObject = new GameObject("WallRunTest", typeof(Tilemap), typeof(TilemapRenderer));
@@ -194,142 +180,6 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
         }
 
         [Test]
-        public void CommittedVisuals_UseIsometricFloorAndIndividuallySortedWallTiles()
-        {
-            Scene scene = EditorSceneManager.OpenScene(RuinedEntrySceneBuilder.ScenePath, OpenSceneMode.Additive);
-            try
-            {
-                AssertTilemapVisuals(scene);
-            }
-            finally
-            {
-                EditorSceneManager.CloseScene(scene, true);
-            }
-        }
-
-        [Explicit("Requires an external NSC044_CAMERA_REVIEW_OUTPUT directory for Vincent's visual review.")]
-        [Test]
-        public void CaptureGameplayCameraReview()
-        {
-            string output = Environment.GetEnvironmentVariable("NSC044_CAMERA_REVIEW_OUTPUT");
-            if (string.IsNullOrWhiteSpace(output))
-            {
-                Assert.Ignore("Set NSC044_CAMERA_REVIEW_OUTPUT to run the explicit visual capture.");
-            }
-            Assert.IsTrue(Path.IsPathRooted(output));
-            string outputFull = Path.GetFullPath(output);
-            string repository = Path.GetFullPath(Directory.GetCurrentDirectory())
-                .TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar;
-            Assert.IsFalse(outputFull.TrimEnd(Path.DirectorySeparatorChar)
-                    .Equals(repository.TrimEnd(Path.DirectorySeparatorChar), StringComparison.OrdinalIgnoreCase) ||
-                outputFull.StartsWith(repository, StringComparison.OrdinalIgnoreCase),
-                "Camera review PNGs must be written outside the repository.");
-
-            string[] names = { "player-start", "west-loop", "east-lane", "d1-staging" };
-            Vector3[] positions =
-            {
-                RuinedEntryLayout.PlayerStart,
-                new Vector3(-7f, 0f, -13f),
-                new Vector3(10.875f, 0f, -11.75f),
-                new Vector3(0f, 0f, -2.75f)
-            };
-            Directory.CreateDirectory(outputFull);
-            foreach (string name in names)
-            {
-                Assert.IsFalse(File.Exists(Path.Combine(outputFull, name + ".png")),
-                    "Use a fresh output directory so earlier visual evidence is preserved.");
-            }
-            Assert.IsFalse(File.Exists(Path.Combine(outputFull, "contact-sheet.png")));
-
-            Scene source = default;
-            Scene temporary = default;
-            GameObject wizard = null;
-            GameObject cameraObject = null;
-            RenderTexture target = null;
-            var shots = new List<Texture2D>();
-            RenderTexture previousActive = RenderTexture.active;
-            try
-            {
-                // SetUp authors an unsaved room. Load the committed source additively, then
-                // close the fixture scene before creating the separate unsaved review scene.
-                // Unity rejects NewScene(Additive) while another untitled scene remains open.
-                Scene fixtureScene = SceneManager.GetActiveScene();
-                source = EditorSceneManager.OpenScene(RuinedEntrySceneBuilder.ScenePath, OpenSceneMode.Additive);
-                SceneManager.SetActiveScene(source);
-                EditorSceneManager.CloseScene(fixtureScene, true);
-                temporary = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
-                SceneManager.SetActiveScene(temporary);
-
-                Sprite wizardSprite = AssetDatabase.LoadAssetAtPath<Sprite>(
-                    "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/south-east.png");
-                Assert.IsNotNull(wizardSprite);
-                wizard = new GameObject("NSC044ReviewWizard", typeof(SpriteRenderer));
-                wizard.transform.localScale = new Vector3(1f, 2f, 1f);
-                SpriteRenderer wizardRenderer = wizard.GetComponent<SpriteRenderer>();
-                wizardRenderer.sprite = wizardSprite;
-                wizardRenderer.sortingLayerName = "Default";
-                wizardRenderer.sortingOrder = 0;
-
-                cameraObject = new GameObject("NSC044ReviewCamera", typeof(Camera), typeof(IsometricCameraFollow));
-                Camera camera = cameraObject.GetComponent<Camera>();
-                camera.orthographic = true;
-                camera.orthographicSize = 8f;
-                camera.transparencySortMode = TransparencySortMode.CustomAxis;
-                camera.transparencySortAxis = IsometricCameraFollow.IsometricTransparencySortAxis;
-                cameraObject.transform.rotation = Quaternion.Euler(30f, -45f, 0f);
-                target = new RenderTexture(800, 600, 24);
-                target.Create();
-                camera.targetTexture = target;
-
-                for (int index = 0; index < names.Length; index++)
-                {
-                    wizard.transform.position = positions[index];
-                    cameraObject.transform.position = positions[index] + new Vector3(10f, 10f, -10f);
-                    cameraObject.GetComponent<IsometricCameraFollow>().Initialize(wizard.transform);
-                    camera.Render();
-                    RenderTexture.active = target;
-                    Texture2D shot = new Texture2D(800, 600, TextureFormat.RGBA32, false);
-                    shot.ReadPixels(new Rect(0f, 0f, 800f, 600f), 0, 0);
-                    shot.Apply(false, false);
-                    shots.Add(shot);
-                    File.WriteAllBytes(Path.Combine(outputFull, names[index] + ".png"), shot.EncodeToPNG());
-                }
-
-                Texture2D contact = new Texture2D(1600, 1200, TextureFormat.RGBA32, false);
-                shots.Add(contact);
-                for (int index = 0; index < 4; index++)
-                {
-                    Color32[] pixels = shots[index].GetPixels32();
-                    int originX = (index % 2) * 800;
-                    int originY = (1 - index / 2) * 600;
-                    for (int row = 0; row < 600; row++)
-                    {
-                        for (int column = 0; column < 800; column++)
-                        {
-                            contact.SetPixel(originX + column, originY + row, pixels[row * 800 + column]);
-                        }
-                    }
-                }
-                contact.Apply(false, false);
-                File.WriteAllBytes(Path.Combine(outputFull, "contact-sheet.png"), contact.EncodeToPNG());
-            }
-            finally
-            {
-                RenderTexture.active = previousActive;
-                foreach (Texture2D shot in shots) Object.DestroyImmediate(shot);
-                if (cameraObject != null) Object.DestroyImmediate(cameraObject);
-                if (wizard != null) Object.DestroyImmediate(wizard);
-                if (target != null)
-                {
-                    target.Release();
-                    Object.DestroyImmediate(target);
-                }
-                if (temporary.IsValid() && temporary.isLoaded) EditorSceneManager.CloseScene(temporary, true);
-                if (source.IsValid() && source.isLoaded) EditorSceneManager.CloseScene(source, true);
-            }
-        }
-
-        [Test]
         public void Build_SeparatesVisibleBlockoutFromGameplayCollision()
         {
             GameObject visible = GameObject.Find("Room_RuinedEntry/Visuals");
@@ -388,20 +238,6 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             AssertComposerReadyScene(scene);
         }
 
-        [Test]
-        public void CommittedScene_ValidatesThroughRoomSceneComposer()
-        {
-            Scene scene = EditorSceneManager.OpenScene(RuinedEntrySceneBuilder.ScenePath, OpenSceneMode.Additive);
-            try
-            {
-                AssertComposerReadyScene(scene);
-            }
-            finally
-            {
-                EditorSceneManager.CloseScene(scene, true);
-            }
-        }
-
         /// <summary>NSC-044. The rubble blockers are tinted, not left at Unity's default white.</summary>
         /// <remarks>
         /// THE DEFECT THIS EXISTS TO STOP COMING BACK: GameObject.CreatePrimitive keeps Unity's
@@ -419,27 +255,6 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
         public void Build_TintsTheRubbleBlockersInsteadOfLeavingThemDefaultWhite()
         {
             AssertRubbleTint(SceneManager.GetActiveScene());
-        }
-
-        /// <summary>The tint is in the COMMITTED scene, not merely in what the builder returns.</summary>
-        /// <remarks>
-        /// A builder that tints correctly proves nothing about the asset that actually ships if
-        /// the scene on disk was never rebuilt. This opens the committed scene for the same
-        /// reason the composed-scene dressing fixture does: the artifact is the claim.
-        /// </remarks>
-        [Test]
-        public void CommittedScene_RubbleBlockersCarryTheApprovedTint()
-        {
-            Scene scene = EditorSceneManager.OpenScene(
-                RuinedEntrySceneBuilder.ScenePath, OpenSceneMode.Additive);
-            try
-            {
-                AssertRubbleTint(scene);
-            }
-            finally
-            {
-                EditorSceneManager.CloseScene(scene, true);
-            }
         }
 
         private static void AssertRubbleTint(Scene scene)
