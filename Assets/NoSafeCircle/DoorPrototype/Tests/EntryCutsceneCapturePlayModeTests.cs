@@ -56,16 +56,16 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 UnityEngine.Object.FindFirstObjectByType<WizardGameEntryController>();
             TitleScreenChaseBackdrop chase =
                 UnityEngine.Object.FindFirstObjectByType<TitleScreenChaseBackdrop>();
-            EntryChamberStartDoor startDoor =
-                UnityEngine.Object.FindFirstObjectByType<EntryChamberStartDoor>();
+            EntranceDoor startDoor =
+                UnityEngine.Object.FindFirstObjectByType<EntranceDoor>();
             Assert.IsNotNull(gameCamera);
             Assert.IsNotNull(canvas);
             Assert.IsNotNull(title);
             Assert.IsNotNull(selection);
             Assert.IsNotNull(entry);
             Assert.IsNotNull(chase, "RuntimeWorld has no entry chase component.");
-            Assert.IsNotNull(startDoor, "RuntimeWorld did not spawn the separate entry gate.");
-            Assert.IsFalse(startDoor.IsOpen, "The gate should begin sealed on the title screen.");
+            Assert.IsNotNull(startDoor, "RuntimeWorld did not spawn the first room entrance door.");
+            Assert.IsFalse(startDoor.IsOpen, "The door should begin sealed on the title screen.");
             float gameplayCameraSize = gameCamera.orthographicSize;
 
             var manifest = new StringBuilder();
@@ -87,21 +87,19 @@ namespace NoSafeCircle.DoorPrototype.Tests
             yield return null;
             Assert.IsTrue(entry.IsEntryCutsceneRunning,
                 "Wizard control began without the selected-wizard chase.");
-            Assert.IsTrue(startDoor.IsOpen, "The gate did not open for the wizard's entry.");
+            Assert.IsTrue(startDoor.IsOpen, "The entrance door did not open for the wizard.");
 
             yield return WaitForActiveObject("TitleEntryFireball_0", VisualWaitSeconds);
-            EntryChamberCutsceneOcclusion occlusion =
-                entry.GetComponent<EntryChamberCutsceneOcclusion>();
+            WizardEntryWallOcclusion occlusion =
+                entry.GetComponent<WizardEntryWallOcclusion>();
             Assert.IsNotNull(occlusion);
             Assert.IsTrue(occlusion.IsActive,
                 "The foreground wall art did not soften for the chase.");
-            Assert.Greater(occlusion.SouthWallTargetCount, 0);
-            Assert.Greater(occlusion.GateFlankTargetCount, 0);
-            SpriteRenderer gateFlank = GameObject.Find("EntryChamberGateWall")
-                ?.GetComponentInChildren<SpriteRenderer>();
-            Assert.IsNotNull(gateFlank);
-            Assert.Less(gateFlank.color.a, 0.5f,
-                "The gate flank still hides the wizard during fireball shots.");
+            Assert.Greater(occlusion.DoorWallTargetCount, 0);
+            SpriteRenderer doorWall = FindEntranceWallSprite();
+            Assert.IsNotNull(doorWall);
+            Assert.Less(doorWall.color.a, 0.5f,
+                "The south entrance wall still hides the wizard during fireball shots.");
             Assert.Less(gameCamera.orthographicSize, gameplayCameraSize - 1f,
                 "The entry chase camera did not frame the actors closely.");
             Capture(output, "02-first-fireball-miss", gameCamera, canvas, manifest,
@@ -138,9 +136,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "Entry did not hand control to the player within " + MaximumEntrySeconds + " seconds.");
             Assert.IsFalse(startDoor.IsOpen, "The start door reopened before gameplay began.");
             Assert.IsFalse(occlusion.IsActive,
-                "The chamber wall art was not restored during the dark handoff.");
-            Assert.Greater(gateFlank.color.a, 0.9f,
-                "The gate flank stayed translucent after gameplay began.");
+                "The entrance wall art was not restored during the dark handoff.");
+            Assert.Greater(doorWall.color.a, 0.9f,
+                "The entrance wall stayed translucent after gameplay began.");
             Assert.AreEqual(gameplayCameraSize, gameCamera.orthographicSize, 0.01f,
                 "The gameplay camera kept the cutscene zoom after the reveal.");
             Assert.AreEqual(3, chase.FiredEntryShotCount,
@@ -153,7 +151,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsTrue(movement.IsGameplayEnabled,
                 "The player still lacks movement after the room reveal.");
             Assert.Less(Vector3.Distance(player.transform.position,
-                    EntryChamberLayout.FirstRoomArrival), 0.1f,
+                    EntryApproachLayout.FirstRoomArrival), 0.1f,
                 "The player did not start inside Ruined Entry after the chase.");
             yield return null;
             Capture(output, "07-first-room-player-ready", gameCamera, canvas, manifest,
@@ -171,9 +169,25 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "The cutscene did not present " + name + " before the timeout.");
         }
 
+        private static SpriteRenderer FindEntranceWallSprite()
+        {
+            GameObject walls = GameObject.Find("RuinedEntryWalls");
+            if (walls == null) return null;
+            foreach (SpriteRenderer sprite in walls.GetComponentsInChildren<SpriteRenderer>(true))
+            {
+                Transform piece = sprite.transform;
+                while (piece != null && piece.parent != walls.transform)
+                    piece = piece.parent;
+                if (piece != null &&
+                    Mathf.Abs(piece.position.z - RuinedEntryLayout.MinimumZ) <= 0.75f)
+                    return sprite;
+            }
+            return null;
+        }
+
         private static void Capture(string output, string name, Camera gameCamera, Canvas canvas,
             StringBuilder manifest, WizardGameEntryController entry,
-            TitleScreenChaseBackdrop chase, EntryChamberStartDoor startDoor)
+            TitleScreenChaseBackdrop chase, EntranceDoor startDoor)
         {
             RenderTexture previousTarget = gameCamera.targetTexture;
             int previousMask = gameCamera.cullingMask;

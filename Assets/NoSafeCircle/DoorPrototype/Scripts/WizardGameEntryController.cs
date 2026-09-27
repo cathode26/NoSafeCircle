@@ -25,7 +25,7 @@ namespace NoSafeCircle.DoorPrototype
         private bool hasRevealedGameplayPresentation;
         private TitleScreenChaseBackdrop entryChase;
         private TitleScreenGameplayHudVisibility presentationVisibility;
-        private EntryChamberStartDoor entryDoor;
+        private EntranceDoor entryDoor;
         private IsometricCameraFollow cameraFollow;
         private Vector3 cameraOffset;
 
@@ -73,7 +73,8 @@ namespace NoSafeCircle.DoorPrototype
 
         /// <summary>
         /// Applies the confirmed appearance to the existing Player, then plays one inbound chase.
-        /// Gameplay input remains suspended until the chamber gate has closed and the chase has completed.
+        /// Gameplay input remains suspended until the first room's entrance door has
+        /// closed behind the wizard and the chase has completed.
         /// </summary>
         public void EnterWorld(ConfirmedWizardSelection selection)
         {
@@ -111,7 +112,7 @@ namespace NoSafeCircle.DoorPrototype
                 cameraFollow == null)
             {
                 Debug.LogError("Wizard entry needs the title chase, presentation visibility, " +
-                    "the Entry Chamber gate, and the gameplay camera follow.", this);
+                    "the entrance door, and the gameplay camera follow.", this);
                 RecoverWithoutCutscene();
                 return;
             }
@@ -119,7 +120,7 @@ namespace NoSafeCircle.DoorPrototype
             cameraOffset = cameraFollow.transform.position - player.position;
             if (!entryDoor.OpenForEntryCutscene())
             {
-                Debug.LogError("The Entry Chamber gate could not open for wizard entry.", this);
+                Debug.LogError("The entrance door could not open for wizard entry.", this);
                 RecoverWithoutCutscene();
                 return;
             }
@@ -127,10 +128,10 @@ namespace NoSafeCircle.DoorPrototype
             entryChase.EntryWizardCrossedDoorway += OnEntryWizardCrossedDoorway;
             entryChase.EntryChaseCompleted += OnEntryChaseCompleted;
             if (!entryChase.BeginEntryChase(selection,
-                    EntryChamberLayout.WizardEntryStart,
-                    EntryChamberLayout.FirstRoomArrival,
-                    EntryChamberLayout.DoorCloseTrigger.z,
-                    EntryChamberLayout.PursuerStop.z))
+                    EntryApproachLayout.WizardEntryStart,
+                    EntryApproachLayout.FirstRoomArrival,
+                    EntryApproachLayout.DoorCloseTrigger.z,
+                    EntryApproachLayout.PursuerStop.z))
             {
                 Debug.LogError("The selected wizard chase could not start.", this);
                 RecoverWithoutCutscene();
@@ -157,7 +158,7 @@ namespace NoSafeCircle.DoorPrototype
             if (wizard == null || pursuer == null ||
                 !entryDoor.CloseAfterEntryCutscene(wizard.position, pursuer.position))
             {
-                Debug.LogError("The Entry Chamber gate failed to close with the wizard north " +
+                Debug.LogError("The entrance door failed to close with the wizard north " +
                     "and the pursuer south; restoring playable state.", this);
                 entryGateFailed = true;
                 entryDoor.ResetDoor();
@@ -176,7 +177,7 @@ namespace NoSafeCircle.DoorPrototype
             }
             if (entryDoor == null || entryDoor.IsOpen)
             {
-                Debug.LogError("The Entry Chamber gate was not sealed at wizard entry " +
+                Debug.LogError("The entrance door was not sealed at wizard entry " +
                     "completion; restoring it before enabling control.", this);
                 RecoverWithoutCutscene();
                 return;
@@ -217,9 +218,9 @@ namespace NoSafeCircle.DoorPrototype
             entryChase.EntryChaseCompleted -= OnEntryChaseCompleted;
         }
 
-        private static EntryChamberStartDoor FindEntryDoor()
+        private static EntranceDoor FindEntryDoor()
         {
-            return UnityEngine.Object.FindFirstObjectByType<EntryChamberStartDoor>();
+            return UnityEngine.Object.FindFirstObjectByType<EntranceDoor>();
         }
 
         private bool HasValidReferences()

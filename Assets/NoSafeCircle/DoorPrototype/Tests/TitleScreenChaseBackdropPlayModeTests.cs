@@ -169,33 +169,42 @@ namespace NoSafeCircle.DoorPrototype.Tests
             backdrop.EntryChaseCompleted += () => completionCalls++;
             Assert.IsTrue(backdrop.BeginEntryChase(OrderedWizards[0],
                 new Vector3(0f, 0f, 2.5f), new Vector3(-4f, 0f, -22f),
-                -1.5f, 0.75f));
+                -18f, -1f));
 
             GameObject wizard = GameObject.Find("TitleEntryWizard_Ember");
             GameObject brute = GameObject.Find("TitleEntryPursuer_DungeonBrute");
             backdrop.Tick(0.3f);
+            Assert.AreEqual(0, backdrop.FiredEntryShotCount,
+                "The longer chase should not fire every shot at its starting line.");
+            backdrop.Tick(1f);
             Assert.AreEqual(1, backdrop.FiredEntryShotCount);
             Assert.AreEqual(1, backdrop.ActiveFireballCount);
             Assert.IsNotNull(GameObject.Find("TitleEntryFireball_0"));
             Assert.IsNull(GameObject.Find("TitleEntryFireball_0").GetComponent<Collider>());
 
-            backdrop.Tick(0.7f);
+            backdrop.Tick(1.7f);
+            Assert.AreEqual(1, backdrop.FiredEntryShotCount);
+            backdrop.Tick(0.2f);
+            Assert.AreEqual(2, backdrop.FiredEntryShotCount);
+            backdrop.Tick(1.7f);
+            Assert.AreEqual(2, backdrop.FiredEntryShotCount);
+            backdrop.Tick(0.2f);
             Assert.AreEqual(3, backdrop.FiredEntryShotCount);
             Assert.AreEqual(0, backdrop.EntryImpactCount);
             Vector3 beforeHit = wizard.transform.position;
-            backdrop.Tick(0.28f);
+            backdrop.Tick(0.2f);
             Assert.AreEqual(1, backdrop.EntryImpactCount,
                 "Only the final of three cosmetic shots should hit the Brute.");
             Assert.Greater(Vector3.Distance(beforeHit, wizard.transform.position), 0.5f,
                 "The wizard keeps running while the hit effect plays.");
             Assert.AreEqual(0, doorwayCalls);
-            Assert.GreaterOrEqual(brute.transform.position.z, 0.75f,
-                "The cosmetic Brute must stay outside D1.");
+            Assert.GreaterOrEqual(brute.transform.position.z, -1f,
+                "The cosmetic Brute must stay behind the wizard's door.");
 
-            backdrop.Tick(0.1f);
+            backdrop.Tick(1.7f);
             Assert.AreEqual(1, doorwayCalls);
             Assert.IsTrue(backdrop.IsEntryChaseRunning);
-            Assert.GreaterOrEqual(brute.transform.position.z, 0.75f);
+            Assert.GreaterOrEqual(brute.transform.position.z, -1f);
             backdrop.Tick(10f);
             Assert.AreEqual(1, endingCalls);
             Assert.AreEqual(1, completionCalls);
@@ -214,15 +223,15 @@ namespace NoSafeCircle.DoorPrototype.Tests
         }
 
         [Test]
-        public void NorthboundChamberChase_ClosesGateAfterCrossingAndCompletesAtArrival()
+        public void NorthboundChase_SpreadsShotsBeforeDoorAndCompletesAtArrival()
         {
             backdrop.TitlePreviewLoopEnabled = false;
             title.StartGame();
 
-            const float entryZ = -34f;
-            const float pursuerStopZ = -33.5f;
-            const float doorCloseTriggerZ = -29.75f;
-            const float arrivalZ = -22f;
+            const float entryZ = -30f;
+            const float pursuerStopZ = -11.5f;
+            const float doorCloseTriggerZ = -8.75f;
+            const float arrivalZ = -6f;
             var gateCalls = 0;
             var completionCalls = 0;
             backdrop.EntryWizardCrossedDoorway += () =>
@@ -239,21 +248,23 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.AreEqual(entryZ, backdrop.EntryWizardTransform.position.z, 0.001f);
             Assert.Less(backdrop.EntryPursuerTransform.position.z, entryZ);
 
-            backdrop.Tick(1.4f);
+            backdrop.Tick(6.1f);
             Assert.AreEqual(3, backdrop.FiredEntryShotCount,
                 "The northbound chase keeps two miss shots followed by one hit shot.");
             Assert.AreEqual(1, backdrop.EntryImpactCount);
             Assert.AreEqual(0, gateCalls,
-                "The gate must stay open while the wizard is south of the chamber trigger.");
+                "The door must stay open while the wizard is south of the close trigger.");
             Assert.Less(backdrop.EntryWizardTransform.position.z, doorCloseTriggerZ);
-            Assert.AreEqual(pursuerStopZ, backdrop.EntryPursuerTransform.position.z, 0.001f);
+            Assert.Less(backdrop.EntryPursuerTransform.position.z,
+                pursuerStopZ);
 
-            backdrop.Tick(0.05f);
+            backdrop.Tick(1f);
             Assert.AreEqual(1, gateCalls);
             Assert.AreEqual(0, completionCalls);
             Assert.IsTrue(backdrop.IsEntryChaseRunning);
+            Assert.AreEqual(pursuerStopZ, backdrop.EntryPursuerTransform.position.z, 0.001f);
 
-            backdrop.Tick(2.45f);
+            backdrop.Tick(0.8f);
             Assert.AreEqual(0, completionCalls);
             Assert.Less(backdrop.EntryWizardTransform.position.z, arrivalZ);
             backdrop.Tick(0.1f);

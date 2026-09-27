@@ -5,11 +5,11 @@ using UnityEngine;
 namespace NoSafeCircle.DoorPrototype
 {
     /// <summary>
-    /// Softens only the chamber wall sprites that cross the entrance chase camera.
+    /// Softens the first room's south entrance wall while the wizard passes through it.
     /// Gameplay colliders and the start door leaf keep their authored state.
     /// </summary>
     [DisallowMultipleComponent]
-    public sealed class EntryChamberCutsceneOcclusion : MonoBehaviour
+    public sealed class WizardEntryWallOcclusion : MonoBehaviour
     {
         private const float ChaseWallOpacity = 0.25f;
         private const float FadeSeconds = 0.12f;
@@ -18,54 +18,43 @@ namespace NoSafeCircle.DoorPrototype
         private HierarchyFader fader;
 
         public int TargetCount { get; private set; }
-        public int SouthWallTargetCount { get; private set; }
-        public int GateFlankTargetCount { get; private set; }
+        public int DoorWallTargetCount { get; private set; }
         public bool IsActive => fadeHost != null;
 
         public bool Begin()
         {
             Restore();
-            GameObject chamberWalls = GameObject.Find("EntryChamberWalls");
-            GameObject gateFlanks = GameObject.Find("EntryChamberGateWall");
-            if (chamberWalls == null || gateFlanks == null)
+            GameObject roomWalls = GameObject.Find("RuinedEntryWalls");
+            if (roomWalls == null)
             {
-                Debug.LogWarning("Entry chamber chase could not find its foreground wall art.", this);
+                Debug.LogWarning("Wizard entry could not find the first room's south wall art.", this);
                 return false;
             }
 
-            fadeHost = new GameObject("EntryChamberCutsceneWallFader", typeof(HierarchyFader));
+            fadeHost = new GameObject("WizardEntryDoorWallFader", typeof(HierarchyFader));
             fadeHost.transform.SetParent(transform, false);
             fader = fadeHost.GetComponent<HierarchyFader>();
             TargetCount = 0;
-            SouthWallTargetCount = 0;
-            GateFlankTargetCount = 0;
+            DoorWallTargetCount = 0;
 
             foreach (SpriteRenderer sprite in
-                     chamberWalls.GetComponentsInChildren<SpriteRenderer>(true))
+                     roomWalls.GetComponentsInChildren<SpriteRenderer>(true))
             {
                 Transform piece = sprite.transform;
-                while (piece != null && piece.parent != chamberWalls.transform)
+                while (piece != null && piece.parent != roomWalls.transform)
                     piece = piece.parent;
                 if (piece == null ||
-                    piece.position.z > EntryChamberLayout.MinimumZ + 0.05f)
+                    Mathf.Abs(piece.position.z - RuinedEntryLayout.MinimumZ) > 0.75f)
                     continue;
                 fader.RegisterTarget(new SpriteOpacityTarget(sprite));
                 TargetCount++;
-                SouthWallTargetCount++;
+                DoorWallTargetCount++;
             }
 
-            foreach (SpriteRenderer sprite in
-                     gateFlanks.GetComponentsInChildren<SpriteRenderer>(true))
-            {
-                fader.RegisterTarget(new SpriteOpacityTarget(sprite));
-                TargetCount++;
-                GateFlankTargetCount++;
-            }
-
-            if (SouthWallTargetCount == 0 || GateFlankTargetCount == 0)
+            if (DoorWallTargetCount == 0)
             {
                 Restore();
-                Debug.LogWarning("Entry chamber chase found no foreground wall sprites.", this);
+                Debug.LogWarning("Wizard entry found no south entrance wall sprites.", this);
                 return false;
             }
 
@@ -84,8 +73,7 @@ namespace NoSafeCircle.DoorPrototype
             fader = null;
             fadeHost = null;
             TargetCount = 0;
-            SouthWallTargetCount = 0;
-            GateFlankTargetCount = 0;
+            DoorWallTargetCount = 0;
         }
 
         private void OnDisable() => Restore();

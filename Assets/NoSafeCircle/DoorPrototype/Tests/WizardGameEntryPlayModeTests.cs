@@ -193,7 +193,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         }
 
         [UnityTest]
-        public IEnumerator SelectedWizardCrossesEntryChamberGate_WhileD1StaysSealed()
+        public IEnumerator SelectedWizardCrossesFirstRoomEntrance_WhileD1StaysSealed()
         {
             yield return LoadRuntimeWorldScene();
 
@@ -211,8 +211,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
             DoorStateSpriteBinder doorSprite = door.GetComponent<DoorStateSpriteBinder>();
             SpriteRenderer doorRenderer = GetPrivateField<SpriteRenderer>(doorSprite, "spriteRenderer");
             Sprite sealedSprite = GetPrivateField<Sprite>(doorSprite, "sealedSprite");
-            EntryChamberStartDoor gate = FindInScene(scene, "EntryChamberStartDoor")
-                .GetComponent<EntryChamberStartDoor>();
+            EntranceDoor gate = FindInScene(scene, "EntranceDoor")
+                .GetComponent<EntranceDoor>();
             Transform gateLeaf = gate.transform.Find("DoorVisual");
             UnityEngine.AI.NavMeshObstacle gateObstacle =
                 gate.GetComponent<UnityEngine.AI.NavMeshObstacle>();
@@ -224,7 +224,11 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsNotNull(gateLeaf);
             Assert.IsNotNull(gateObstacle);
             Assert.IsNotNull(follow);
-            Assert.AreEqual(EntryChamberLayout.StartDoorCenter, gate.transform.position);
+            Assert.AreEqual(EntryApproachLayout.StartDoorCenter, gate.transform.position);
+            Assert.AreEqual(RuinedEntryLayout.MinimumZ, gate.transform.position.z, 0.001f,
+                "The cutscene entrance belongs in the first room's south wall.");
+            Assert.Less(EntryApproachLayout.WizardEntryStart.z, gate.transform.position.z);
+            Assert.Greater(EntryApproachLayout.FirstRoomArrival.z, gate.transform.position.z);
             Assert.IsFalse(gate.IsOpen);
             chase.AutomaticTick = false;
             BeginSelection(canvas);
@@ -235,7 +239,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsFalse(entry.HasEnteredGameplay);
             Assert.IsFalse(movement.IsGameplayEnabled);
             Assert.IsFalse(interaction.IsGameplayEnabled);
-            Assert.IsTrue(gate.IsOpen, "The Entry Chamber gate opens for the inbound wizard.");
+            Assert.IsTrue(gate.IsOpen, "The first room entrance opens for the inbound wizard.");
             Assert.IsFalse(gateLeaf.gameObject.activeSelf);
             Assert.IsFalse(gateObstacle.enabled);
             Assert.IsFalse(door.IsOpen, "D1 is the later gameplay exit and must not open during entry.");
@@ -244,17 +248,24 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.AreSame(sealedSprite, doorRenderer.sprite);
             Assert.IsFalse(door.IsLocked);
             Assert.AreSame(chase.EntryWizardTransform, GetPrivateField<Transform>(follow, "target"));
-            Assert.AreEqual(EntryChamberLayout.WizardEntryStart,
+            Assert.AreEqual(EntryApproachLayout.WizardEntryStart,
                 chase.EntryWizardTransform.position);
-            Assert.Less(chase.EntryPursuerTransform.position.z, EntryChamberLayout.GateZ);
+            Assert.Less(chase.EntryPursuerTransform.position.z, EntryApproachLayout.GateZ);
+
+            for (int step = 0; step < 30 && chase.FiredEntryShotCount < 3; step++)
+                chase.Tick(0.1f);
+            Assert.AreEqual(3, chase.FiredEntryShotCount);
+            Assert.IsTrue(gate.IsOpen,
+                "The three fireballs should launch before the entrance seals.");
+            Assert.Less(chase.EntryWizardTransform.position.z, EntryApproachLayout.GateZ);
 
             for (int step = 0; step < 300 && gate.IsOpen; step++) chase.Tick(0.1f);
 
-            Assert.IsFalse(gate.IsOpen, "The Entry Chamber gate must close behind the wizard.");
+            Assert.IsFalse(gate.IsOpen, "The entrance door must close behind the wizard.");
             Assert.IsTrue(gateLeaf.gameObject.activeSelf);
             Assert.IsTrue(gateObstacle.enabled);
-            Assert.Greater(chase.EntryWizardTransform.position.z, EntryChamberLayout.GateZ);
-            Assert.Less(chase.EntryPursuerTransform.position.z, EntryChamberLayout.GateZ);
+            Assert.Greater(chase.EntryWizardTransform.position.z, EntryApproachLayout.GateZ);
+            Assert.Less(chase.EntryPursuerTransform.position.z, EntryApproachLayout.GateZ);
             Assert.AreEqual(3, chase.FiredEntryShotCount);
             Assert.AreEqual(1, chase.EntryImpactCount);
             Assert.IsFalse(door.IsOpen, "D1 must stay closed through the entire entry.");
@@ -276,6 +287,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsTrue(movement.IsGameplayEnabled);
             Assert.IsTrue(interaction.IsGameplayEnabled);
             Assert.AreSame(player.transform, GetPrivateField<Transform>(follow, "target"));
+            Assert.Less(Vector3.Distance(player.transform.position,
+                EntryApproachLayout.FirstRoomArrival), 0.1f,
+                "The playable wizard should appear where the cutscene wizard stopped.");
             Assert.AreEqual(new ConfirmedWizardSelection(WizardPresentation.Feminine, WizardSkin.White),
                 entry.AppliedSelection);
             Assert.IsFalse(door.IsOpen);

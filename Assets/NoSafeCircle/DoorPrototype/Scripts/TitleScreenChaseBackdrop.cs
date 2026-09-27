@@ -58,6 +58,7 @@ namespace NoSafeCircle.DoorPrototype
             public float DoorCloseTriggerZ;
             public bool MovesNorth;
             public float Duration;
+            public float DoorCrossingTime;
             public float Elapsed;
             public int NextShot;
             public bool DoorwayNotified;
@@ -78,12 +79,14 @@ namespace NoSafeCircle.DoorPrototype
         private const float ViewportSafeMax = 0.95f;
         private const float TimeEpsilon = 0.00001f;
         private const float EntrySpeed = 3f;
-        private const float BruteEntrySpeed = 2.4f;
+        private const float BruteEntrySpeed = 3f;
         private const float LegacyDoorwayInsideZ = -1.5f;
         private const float LegacyBruteStopZ = 0.75f;
         private const float EntryShotFlightSeconds = 0.28f;
         private const float EntryImpactSeconds = 0.28f;
-        private static readonly float[] EntryShotTimes = { 0.25f, 0.62f, 0.98f };
+        // Space shots across the approach to the door, so all three remain visible
+        // before it seals regardless of how far the wizard keeps running afterward.
+        private static readonly float[] EntryShotProgress = { 0.18f, 0.45f, 0.72f };
 
         [Header("Title and art")]
         [SerializeField] private TitleScreenController titleScreen;
@@ -283,7 +286,7 @@ namespace NoSafeCircle.DoorPrototype
         /// <summary>
         /// Starts one cosmetic entrance after the selected wizard has left the menus. The caller
         /// owns the real door, camera follow, and gameplay handoff; this component only animates
-        /// the chosen wizard, a Brute outside D1, and three harmless backward fireballs.
+        /// the chosen wizard, a Brute behind them, and three harmless backward fireballs.
         /// </summary>
         public bool BeginEntryChase(ConfirmedWizardSelection selection,
             Vector3 entryStart, Vector3 gameplayDestination)
@@ -293,7 +296,7 @@ namespace NoSafeCircle.DoorPrototype
         }
 
         /// <summary>
-        /// Starts the chase using the chamber's gate-close and pursuer-stop Z positions. The
+        /// Starts the chase using the door-close and pursuer-stop Z positions. The
         /// trigger must lie between entry and arrival, and the pursuer stops behind that trigger.
         /// </summary>
         public bool BeginEntryChase(ConfirmedWizardSelection selection,
@@ -338,6 +341,9 @@ namespace NoSafeCircle.DoorPrototype
                 MovesNorth = movesNorth,
                 Duration = Vector3.Distance(entryStart, gameplayDestination) / EntrySpeed
             };
+            sequence.DoorCrossingTime = sequence.Duration *
+                ((doorCloseTriggerZ - entryStart.z) /
+                 (gameplayDestination.z - entryStart.z));
             sequence.Wizard = CreateActor("TitleEntryWizard_" + WizardName(choiceIndex),
                 wizardAnimatorController, entryStart, out sequence.WizardRenderer);
             Transform wizardVisual = sequence.Wizard.transform.Find("Visual");
@@ -658,10 +664,11 @@ namespace NoSafeCircle.DoorPrototype
                 sequence.BruteStart, sequence.BruteStop, BruteEntrySpeed * elapsed);
             sequence.BruteAnimation.Tick(elapsed - previous);
 
-            while (sequence.NextShot < EntryShotTimes.Length &&
-                   EntryShotTimes[sequence.NextShot] <= elapsed)
+            while (sequence.NextShot < EntryShotProgress.Length &&
+                   sequence.DoorCrossingTime * EntryShotProgress[sequence.NextShot] <= elapsed)
             {
-                FireEntryShot(sequence, sequence.NextShot);
+                FireEntryShot(sequence, sequence.NextShot,
+                    sequence.DoorCrossingTime * EntryShotProgress[sequence.NextShot]);
                 sequence.NextShot++;
             }
 
@@ -712,9 +719,8 @@ namespace NoSafeCircle.DoorPrototype
             }
         }
 
-        private void FireEntryShot(EntrySequence sequence, int shotIndex)
+        private void FireEntryShot(EntrySequence sequence, int shotIndex, float firedAt)
         {
-            float firedAt = EntryShotTimes[shotIndex];
             float arrival = firedAt + EntryShotFlightSeconds;
             Vector3 wizardPosition = Vector3.Lerp(
                 sequence.Start, sequence.Destination, firedAt / sequence.Duration);
@@ -722,7 +728,7 @@ namespace NoSafeCircle.DoorPrototype
                 sequence.BruteStart, sequence.BruteStop, BruteEntrySpeed * arrival);
             Vector3 origin = wizardPosition + Vector3.up * 1.15f;
             Vector3 target = brutePosition + Vector3.up * 1.15f;
-            bool hits = shotIndex == EntryShotTimes.Length - 1;
+            bool hits = shotIndex == EntryShotProgress.Length - 1;
             if (!hits)
                 target.x += shotIndex == 0 ? -1.75f : 1.75f;
 
