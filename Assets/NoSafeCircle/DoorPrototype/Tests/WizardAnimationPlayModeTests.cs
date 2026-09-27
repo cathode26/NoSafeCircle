@@ -274,7 +274,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 Assert.IsTrue(scene.IsValid() && scene.isLoaded);
                 GameObject player = FindInScene(scene, "Player");
                 GameObject canvas = FindInScene(scene, "Canvas");
-                Camera camera = FindInScene(scene, "Main Camera").GetComponent<Camera>();
+                Camera camera = Camera.main;
                 DoorInteractable door = FindInScene(scene, "DoorRoot").GetComponent<DoorInteractable>();
                 // RuntimeWorld has no "PlayerSpawn" marker object: PlayerSpawner.Spawn() places
                 // the wizard directly at RuinedEntryLayout.PlayerStart, one CharacterController

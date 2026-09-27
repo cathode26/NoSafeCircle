@@ -217,7 +217,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Vector3 playerSpawnPosition = new Vector3(
                 RuinedEntryLayout.PlayerStart.x, playerControllerForSpawn.skinWidth, RuinedEntryLayout.PlayerStart.z);
             GameObject canvas = FindInScene(scene, "Canvas");
-            Camera camera = FindInScene(scene, "Main Camera").GetComponent<Camera>();
+            Camera camera = Camera.main;
             PlayerMovement movement = player.GetComponent<PlayerMovement>();
             PlayerInteractionController interaction = player.GetComponent<PlayerInteractionController>();
             WizardSelectionController selection = canvas.GetComponent<WizardSelectionController>();
