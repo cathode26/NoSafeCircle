@@ -257,15 +257,14 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "The wizard sorts by Center rather than Pivot, its ground-contact point.");
 
             // The ground-contact convention: the root rides one skinWidth above the floor and the
-            // visual is offset back down by exactly that, so the sprite's feet (pivot y 0) sit at
-            // world y 0 for the transparency axis. Two prefab literals that must agree; this is
+            // visual is offset back down by exactly that, so the sprite's ground-line pivot sits
+            // at world y 0 for the transparency axis. Two prefab literals that must agree; this is
             // the relation, not either number.
             Assert.AreEqual(0f, visual.position.y, 0.0001f,
                 "The wizard's feet sit at world y " + visual.position.y + " rather than 0, so the "
                 + "isometric sort axis reads him behind a doorway he is standing south of.");
-            Assert.Less(Quaternion.Angle(Quaternion.identity, visual.localRotation), 0.01f,
-                "The wizard's visual is rotated. Unlike enemies it is NOT camera-tilted (builder "
-                + "lines 280-284).");
+            Assert.Less(Quaternion.Angle(Quaternion.Euler(30f, -45f, 0f), visual.rotation), 0.01f,
+                "The wizard's visual must face the same isometric camera as the enemies.");
 
             yield return null;
         }
@@ -285,7 +284,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
 #if UNITY_EDITOR
             // Expected from the ART and the CONTROLLER, not from the Visual: the wizard's world
             // height is the CharacterController's height (2 units, the capsule he fills), the sprite
-            // is 180 px at PPU 180 (bounds 1.0), so the uniform scale must be height / bounds.
+            // is 128 px at PPU 64 (bounds 2.0), so the uniform scale must be height / bounds.
             var sprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(WizardIdleAssetPath);
             Assert.IsNotNull(sprite, WizardIdleAssetPath + " did not load as a Sprite.");
             float spriteHeight = sprite.bounds.size.y;
