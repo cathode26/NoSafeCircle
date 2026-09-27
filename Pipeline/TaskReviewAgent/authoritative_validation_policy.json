@@ -662,6 +662,18 @@
         "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.FireballCommittedSceneConformanceTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-125": {
+      "task_contract_sha256": "ac754b6df65340aae0f03f04bcff0f8e6502668011cd29d8bd7a065e29ecbb2a",
+      "required_test_platforms": [
+        "EditMode",
+        "PlayMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.MeleeEnemyGameplayPrefabTests",
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.MeleeEnemyPursuitPlayModeTests;NoSafeCircle.DoorPrototype.Tests.MeleeEnemyDefeatResponsePlayModeTests;NoSafeCircle.DoorPrototype.Tests.EnemyPursuitPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}
