@@ -42,6 +42,29 @@ namespace NoSafeCircle.DoorPrototype
             EnsureBangClip();
         }
 
+        /// <summary>
+        /// Refresh again once every Awake in the activation batch has run.
+        ///
+        /// OnEnable alone is not enough, and the failure is silent and visible in the game.
+        /// DoorInteractable sets CurrentDurability = maxDurability in its own Awake, and this
+        /// component lives on a CHILD GameObject, so when DoorSpawner activates the door root
+        /// there is no ordering guarantee between the child's OnEnable and the root's Awake.
+        /// When the child wins, RefreshFromDoor reads CurrentDurability 0 against maxDurability
+        /// 100, computes ratio 0, and SetCrackStage lights EVERY crack stage on a sealed door -
+        /// and nothing ever calls RefreshFromDoor again, so the door wears full breach damage
+        /// for the rest of the run. Start is guaranteed to run after all Awakes, so this closes
+        /// the window without depending on component or hierarchy order.
+        ///
+        /// Measured 2026-09-27 in a live 6.6 editor on the RuntimeWorld: all five spawned doors
+        /// read Max=100 Cur=100 ratio=1.000 (so the arithmetic was never wrong) while 15 of 15
+        /// crack stages were active; invoking RefreshFromDoor by reflection took that to 0 of 15.
+        /// DoorSpawnerPlayModeTests.EveryDoorCarriesTheBuilderAnatomy is the failing gate.
+        /// </summary>
+        private void Start()
+        {
+            RefreshFromDoor();
+        }
+
         private void OnDisable()
         {
             if (door != null) door.DamageTaken -= HandleDamageTaken;
