@@ -58,7 +58,10 @@ namespace NoSafeCircle.DoorPrototype.World
             visualBounds.Encapsulate(ChapelOfAshLayout.RoomBounds);
             visualBounds.Encapsulate(LowerVaultLayout.RoomBounds);
             visualBounds.Encapsulate(FinalRoomLayout.RoomBounds);
-            visualBounds.Expand(new Vector3(24f, 0f, 24f));
+            // At size 8, the angled follow camera sees nearly 27 units beyond a wall
+            // on a 21:9 display. Keep the edge of both grass layers out of view.
+            const float grassBorder = 32f;
+            visualBounds.Expand(new Vector3(grassBorder * 1.15f, 0f, grassBorder * 2f));
 
             TilemapRenderer baseRenderer = tilemap.GetComponent<TilemapRenderer>();
             baseRenderer.sortingLayerName = "Default";
