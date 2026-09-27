@@ -87,6 +87,8 @@ namespace NoSafeCircle.DoorPrototype
         private const float TimeEpsilon = 0.00001f;
         private const float EntrySpeed = 3f;
         private const float BruteEntrySpeed = 3f;
+        // One floor cell along the entry lane is 0.5 world units in Z.
+        private const float EntryPursuerExtraTile = 0.5f;
         private const float LegacyDoorwayInsideZ = -1.5f;
         private const float LegacyBruteStopZ = 0.75f;
         private const float EntryShotFlightSeconds = 0.28f;
@@ -318,6 +320,7 @@ namespace NoSafeCircle.DoorPrototype
             float doorCloseTriggerZ, float pursuerStopZ)
         {
             bool movesNorth = gameplayDestination.z > entryStart.z;
+            float entryPursuerSeparation = pursuerSeparation + EntryPursuerExtraTile;
             if (entry != null || titleScreen == null ||
                 !titleScreen.HasRequestedWizardSelection || !HasRuntimeInputs() ||
                 entryFireballFrames == null || entryFireballFrames.Length == 0 ||
@@ -329,7 +332,7 @@ namespace NoSafeCircle.DoorPrototype
                 entryStart.z == gameplayDestination.z ||
                 !IsStrictlyBetween(doorCloseTriggerZ, entryStart.z, gameplayDestination.z) ||
                 !IsStrictlyBetween(pursuerStopZ,
-                    entryStart.z + (movesNorth ? -pursuerSeparation : pursuerSeparation),
+                    entryStart.z + (movesNorth ? -entryPursuerSeparation : entryPursuerSeparation),
                     doorCloseTriggerZ) ||
                 Vector3.Distance(entryStart, gameplayDestination) < minLaneLength)
                 return false;
@@ -344,7 +347,7 @@ namespace NoSafeCircle.DoorPrototype
             FiredEntryShotCount = 0;
             EntryImpactCount = 0;
             Vector3 forward = (gameplayDestination - entryStart).normalized;
-            Vector3 bruteStart = entryStart - forward * pursuerSeparation;
+            Vector3 bruteStart = entryStart - forward * entryPursuerSeparation;
             var sequence = new EntrySequence
             {
                 Start = entryStart,
