@@ -128,14 +128,14 @@ namespace NoSafeCircle.DoorPrototype.World.Rooms
                 // no "WallLow": the stub IS the near wall.
                 bool far = edge == WallEdge.North || edge == WallEdge.West;
                 WallPieceKind kind = !far ? WallPieceKind.Stub
-                    : IsPilasterSlot(room, edge, start) ? WallPieceKind.Pilaster
+                    : IsPilasterSlot(room, edge, start, state) ? WallPieceKind.Pilaster
                     : WallPieceKind.Straight;
                 Vector3 point = alongX ? new Vector3(start + 0.5f, 0f, line) : new Vector3(line, 0f, start + 0.5f);
                 pieces.Add(new WallPiece(kind, point, WallRoom.Inward(edge), alongX));
             }
         }
 
-        private static bool IsPilasterSlot(WallRoom room, WallEdge edge, float start)
+        private static bool IsPilasterSlot(WallRoom room, WallEdge edge, float start, WallPassState state)
         {
             bool alongX = WallRoom.AlongX(edge);
             float runStart = alongX ? room.XMin : room.ZMin;
@@ -150,7 +150,27 @@ namespace NoSafeCircle.DoorPrototype.World.Rooms
             }
 
             int index = Mathf.RoundToInt(start - runStart);
-            return index % PilasterInterval == 0 && start > runStart && start < runLast;
+            if (index % PilasterInterval != 0 || start <= runStart || start >= runLast) return false;
+
+            // runStart/runLast only know THIS room's own rect and doors. A narrower room
+            // processed earlier (the shared-boundary rule: "the northern room's south band
+            // wins") can claim part of THIS edge's line first, truncating the run this room
+            // actually gets to render well short of its own XMin/XMax/ZMin/ZMax - the jog at
+            // a Straight/Stub width difference between adjacent rooms. state.Posts is the
+            // ground truth for where a run really ends: a corner post already recorded at
+            // either boundary of this slot means the run stops here, whatever runLast says,
+            // so a pilaster here would abut it - which the run-boundary check above exists to
+            // forbid and, for a cross-room jog, cannot see.
+            float line = room.Line(edge);
+            (int, int) lowPost = alongX
+                ? (Mathf.RoundToInt(start), Mathf.RoundToInt(line))
+                : (Mathf.RoundToInt(line), Mathf.RoundToInt(start));
+            (int, int) highPost = alongX
+                ? (Mathf.RoundToInt(start + 1f), Mathf.RoundToInt(line))
+                : (Mathf.RoundToInt(line), Mathf.RoundToInt(start + 1f));
+            if (state.Posts.Contains(lowPost) || state.Posts.Contains(highPost)) return false;
+
+            return true;
         }
 
         private static void EndCaps(List<WallPiece> pieces, AsciiRoomMap map, WallRoom room,

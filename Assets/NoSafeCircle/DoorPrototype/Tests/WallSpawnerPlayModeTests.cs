@@ -220,9 +220,28 @@ namespace NoSafeCircle.DoorPrototype.Tests
             return slots;
         }
 
+        // Every distinct layout corner across ALL rooms, independent of WallPiecePass's own
+        // state.Posts bookkeeping - built straight from each room's own rectangle, the same
+        // shape CornerPostsAndJambsReproduceTheApprovedPlacerArithmetic uses to expect posts.
+        private static HashSet<(int, int)> AllCornerPoints(List<Room> rooms)
+        {
+            var points = new HashSet<(int, int)>();
+            foreach (Room room in rooms)
+            {
+                foreach (float z in new[] { room.ZMax, room.ZMin })
+                {
+                    foreach (float x in new[] { room.XMin, room.XMax })
+                    {
+                        points.Add((Mathf.RoundToInt(x), Mathf.RoundToInt(z)));
+                    }
+                }
+            }
+            return points;
+        }
+
         // NSC-127 AC-001's rhythm, re-derived: every fourth slot of a layout run (corner to door
         // collider edge), never the run's first or last slot, on far (straight) sides only.
-        private static bool IsPilasterSlot(Slot slot)
+        private static bool IsPilasterSlot(Slot slot, HashSet<(int, int)> corners)
         {
             if (slot.Edge != WallEdge.North && slot.Edge != WallEdge.West) return false;
             bool alongX = AlongX(slot.Edge);
@@ -238,7 +257,21 @@ namespace NoSafeCircle.DoorPrototype.Tests
             }
 
             int index = Mathf.RoundToInt(slot.Start - runStart);
-            return index % 4 == 0 && slot.Start > runStart && slot.Start < runLast;
+            if (index % 4 != 0 || slot.Start <= runStart || slot.Start >= runLast) return false;
+
+            // runStart/runLast only see THIS room's own rect and doors. Where a narrower room
+            // shares this line and is drawn first (the shared-boundary rule), ITS corner post
+            // can truncate the run this room actually renders well short of its own XMin/XMax -
+            // a jog the room-local math above cannot see. A slot touching ANY room's corner on
+            // this same line must never be a pilaster, whichever room the post belongs to.
+            float line = slot.Line;
+            (int, int) low = alongX
+                ? (Mathf.RoundToInt(slot.Start), Mathf.RoundToInt(line))
+                : (Mathf.RoundToInt(line), Mathf.RoundToInt(slot.Start));
+            (int, int) high = alongX
+                ? (Mathf.RoundToInt(slot.Start + 1f), Mathf.RoundToInt(line))
+                : (Mathf.RoundToInt(line), Mathf.RoundToInt(slot.Start + 1f));
+            return !corners.Contains(low) && !corners.Contains(high);
         }
 
         private static (int, int) Key(Vector3 point) =>
@@ -330,7 +363,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
         public IEnumerator FarSidesAreStraightOrPilasterAndNearSidesAreStubs()
         {
             WallSpawner spawner = CreateSpawner();
-            List<Slot> expected = ExpectedSlots(LoadMap(), LayoutRooms());
+            List<Room> rooms = LayoutRooms();
+            List<Slot> expected = ExpectedSlots(LoadMap(), rooms);
+            HashSet<(int, int)> corners = AllCornerPoints(rooms);
 
             spawner.Spawn();
             yield return null;
@@ -341,7 +376,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             {
                 string actual = spriteAt[Key(slot.RootPoint)];
                 bool far = slot.Edge == WallEdge.North || slot.Edge == WallEdge.West;
-                string want = !far ? StubSprite : IsPilasterSlot(slot) ? PilasterSprite : StraightSprite;
+                string want = !far ? StubSprite : IsPilasterSlot(slot, corners) ? PilasterSprite : StraightSprite;
                 if (actual != want)
                 {
                     wrong.Add(slot.Room.Name + " " + slot.Edge + " slot " + slot.Start + ": " + actual + " should be " + want);
@@ -354,6 +389,52 @@ namespace NoSafeCircle.DoorPrototype.Tests
             // Non-vacuous: NSC-127's rhythm must actually place something on a 28-slot run.
             Assert.Greater(RenderersWithSprite(PilasterSprite).Count(), 0,
                 "No pilaster was placed at all, so the rhythm check above passed on nothing.");
+        }
+
+        [UnityTest]
+        public IEnumerator NoPilasterStandsAgainstAJoggedNeighbourRoomsCornerPost()
+        {
+            // NSC-126's gap-in-wall defect, reproduced and pinned: FinalRoom (narrower, XMin=-15)
+            // sits inside LowerVault's wider XMin=-20..XMax=20 span at their shared Z=76 line. The
+            // shared-boundary rule lets FinalRoom's corner post claim (-15,76) before LowerVault
+            // places its own north-edge pilaster rhythm, but the OLD IsPilasterSlot only guarded
+            // against LowerVault's OWN room-local run bounds (XMin=-20 to its own door), which
+            // never sees a narrower neighbour's post cutting the run short - so the rhythm (every
+            // 4th slot from XMin=-20) landed a pilaster in the run's last real slot, [-16,-15],
+            // touching the post. This asserts the RELATION (no base piece ever seats a pilaster
+            // sprite immediately against a corner post's own point) rather than the one coordinate
+            // that happened to expose it, so it also catches the symmetric case anywhere else on
+            // the map, today or after floor01.txt changes.
+            WallSpawner spawner = CreateSpawner();
+            List<Room> rooms = LayoutRooms();
+            List<Slot> expected = ExpectedSlots(LoadMap(), rooms);
+            HashSet<(int, int)> corners = AllCornerPoints(rooms);
+
+            spawner.Spawn();
+            yield return null;
+
+            var spriteAt = BasePieceRenderers().ToDictionary(r => Key(r.transform.parent.position), r => r.sprite.name);
+            var violations = new List<string>();
+            foreach (Slot slot in expected)
+            {
+                if (spriteAt[Key(slot.RootPoint)] != PilasterSprite) continue;
+                bool alongX = AlongX(slot.Edge);
+                float line = slot.Line;
+                (int, int) low = alongX
+                    ? (Mathf.RoundToInt(slot.Start), Mathf.RoundToInt(line))
+                    : (Mathf.RoundToInt(line), Mathf.RoundToInt(slot.Start));
+                (int, int) high = alongX
+                    ? (Mathf.RoundToInt(slot.Start + 1f), Mathf.RoundToInt(line))
+                    : (Mathf.RoundToInt(line), Mathf.RoundToInt(slot.Start + 1f));
+                if (corners.Contains(low) || corners.Contains(high))
+                {
+                    violations.Add(slot.Room.Name + " " + slot.Edge + " slot " + slot.Start
+                        + " placed a pilaster touching a corner post at " + (corners.Contains(low) ? low : high));
+                }
+            }
+
+            Assert.IsEmpty(violations, "A pilaster abuts a corner post - exactly the isolated-post "
+                + "gap defect - at:\n" + string.Join("\n", violations));
         }
 
         [UnityTest]
