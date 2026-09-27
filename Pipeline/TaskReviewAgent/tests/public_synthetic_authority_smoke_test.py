@@ -167,11 +167,24 @@ class PublicSyntheticAuthorityTests(unittest.TestCase):
         policy = json.loads((ROOT / "Pipeline/TaskReviewAgent/authoritative_validation_policy.json").read_text(encoding="utf-8"))
         require_decomposition_policy_document(policy)
         self.assertEqual(policy["decomposition_child_templates"], {})
-        self.assertTrue({"NSC-020", "NSC-042"}.issubset(policy["tasks"]))
+        self.assertIn("NSC-020", policy["tasks"])
         self.assertEqual(policy["tasks"]["NSC-020"]["test_filters"], {
             "PlayMode": "NoSafeCircle.DoorPrototype.Tests.DoorInteractionPlayModeTests"})
-        self.assertEqual(policy["tasks"]["NSC-042"]["test_filters"], {
-            "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests"})
+        # This named NSC-042's entry too, and that entry is gone: it bound EditMode to
+        # DoorPrototypeSceneBuilderTests, a class deleted at eee0a6ac, so the stale entry was
+        # removed at 57b97b54.  Naming one more task id here would only queue up the same
+        # failure the next time a gate is retired, so assert over EVERY entry instead: no
+        # committed entry may carry the synthetic gauntlet's authority or its test class.
+        # That is the leak this test is named for, and it is reachable rather than
+        # hypothetical -- prepare_synthetic_gauntlet.py writes to exactly this path.
+        leaked = {
+            task_id: entry for task_id, entry in policy["tasks"].items()
+            if "synthetic_gauntlet" in str(entry.get("authority", ""))
+            or "MuffcabbageGauntletTests" in json.dumps(entry.get("test_filters") or {})
+        }
+        self.assertEqual({}, leaked)
+        # An empty policy would satisfy the line above vacuously.
+        self.assertGreater(len(policy["tasks"]), 1)
 
 
 if __name__ == "__main__":

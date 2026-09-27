@@ -174,17 +174,16 @@ class MaterializationTests(unittest.TestCase):
         self.assertEqual(tuple(sorted((WALL, SCENE), key=str.casefold)), result.builder_paths)
         self.assertNotIn("  \n", (self.checkout / WALL).read_text())
 
-    def test_nsc_042_policy_runs_the_real_door_prototype_tests(self):
-        policy = json.loads((
-            Path(__file__).parents[1] / "TaskReviewAgent"
-            / "authoritative_validation_policy.json"
-        ).read_text(encoding="utf-8"))
-        entry = policy["tasks"]["NSC-042"]
-        self.assertEqual(
-            "NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests",
-            entry["test_filters"]["EditMode"],
-        )
-        self.assertNotIn("GauntletTests", entry["test_filters"]["EditMode"])
+    # test_nsc_042_policy_runs_the_real_door_prototype_tests was REMOVED here, deliberately.
+    # It asserted NSC-042's validation policy entry bound EditMode to
+    # DoorPrototypeSceneBuilderTests.  That class was deleted at eee0a6ac, so the assertion
+    # named a class that no longer existed and the test stayed GREEN for about 22 hours
+    # comparing two string literals; it only went red when the stale entry was removed at
+    # 57b97b54.  Its surviving half -- that no committed entry may carry the synthetic
+    # gauntlet's authority or test class -- now runs over EVERY entry in
+    # Pipeline/TaskReviewAgent/tests/public_synthetic_authority_smoke_test.py, which is
+    # where the policy document itself is under test.  Nothing was re-pointed at another
+    # task id, because doing that queues up the identical failure at the next retired gate.
 
     def test_shared_builder_rejects_and_retains_unregistered_output(self):
         def bad_runner(args, cwd, timeout):

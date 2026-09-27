@@ -408,15 +408,26 @@ def _validation_policy(
     task_bytes: Mapping[str, bytes],
 ) -> dict[str, Any]:
     existing = json.loads((source / POLICY_RELATIVE).read_text(encoding="utf-8"))
-    preserved = deepcopy((existing.get("tasks") or {}).get(PRESERVED_TASK_ID))
-    if not isinstance(preserved, dict):
-        raise SyntheticGauntletError("NSC-042 validation policy must already exist")
-    preserved["task_contract_sha256"] = _sha256(task_bytes[PRESERVED_TASK_ID])
+    entries = existing.get("tasks") or {}
     policy: dict[str, Any] = {
         "schema_version": "1.0",
-        "tasks": {PRESERVED_TASK_ID: preserved},
+        "tasks": {},
         "decomposition_child_templates": {},
     }
+    # The preserved task may legitimately carry NO validation policy entry.  An entry is
+    # removed when the task has no Unity test gate left, which is what happened to NSC-042
+    # at 57b97b54 once its only test class was deleted at eee0a6ac.  Mirror whatever the
+    # source says instead of requiring presence: refusing here broke every gauntlet build
+    # over a policy state that was correct.  A MALFORMED entry is still a refusal, because
+    # absent and wrong are different conditions and must not share one message.
+    if PRESERVED_TASK_ID in entries:
+        preserved = deepcopy(entries[PRESERVED_TASK_ID])
+        if not isinstance(preserved, dict):
+            raise SyntheticGauntletError(
+                f"{PRESERVED_TASK_ID} validation policy entry is not an object"
+            )
+        preserved["task_contract_sha256"] = _sha256(task_bytes[PRESERVED_TASK_ID])
+        policy["tasks"][PRESERVED_TASK_ID] = preserved
     for task in tasks:
         task_id = str(task["id"])
         provenance = task.get("provenance") or {}

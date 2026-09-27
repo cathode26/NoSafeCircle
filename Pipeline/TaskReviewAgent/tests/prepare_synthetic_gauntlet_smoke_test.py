@@ -77,7 +77,14 @@ def test_old_active_work_is_cancelled_but_root_and_42_remain_active() -> None:
 def test_validation_policy_binds_every_concrete_initial_contract() -> None:
     bundle, summary = _build_bundle_fixture()
     policy = json.loads(bundle[POLICY_RELATIVE])
-    expected = {PRESERVED_TASK_ID}
+    # The preserved task appears only when the SOURCE policy has an entry for it, and that is
+    # not guaranteed: an entry is removed once a task has no Unity test gate left.  Read the
+    # expectation out of the source file rather than out of the bundle under test, so it
+    # cannot agree with the code by construction.
+    source_entries = json.loads(
+        (ROOT / POLICY_RELATIVE).read_text(encoding="utf-8")
+    )["tasks"]
+    expected = {PRESERVED_TASK_ID} if PRESERVED_TASK_ID in source_entries else set()
     decomposition = set(summary["decomposition_parents"])
     for number in range(GAUNTLET_FIRST_ID, GAUNTLET_FIRST_ID + GAUNTLET_TASK_COUNT):
         task_id = f"NSC-{number:03d}"
@@ -194,10 +201,14 @@ def _build_bundle_fixture():
         policy_target.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(ROOT / POLICY_RELATIVE, policy_target)
         policy = json.loads(policy_target.read_text(encoding="utf-8"))
-        preserved_policy = policy["tasks"][PRESERVED_TASK_ID]
-        preserved_policy["test_filters"] = {
-            "EditMode": f"{TEST_FILTER}.PreservedNSC042"
-        }
+        # Rewrite the preserved entry's filter only when the source actually has one.  The
+        # point of this line is to prove the gauntlet does NOT overwrite a preserved real
+        # entry, and there is nothing to prove when the task has no entry to preserve.
+        preserved_policy = policy["tasks"].get(PRESERVED_TASK_ID)
+        if preserved_policy is not None:
+            preserved_policy["test_filters"] = {
+                "EditMode": f"{TEST_FILTER}.PreservedNSC042"
+            }
         policy_target.write_text(
             json.dumps(policy, indent=2, ensure_ascii=False) + "\n",
             encoding="utf-8",
