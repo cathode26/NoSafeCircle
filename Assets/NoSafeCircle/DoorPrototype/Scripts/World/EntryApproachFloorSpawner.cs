@@ -48,12 +48,12 @@ namespace NoSafeCircle.DoorPrototype.World
             // the chase camera so the cutscene does not reveal a rectangular floor edge.
             // The BoxCollider below still uses the authored approach bounds.
             Bounds route = EntryApproachLayout.ApproachBounds;
-            const float visualWidth = 36f;
+            const float visualWidth = RuinedEntryLayout.MaximumX - RuinedEntryLayout.MinimumX;
             const float visualSouthPadding = 8f;
             float visualMinimumZ = route.min.z - visualSouthPadding;
             var visualBounds = new Bounds(
-                new Vector3(EntryApproachLayout.CenterX, 0f,
-                    (visualMinimumZ + route.max.z) * 0.5f),
+                new Vector3((RuinedEntryLayout.MinimumX + RuinedEntryLayout.MaximumX) * 0.5f,
+                    0f, (visualMinimumZ + route.max.z) * 0.5f),
                 new Vector3(visualWidth, 0f, route.max.z - visualMinimumZ));
             FloorSpawner.PaintRoom(tilemap, visualBounds, ruinedEntryFloorTile);
             collision.center = EntryApproachLayout.ApproachBounds.center +
