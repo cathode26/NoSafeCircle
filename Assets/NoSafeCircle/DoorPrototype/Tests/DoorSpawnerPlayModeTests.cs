@@ -192,7 +192,12 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 // THE MEASUREMENT THAT PROVES Configure RAN BEFORE OnEnable: DoorStateSpriteBinder
                 // picks the closed-leaf skin from IsFinalDoor when it enables. Five sealed sprites
                 // would mean identity arrived too late; five final ones would mean it never varied.
-                string expectedSprite = door.IsFinalDoor ? "door_bonestone_final_S_000" : "door_bonestone_sealed_S_000";
+                // Docs/Art/Doors/APPROVAL.md, "South-west facing, 2026-09-26". The _SW_ art shipped
+                // that day for Vincent's "Door is pointing south and it should point south west" and
+                // nothing referenced it until 2026-09-27.
+                const string approvedFacing = "SW";
+                string expectedSprite = "door_bonestone_"
+                    + (door.IsFinalDoor ? "final" : "sealed") + "_" + approvedFacing + "_000";
                 Assert.AreEqual(expectedSprite, renderer.sprite.name,
                     who + " renders '" + renderer.sprite.name + "'. The binder syncs to IsFinalDoor in "
                     + "OnEnable, so this is wrong only if identity was configured after activation.");

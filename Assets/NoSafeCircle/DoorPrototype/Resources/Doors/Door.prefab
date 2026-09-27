@@ -151,10 +151,10 @@ MonoBehaviour:
   door: {fileID: 928225826703498819}
   doorVisual: {fileID: 1074310546197725832}
   spriteRenderer: {fileID: 151520849533548806}
-  sealedSprite: {fileID: 21300000, guid: 5a184cf226ba75e4883e951007bbf23a, type: 3}
-  lockedSprite: {fileID: 21300000, guid: d704fd93c23e99247977df08693fccc6, type: 3}
-  openSprite: {fileID: 21300000, guid: 84df69766e0cb924cbe4635e25cffd14, type: 3}
-  finalSprite: {fileID: 21300000, guid: 3f360e9152266e04c9d764cf8d915754, type: 3}
+  sealedSprite: {fileID: 21300000, guid: 1412fe36eca64a8fb70091d3fe37de89, type: 3}
+  lockedSprite: {fileID: 21300000, guid: aeba2b89933a461e9c9d66739da22cbf, type: 3}
+  openSprite: {fileID: 21300000, guid: a8604ab3430046f1be4d3353a4c47b4d, type: 3}
+  finalSprite: {fileID: 21300000, guid: e182b3fb61084b1fb2780d8f388efd67, type: 3}
 --- !u!1 &1074310546197725832
 GameObject:
   m_ObjectHideFlags: 0
@@ -288,7 +288,7 @@ SpriteRenderer:
   m_SortingLayerID: 1043912875
   m_SortingLayer: 1
   m_SortingOrder: 0
-  m_Sprite: {fileID: 21300000, guid: 5a184cf226ba75e4883e951007bbf23a, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 1412fe36eca64a8fb70091d3fe37de89, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0

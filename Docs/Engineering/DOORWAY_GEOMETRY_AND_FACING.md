@@ -26,7 +26,36 @@ width.
 | the **doorway blocker** collider | **3.000** | `Door.prefab`, `DoorVisual` `BoxCollider m_Size {3, 2.5, 0.3}` |
 | the gap left in the **wall collider** run | **3.000** | `<Room>Layout.DoorWidth` / `DoorOpeningWidth`, all five = `3f` |
 
-    visible gap  =  4.000 (art opening)  -  3.080 (door leaf)  =  0.920 total,  0.460 each side
+    visible gap  =  4.000 (art opening)  -  3.080 (door leaf CANVAS)  =  0.920 total, 0.460 each side
+
+**!!! THAT 3.080 IS THE CANVAS, NOT THE DOOR, AND THE CANVAS IS PADDED. CORRECTED BELOW. !!!**
+
+The sprite is 128x128 but the drawn door does not fill it. Measured from the alpha channel:
+
+| facing | drawn px | drawn units | x1.54 |
+|---|---|---|---|
+| `_S_` (was wired) | 116 x 117 | 1.812 x 1.828 | **2.791** wide |
+| `_SW_` (wired now) | 95 x 124 | 1.484 x 1.938 | **2.286** wide |
+
+**So no uniform scale fits this art to the opening.** The opening is 4.000 x 2.500, aspect 1.600;
+the drawn SW figure is aspect 0.766. Filling the width would need scale 2.695, making the leaf
+5.224 tall against a 2.500 wall. **The width shortfall is an art request, not a number anyone can
+tune**, which is why the x1.54 scale was left alone when the facing was fixed. `x1.54` is also
+Vincent's own approved value (`Docs/Art/Doors/APPROVAL.md`), so changing it is his call twice over.
+
+**AND DO NOT COMPARE THOSE TWO ROWS AS IF THEY MEASURED THE SAME THING.** The Art Director's note
+warns why, and it is the sharper half of this entry: *"that door is front-facing, so its threshold
+pool spreads toward the camera, and a 3/4 facing foreshortens the same puddle into far fewer
+pixels. Coherence transfers between facings; a raw count does not."* The `_SW_` bbox is narrower
+partly because of a foreshortened puddle and moss, not necessarily because the door SLAB is
+narrower - and the slab is what reads as a gap. **The slab's own width is still unmeasured.** The
+registration was built so the slab lands where the `_S_` slab landed: one union box `(16,8,115,133)`,
+bottom-aligned, `spritePivot {x: 0.492188, y: 0}`.
+
+**This is my own memory `measure-the-drawn-figure-not-the-canvas` firing against me in the session
+that cited it.** I published 0.460 per side from `128 / 64 x 1.54`, which is the padded canvas. Then
+I measured the alpha box and nearly published a second wrong number by comparing two facings' boxes
+directly. **The question "how wide is the gap" is still open and it wants a render, not arithmetic.**
 
 **That is the gap he can see.** At orthographic size 8 it is tens of screen pixels of open floor
 either side of the door leaf, in a 4-unit hole the wall art has already committed to.
@@ -78,10 +107,33 @@ puts with the Art Director, not with Vincent.
 
 ---
 
-## 2. The facing: the south-west art exists and the prefab is wired to south
+## 2. The facing: FIXED 2026-09-27. The art had shipped a day earlier and nothing pointed at it.
 
-`Door.prefab`'s `DoorStateSpriteBinder` has four sprite fields. Resolved by guid against every
-`.png.meta` on `main`:
+**Closed at `71e163a38`**, five guid lines in `Door.prefab`: the four `DoorStateSpriteBinder`
+fields and the renderer's own authored `m_Sprite`. Failing-before 4/5 with the exact assertion
+naming the wrong facing, passing-after 5/5; `DoorSpawnerPlayModeTests` 5/5 at Play. The `x1.54`
+scale was not touched.
+
+**The part worth remembering is not the fix, it is the gap between the two halves.**
+`Docs/Art/Doors/APPROVAL.md` records that the Art Director generated the whole `_SW_` set on
+**2026-09-26**, for an earlier report of this same defect in Vincent's words (*"Door is pointing
+south and it should point south west"*), gated it as a set and showed him the images. **The art
+landed and the integration never happened, so he played the game the next day and reported the
+same defect again.** An art task can be complete and invisible; nothing in the pipeline noticed
+that four committed sprites had no referrer.
+
+**One fixture deliberately still asserts the south facing, and it is not an oversight.**
+`Tests/Editor/DoorwayOpeningSealTests.cs` builds its door with
+`DoorPrototypeSceneBuilder.BuildInMemoryForTests()`, whose four sprite names are consts at
+`Editor/DoorPrototypeSceneBuilder.cs:1004-1007`. That file is declared in the
+`exclusive_resources` of **twenty-nine** contracts and every non-test reference to the builder is
+a comment, one of which calls it *"a scene-builder file scheduled to die"* - so the facing was not
+changed there. The shipped door has one facing; that fixture measures the old authoring path, and
+its own comment says so.
+
+### The evidence, for the record
+
+Wiring **before** the fix, resolved by guid against every `.png.meta` on `main`:
 
 | field | resolved file |
 |---|---|
