@@ -154,7 +154,7 @@ namespace NoSafeCircle.DoorPrototype
         // One floor cell along the entry lane is 0.5 world units in Z.
         private const float EntryPursuerExtraTile = 0.5f;
         private const float EntryFastPursuerRunway = 3.5f;
-        private const float EntrySecondPursuerGap = 4f;
+        private const float EntrySecondPursuerGap = 5.5f;
         private const float EntryWraithGap = 6f;
         private const float EntryDodgeDistance = 2f;
         private const float EntryDodgeSeconds = 1f;
@@ -291,6 +291,7 @@ namespace NoSafeCircle.DoorPrototype
         {
             Unsubscribe();
             ClearActors();
+            ClearFallenCompanions();
         }
 
         private void Update()
@@ -464,10 +465,10 @@ namespace NoSafeCircle.DoorPrototype
                 Vector3.right * 1.5f;
             Vector3 wraithStart = entryStart - forward * EntryWraithGap +
                 Vector3.left * 2.5f;
-            Vector3 thirdBruteStart = entryStart - forward * 2.2f + Vector3.left * 2.5f;
-            Vector3 fourthBruteStart = entryStart - forward * 5.6f + Vector3.left * 1.5f;
-            Vector3 fifthBruteStart = entryStart - forward * 4f + Vector3.left * 3.2f;
-            Vector3 sixthBruteStart = entryStart - forward * 5f + Vector3.right * 2.3f;
+            Vector3 thirdBruteStart = entryStart - forward * 3.7f + Vector3.left * 2.5f;
+            Vector3 fourthBruteStart = entryStart - forward * 7.1f + Vector3.left * 1.5f;
+            Vector3 fifthBruteStart = entryStart - forward * 5.5f + Vector3.left * 3.2f;
+            Vector3 sixthBruteStart = entryStart - forward * 6.5f + Vector3.right * 2.3f;
             Vector3 secondWraithStart = entryStart - forward * 8f + Vector3.right * 2.5f;
             float rearSign = movesNorth ? -1f : 1f;
             var sequence = new EntrySequence
@@ -534,7 +535,7 @@ namespace NoSafeCircle.DoorPrototype
             {
                 if (index == choiceIndex) continue;
                 WizardChoice choice = wizardChoices[index];
-                Vector3 companionStart = entryStart +
+                Vector3 companionStart = entryStart - forward * 1.5f +
                     Vector3.right * companionLanes[companionIndex];
                 GameObject companionActor = CreateActor(
                     "TitleEntryCompanion_" + WizardName(index),
