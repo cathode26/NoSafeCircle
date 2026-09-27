@@ -158,7 +158,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 Assert.IsNotNull(animation);
                 Assert.AreEqual(OrderedWizards[index % 4].Presentation, animation.Presentation);
                 Assert.AreEqual(OrderedWizards[index % 4].Skin, animation.Skin);
-                Assert.AreEqual(2f, wizard.transform.Find("Visual").localScale.x, 0.001f,
+                Assert.AreEqual(1f, wizard.transform.Find("Visual").localScale.x, 0.001f,
                     "Title wizard art must read at the configured close-up scale.");
                 Assert.AreEqual(index % 2 == 0 ? 0.55f : 0.9f,
                     chaseCamera.WorldToViewportPoint(wizard.transform.position).x,
