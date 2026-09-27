@@ -1408,6 +1408,28 @@
         "NSC-019",
         "NSC-128"
       ]
+    },
+    {
+      "reconciliation_keys": [
+        "stationary-enemy-sprite-integration",
+        "drained-lantern-wraith-staff-melee"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyLanternWispCaster.cs",
+      "work_ids": [
+        "NSC-077",
+        "NSC-132"
+      ]
+    },
+    {
+      "reconciliation_keys": [
+        "stationary-enemy-sprite-integration",
+        "drained-lantern-wraith-staff-melee"
+      ],
+      "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/EnemyArtIntegrationTests.cs",
+      "work_ids": [
+        "NSC-077",
+        "NSC-132"
+      ]
     }
   ],
   "schema_version": "1.0",

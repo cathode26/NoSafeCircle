@@ -664,6 +664,18 @@
         "PlayMode": "NoSafeCircle.DoorPrototype.Tests.RuntimeWorldEnemyNavMeshPlayModeTests;NoSafeCircle.DoorPrototype.Tests.EnemySightFallbackPlayModeTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-132": {
+      "task_contract_sha256": "f87c665e272294a27baff415422c2058afd0e377c60e3f4224ede5dbd329fa28",
+      "required_test_platforms": [
+        "EditMode",
+        "PlayMode"
+      ],
+      "test_filters": {
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.EnemyArtIntegrationTests",
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.DrainedWraithStaffMeleePlayModeTests;NoSafeCircle.DoorPrototype.Tests.EnemyLanternWispCasterPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}

@@ -129,7 +129,8 @@
     "hold-shift-suppress-movement": "NSC-128",
     "enemy-cursor-hover-highlight": "NSC-129",
     "prop-collider-and-sight-layer-verification": "NSC-130",
-    "sight-blocked-enemy-investigates": "NSC-131"
+    "sight-blocked-enemy-investigates": "NSC-131",
+    "drained-lantern-wraith-staff-melee": "NSC-132"
   },
   "reconciliation_run_id": "20260821T193541Z-998ee7b5",
   "schema_version": "1.0",

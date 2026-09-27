@@ -1,0 +1,114 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Vincent, 2026-09-27, typed in the Art Director Agent session and routed to GER: \"When the lantern witch runs out of mana, they should beat you to death with their staff\". He said witch; the asset is the Lantern Wraith.",
+      "requirement": "A Lantern Wraith that has run out of mana damages the wizard in melee with its staff. *** THE OUTCOME IS DAMAGE DELIVERED THROUGH PlayerHealth, NEVER AN ANIMATION PLAYED. *** A criterion requiring only that an attack state is entered, or only that an attack clip plays, is satisfied by a wraith flailing at empty air on the far side of the room, which is the defect this wording exists to exclude. The damage is dealt only while the wizard is within the wraith's own staff reach, and a wraith with mana remaining never deals it."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "Entailed by AC-001: beating someone with a staff requires reaching them. EnemyLanternWispCaster.cs:7-10 on main calls itself stationary and says it \"needs no NavMesh and no pursuit components\".",
+      "requirement": "A drained Lantern Wraith CLOSES THE DISTANCE to the wizard until it is within staff reach. State the outcome and not the mechanism: a criterion saying it \"moves when out of mana\" is satisfied by a wraith that wanders, and a criterion naming a NavMeshAgent is satisfied by a wraith that carries one and never approaches. What must hold is that the gap between wraith and wizard decreases and reaches staff reach. *** IT REUSES THE PURSUIT THE PROJECT ALREADY HAS RATHER THAN A SECOND IMPLEMENTATION, AND IT OBEYS THE SAME LEASH RELATION AS EVERY OTHER PURSUER *** - Vincent settled that on 2026-09-27 as a TOWED anchor, so a drained wraith must not become the one enemy with its own movement rules."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "EnemyLanternWispCaster.cs:7-10 and :86 on main; the CLAUDE.md rule that a change must be propagated and then re-grepped.",
+      "requirement": "*** THIS TASK DELIBERATELY REVERSES A STATED DECISION, AND THE STATEMENT OF THAT DECISION MUST DIE IN THE SAME COMMIT. *** The class comment at :7-10 says the wraith \"goes quiet once drained instead of firing forever\" and \"needs no NavMesh and no pursuit components\", and Tick returns early at :86 on IsOutOfMana. After this task no comment, docstring or contract clause still describes a drained wraith as stationary or as going quiet, and the code does not carry a comment contradicting its own behaviour. Going quiet as a CASTER remains true and must still be said; what changes is that going quiet is no longer the end of the wraith's turn."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "NSC-077 AC-004 and VAL-002 at revision 15, which state the controller count as a RELATION rather than the literal 16; EnemyArtIntegrationTests.cs:142 and :143, which still assert the literal.",
+      "requirement": "An attack mode joins LanternWraithAnimator under the NSC-077 relation - one state per facing per required mode and no others - so the wraith's mode set becomes idle, walk and attack and its controller holds eight states per mode. *** THE TWO CONTROLLERS NO LONGER MATCH, AND THAT IS INTENDED: *** MeleeEnemyAnimator keeps idle and walk only, because the Dungeon Brute's existing MeleeEnemyAttack.cs attacks without an attack animation today and this task does not change it. The expected count is computed from the declared direction and mode lists for each enemy type separately, never read back from the controller under test, and equality stays EXACT so a duplicate or leftover state still fails. EnemyArtIntegrationTests.cs must stop asserting the literal 16 IN THE SAME COMMIT that adds the states, or that fixture fails the moment the clips land."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "NSC-077 AC-007, which pins the wraith's serialized defaults (60 mana, 10 per cast, 1 second interval, 14 unit range, projectile speed 8, hit radius 0.8, lifetime 4 seconds, 5 damage).",
+      "requirement": "The mana economy that PRODUCES the drained state is unchanged: the same 60 mana at 10 per cast, so the wraith still goes quiet after six casts, with the same cast interval, cast range, sight test, projectile flight and projectile damage. This task begins where draining ends and must not make draining faster, slower or conditional. The staff's own damage and reach are new values this task introduces and are not required to equal the projectile's 5 damage or any existing constant."
+    },
+    {
+      "criterion_id": "AC-006",
+      "reference": "NSC-077 AC-005 and AC-006: facing while walking is the movement direction; a non-walking wraith faces the wizard inside cast range with an unobstructed view, whether or not it has mana left.",
+      "requirement": "Facing continues to obey the NSC-077 relation rather than gaining a second rule: a moving drained wraith faces its movement, and a stationary one faces the wizard under the existing range and line-of-sight tests. State the relation and do not restate the eight-way mapping, which NSC-077 AC-005 already owns and which would go stale here if copied."
+    }
+  ],
+  "basis": "human_requested_drained_wraith_staff_melee",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "AC-001 and AC-002; the existing EnemyLanternWispCasterPlayModeTests pattern of driving Tick deterministically.",
+      "requirement": "Play Mode coverage drains a wraith by the contracted six casts, then proves BOTH halves of the outcome against a wizard carrying PlayerHealth: the wraith's distance to the wizard DECREASES from its post-drain starting distance and reaches staff reach, and PlayerHealth then LOSES health attributable to the staff. Prove the pair, because either alone passes on a defect - approach without damage is a wraith that arrives and does nothing, and damage without approach is a wraith hitting across the room. A wraith with mana remaining deals no staff damage in the same fixture, as the negative case."
+    },
+    {
+      "gate_id": "VAL-002",
+      "reference": "AC-004; NSC-077 VAL-002 at revision 15.",
+      "requirement": "EnemyArtIntegrationTests proves LanternWraithAnimator holds one state per facing per declared mode for its own mode set including attack, and MeleeEnemyAnimator for its own set excluding it, with both counts computed from the declared lists and asserted exactly. The fixture must no longer assert the literal 16 anywhere. Verify the assertion by BREAKING it on purpose - add a ninth state for one facing and require the RIGHT failure - because an unbroken count assertion is a claim and not evidence."
+    },
+    {
+      "gate_id": "VAL-003",
+      "reference": "AC-003.",
+      "requirement": "A repository sweep shows no surviving statement that a drained Lantern Wraith is stationary, needs no NavMesh, needs no pursuit components, or goes quiet in any sense broader than ceasing to cast. Sweep for what must be ABSENT and include a control term that must still be PRESENT, so a clean result cannot be a broken query."
+    },
+    {
+      "gate_id": "VAL-004",
+      "reference": "AC-005.",
+      "requirement": "Play Mode coverage proves the drain path itself is unchanged: six casts at ten mana each from sixty, the same cast interval and range, the same projectile speed, hit radius, lifetime and damage. This gate exists because the cheapest way to make a wraith reach melee sooner is to quietly drain it faster, and that would satisfy every other gate here."
+    },
+    {
+      "gate_id": "VAL-005",
+      "reference": "Vincent's own words in AC-001; the CLAUDE.md rule that a human review gate names the exact action and what he is deciding.",
+      "requirement": "Vincent enters Play Mode in the scene registered in EditorBuildSettings, lets GameBootstrap build the world, stands in front of a Lantern Wraith until it has spent its mana, and confirms that it then comes for him and beats him with the staff, that the staff swing reads as a staff swing in the facings he sees, and that the wraith stops being a ranged threat rather than becoming both at once. *** HE SHOULD ALSO BE ASKED WHETHER HE WANTS THE ENCOUNTER THIS PRODUCES: *** after six casts the wraith stops being a ranged turret and becomes a melee chaser, which changes the fight, and that consequence follows from his request without having been stated in it."
+    }
+  ],
+  "confidence": "medium",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "One enemy's out-of-mana behaviour, its attack animation mode and one new Play Mode fixture form a single bounded change against components that already exist.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-077"
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "NSC-077 AC-004 and VAL-002 at revision 15; EnemyArtIntegrationTests.cs:142 and :143.",
+      "requirement": "Whoever lands the attack clips updates EnemyArtIntegrationTests in the SAME commit, because the fixture asserts the literal 16 today and fails the moment a ninth state per facing exists. The two changes cannot be split across commits without leaving main red."
+    },
+    {
+      "obligation_id": "INT-002",
+      "reference": "NSC-077 AC-008 at revision 15, which is marked a scope fence on that task's own work rather than a standing freeze.",
+      "requirement": "Whoever implements NSC-077 after this task must not revert the wraith's melee behaviour on the strength of AC-008's do-not-change sentence. That sentence was written before this feature existed and has been annotated accordingly; this obligation exists so the annotation is reachable from this side too."
+    }
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyLanternWispCaster.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/DrainedWraithStaffMeleePlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/DrainedWraithStaffMeleePlayModeTests.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/EnemyArtIntegrationTests.cs"
+  ],
+  "execution_reason": "One component's behaviour after a state it already tracks, one animation mode generated by an existing builder, and one new Play Mode fixture. There is an implementation path and a test path, so it schedules normally.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD enemy behaviour: enemies threaten the wizard at their own range and do not become harmless.",
+      "requirement": "The GDD does not name this behaviour. It arrives as Vincent's direct request on 2026-09-27 and is recorded as such in AC-001 rather than attributed to the GDD, because a request dressed as GDD authority cannot be checked against the GDD."
+    }
+  ],
+  "id": "NSC-132",
+  "kind": "implementation",
+  "notes": "AUTHORED 2026-09-27 on Vincent's request, routed by the Art Director Agent, whose brief is at C:/nscrev/reports/handoffs/ART-20260927-lantern-wraith-out-of-mana-melee.md. EVERY CITATION IN THAT BRIEF WAS VERIFIED AT SOURCE BEFORE THIS CONTRACT WAS WRITTEN and all of them held. TWO THINGS THE BRIEF DID NOT CARRY AND THIS CONTRACT DOES. FIRST, the literal 16 is pinned in TWO places in NSC-077 - AC-004 and VAL-002 - and asserted TWICE in EnemyArtIntegrationTests.cs at :142 and :143, so a fix touching only the test would leave the contract demanding 16; NSC-077 revision 15 replaced both with the relation. SECOND, NSC-077 AC-008 said 'Do not change pursuit, keep-distance movement, NavMeshAgent settings, the wraith's cast timing, range, sight test, mana', which if read as a standing freeze would make whoever implements NSC-077 after this task revert this feature; revision 15 marks it a scope fence on that task's own work. THE ART IS NOT BLOCKED ON THIS CONTRACT: the Art Director began generating eight facings, six frames, twelve frames per second, non-looping, matching the walk convention, before this was written, on the correct reasoning that the attack set is needed under every version of the feature. THE DESIGN CALL THAT WAS GENUINELY OPEN was whether a drained wraith may move, since EnemyLanternWispCaster calls itself stationary and says it needs no NavMesh and no pursuit components. Ruled YES, because Vincent's own words require reaching him and because NSC-077 AC-006 already has a drained wraith turning to watch the wizard from inside cast range - so without movement the feature is a wraith that stares and does nothing, which is what he described wanting fixed.",
+  "parent": "NSC-010",
+  "provenance": {
+    "graph_delta_plan_id": null,
+    "origin": "ger_agent_contract_request",
+    "parent_contract_revision": null,
+    "parent_contract_sha256": null,
+    "parent_task_id": null
+  },
+  "reconciliation_key": "drained-lantern-wraith-staff-melee",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Drained Lantern Wraith Staff Melee",
+  "type": "enemy_ai_state"
+}
