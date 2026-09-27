@@ -1,4 +1,6 @@
+using System;
 using UnityEngine;
+using UnityEngine.AI;
 using UnityEngine.InputSystem;
 
 namespace NoSafeCircle.DoorPrototype
@@ -10,13 +12,28 @@ namespace NoSafeCircle.DoorPrototype
         private const float ArrivalThreshold = 0.05f;
         private const float VerticalGroundingOffset = -0.1f;
 
-        // A clicked destination can be unreachable because CharacterController collision
-        // prevents the wizard from making forward progress. Do not keep an unreachable
-        // destination alive forever: after a short period of side-collision with negligible
-        // progress toward the target, settle the movement state as stopped.
+        // A clicked destination can still be unreachable even with NavMesh steering - either
+        // because no baked NavMesh covers this scene at all (RecomputeNavMeshPath falls back to
+        // the pre-pathfinding direct-line behaviour below), or because the residual stretch past
+        // the end of a PathPartial route runs into geometry the CharacterController itself has to
+        // resolve. Do not keep an unreachable destination alive forever: after a short period of
+        // side-collision with negligible progress toward the target, settle the movement state as
+        // stopped. This is now a backstop rather than the only defence against a blocked route.
         private const float BlockedDestinationTimeout = 0.2f;
         private const float MinimumForwardProgressFraction = 0.05f;
         private const float MinimumForwardProgressDistance = 0.001f;
+
+        // Tolerance used to snap a raw world point (the player's own position, or a clicked
+        // destination) onto the baked NavMesh. Generous enough to reliably find real NavMesh data
+        // when a GameplayNavigationSurface has actually baked one, but irrelevant to scenes with
+        // no baked NavMesh at all (e.g. isolated component tests) since NavMesh.SamplePosition
+        // fails there regardless of tolerance - there is no triangulated data to find.
+        private const float NavMeshSampleTolerance = 1f;
+
+        // How close to the current path corner counts as "reached" before advancing to the next
+        // one. Slightly looser than ArrivalThreshold so the wizard starts turning toward the next
+        // corner a little before exactly touching this one, rather than clipping the turn.
+        private const float CornerAdvanceThreshold = 0.15f;
 
         [SerializeField] private float moveSpeed = 4f;
         [SerializeField] private float gameplayPlaneHeight = 0f;
@@ -38,6 +55,19 @@ namespace NoSafeCircle.DoorPrototype
         private float blockedDestinationTime;
         private bool wasMoveToCursorPressed;
         private bool isHoldingPositionRestriction;
+
+        // AC (this fix): follows a baked NavMesh route around obstacles to the requested
+        // destination via NavMesh.CalculatePath, walked with the existing CharacterController -
+        // deliberately not a NavMeshAgent (see PlayerMovement.cs's exclusive_resources owners
+        // NSC-019/NSC-128, whose public surface below this component depends on collision
+        // response staying CharacterController-driven). hasNavMeshPath is false whenever no
+        // baked NavMesh is found near the player at all, which is the normal state for isolated
+        // component tests (PlayerMovementPlayModeTests and friends never bake one) and exactly
+        // reproduces the pre-pathfinding direct-line behaviour for them.
+        private NavMeshPath navMeshPath;
+        private Vector3[] pathCorners = Array.Empty<Vector3>();
+        private int pathCornerIndex;
+        private bool hasNavMeshPath;
 
         /// Shared world-space pointer target (AC-002), produced by projecting the cursor
         /// onto the gameplay plane. Consumers (cursor-aimed spells, Door/Interaction) read
@@ -208,10 +238,70 @@ namespace NoSafeCircle.DoorPrototype
             if (!hasDestination || HorizontalDistance(destination, worldPosition) > ArrivalThreshold)
             {
                 blockedDestinationTime = 0f;
+                RecomputeNavMeshPath(worldPosition);
             }
 
             hasDestination = true;
             destination = worldPosition;
+        }
+
+        // Computes a NavMesh route from the player's current position to the requested
+        // destination, snapping both endpoints onto the baked NavMesh within
+        // NavMeshSampleTolerance. Leaves hasNavMeshPath false (falling back to the original
+        // direct-line steering in TickDestinationMovement) whenever there is nothing useful to
+        // route with: no baked NavMesh near the player at all, the destination too far off any
+        // NavMesh to snap onto, or a degenerate/invalid CalculatePath result. A PathPartial result
+        // is still accepted - TickDestinationMovement walks its reachable corners and then falls
+        // through to the same direct-line behaviour for whatever residual stretch remains, so an
+        // unreachable click still eventually settles via BlockedDestinationTimeout exactly as it
+        // did before this method existed.
+        private void RecomputeNavMeshPath(Vector3 target)
+        {
+            hasNavMeshPath = false;
+            pathCornerIndex = 0;
+
+            if (!NavMesh.SamplePosition(transform.position, out var startHit, NavMeshSampleTolerance,
+                    NavMesh.AllAreas))
+            {
+                return;
+            }
+
+            if (!NavMesh.SamplePosition(target, out var endHit, NavMeshSampleTolerance, NavMesh.AllAreas))
+            {
+                return;
+            }
+
+            if (navMeshPath == null) navMeshPath = new NavMeshPath();
+
+            if (!NavMesh.CalculatePath(startHit.position, endHit.position, NavMesh.AllAreas, navMeshPath) ||
+                navMeshPath.status == NavMeshPathStatus.PathInvalid ||
+                navMeshPath.corners.Length < 2)
+            {
+                return;
+            }
+
+            // corners[0] is the sampled START position (already reached); steer toward corners[1]
+            // onward. Once pathCornerIndex reaches corners.Length, TickDestinationMovement's
+            // steering target naturally falls back to the raw `destination` for the final
+            // stretch/residual - see AdvancePathCornersIfReached and TickDestinationMovement.
+            pathCorners = navMeshPath.corners;
+            pathCornerIndex = 1;
+            hasNavMeshPath = true;
+        }
+
+        // Advances past any path corners already within CornerAdvanceThreshold of the player's
+        // current position, so a corner reached mid-tick does not stall steering until next tick.
+        private void AdvancePathCornersIfReached()
+        {
+            if (!hasNavMeshPath) return;
+
+            while (pathCornerIndex < pathCorners.Length)
+            {
+                var toCorner = pathCorners[pathCornerIndex] - transform.position;
+                toCorner.y = 0f;
+                if (toCorner.sqrMagnitude > CornerAdvanceThreshold * CornerAdvanceThreshold) break;
+                pathCornerIndex++;
+            }
         }
 
         /// Narrow owner-controlled destination-request extension consumed by Door/Interaction to
@@ -243,6 +333,12 @@ namespace NoSafeCircle.DoorPrototype
 
             if (hasDestination && !IsMovementRestricted)
             {
+                AdvancePathCornersIfReached();
+
+                // Arrival is always measured against the real requested destination, never an
+                // intermediate path corner, so DestinationReached keeps firing on exactly the
+                // same condition it always did (AC-002's "genuinely arrived at" contract, which
+                // NSC-019's click-to-approach timer depends on).
                 var toDestination = destination - transform.position;
                 toDestination.y = 0f;
 
@@ -257,13 +353,24 @@ namespace NoSafeCircle.DoorPrototype
                     distanceBeforeMove = toDestination.magnitude;
                     expectedHorizontalStep = moveSpeed * Mathf.Max(0f, deltaTime);
 
-                    if (toDestination.sqrMagnitude <= expectedHorizontalStep * expectedHorizontalStep)
+                    // Steer toward the current NavMesh path corner when one is available;
+                    // otherwise (no baked NavMesh near the player, an off-mesh click beyond
+                    // NavMeshSampleTolerance, or the path's corners already exhausted - including
+                    // the residual stretch past the end of a PathPartial route) steer straight at
+                    // the real destination exactly as before pathfinding existed.
+                    var steeringTarget = (hasNavMeshPath && pathCornerIndex < pathCorners.Length)
+                        ? pathCorners[pathCornerIndex]
+                        : destination;
+                    var toSteeringTarget = steeringTarget - transform.position;
+                    toSteeringTarget.y = 0f;
+
+                    if (toSteeringTarget.sqrMagnitude <= expectedHorizontalStep * expectedHorizontalStep)
                     {
-                        horizontal = deltaTime > 0f ? toDestination / deltaTime : Vector3.zero;
+                        horizontal = deltaTime > 0f ? toSteeringTarget / deltaTime : Vector3.zero;
                     }
                     else
                     {
-                        horizontal = toDestination.normalized * moveSpeed;
+                        horizontal = toSteeringTarget.normalized * moveSpeed;
                     }
                 }
             }
@@ -332,6 +439,8 @@ namespace NoSafeCircle.DoorPrototype
         {
             hasDestination = false;
             blockedDestinationTime = 0f;
+            hasNavMeshPath = false;
+            pathCornerIndex = 0;
         }
 
         private void ApplyGrounding(float deltaTime)
