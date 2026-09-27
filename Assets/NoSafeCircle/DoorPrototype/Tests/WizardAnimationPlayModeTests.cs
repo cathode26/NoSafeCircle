@@ -9,6 +9,8 @@ using UnityEngine.InputSystem.LowLevel;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using UnityEngine.UI;
+using NoSafeCircle.DoorPrototype.World;
+using NoSafeCircle.DoorPrototype.World.Rooms;
 
 namespace NoSafeCircle.DoorPrototype.Tests
 {
@@ -71,18 +73,40 @@ namespace NoSafeCircle.DoorPrototype.Tests
             base.TearDown();
         }
 
-        [UnitySetUp]
-        public IEnumerator LoadDoorPrototypeScene()
+        // The old DoorPrototype scene was serialized, so its hierarchy existed one frame after
+        // load. RuntimeWorld does not exist until GameBootstrap runs: the wait is not optional.
+        // Ported verbatim from FiveRoomDoorSequencePlayModeTests.WaitForWorldBuilt.
+        private static IEnumerator WaitForWorldBuilt()
         {
-            yield return SceneManager.LoadSceneAsync("DoorPrototype", LoadSceneMode.Single);
-            Scene scene = SceneManager.GetSceneByName("DoorPrototype");
+            yield return null;
+            GameObject managers = GameObject.Find("GameManagers");
+            Assert.IsNotNull(managers,
+                "RuntimeWorld.unity carries no GameManagers object, so nothing builds the world.");
+            var bootstrap = managers.GetComponent<World.GameBootstrap>();
+            Assert.IsNotNull(bootstrap, "GameManagers carries no GameBootstrap.");
+
+            yield return null;
+            yield return null;
+
+            Assert.IsTrue(bootstrap.HasBuilt,
+                "GameBootstrap had not built after three frames, so every assertion below would "
+                + "fail on an empty world rather than on the thing under test. SpawnedCount = "
+                + bootstrap.SpawnedCount + ".");
+        }
+
+        [UnitySetUp]
+        public IEnumerator LoadRuntimeWorldScene()
+        {
+            yield return SceneManager.LoadSceneAsync("RuntimeWorld", LoadSceneMode.Single);
+            Scene scene = SceneManager.GetSceneByName("RuntimeWorld");
             Assert.IsTrue(scene.IsValid() && scene.isLoaded);
+            yield return WaitForWorldBuilt();
         }
 
         [UnityTearDown]
-        public IEnumerator UnloadDoorPrototypeSceneWithoutSaving()
+        public IEnumerator UnloadRuntimeWorldSceneWithoutSaving()
         {
-            Scene scene = SceneManager.GetSceneByName("DoorPrototype");
+            Scene scene = SceneManager.GetSceneByName("RuntimeWorld");
             if (!scene.IsValid() || !scene.isLoaded) yield break;
 
             Scene cleanupScene = SceneManager.CreateScene("WizardAnimationTestCleanup");
@@ -242,16 +266,25 @@ namespace NoSafeCircle.DoorPrototype.Tests
             {
                 if (optionIndex > 0)
                 {
-                    yield return SceneManager.LoadSceneAsync("DoorPrototype", LoadSceneMode.Single);
+                    yield return SceneManager.LoadSceneAsync("RuntimeWorld", LoadSceneMode.Single);
+                    yield return WaitForWorldBuilt();
                 }
 
-                Scene scene = SceneManager.GetSceneByName("DoorPrototype");
+                Scene scene = SceneManager.GetSceneByName("RuntimeWorld");
                 Assert.IsTrue(scene.IsValid() && scene.isLoaded);
-                GameObject player = FindRoot(scene, "Player");
-                GameObject playerSpawn = FindRoot(scene, "PlayerSpawn");
-                GameObject canvas = FindRoot(scene, "Canvas");
-                Camera camera = FindRoot(scene, "Main Camera").GetComponent<Camera>();
-                DoorInteractable door = FindRoot(scene, "DoorRoot").GetComponent<DoorInteractable>();
+                GameObject player = FindInScene(scene, "Player");
+                GameObject canvas = FindInScene(scene, "Canvas");
+                Camera camera = FindInScene(scene, "Main Camera").GetComponent<Camera>();
+                DoorInteractable door = FindInScene(scene, "DoorRoot").GetComponent<DoorInteractable>();
+                // RuntimeWorld has no "PlayerSpawn" marker object: PlayerSpawner.Spawn() places
+                // the wizard directly at RuinedEntryLayout.PlayerStart, one CharacterController
+                // skinWidth above the floor (see PlayerSpawner.cs), which is what "the canonical
+                // spawn" now means. Computed rather than looked up, from the same public constant
+                // and the same field the runtime spawn uses.
+                CharacterController playerControllerForSpawn = player.GetComponent<CharacterController>();
+                Vector3 playerSpawnPosition = new Vector3(
+                    RuinedEntryLayout.PlayerStart.x, playerControllerForSpawn.skinWidth, RuinedEntryLayout.PlayerStart.z);
+                Quaternion playerSpawnRotation = Quaternion.identity;
                 WizardSelectionController selection = canvas.GetComponent<WizardSelectionController>();
                 WizardGameEntryController entry = canvas.GetComponent<WizardGameEntryController>();
                 WizardAnimationController wizard = player.GetComponent<WizardAnimationController>();
@@ -295,10 +328,10 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 Assert.AreEqual(expectedSelection, selection.ConfirmedSelection);
                 Assert.AreEqual(ExpectedPresentations[optionIndex], wizard.Presentation);
                 Assert.AreEqual(ExpectedSkins[optionIndex], wizard.Skin);
-                Assert.AreEqual(playerSpawn.transform.position, player.transform.position);
-                Assert.AreEqual(playerSpawn.transform.rotation, player.transform.rotation);
-                Assert.AreSame(player, FindRoot(scene, "Player"));
-                Assert.AreEqual(1, scene.GetRootGameObjects().Count(root => root.name == "Player"));
+                Assert.AreEqual(playerSpawnPosition, player.transform.position);
+                Assert.AreEqual(playerSpawnRotation, player.transform.rotation);
+                Assert.AreSame(player, FindInScene(scene, "Player"));
+                Assert.AreEqual(1, CountInScene(scene, "Player"));
                 Assert.IsTrue(movement.IsGameplayEnabled);
                 Assert.IsTrue(interaction.IsGameplayEnabled);
                 CollectionAssert.AreEqual(originalComponents, player.GetComponents<Component>());
@@ -317,7 +350,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 movement.ResetMovement();
                 movement.Tick(0.02f);
 
-                Vector3 movementTarget = playerSpawn.transform.position + new Vector3(1f, 0f, -1f);
+                Vector3 movementTarget = playerSpawnPosition + new Vector3(1f, 0f, -1f);
                 SetMouse(camera.WorldToScreenPoint(movementTarget), true);
                 movement.Tick(0.02f);
                 Assert.IsTrue(movement.HasPointerWorldTarget,
@@ -359,7 +392,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     "A duplicate entry must not issue another movement input-enable call.");
                 Assert.IsFalse(interaction.IsGameplayEnabled,
                     "A duplicate entry must not issue another interaction input-enable call.");
-                Assert.AreEqual(1, scene.GetRootGameObjects().Count(root => root.name == "Player"));
+                Assert.AreEqual(1, CountInScene(scene, "Player"));
             }
         }
 
@@ -535,11 +568,48 @@ namespace NoSafeCircle.DoorPrototype.Tests
             InputSystem.Update();
         }
 
-        private static GameObject FindRoot(Scene scene, string name)
+        // NOT root-scoped: RuntimeWorld nests every spawned object under its spawner
+        // (GameManagers -> <Family>Spawner -> the object), never at the scene root, unlike the
+        // old committed DoorPrototype scene the previous FindRoot(scene, name) calls here were
+        // written against. Recurses the whole loaded scene and keeps the original "expect exactly
+        // one" guarantee. Ported verbatim from FiveRoomDoorSequencePlayModeTests.FindInScene.
+        private static GameObject FindInScene(Scene scene, string name)
         {
-            GameObject result = scene.GetRootGameObjects().SingleOrDefault(root => root.name == name);
-            Assert.IsNotNull(result, $"Expected one '{name}' root in {scene.path}.");
-            return result;
+            var matches = new System.Collections.Generic.List<GameObject>();
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                CollectByName(root.transform, name, matches);
+            }
+            Assert.AreEqual(1, matches.Count,
+                $"Expected exactly one '{name}' object in loaded scene {scene.path}, found {matches.Count}.");
+            return matches[0];
+        }
+
+        private static void CollectByName(Transform node, string name, System.Collections.Generic.List<GameObject> matches)
+        {
+            if (node.name == name)
+            {
+                matches.Add(node.gameObject);
+            }
+
+            for (int i = 0; i < node.childCount; i++)
+            {
+                CollectByName(node.GetChild(i), name, matches);
+            }
+        }
+
+        // Non-throwing sibling of FindInScene, for a bare count assertion (RuntimeWorld nests
+        // every spawned object under its spawner, so this can no longer read
+        // scene.GetRootGameObjects().Count(root => root.name == name) as the old committed scene
+        // let it).
+        private static int CountInScene(Scene scene, string name)
+        {
+            var matches = new System.Collections.Generic.List<GameObject>();
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                CollectByName(root.transform, name, matches);
+            }
+            return matches.Count;
         }
 
         private static void BeginSelection(GameObject canvas)
