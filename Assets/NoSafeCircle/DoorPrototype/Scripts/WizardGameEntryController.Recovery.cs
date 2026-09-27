@@ -11,6 +11,7 @@ namespace NoSafeCircle.DoorPrototype
         private void RecoverWithoutCutscene()
         {
             if (HasEnteredGameplay) return;
+            GetComponent<WizardEntryFadeTransition>()?.Cancel();
             isEntryCutsceneRunning = false;
             isWaitingForGameplayReveal = false;
             UnsubscribeFromEntryChase();

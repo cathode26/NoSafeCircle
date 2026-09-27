@@ -21,6 +21,7 @@ namespace NoSafeCircle.DoorPrototype
         private bool isSubscribed;
         private bool isEntryCutsceneRunning;
         private bool isWaitingForGameplayReveal;
+        private bool hasRevealedGameplayPresentation;
         private TitleScreenChaseBackdrop entryChase;
         private TitleScreenGameplayHudVisibility presentationVisibility;
         private DoorInteractable entryDoor;
@@ -133,6 +134,12 @@ namespace NoSafeCircle.DoorPrototype
             }
 
             isEntryCutsceneRunning = true;
+            if (GetComponentInParent<Canvas>() != null)
+            {
+                WizardEntryFadeTransition fade = GetComponent<WizardEntryFadeTransition>();
+                if (fade == null) fade = gameObject.AddComponent<WizardEntryFadeTransition>();
+                fade.Configure(entryChase, this);
+            }
             Transform entryWizard = entryChase.EntryWizardTransform;
             cameraFollow.transform.position = entryWizard.position + cameraOffset;
             cameraFollow.Initialize(entryWizard);
@@ -168,12 +175,20 @@ namespace NoSafeCircle.DoorPrototype
             else transition.Invoke();
         }
 
-        /// <summary>Called after an optional transition reveals the real player in the room.</summary>
+        /// <summary>Shows the playable wizard behind the fade while input remains suspended.</summary>
+        public void RevealGameplayPresentation()
+        {
+            if (!isWaitingForGameplayReveal || hasRevealedGameplayPresentation) return;
+            hasRevealedGameplayPresentation = true;
+            presentationVisibility.RestoreGameplayPresentation();
+        }
+
+        /// <summary>Called after the room has been revealed and the player may take control.</summary>
         public void CompleteEntryAfterCutscene()
         {
             if (!isWaitingForGameplayReveal || HasEnteredGameplay) return;
+            RevealGameplayPresentation();
             isWaitingForGameplayReveal = false;
-            presentationVisibility.RestoreGameplayPresentation();
             HasEnteredGameplay = true;
             GameplayEntryCount++;
             playerMovement.EnableGameplayInput();

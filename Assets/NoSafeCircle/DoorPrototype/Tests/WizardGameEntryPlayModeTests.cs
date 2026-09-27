@@ -128,6 +128,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 Assert.IsFalse(movement.IsGameplayEnabled);
                 Assert.IsFalse(interaction.IsGameplayEnabled);
                 chase.Tick(100f);
+                Assert.IsTrue(entry.IsWaitingForGameplayReveal);
+                Assert.IsFalse(movement.IsGameplayEnabled);
+                yield return new WaitForSeconds(0.75f);
 
                 Assert.IsTrue(entry.HasEnteredGameplay);
                 Assert.AreEqual(1, entry.GameplayEntryCount);
@@ -238,6 +241,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsFalse(movement.IsGameplayEnabled);
 
             chase.Tick(100f);
+            Assert.IsTrue(entry.IsWaitingForGameplayReveal);
+            Assert.IsFalse(movement.IsGameplayEnabled);
+            yield return new WaitForSeconds(0.75f);
             Assert.IsTrue(entry.HasEnteredGameplay);
             Assert.AreEqual(1, entry.GameplayEntryCount);
             Assert.IsTrue(movement.IsGameplayEnabled);
@@ -329,6 +335,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsFalse(movement.IsGameplayEnabled);
             Assert.IsFalse(interaction.IsGameplayEnabled);
             chase.Tick(100f);
+            Assert.IsTrue(entry.IsWaitingForGameplayReveal);
+            Assert.IsFalse(movement.IsGameplayEnabled);
+            yield return new WaitForSeconds(0.75f);
 
             Assert.IsTrue(entry.HasEnteredGameplay);
             Assert.IsTrue(movement.IsGameplayEnabled);
