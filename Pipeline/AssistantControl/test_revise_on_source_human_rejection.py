@@ -35,7 +35,12 @@ import unittest
 from pathlib import Path
 
 from Pipeline.AssistantControl import test_materialization_reopen as fixture
+import uuid
+from unittest import mock
+
+import Pipeline.AssistantControl.revise_on_source as revise_module
 from Pipeline.AssistantControl.inspect_project import git
+from Pipeline.AssistantControl.revise_on_source import owns_staging_clone, staging_clone_name
 from Pipeline.AssistantControl.reconciliation_binding import (
     HUMAN_REJECTION,
     canonical_sha256,
@@ -536,6 +541,233 @@ class HumanRejectionReconciliationTests(unittest.TestCase):
         self.assertEqual("prepared", record["status"])
         self.assertEqual(merged, record["source_commit"])
         self.assertFalse(self.journal_path().exists())
+
+    def _staging_holding(self, commit: str) -> Path:
+        """A real staging clone, named the way revise_on_source names them.
+
+        The first version of these fixtures pointed "staging" at the TASK CHECKOUT, because after a
+        reset it still holds the reconciled commit. That was convenient and wrong: the recovery
+        cleanup then deleted the checkout. A fixture that misrepresents production data gets
+        believed, so this builds the real shape -- `.<TASK>-revise-<operation>` under the checkouts
+        root -- which is also what `owns_staging_clone` checks.
+        """
+        staging = self.manager.root / staging_clone_name(TASK, "fixture" + uuid.uuid4().hex[:8])
+        git(self.manager.root, "clone", "--no-local", "--quiet",
+            str(Path(self.record()["checkout"])), str(staging), timeout_seconds=300)
+        git(staging, "fetch", "--no-tags", str(Path(self.record()["checkout"])), commit,
+            timeout_seconds=300)
+        self.assertEqual(commit, git(staging, "rev-parse", commit + "^{commit}").decode().strip())
+        return staging
+
+    def _stranded_state(self, candidate, head, contract, *, staging):
+        """Rebuild F5's exact window: journal and archive down, checkout NOT advanced.
+
+        Reached by running a real reconciliation and then putting the checkout back, which is the
+        same technique the test above uses for the other window. `git reset --hard` moves the branch
+        and keeps the objects, so the reconciled commit is still reachable from `staging` -- which is
+        the whole point: the defect was that cleanup destroyed the only copy of it.
+        """
+        before = copy.deepcopy(self.record())
+        plan = self.reconcile(candidate, head, contract, apply=True)
+        merged = plan["reconciled_commit"]
+        checkout = Path(plan["checkout"])
+        (self.manager.records / f"{TASK}.json").write_text(
+            json.dumps(before), encoding="utf-8")
+        git(checkout, "reset", "--hard", candidate)
+        self.assertEqual(candidate, git(checkout, "rev-parse", "HEAD").decode().strip())
+        # A factory gets the merged commit, because a real staging clone can only be built once the
+        # reconciliation has produced one.
+        if callable(staging):
+            staging = staging(merged)
+        self.journal_path().write_text(json.dumps({
+            "schema_version": plan["schema_version"], "task_id": TASK,
+            "phase": "merged", "operation": "fixture",
+            "rejected_candidate": candidate, "inspected_source_commit": head,
+            "accepted_contract_sha256": contract, "reconciled_commit": merged,
+            "archived_record": plan["archived_record"],
+            "staging": str(staging),
+            "checkout": plan["checkout"],
+            "history_entry": {"schema_version": plan["schema_version"],
+                              "withdrawal_basis": HUMAN_REJECTION,
+                              "rejected_candidate": candidate,
+                              "accepted_contract_sha256": contract,
+                              "inspected_source_commit": head,
+                              "reconciled_commit": merged},
+        }), encoding="utf-8")
+        return merged, checkout
+
+    def test_a_reconciliation_interrupted_before_its_checkout_advanced_is_finished(self):
+        """F5: the window that used to strand the run on a transient fetch failure.
+
+        The journal and archive are down and the fetch into the task checkout did not land, so the
+        checkout is still at the rejected candidate. Recovery used to refuse here -- `head != merged`
+        -- and because the `finally` had already deleted the staging clone, the reconciled commit
+        existed in no repository, so there was no route out but manual repair.
+        """
+        candidate, head, contract = self.rejected_pair()
+        # The checkout still holds the merged object after the reset, so it stands in for the
+        # retained staging clone: what recovery needs is A repository that has the commit.
+        merged, checkout = self._stranded_state(
+            candidate, head, contract, staging=self._staging_holding)
+
+        resumed = self.reconcile(candidate, head, contract, apply=True)
+        self.assertTrue(resumed["applied"])
+        self.assertEqual("checkout_advance", resumed["resumed"])
+        self.assertEqual(merged, git(checkout, "rev-parse", "HEAD").decode().strip(),
+                         "recovery did not advance the task checkout to the reconciled commit")
+        record = self.record()
+        self.assertEqual("prepared", record["status"])
+        self.assertEqual(merged, record["source_commit"])
+        self.assertFalse(self.journal_path().exists())
+
+    def test_that_window_refuses_when_the_reconciled_commit_is_no_longer_anywhere(self):
+        """Fail closed, and say which piece is missing rather than 'inspect those'.
+
+        This is the state the old code could not distinguish from the recoverable one, and the
+        distinction is the whole repair: a retained staging clone that is GONE means the reconciled
+        commit cannot be fetched, so the only honest answer is to re-run from the start. The rejected
+        candidate and its changes are intact either way, and the message says so.
+        """
+        candidate, head, contract = self.rejected_pair()
+        merged, checkout = self._stranded_state(
+            candidate, head, contract, staging=self.manager.root / "staging-that-was-deleted")
+
+        with self.assertRaises(ReviseOnSourceError) as caught:
+            self.reconcile(candidate, head, contract, apply=True)
+        message = str(caught.exception)
+        self.assertIn("retained staging clone is gone", message)
+        self.assertIn("cannot be recovered", message)
+        self.assertEqual(candidate, git(checkout, "rev-parse", "HEAD").decode().strip(),
+                         "a refusal must leave the rejected candidate exactly where it was")
+        self.assertTrue(self.journal_path().exists(),
+                        "a refusal must not delete the journal it refused on")
+
+    def test_that_window_refuses_when_the_named_staging_no_longer_holds_the_commit(self):
+        """A path that exists is not a path that has the object.
+
+        The directory check alone would pass here and the fetch would then fail deep inside
+        recovery, after the caller was told the state was resumable. Checked before anything moves.
+        """
+        candidate, head, contract = self.rejected_pair()
+        empty = self.manager.root / "staging-without-the-object"
+        empty.mkdir(parents=True, exist_ok=True)
+        git(empty, "init", "-b", "master")
+        merged, checkout = self._stranded_state(candidate, head, contract, staging=empty)
+
+        with self.assertRaises(ReviseOnSourceError) as caught:
+            self.reconcile(candidate, head, contract, apply=True)
+        self.assertIn("no longer holds", str(caught.exception))
+        self.assertIn(merged, str(caught.exception))
+        self.assertEqual(candidate, git(checkout, "rev-parse", "HEAD").decode().strip())
+
+    def test_a_plan_of_that_window_reports_it_without_touching_the_checkout(self):
+        """`apply=False` must describe the recovery, not perform half of it."""
+        candidate, head, contract = self.rejected_pair()
+        merged, checkout = self._stranded_state(
+            candidate, head, contract, staging=self._staging_holding)
+
+        plan = self.reconcile(candidate, head, contract, apply=False)
+        self.assertFalse(plan["applied"])
+        self.assertEqual("checkout_advance", plan["resumed"])
+        self.assertEqual(merged, plan["reconciled_commit"])
+        self.assertEqual(candidate, git(checkout, "rev-parse", "HEAD").decode().strip(),
+                         "a plan advanced the checkout")
+        self.assertTrue(self.journal_path().exists(), "a plan removed the journal")
+
+    def test_a_successful_reconciliation_still_leaves_no_staging_clone(self):
+        """The retention window must CLOSE, or every success litters a full clone.
+
+        Staging is now retained from the journal write until the advancement is journalled, and
+        `_remove_staging` exists because a silent rmtree failure once left one clone per run in the
+        checkouts root. This asserts the new window does not reintroduce that.
+        """
+        candidate, head, contract = self.rejected_pair()
+        plan = self.reconcile(candidate, head, contract, apply=True)
+        self.assertTrue(plan["applied"])
+        staging = Path(plan["staging"])
+        self.assertFalse(staging.exists(), f"a successful run retained staging at {staging}")
+        self.assertIsNot(plan.get("staging_retained"), True)
+
+    def test_a_failed_fetch_retains_the_staging_clone_that_holds_the_reconciled_commit(self):
+        """F5's load-bearing half: without the object, no recovery is possible at all.
+
+        The journal and archive go down before the fetch into the task checkout, and the `finally`
+        used to delete the staging clone on the way out -- taking the only copy of the reconciled
+        commit with it. A transient fetch failure therefore became manual repair.
+
+        The fetch is made to fail for real rather than simulated after the fact, because the thing
+        under test is what the `finally` does on that path.
+        """
+        candidate, head, contract = self.rejected_pair()
+        real_git = revise_module.git
+        failed = []
+
+        def failing_git(source, *args, **kwargs):
+            # Exactly the one call the window turns on: the fetch INTO the task checkout.
+            if args[:1] == ("fetch",) and Path(source) == Path(self.record()["checkout"]):
+                failed.append(tuple(args))
+                raise RuntimeError("fixture: simulated transient fetch failure")
+            return real_git(source, *args, **kwargs)
+
+        with mock.patch.object(revise_module, "git", failing_git):
+            with self.assertRaises(RuntimeError):
+                self.reconcile(candidate, head, contract, apply=True)
+        self.assertEqual(1, len(failed), "the fixture did not intercept the checkout fetch")
+
+        journal = json.loads(self.journal_path().read_text(encoding="utf-8"))
+        self.assertEqual("merged", journal["phase"])
+        staging = Path(journal["staging"])
+        self.assertTrue(staging.is_dir(),
+                        f"the staging clone was deleted on the failure path: {staging}")
+        # And it must still HOLD the commit, which is the only reason retaining it helps.
+        self.assertEqual(
+            journal["reconciled_commit"],
+            real_git(staging, "rev-parse", journal["reconciled_commit"] + "^{commit}")
+            .decode().strip(),
+        )
+        # The rejected candidate is untouched, which is what makes this recoverable rather than lost.
+        self.assertEqual(candidate,
+                         real_git(Path(journal["checkout"]), "rev-parse", "HEAD").decode().strip())
+
+        # And now the recovery this fix adds finishes it, from the state the failure really left.
+        resumed = self.reconcile(candidate, head, contract, apply=True)
+        self.assertTrue(resumed["applied"])
+        self.assertEqual("checkout_advance", resumed["resumed"])
+        self.assertEqual(journal["reconciled_commit"], self.record()["source_commit"])
+        self.assertFalse(self.journal_path().exists())
+        self.assertFalse(staging.exists(), "recovery left the staging clone behind")
+
+    def test_recovery_refuses_to_delete_a_path_that_is_not_a_staging_clone(self):
+        """The journal is DATA, so the path it names is checked before anything is removed.
+
+        Found the hard way: the first version of the recovery cleanup deleted whatever the journal
+        called "staging", and a fixture that named the task checkout had its checkout deleted. That is
+        the same shape as this audit's own F2 -- a tool force-removing a directory derived from a
+        record, with no proof it owns it -- so ownership is now derived from how staging is
+        CONSTRUCTED, and a path that does not carry the `.<TASK>-revise-` name is refused and
+        recorded instead.
+        """
+        candidate, head, contract = self.rejected_pair()
+        decoy = self.manager.root / "not-a-staging-clone"
+        merged, checkout = self._stranded_state(
+            candidate, head, contract, staging=lambda commit: self._decoy_holding(commit, decoy))
+
+        resumed = self.reconcile(candidate, head, contract, apply=True)
+        self.assertTrue(resumed["applied"])
+        self.assertEqual(str(decoy), resumed.get("staging_cleanup_refused"))
+        self.assertTrue(decoy.is_dir(), "recovery deleted a path it does not own")
+        self.assertTrue(Path(checkout).is_dir(), "recovery deleted the task checkout")
+        self.assertFalse(owns_staging_clone(decoy, TASK))
+        self.assertTrue(owns_staging_clone(
+            self.manager.root / staging_clone_name(TASK, "abc123"), TASK))
+
+    def _decoy_holding(self, commit: str, target: Path) -> Path:
+        """A repository that holds the commit but is NOT named like a staging clone."""
+        git(self.manager.root, "clone", "--no-local", "--quiet",
+            str(Path(self.record()["checkout"])), str(target), timeout_seconds=300)
+        git(target, "fetch", "--no-tags", str(Path(self.record()["checkout"])), commit,
+            timeout_seconds=300)
+        return target
 
     def test_an_interrupted_reconciliation_for_another_request_is_refused(self):
         candidate, head, contract = self.rejected_pair()
