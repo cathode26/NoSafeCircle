@@ -18,6 +18,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
     {
         private const int Width = 1920;
         private const int Height = 1080;
+        private const int TemporaryUiLayer = 31;
         private const float MaximumEntrySeconds = 15f;
 
         [UnityTest]
@@ -127,7 +128,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 for (int index = 0; index < uiHierarchy.Length; index++)
                 {
                     previousLayers[index] = uiHierarchy[index].gameObject.layer;
-                    uiHierarchy[index].gameObject.layer = 5;
+                    uiHierarchy[index].gameObject.layer = TemporaryUiLayer;
                 }
 
                 worldTarget = new RenderTexture(Width, Height, 24, RenderTextureFormat.ARGB32);
@@ -136,7 +137,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 uiTarget.Create();
 
                 gameCamera.targetTexture = worldTarget;
-                gameCamera.cullingMask = previousMask & ~(1 << 5);
+                gameCamera.cullingMask = previousMask & ~(1 << TemporaryUiLayer);
                 gameCamera.Render();
 
                 uiCameraObject = new GameObject("EntryCaptureUiCamera", typeof(Camera));
@@ -146,7 +147,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     gameCamera.transform.position, gameCamera.transform.rotation);
                 uiCamera.clearFlags = CameraClearFlags.SolidColor;
                 uiCamera.backgroundColor = Color.clear;
-                uiCamera.cullingMask = 1 << 5;
+                uiCamera.cullingMask = 1 << TemporaryUiLayer;
                 uiCamera.nearClipPlane = 0.01f;
                 uiCamera.targetTexture = uiTarget;
                 uiCamera.enabled = false;
@@ -158,6 +159,11 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
                 worldPixels = ReadPixels(worldTarget, TextureFormat.RGB24);
                 uiPixels = ReadPixels(uiTarget, TextureFormat.RGBA32);
+                if (Environment.GetEnvironmentVariable("NSC_ENTRY_CAPTURE_DEBUG") == "1")
+                {
+                    File.WriteAllBytes(Path.Combine(output, name + "-ui-only.png"),
+                        uiPixels.EncodeToPNG());
+                }
                 Color32[] worldColours = worldPixels.GetPixels32();
                 Color32[] uiColours = uiPixels.GetPixels32();
                 for (int index = 0; index < worldColours.Length; index++)
