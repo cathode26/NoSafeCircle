@@ -1,0 +1,160 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "d3210d792f0a712751698ccaed62b86347f8f1d1",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_final_S_000.png",
+      "role": "approved_final_door_art"
+    },
+    {
+      "blob_sha": "e2596d31a08f3ff5be3ef06d7da08731f57e9e67",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_locked_S_000.png",
+      "role": "approved_locked_door_art"
+    },
+    {
+      "blob_sha": "6929c16cc468d2b534114e0877bf58d3d9255877",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_open_S_000.png",
+      "role": "approved_open_door_art"
+    },
+    {
+      "blob_sha": "6f271b326d813ad01f87f238bc9408f136dd6e45",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source/door_bonestone_sealed_S_000.png",
+      "role": "approved_sealed_door_art"
+    },
+    {
+      "blob_sha": "69ebdc3f822350382a5bfc5b48cf1e1d4a1daf17",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "role": "doorway_blocker_span_fix"
+    },
+    {
+      "blob_sha": "d4bf1fdbc6f045c643f3b2e671533c6fd021afbd",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs.meta",
+      "role": "unity_identity_for_scene_builder"
+    },
+    {
+      "blob_sha": "9dee785a6b4f93640d9857686dddde18d2123ebd",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorStateSpriteBinder.cs",
+      "role": "door_state_sprite_binder_implementation"
+    },
+    {
+      "blob_sha": "a7fe21a04610ef5c00e57c85a987877710739ac6",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/DoorStateSpriteBinder.cs.meta",
+      "role": "unity_identity_for_sprite_binder"
+    },
+    {
+      "blob_sha": "33182b6cac84f75f787c11a117f7a3e2c33b077d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/DoorwayTraversalPlayModeTests.cs",
+      "role": "play_mode_traversal_and_visual_state_proof_val002_val003"
+    },
+    {
+      "blob_sha": "de1bd1f1480b655cc9f847949d2b7e9490e1b849",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/DoorwayTraversalPlayModeTests.cs.meta",
+      "role": "unity_identity_for_traversal_test"
+    },
+    {
+      "blob_sha": "e9c368bf286341ce6f88b31b5e4492884b43b1e0",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorwayOpeningSealTests.cs",
+      "role": "edit_mode_seal_and_sprite_proof_val001_val002"
+    },
+    {
+      "blob_sha": "c8c356b84e72fb9f8b25eb3c07e58213accbae32",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorwayOpeningSealTests.cs.meta",
+      "role": "unity_identity_for_seal_test"
+    }
+  ],
+  "delivery": {
+    "base_commit": "a93c58170c5cfb8ee0a96d874017af7bb6372572",
+    "candidate_commit": "f868185b36a133d8300aa54e382582c49697c57c",
+    "integrated_commit": "f868185b36a133d8300aa54e382582c49697c57c",
+    "integrated_tree": "a51d364663c36e342b7ea940857298f2ffbde456"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "9a20c97cc7a99ea3f53fd416437f3792937914fe",
+          "path": "Pipeline/TaskGraph/evidence/NSC-097/artifacts/Unity-EditMode-01-f868185b36a1.xml"
+        },
+        {
+          "blob_sha": "cf6d52eb9bedfd2516282f7876108cdce28c4936",
+          "path": "Pipeline/TaskGraph/evidence/NSC-097/artifacts/Unity-EditMode-01-f868185b36a1.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Authoritative batchmode EditMode run, TestFilter NoSafeCircle.DoorPrototype.Tests.Editor.DoorwayOpeningSealTests, at commit f868185b36a133d8300aa54e382582c49697c57c in checkout C:/nscrev/handoff (repository clean before and after, tree unchanged a51d364663c3...). Result Passed, total=9 passed=9 failed=0 skipped=0, bound by the runner's own validation-manifest.json. DoorwayOpeningSealTests casts rays at multiple lateral offsets and heights across the doorway with the blocker enabled and disabled, proving the blocker span now derives from the authored opening rather than the former hard-coded 2-unit literal.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "9a20c97cc7a99ea3f53fd416437f3792937914fe",
+          "path": "Pipeline/TaskGraph/evidence/NSC-097/artifacts/Unity-EditMode-01-f868185b36a1.xml"
+        },
+        {
+          "blob_sha": "cf6d52eb9bedfd2516282f7876108cdce28c4936",
+          "path": "Pipeline/TaskGraph/evidence/NSC-097/artifacts/Unity-EditMode-01-f868185b36a1.log"
+        },
+        {
+          "blob_sha": "77d9c7ff3ef9d14ff311c0a799c3e25293f65ecc",
+          "path": "Pipeline/TaskGraph/evidence/NSC-097/artifacts/Unity-PlayMode-02-f868185b36a1.xml"
+        },
+        {
+          "blob_sha": "3d4e648a308c03af96e83d4d7ef4064d3d552eff",
+          "path": "Pipeline/TaskGraph/evidence/NSC-097/artifacts/Unity-PlayMode-02-f868185b36a1.log"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "Same EditMode run as VAL-001 (DoorwayOpeningSealTests, 9/9, commit f868185b36a133d8300aa54e382582c49697c57c) asserts each of the four bound states renders its approved sprite at 64 PPU with no placeholder rectangle, no damaged/opening/broken sprite referenced, and the final-door sprite gated correctly. The Play Mode half of this gate lives in DoorwayTraversalPlayModeTests (authoritative batchmode PlayMode run, same commit, tree unchanged a51d364663c3...): Result Passed, total=8 passed=8 failed=0 skipped=0, asserting the door's visual GameObject is active and its renderer shows the correct sprite after each state transition, and that the doorway remains passable/blocked consistently with the blocker state.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "77d9c7ff3ef9d14ff311c0a799c3e25293f65ecc",
+          "path": "Pipeline/TaskGraph/evidence/NSC-097/artifacts/Unity-PlayMode-02-f868185b36a1.xml"
+        },
+        {
+          "blob_sha": "3d4e648a308c03af96e83d4d7ef4064d3d552eff",
+          "path": "Pipeline/TaskGraph/evidence/NSC-097/artifacts/Unity-PlayMode-02-f868185b36a1.log"
+        }
+      ],
+      "gate_id": "VAL-003",
+      "notes": "Authoritative batchmode PlayMode run, TestFilter NoSafeCircle.DoorPrototype.Tests.DoorwayTraversalPlayModeTests, at commit f868185b36a133d8300aa54e382582c49697c57c in checkout C:/nscrev/handoff (repository clean before and after, tree unchanged a51d364663c3...). Result Passed, total=8 passed=8 failed=0 skipped=0, bound by the runner's own validation-manifest.json. The fixture drives production PlayerMovement through the doorway from both sides with the real collider present, reaching the far side when open and failing to cross when closed and blocked.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "f31fa3f414052e1bbd710ae1652dc2ae8d80fd69",
+          "path": "Pipeline/TaskGraph/evidence/NSC-097/artifacts/HumanValidation-01-f868185b36a1.txt"
+        }
+      ],
+      "gate_id": "VAL-004",
+      "notes": "Vincent Liguori reviewed the exact materialized candidate on canonical main in Play Mode from the gameplay camera on 2026-09-27, replying directly in the Game Agent session to the Game Agent's own four-item checklist (C:/nscrev/reports/door-shoulder-20260927/VINCENT-play-mode-checklist-clears-NSC-097-and-NSC-100.md), and confirmed, in his own words: 'ok I played through on main' against items 1-3 of that checklist ('Doors show their authored art in each state you reach', 'The doorway looks like it fits the wizard', 'Nothing shows through a door's edges while it's closed') - all three confirmed, exactly this gate's requirement. See the attached human_validation_01 artifact for the full quotes and the correct session/checklist attribution. Vincent separately reported a z-sorting defect on item 4 of the same checklist; that is NSC-100 VAL-004 and is explicitly excluded from this gate's evidence and from this record.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "Vincent Liguori",
+    "decision": "approved",
+    "notes": "Vincent played through the materialized doors on canonical main on 2026-09-27 and answered the Game Agent's own checklist directly, in the Game Agent session, in his own words: 'ok I played through on main', then confirming all three items of NSC-097 VAL-004 ('Doors show their authored art in each state you reach', 'The doorway looks like it fits the wizard', 'Nothing shows through a door's edges while it's closed'). He separately flagged a z-sorting defect ('There is issues with 1. Nothing drawn in the wrong order...') which is NSC-100 VAL-004, a different task's gate, not approved here and not claimed as part of this approval.",
+    "required": true
+  },
+  "record_id": "DEL-NSC-097-f868185b36a1",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-27T22:12:36Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-097.yaml",
+    "revision": 7,
+    "sha256": "ff3ead8bfa172f889eb8c24a1e7ad7d63d0db0dba5fdaacebe92ea963c9771fc"
+  },
+  "task_id": "NSC-097",
+  "validated_state": {
+    "commit": "f868185b36a133d8300aa54e382582c49697c57c",
+    "tree": "a51d364663c36e342b7ea940857298f2ffbde456"
+  }
+}

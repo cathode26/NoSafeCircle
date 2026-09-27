@@ -1,0 +1,834 @@
+VBCSCompilerPreWarmer: watching VBCSCompiler (PID 73056)
+VBCSCompilerPreWarmer: pre-warm launched (dotnet PID 76296)
+VBCSCompiler prewarm took 22.38 ms
+[Licensing::Module] Trying to connect to existing licensing client channel...
+Built from '6000.6/staging' branch; Version is '6000.6.3f1 (45d8eee7de74) revision 4577518'; Using compiler version '194234433'; Build Type 'Release'
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-VincentLiguori" at "2026-09-27T22:09:41.9379719Z"
+OS: 'Windows 11  (10.0.26200) Professional' Language: 'en' Physical Memory: 64969 MB
+BatchMode: 1, IsHumanControllingUs: 0, StartBugReporterOnCrash: 0, Is64bit: 1
+System  architecture: x64
+Process architecture: x64
+Date: 2026-09-27T22:09:41Z
+[Licensing::Client] Code 10 while verifying Licensing Client signature (process Id: 74320, path: "C:/Program Files/Unity Hub/UnityLicensingClient_V1/Unity.Licensing.Client.exe")
+[Licensing::Module] LicensingClient has failed validation; ignoring
+[Licensing::Client] Handshaking with LicensingClient:
+  Version:                 1.18.3+d7ffd15
+  Session Id:              df694c40fb1f4033a2e07da3724481bb
+  Correlation Id:          dd76f567f1bd3c2840642b135f6d00fa
+  External correlation Id: 5058260180934538522
+  Machine Id:              HxO4LzPDSZi5N+Qj55f7MhdwfeY=
+[Licensing::Module] Successfully connected to LicensingClient on channel: "LicenseClient-VincentLiguori" (connect: 0.00s, validation: 0.00s, handshake: 0.05s)
+[Licensing::IpcConnector] Successfully connected to: "LicenseClient-VincentLiguori-notifications" at "2026-09-27T22:09:41.9877994Z"
+[Licensing::Module] Error: Access token is unavailable; failed to update
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] License group:
+  Id: F4-BFWX-EA58-GAGK-GBZG-XXXX
+  Product: Unity Personal
+  Type: ULF
+  Expiration: Unlimited
+[Licensing::Module] License group:
+  Id: 37203-UnityPersXXXX
+  Product: Unity Personal
+  Type: Assigned
+  Expiration: Unlimited
+[Licensing::Client] Successfully updated license, isAsync: True, time: 0.00
+[Licensing::Module] Licensing Background thread has ended after 0.05s
+
+COMMAND LINE ARGUMENTS:
+C:\Program Files\Unity\Hub\Editor\6000.6.3f1\Editor\Unity.exe
+-batchmode
+-projectPath
+C:\nscrev\handoff
+-runTests
+-testPlatform
+EditMode
+-testFilter
+NoSafeCircle.DoorPrototype.Tests.Editor.DoorwayOpeningSealTests
+-testResults
+C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-9a8f4320e19c4d8db750a43c61235afa\test-results.xml
+-logFile
+C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-9a8f4320e19c4d8db750a43c61235afa\unity.log
+Successfully changed project path to: C:\nscrev\handoff
+C:/nscrev/handoff
+[UnityMemory] Configuration Parameters - Can be set up in boot.config
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-gi-baking-worker=262144"
+    "memorysetup-temp-allocator-size-nav-mesh-worker=65536"
+    "memorysetup-temp-allocator-size-audio-worker=65536"
+    "memorysetup-temp-allocator-size-cloud-worker=32768"
+    "memorysetup-temp-allocator-size-gfx=262144"
+    "memorysetup-remapper-allocator-initial-capacity=32768"
+    "memorysetup-temp-allocator-size-preload-manager=33554432"
+    "memorysetup-allocator-temp-initial-block-size-main=262144"
+    "memorysetup-allocator-temp-initial-block-size-worker=262144"
+    "memorysetup-temp-allocator-size-job-worker=262144"
+    "memorysetup-temp-allocator-size-background-worker=32768"
+    "memorysetup-bucket-allocator-granularity=16"
+    "memorysetup-bucket-allocator-bucket-count=8"
+    "memorysetup-bucket-allocator-block-size=33554432"
+    "memorysetup-bucket-allocator-block-count=8"
+    "memorysetup-main-allocator-block-size=16777216"
+    "memorysetup-thread-allocator-block-size=16777216"
+    "memorysetup-main-allocator-mimalloc-enabled=1"
+    "memorysetup-gfx-main-allocator-block-size=16777216"
+    "memorysetup-gfx-thread-allocator-block-size=16777216"
+    "memorysetup-cache-allocator-block-size=4194304"
+    "memorysetup-typetree-allocator-block-size=2097152"
+    "memorysetup-profiler-bucket-allocator-granularity=16"
+    "memorysetup-profiler-bucket-allocator-bucket-count=8"
+    "memorysetup-profiler-bucket-allocator-block-size=33554432"
+    "memorysetup-profiler-bucket-allocator-block-count=8"
+    "memorysetup-profiler-allocator-block-size=16777216"
+    "memorysetup-profiler-editor-allocator-block-size=1048576"
+    "memorysetup-temp-allocator-size-main=16777216"
+    "memorysetup-job-temp-allocator-block-size=2097152"
+    "memorysetup-job-temp-allocator-block-size-background=1048576"
+    "memorysetup-job-temp-allocator-reduction-small-platforms=262144"
+Logging is directed to a specific file, skipping project log.
+Player connection [60980]  Target information:
+
+Player connection [60980]  * "[IP] 172.28.64.1 [Port] 55506 [Flags] 2 [Guid] 2837783041 [EditorId] 2837783041 [Version] 1048832 [Id] WindowsEditor(7,DESKTOP-6LMNLCK) [Debug] 1 [PackageName] WindowsEditor [ProjectName] Editor"
+
+Player connection [60980]  * "[IP] 192.168.10.144 [Port] 55506 [Flags] 2 [Guid] 2837783041 [EditorId] 2837783041 [Version] 1048832 [Id] WindowsEditor(7,DESKTOP-6LMNLCK) [Debug] 1 [PackageName] WindowsEditor [ProjectName] Editor"
+
+Player connection [60980] Host joined multi-casting on [225.0.0.222:54997]...
+Player connection [60980] Host joined alternative multi-casting on [225.0.0.222:34997]...
+Input System module state changed to: Initialized.
+[Physics::Module] Initialized fallback backend.
+[Physics::Module] Id: 0xdecafbad
+[Package Manager] Connected to IPC stream "Upm-14844" after 0.3 seconds.
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] License group:
+  Id: F4-BFWX-EA58-GAGK-GBZG-XXXX
+  Product: Unity Personal
+  Type: ULF
+  Expiration: Unlimited
+[Licensing::Module] License group:
+  Id: 37203-UnityPersXXXX
+  Product: Unity Personal
+  Type: Assigned
+  Expiration: Unlimited
+Library Redirect Path: Library/
+Launching Unity Data Store - C:/Program Files/Unity/Hub/Editor/6000.6.3f1/Editor/Data/Tools/Unity.DataStore.exe
+Unity Data Store artifact dir = Library/DataStore, working dir = C:/nscrev/handoffSerialized file "ProjectSettings/DynamicsManager.asset" contains a PhysicsManager object at version 11, below the supported minimum (13). Open and re-save the file to upgrade.
+Unity Data Store running and initialised
+[Physics::Module] Selected backend (deferred post-plugins).
+[Physics::Module] Name: PhysX
+[Physics::Module] Id: 0xf2b8ea05
+[Physics::Module] SDK Version: 4.1.2
+[Physics::Module] Integration Version: 1.0.0
+[Physics::Module] Threading Mode: Multi-Threaded
+Initialize engine version: 6000.6.3f1 (45d8eee7de74)
+[EntityIdStore] init: VM path (explicit commit), pageSize=4096, blockCount=1048576, entitiesPerBlock=256, slots reserved=4294967296 bytes
+[Subsystems] Discovering subsystems at path C:/Program Files/Unity/Hub/Editor/6000.6.3f1/Editor/Data/Resources/UnitySubsystems
+[Subsystems] Discovering subsystems at path C:/nscrev/handoff/Assets
+GfxDevice: creating device client; kGfxThreadingModeNonThreaded
+d3d12: failed to query info queue interface (0x80004002).
+Direct3D:
+    Version:         Direct3D 12 [level 12.2]
+    Renderer:        NVIDIA GeForce RTX 4070 Laptop GPU (ID=0x2820)
+    Vendor:          NVIDIA
+    VRAM:            7948 MB
+    App VRAM Budget: 7180 MB
+    Driver:          32.0.15.9658
+Initialize mono
+Mono path[0] = 'C:/Program Files/Unity/Hub/Editor/6000.6.3f1/Editor/Data/Managed'
+Mono path[1] = 'C:/Program Files/Unity/Hub/Editor/6000.6.3f1/Editor/Data/BCLExtensions/runtime/netstandard2.1'
+Mono path[2] = 'C:/Program Files/Unity/Hub/Editor/6000.6.3f1/Editor/Data/MonoBleedingEdge/lib/mono/unityjit-win32'
+Mono config path = 'C:/Program Files/Unity/Hub/Editor/6000.6.3f1/Editor/Data/MonoBleedingEdge/etc'
+Using monoOptions --debugger-agent=transport=dt_socket,embedding=1,server=y,suspend=n,address=127.0.0.1:56844
+CodeReloadManager initialized
+ImportWorker Server TCP listen port: 0
+AcceleratorClientConnectionCallback - disconnected - :0
+Begin MonoManager ReloadAssembly
+Registering precompiled unity dll's ...
+Register platform support module: C:/Program Files/Unity/Hub/Editor/6000.6.3f1/Editor/Data/PlaybackEngines/WebGLSupport/UnityEditor.WebGL.Extensions.dll
+Register platform support module: C:/Program Files/Unity/Hub/Editor/6000.6.3f1/Editor/Data/PlaybackEngines/WindowsStandaloneSupport/UnityEditor.WindowsStandalone.Extensions.dll
+Registered in 0.002139 seconds.
+Native extension for WindowsStandalone target not found
+Native extension for WebGL target not found
+Package Manager log level set to [2]
+ScheduleIndexationOnStartup MainProcess:False IndexOnStartup:True
+Scripting: successfully reloaded assembly
+- Finished resetting the current domain, in  1.046 seconds
+Domain Reload Profiling: 1820ms
+	BeginReloadAssembly (200ms)
+		CreateAndSetChildDomain (19ms)
+	RebuildCommonClasses (7ms)
+	RebuildNativeTypeToScriptingClass (18ms)
+	initialDomainReloadingComplete (91ms)
+	LoadAllAssembliesAndSetupDomain (454ms)
+		LoadAssemblies (175ms)
+		TypeCache.Refresh (296ms)
+			TypeCache.ScanAssembly (277ms)
+		AnalyzeDomain (1ms)
+	FinalizeReload (1049ms)
+		SetupLoadedEditorAssemblies (0ms)
+			LogAssemblyErrors (3ms)
+			InitializePlatformSupportModulesInManaged (3ms)
+			BeforeProcessingInitializeOnLoad (156ms)
+			ProcessInitializeOnLoadAttributes (252ms)
+			ProcessInitializeOnLoadMethodAttributes (305ms)
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Module] License group:
+  Id: F4-BFWX-EA58-GAGK-GBZG-XXXX
+  Product: Unity Personal
+  Type: ULF
+  Expiration: Unlimited
+[Licensing::Module] License group:
+  Id: 37203-UnityPersXXXX
+  Product: Unity Personal
+  Type: Assigned
+  Expiration: Unlimited
+Application.AssetDatabase Initial Refresh Start
+[Package Manager] Restoring resolved packages state from cache
+[Licensing::Client] Successfully resolved entitlement details
+[Package Manager] Registered 64 packages:
+  Packages from [https://packages.unity.com]:
+    com.unity.addressables@2.11.2 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.addressables@42676f2a154e)
+    com.unity.ai.assistant@2.20.0-pre.1 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.ai.assistant@ceb45b7b3ebd)
+    com.unity.ai.navigation@2.0.14 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.ai.navigation@134dd6a3b97b)
+    com.unity.collab-proxy@2.13.6 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.collab-proxy@4628d2ba6ea4)
+    com.unity.inputsystem@1.20.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.inputsystem@7a4e1a2a8194)
+    com.unity.pipeline@0.8.0-exp.1 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.pipeline@62c08c808737)
+    com.unity.visualscripting@1.9.12 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.visualscripting@4edfcc09512f)
+    com.unity.nuget.mono-cecil@1.11.6 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.nuget.mono-cecil@ecb9724e46ff)
+    com.unity.nuget.newtonsoft-json@3.2.2 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.nuget.newtonsoft-json@4dfd81071c64)
+    com.unity.ide.visualstudio@2.0.26 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.ide.visualstudio@a99d56dec63f)
+    com.unity.ide.rider@3.0.38 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.ide.rider@1f60b3138684)
+    com.unity.performance.profile-analyzer@1.4.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.performance.profile-analyzer@2bb26871883c)
+    com.unity.testtools.codecoverage@1.3.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.testtools.codecoverage@19a841221620)
+    com.unity.profiling.core@1.0.3 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.profiling.core@8a49f7027d06)
+    com.unity.scriptablebuildpipeline@3.0.3 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.scriptablebuildpipeline@61526b33bf2c)
+    com.unity.settings-manager@2.1.1 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.settings-manager@0b8638c5ce86)
+  Built-in packages:
+    com.unity.2d.tilemap@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.2d.tilemap@4a51245c030d)
+    com.unity.feature.development@1.0.2 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.feature.development@767aadbc6eb7)
+    com.unity.multiplayer.center@2.0.1 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.multiplayer.center@549886182930)
+    com.unity.timeline@6.6.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.timeline@c56d56b0070b)
+    com.unity.ugui@2.6.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.ugui@0727b404f3a0)
+    com.unity.modules.accessibility@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.accessibility)
+    com.unity.modules.adaptiveperformance@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.adaptiveperformance)
+    com.unity.modules.ai@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.ai)
+    com.unity.modules.androidjni@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.androidjni)
+    com.unity.modules.animation@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.animation)
+    com.unity.modules.assetbundle@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.assetbundle)
+    com.unity.modules.audio@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.audio)
+    com.unity.modules.cloth@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.cloth)
+    com.unity.modules.director@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.director)
+    com.unity.modules.imageconversion@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.imageconversion)
+    com.unity.modules.imgui@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.imgui)
+    com.unity.modules.jsonserialize@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.jsonserialize)
+    com.unity.modules.particlesystem@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.particlesystem)
+    com.unity.modules.physics@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.physics)
+    com.unity.modules.physics2d@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.physics2d)
+    com.unity.modules.physicscore2d@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.physicscore2d)
+    com.unity.modules.screencapture@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.screencapture)
+    com.unity.modules.terrain@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.terrain)
+    com.unity.modules.terrainphysics@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.terrainphysics)
+    com.unity.modules.tetgen@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.tetgen)
+    com.unity.modules.tilemap@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.tilemap)
+    com.unity.modules.timelinefoundation@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.timelinefoundation)
+    com.unity.modules.ui@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.ui)
+    com.unity.modules.uielements@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.uielements)
+    com.unity.modules.umbra@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.umbra)
+    com.unity.modules.unityanalytics@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.unityanalytics)
+    com.unity.modules.unitywebrequest@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.unitywebrequest)
+    com.unity.modules.unitywebrequestassetbundle@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.unitywebrequestassetbundle)
+    com.unity.modules.unitywebrequestaudio@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.unitywebrequestaudio)
+    com.unity.modules.unitywebrequesttexture@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.unitywebrequesttexture)
+    com.unity.modules.unitywebrequestwww@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.unitywebrequestwww)
+    com.unity.modules.vectorgraphics@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.vectorgraphics)
+    com.unity.modules.vehicles@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.vehicles)
+    com.unity.modules.video@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.video)
+    com.unity.modules.wind@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.wind)
+    com.unity.modules.xr@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.xr)
+    com.unity.modules.subsystems@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.subsystems)
+    com.unity.modules.hierarchycore@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.modules.hierarchycore)
+    com.unity.test-framework@1.8.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.test-framework@80f691d4262b)
+    com.unity.editorcoroutines@6.6.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.editorcoroutines@8cd72baa102a)
+    com.unity.2d.sprite@1.0.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.2d.sprite@26bcb5e737a2)
+    com.unity.mathematics@1.4.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.mathematics@8306a64d0cd6)
+    com.unity.ext.nunit@2.1.0 (location: C:\nscrev\handoff\Library\PackageCache\com.unity.ext.nunit@0198eae3b53e)
+[Subsystems] No new subsystems found in resolved package list.
+[Package Manager] Done registering packages in 0.02 seconds
+Serialized file "Assets/Plugins/Demigiant/DOTween/Editor/DOTweenEditor.dll.meta" contains a PluginImporter object at version 1, below the supported minimum (2). Open and re-save the file to upgrade.
+Serialized file "Assets/Plugins/Demigiant/DOTween/DOTween.dll.meta" contains a PluginImporter object at version 1, below the supported minimum (2). Open and re-save the file to upgrade.
+Serialized file "Assets/Plugins/Demigiant/DOTween/Editor/DOTweenEditor.dll.meta" contains a PluginImporter object at version 1, below the supported minimum (2). Open and re-save the file to upgrade.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProviderBase:GetPrecompiledAssembliesInternal (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,string[],bool)
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProvider:GetPrecompiledAssembliesDictionary (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,string[],bool)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilation:GetAllScriptAssembliesOfType (UnityEditor.Scripting.ScriptCompilation.ScriptAssemblySettings,UnityEditor.Scripting.ScriptCompilation.TargetAssemblyType,UnityEditor.Scripting.ScriptCompilation.ICompilationSetupWarningTracker)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilation:CompileScriptsWithSettings (UnityEditor.Scripting.ScriptCompilation.ScriptAssemblySettings)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilation:CompileScripts (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,int,string[])
+UnityEditor.Scripting.ScriptCompilation.EditorCompilationInterface/<>c__DisplayClass21_0:<CompileScripts>b__0 ()
+UnityEditor.Scripting.ScriptCompilation.EditorCompilationInterface:EmitExceptionAsError<UnityEditor.Scripting.ScriptCompilation.EditorCompilation/CompileStatus> (System.Func`1<UnityEditor.Scripting.ScriptCompilation.EditorCompilation/CompileStatus>,UnityEditor.Scripting.ScriptCompilation.EditorCompilation/CompileStatus)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilationInterface:CompileScripts (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,int,string[])
+
+[C:\build\output\unity\unity\Runtime\Serialize\TransferFunctions\TextDOMTransferReadBase.h line 180]
+
+Serialized file "Assets/Plugins/Demigiant/DOTween/DOTween.dll.meta" contains a PluginImporter object at version 1, below the supported minimum (2). Open and re-save the file to upgrade.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProviderBase:GetPrecompiledAssembliesInternal (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,string[],bool)
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProvider:GetPrecompiledAssembliesDictionary (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,string[],bool)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilation:GetAllScriptAssembliesOfType (UnityEditor.Scripting.ScriptCompilation.ScriptAssemblySettings,UnityEditor.Scripting.ScriptCompilation.TargetAssemblyType,UnityEditor.Scripting.ScriptCompilation.ICompilationSetupWarningTracker)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilation:CompileScriptsWithSettings (UnityEditor.Scripting.ScriptCompilation.ScriptAssemblySettings)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilation:CompileScripts (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,int,string[])
+UnityEditor.Scripting.ScriptCompilation.EditorCompilationInterface/<>c__DisplayClass21_0:<CompileScripts>b__0 ()
+UnityEditor.Scripting.ScriptCompilation.EditorCompilationInterface:EmitExceptionAsError<UnityEditor.Scripting.ScriptCompilation.EditorCompilation/CompileStatus> (System.Func`1<UnityEditor.Scripting.ScriptCompilation.EditorCompilation/CompileStatus>,UnityEditor.Scripting.ScriptCompilation.EditorCompilation/CompileStatus)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilationInterface:CompileScripts (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,int,string[])
+
+[C:\build\output\unity\unity\Runtime\Serialize\TransferFunctions\TextDOMTransferReadBase.h line 180]
+
+Serialized file "Assets/Plugins/Demigiant/DOTween/Editor/DOTweenEditor.dll.meta" contains a PluginImporter object at version 1, below the supported minimum (2). Open and re-save the file to upgrade.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProviderBase:GetPrecompiledAssembliesInternal (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,string[],bool)
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProvider:GetPrecompiledAssembliesDictionary (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,string[],bool)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilation:GetAllScriptAssembliesOfType (UnityEditor.Scripting.ScriptCompilation.ScriptAssemblySettings,UnityEditor.Scripting.ScriptCompilation.TargetAssemblyType,UnityEditor.Scripting.ScriptCompilation.ICompilationSetupWarningTracker)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilation:CompileScriptsWithSettings (UnityEditor.Scripting.ScriptCompilation.ScriptAssemblySettings)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilation:CompileScripts (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,int,string[])
+UnityEditor.Scripting.ScriptCompilation.EditorCompilationInterface/<>c__DisplayClass21_0:<CompileScripts>b__0 ()
+UnityEditor.Scripting.ScriptCompilation.EditorCompilationInterface:EmitExceptionAsError<UnityEditor.Scripting.ScriptCompilation.EditorCompilation/CompileStatus> (System.Func`1<UnityEditor.Scripting.ScriptCompilation.EditorCompilation/CompileStatus>,UnityEditor.Scripting.ScriptCompilation.EditorCompilation/CompileStatus)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilationInterface:CompileScripts (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,int,string[])
+
+[C:\build\output\unity\unity\Runtime\Serialize\TransferFunctions\TextDOMTransferReadBase.h line 180]
+
+Serialized file "Assets/Plugins/Demigiant/DOTween/DOTween.dll.meta" contains a PluginImporter object at version 1, below the supported minimum (2). Open and re-save the file to upgrade.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProviderBase:GetPrecompiledAssembliesInternal (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,string[],bool)
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProvider:GetPrecompiledAssembliesDictionary (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,string[],bool)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilation:GetAllScriptAssembliesOfType (UnityEditor.Scripting.ScriptCompilation.ScriptAssemblySettings,UnityEditor.Scripting.ScriptCompilation.TargetAssemblyType,UnityEditor.Scripting.ScriptCompilation.ICompilationSetupWarningTracker)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilation:CompileScriptsWithSettings (UnityEditor.Scripting.ScriptCompilation.ScriptAssemblySettings)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilation:CompileScripts (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,int,string[])
+UnityEditor.Scripting.ScriptCompilation.EditorCompilationInterface/<>c__DisplayClass21_0:<CompileScripts>b__0 ()
+UnityEditor.Scripting.ScriptCompilation.EditorCompilationInterface:EmitExceptionAsError<UnityEditor.Scripting.ScriptCompilation.EditorCompilation/CompileStatus> (System.Func`1<UnityEditor.Scripting.ScriptCompilation.EditorCompilation/CompileStatus>,UnityEditor.Scripting.ScriptCompilation.EditorCompilation/CompileStatus)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilationInterface:CompileScripts (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,int,string[])
+
+[C:\build\output\unity\unity\Runtime\Serialize\TransferFunctions\TextDOMTransferReadBase.h line 180]
+
+Refreshing native plugins compatible for Editor in 2.76 ms, found 4 plugins.
+Starting: C:\Program Files\Unity\Hub\Editor\6000.6.3f1\Editor\Data\Tools\BuildPipeline\bee_backend.exe --ipc --defer-dag-verification --dagfile="Library/Bee/1900b0aEDbg.dag" --continue-on-failure --profile="Library/Bee/backend1.traceevents" ScriptAssemblies
+WorkingDir: C:/nscrev/handoff
+Serialized file "Assets/Plugins/Demigiant/DOTween/Editor/DOTweenEditor.dll.meta" contains a PluginImporter object at version 1, below the supported minimum (2). Open and re-save the file to upgrade.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProviderBase:GetPrecompiledAssembliesInternal (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,string[],bool)
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProvider:GetPrecompiledAssembliesDictionary (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,string[],bool)
+UnityEditor.Scripting.ScriptCompilation.BeeScriptCompilation:ScriptCompilationDataFor (UnityEditor.Scripting.ScriptCompilation.EditorCompilation,UnityEditor.Scripting.ScriptCompilation.ScriptAssembly[],bool,string,UnityEditor.BuildTarget,bool,bool,string[],UnityEditor.Scripting.ScriptCompilation.ScriptAssemblySettings)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilation/<>c__DisplayClass114_0:<CompileScriptsWithSettings>b__0 ()
+Bee.BeeDriver.DataForBuildProgram/<>c__DisplayClass3_0:<Add>b__0 ()
+Bee.BeeDriver.BeeDriver:WriteDataForBuildProgram (Bee.BeeDriver.InternalState,System.Threading.Tasks.TaskCompletionSource`1<int>)
+Bee.BeeDriver.BeeDriver/<>c__DisplayClass0_0:<BuildAsync>g__WriteData|0 ()
+Bee.BeeDriver.BeeDriver:BuildAsync (Bee.BeeDriver.BuildRequest,System.Threading.CancellationToken)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilation:CompileScriptsWithSettings (UnityEditor.Scripting.ScriptCompilation.ScriptAssemblySettings)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilation:CompileScripts (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,int,string[])
+UnityEditor.Scripting.ScriptCompilation.EditorCompilationInterface/<>c__DisplayClass21_0:<CompileScripts>b__0 ()
+UnityEditor.Scripting.ScriptCompilation.EditorCompilationInterface:EmitExceptionAsError<UnityEditor.Scripting.ScriptCompilation.EditorCompilation/CompileStatus> (System.Func`1<UnityEditor.Scripting.ScriptCompilation.EditorCompilation/CompileStatus>,UnityEditor.Scripting.ScriptCompilation.EditorCompilation/CompileStatus)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilationInterface:CompileScripts (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,int,string[])
+
+[C:\build\output\unity\unity\Runtime\Serialize\TransferFunctions\TextDOMTransferReadBase.h line 180]
+
+Serialized file "Assets/Plugins/Demigiant/DOTween/DOTween.dll.meta" contains a PluginImporter object at version 1, below the supported minimum (2). Open and re-save the file to upgrade.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProviderBase:GetPrecompiledAssembliesInternal (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,string[],bool)
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProvider:GetPrecompiledAssembliesDictionary (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,string[],bool)
+UnityEditor.Scripting.ScriptCompilation.BeeScriptCompilation:ScriptCompilationDataFor (UnityEditor.Scripting.ScriptCompilation.EditorCompilation,UnityEditor.Scripting.ScriptCompilation.ScriptAssembly[],bool,string,UnityEditor.BuildTarget,bool,bool,string[],UnityEditor.Scripting.ScriptCompilation.ScriptAssemblySettings)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilation/<>c__DisplayClass114_0:<CompileScriptsWithSettings>b__0 ()
+Bee.BeeDriver.DataForBuildProgram/<>c__DisplayClass3_0:<Add>b__0 ()
+Bee.BeeDriver.BeeDriver:WriteDataForBuildProgram (Bee.BeeDriver.InternalState,System.Threading.Tasks.TaskCompletionSource`1<int>)
+Bee.BeeDriver.BeeDriver/<>c__DisplayClass0_0:<BuildAsync>g__WriteData|0 ()
+Bee.BeeDriver.BeeDriver:BuildAsync (Bee.BeeDriver.BuildRequest,System.Threading.CancellationToken)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilation:CompileScriptsWithSettings (UnityEditor.Scripting.ScriptCompilation.ScriptAssemblySettings)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilation:CompileScripts (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,int,string[])
+UnityEditor.Scripting.ScriptCompilation.EditorCompilationInterface/<>c__DisplayClass21_0:<CompileScripts>b__0 ()
+UnityEditor.Scripting.ScriptCompilation.EditorCompilationInterface:EmitExceptionAsError<UnityEditor.Scripting.ScriptCompilation.EditorCompilation/CompileStatus> (System.Func`1<UnityEditor.Scripting.ScriptCompilation.EditorCompilation/CompileStatus>,UnityEditor.Scripting.ScriptCompilation.EditorCompilation/CompileStatus)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilationInterface:CompileScripts (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,int,string[])
+
+[C:\build\output\unity\unity\Runtime\Serialize\TransferFunctions\TextDOMTransferReadBase.h line 180]
+
+Serialized file "Assets/Plugins/Demigiant/DOTween/Editor/DOTweenEditor.dll.meta" contains a PluginImporter object at version 1, below the supported minimum (2). Open and re-save the file to upgrade.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProviderBase:GetPrecompiledAssembliesInternal (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,string[],bool)
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProvider:GetPrecompiledAssembliesDictionary (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,string[],bool)
+UnityEditor.Scripting.ScriptCompilation.BeeScriptCompilation:ScriptCompilationDataFor (UnityEditor.Scripting.ScriptCompilation.EditorCompilation,UnityEditor.Scripting.ScriptCompilation.ScriptAssembly[],bool,string,UnityEditor.BuildTarget,bool,bool,string[],UnityEditor.Scripting.ScriptCompilation.ScriptAssemblySettings)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilation/<>c__DisplayClass114_0:<CompileScriptsWithSettings>b__0 ()
+Bee.BeeDriver.DataForBuildProgram/<>c__DisplayClass3_0:<Add>b__0 ()
+Bee.BeeDriver.BeeDriver:WriteDataForBuildProgram (Bee.BeeDriver.InternalState,System.Threading.Tasks.TaskCompletionSource`1<int>)
+Bee.BeeDriver.BeeDriver/<>c__DisplayClass0_0:<BuildAsync>g__WriteData|0 ()
+Bee.BeeDriver.BeeDriver:BuildAsync (Bee.BeeDriver.BuildRequest,System.Threading.CancellationToken)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilation:CompileScriptsWithSettings (UnityEditor.Scripting.ScriptCompilation.ScriptAssemblySettings)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilation:CompileScripts (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,int,string[])
+UnityEditor.Scripting.ScriptCompilation.EditorCompilationInterface/<>c__DisplayClass21_0:<CompileScripts>b__0 ()
+UnityEditor.Scripting.ScriptCompilation.EditorCompilationInterface:EmitExceptionAsError<UnityEditor.Scripting.ScriptCompilation.EditorCompilation/CompileStatus> (System.Func`1<UnityEditor.Scripting.ScriptCompilation.EditorCompilation/CompileStatus>,UnityEditor.Scripting.ScriptCompilation.EditorCompilation/CompileStatus)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilationInterface:CompileScripts (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,int,string[])
+
+[C:\build\output\unity\unity\Runtime\Serialize\TransferFunctions\TextDOMTransferReadBase.h line 180]
+
+Serialized file "Assets/Plugins/Demigiant/DOTween/DOTween.dll.meta" contains a PluginImporter object at version 1, below the supported minimum (2). Open and re-save the file to upgrade.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProviderBase:GetPrecompiledAssembliesInternal (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,string[],bool)
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProvider:GetPrecompiledAssembliesDictionary (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,string[],bool)
+UnityEditor.Scripting.ScriptCompilation.BeeScriptCompilation:ScriptCompilationDataFor (UnityEditor.Scripting.ScriptCompilation.EditorCompilation,UnityEditor.Scripting.ScriptCompilation.ScriptAssembly[],bool,string,UnityEditor.BuildTarget,bool,bool,string[],UnityEditor.Scripting.ScriptCompilation.ScriptAssemblySettings)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilation/<>c__DisplayClass114_0:<CompileScriptsWithSettings>b__0 ()
+Bee.BeeDriver.DataForBuildProgram/<>c__DisplayClass3_0:<Add>b__0 ()
+Bee.BeeDriver.BeeDriver:WriteDataForBuildProgram (Bee.BeeDriver.InternalState,System.Threading.Tasks.TaskCompletionSource`1<int>)
+Bee.BeeDriver.BeeDriver/<>c__DisplayClass0_0:<BuildAsync>g__WriteData|0 ()
+Bee.BeeDriver.BeeDriver:BuildAsync (Bee.BeeDriver.BuildRequest,System.Threading.CancellationToken)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilation:CompileScriptsWithSettings (UnityEditor.Scripting.ScriptCompilation.ScriptAssemblySettings)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilation:CompileScripts (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,int,string[])
+UnityEditor.Scripting.ScriptCompilation.EditorCompilationInterface/<>c__DisplayClass21_0:<CompileScripts>b__0 ()
+UnityEditor.Scripting.ScriptCompilation.EditorCompilationInterface:EmitExceptionAsError<UnityEditor.Scripting.ScriptCompilation.EditorCompilation/CompileStatus> (System.Func`1<UnityEditor.Scripting.ScriptCompilation.EditorCompilation/CompileStatus>,UnityEditor.Scripting.ScriptCompilation.EditorCompilation/CompileStatus)
+UnityEditor.Scripting.ScriptCompilation.EditorCompilationInterface:CompileScripts (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,int,string[])
+
+[C:\build\output\unity\unity\Runtime\Serialize\TransferFunctions\TextDOMTransferReadBase.h line 180]
+
+DisplayProgressbar: Compiling Scripts
+ExitCode: 0 Duration: 0s625ms
+[ 995/1299  0s] ILPP-Configuration Library/ilpp-configuration.nevergeneratedoutput
+*** Tundra build success (0.57 seconds), 1 items updated, 1299 evaluated
+AssetDatabase: script compilation time: 1.622937s
+Serialized file "Assets/Plugins/Demigiant/DOTween/Editor/DOTweenEditor.dll.meta" contains a PluginImporter object at version 1, below the supported minimum (2). Open and re-save the file to upgrade.
+Serialized file "Assets/Plugins/Demigiant/DOTween/DOTween.dll.meta" contains a PluginImporter object at version 1, below the supported minimum (2). Open and re-save the file to upgrade.
+Begin MonoManager ReloadAssembly
+Serialized file "Assets/Plugins/Demigiant/DOTween/Editor/DOTweenEditor.dll.meta" contains a PluginImporter object at version 1, below the supported minimum (2). Open and re-save the file to upgrade.
+Serialized file "Assets/Plugins/Demigiant/DOTween/DOTween.dll.meta" contains a PluginImporter object at version 1, below the supported minimum (2). Open and re-save the file to upgrade.
+Serialized file "Assets/Plugins/Demigiant/DOTween/Editor/DOTweenEditor.dll.meta" contains a PluginImporter object at version 1, below the supported minimum (2). Open and re-save the file to upgrade.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProviderBase:GetAllPrecompiledAssembliesInternal ()
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProvider:GetAllPrecompiledAssemblies ()
+UnityEditor.AssemblyValidation:CheckAssemblyReferences (string[],UnityEditor.AssemblyValidation/Error[],Mono.Cecil.AssemblyDefinition[])
+UnityEditor.AssemblyValidation:ValidateAssemblyDefinitions (string[],Mono.Cecil.AssemblyDefinition[])
+UnityEditor.AssemblyValidation:ValidateAssemblies (string[],bool)
+
+[C:\build\output\unity\unity\Runtime\Serialize\TransferFunctions\TextDOMTransferReadBase.h line 180]
+
+Serialized file "Assets/Plugins/Demigiant/DOTween/DOTween.dll.meta" contains a PluginImporter object at version 1, below the supported minimum (2). Open and re-save the file to upgrade.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProviderBase:GetAllPrecompiledAssembliesInternal ()
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProvider:GetAllPrecompiledAssemblies ()
+UnityEditor.AssemblyValidation:CheckAssemblyReferences (string[],UnityEditor.AssemblyValidation/Error[],Mono.Cecil.AssemblyDefinition[])
+UnityEditor.AssemblyValidation:ValidateAssemblyDefinitions (string[],Mono.Cecil.AssemblyDefinition[])
+UnityEditor.AssemblyValidation:ValidateAssemblies (string[],bool)
+
+[C:\build\output\unity\unity\Runtime\Serialize\TransferFunctions\TextDOMTransferReadBase.h line 180]
+
+Serialized file "Assets/Plugins/Demigiant/DOTween/DOTween.dll.meta" contains a PluginImporter object at version 1, below the supported minimum (2). Open and re-save the file to upgrade.
+Serialized file "Assets/Plugins/Demigiant/DOTween/Editor/DOTweenEditor.dll.meta" contains a PluginImporter object at version 1, below the supported minimum (2). Open and re-save the file to upgrade.
+Refreshing native plugins compatible for Editor in 2.35 ms, found 4 plugins.
+Native extension for WindowsStandalone target not found
+Native extension for WebGL target not found
+Serialized file "Assets/Plugins/Demigiant/DOTween/DOTween.dll.meta" contains a PluginImporter object at version 1, below the supported minimum (2). Open and re-save the file to upgrade.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProviderBase:GetPrecompiledAssembliesInternal (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,string[],bool)
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProvider:GetPrecompiledAssembliesDictionary (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,string[],bool)
+UnityEditor.Compilation.CompilationPipeline:GetScriptAssemblies (UnityEditor.Scripting.ScriptCompilation.IEditorCompilation,UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,string[])
+UnityEditor.Compilation.CompilationPipeline:GetScriptAssemblies (UnityEditor.Scripting.ScriptCompilation.IEditorCompilation,UnityEditor.Compilation.AssembliesType,string[])
+UnityEditor.Compilation.CompilationPipeline:GetAssemblies (UnityEditor.Scripting.ScriptCompilation.EditorCompilation,UnityEditor.Compilation.AssembliesType,string[])
+UnityEditor.Compilation.CompilationPipeline:GetAssemblies (UnityEditor.Compilation.AssembliesType)
+Unity.AI.Assistant.Editor.CodeAnalyze.DynamicAssemblyBuilder:GetAssetsAssemblyNames () (at ./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/CodeAnalyze/DynamicAssemblyBuilder.cs:99)
+Unity.AI.Assistant.Editor.CodeAnalyze.DynamicAssemblyBuilder:GetUnityReferences (string) (at ./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/CodeAnalyze/DynamicAssemblyBuilder.cs:65)
+Unity.AI.Assistant.Editor.CodeAnalyze.DynamicAssemblyBuilder:InitializeReferences () (at ./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/CodeAnalyze/DynamicAssemblyBuilder.cs:91)
+Unity.AI.Assistant.Editor.CodeAnalyze.DynamicAssemblyBuilder:.ctor (string,string) (at ./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/CodeAnalyze/DynamicAssemblyBuilder.cs:43)
+Unity.AI.Assistant.Editor.RunCommand.RunCommandUtils:.cctor () (at ./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/RunCommand/RunCommandUtils.cs:27)
+System.Runtime.CompilerServices.RuntimeHelpers:RunClassConstructor (System.RuntimeTypeHandle)
+UnityEditor.EditorAssemblies:ProcessInitializeOnLoadAttributes (System.ReadOnlySpan`1<intptr>)
+
+[./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/CodeAnalyze/DynamicAssemblyBuilder.cs line 99]
+
+Serialized file "Assets/Plugins/Demigiant/DOTween/Editor/DOTweenEditor.dll.meta" contains a PluginImporter object at version 1, below the supported minimum (2). Open and re-save the file to upgrade.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProviderBase:GetPrecompiledAssembliesInternal (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,string[],bool)
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProvider:GetPrecompiledAssembliesDictionary (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,string[],bool)
+UnityEditor.Compilation.CompilationPipeline:GetScriptAssemblies (UnityEditor.Scripting.ScriptCompilation.IEditorCompilation,UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,string[])
+UnityEditor.Compilation.CompilationPipeline:GetScriptAssemblies (UnityEditor.Scripting.ScriptCompilation.IEditorCompilation,UnityEditor.Compilation.AssembliesType,string[])
+UnityEditor.Compilation.CompilationPipeline:GetAssemblies (UnityEditor.Scripting.ScriptCompilation.EditorCompilation,UnityEditor.Compilation.AssembliesType,string[])
+UnityEditor.Compilation.CompilationPipeline:GetAssemblies (UnityEditor.Compilation.AssembliesType)
+Unity.AI.Assistant.Editor.CodeAnalyze.DynamicAssemblyBuilder:GetAssetsAssemblyNames () (at ./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/CodeAnalyze/DynamicAssemblyBuilder.cs:111)
+Unity.AI.Assistant.Editor.CodeAnalyze.DynamicAssemblyBuilder:GetUnityReferences (string) (at ./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/CodeAnalyze/DynamicAssemblyBuilder.cs:65)
+Unity.AI.Assistant.Editor.CodeAnalyze.DynamicAssemblyBuilder:InitializeReferences () (at ./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/CodeAnalyze/DynamicAssemblyBuilder.cs:91)
+Unity.AI.Assistant.Editor.CodeAnalyze.DynamicAssemblyBuilder:.ctor (string,string) (at ./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/CodeAnalyze/DynamicAssemblyBuilder.cs:43)
+Unity.AI.Assistant.Editor.RunCommand.RunCommandUtils:.cctor () (at ./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/RunCommand/RunCommandUtils.cs:27)
+System.Runtime.CompilerServices.RuntimeHelpers:RunClassConstructor (System.RuntimeTypeHandle)
+UnityEditor.EditorAssemblies:ProcessInitializeOnLoadAttributes (System.ReadOnlySpan`1<intptr>)
+
+[./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/CodeAnalyze/DynamicAssemblyBuilder.cs line 111]
+
+Serialized file "Assets/Plugins/Demigiant/DOTween/DOTween.dll.meta" contains a PluginImporter object at version 1, below the supported minimum (2). Open and re-save the file to upgrade.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProviderBase:GetPrecompiledAssembliesInternal (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,string[],bool)
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProvider:GetPrecompiledAssembliesDictionary (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,string[],bool)
+UnityEditor.Compilation.CompilationPipeline:GetScriptAssemblies (UnityEditor.Scripting.ScriptCompilation.IEditorCompilation,UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,string[])
+UnityEditor.Compilation.CompilationPipeline:GetScriptAssemblies (UnityEditor.Scripting.ScriptCompilation.IEditorCompilation,UnityEditor.Compilation.AssembliesType,string[])
+UnityEditor.Compilation.CompilationPipeline:GetAssemblies (UnityEditor.Scripting.ScriptCompilation.EditorCompilation,UnityEditor.Compilation.AssembliesType,string[])
+UnityEditor.Compilation.CompilationPipeline:GetAssemblies (UnityEditor.Compilation.AssembliesType)
+Unity.AI.Assistant.Editor.CodeAnalyze.DynamicAssemblyBuilder:GetAssetsAssemblyNames () (at ./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/CodeAnalyze/DynamicAssemblyBuilder.cs:111)
+Unity.AI.Assistant.Editor.CodeAnalyze.DynamicAssemblyBuilder:GetUnityReferences (string) (at ./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/CodeAnalyze/DynamicAssemblyBuilder.cs:65)
+Unity.AI.Assistant.Editor.CodeAnalyze.DynamicAssemblyBuilder:InitializeReferences () (at ./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/CodeAnalyze/DynamicAssemblyBuilder.cs:91)
+Unity.AI.Assistant.Editor.CodeAnalyze.DynamicAssemblyBuilder:.ctor (string,string) (at ./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/CodeAnalyze/DynamicAssemblyBuilder.cs:43)
+Unity.AI.Assistant.Editor.RunCommand.RunCommandUtils:.cctor () (at ./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/RunCommand/RunCommandUtils.cs:27)
+System.Runtime.CompilerServices.RuntimeHelpers:RunClassConstructor (System.RuntimeTypeHandle)
+UnityEditor.EditorAssemblies:ProcessInitializeOnLoadAttributes (System.ReadOnlySpan`1<intptr>)
+
+[./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/CodeAnalyze/DynamicAssemblyBuilder.cs line 111]
+
+Serialized file "Assets/Plugins/Demigiant/DOTween/Editor/DOTweenEditor.dll.meta" contains a PluginImporter object at version 1, below the supported minimum (2). Open and re-save the file to upgrade.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProviderBase:GetPrecompiledAssembliesInternal (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,string[],bool)
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProvider:GetPrecompiledAssembliesDictionary (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,string[],bool)
+UnityEditor.Compilation.CompilationPipeline:GetScriptAssemblies (UnityEditor.Scripting.ScriptCompilation.IEditorCompilation,UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,string[])
+UnityEditor.Compilation.CompilationPipeline:GetScriptAssemblies (UnityEditor.Scripting.ScriptCompilation.IEditorCompilation,UnityEditor.Compilation.AssembliesType,string[])
+UnityEditor.Compilation.CompilationPipeline:GetAssemblies (UnityEditor.Scripting.ScriptCompilation.EditorCompilation,UnityEditor.Compilation.AssembliesType,string[])
+UnityEditor.Compilation.CompilationPipeline:GetAssemblies (UnityEditor.Compilation.AssembliesType)
+Unity.AI.Assistant.Editor.CodeAnalyze.DynamicAssemblyBuilder:GetAssetsAssemblyNames () (at ./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/CodeAnalyze/DynamicAssemblyBuilder.cs:111)
+Unity.AI.Assistant.Editor.CodeAnalyze.DynamicAssemblyBuilder:GetUnityReferences (string) (at ./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/CodeAnalyze/DynamicAssemblyBuilder.cs:65)
+Unity.AI.Assistant.Editor.CodeAnalyze.DynamicAssemblyBuilder:InitializeReferences () (at ./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/CodeAnalyze/DynamicAssemblyBuilder.cs:91)
+Unity.AI.Assistant.Editor.CodeAnalyze.DynamicAssemblyBuilder:.ctor (string,string) (at ./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/CodeAnalyze/DynamicAssemblyBuilder.cs:43)
+Unity.AI.Assistant.Editor.RunCommand.RunCommandUtils:.cctor () (at ./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/RunCommand/RunCommandUtils.cs:27)
+System.Runtime.CompilerServices.RuntimeHelpers:RunClassConstructor (System.RuntimeTypeHandle)
+UnityEditor.EditorAssemblies:ProcessInitializeOnLoadAttributes (System.ReadOnlySpan`1<intptr>)
+
+[./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/CodeAnalyze/DynamicAssemblyBuilder.cs line 111]
+
+Serialized file "Assets/Plugins/Demigiant/DOTween/DOTween.dll.meta" contains a PluginImporter object at version 1, below the supported minimum (2). Open and re-save the file to upgrade.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProviderBase:GetPrecompiledAssembliesInternal (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,string[],bool)
+UnityEditor.Scripting.ScriptCompilation.PrecompiledAssemblyProvider:GetPrecompiledAssembliesDictionary (UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,UnityEditor.BuildTarget,string[],bool)
+UnityEditor.Compilation.CompilationPipeline:GetScriptAssemblies (UnityEditor.Scripting.ScriptCompilation.IEditorCompilation,UnityEditor.Scripting.ScriptCompilation.EditorScriptCompilationOptions,string[])
+UnityEditor.Compilation.CompilationPipeline:GetScriptAssemblies (UnityEditor.Scripting.ScriptCompilation.IEditorCompilation,UnityEditor.Compilation.AssembliesType,string[])
+UnityEditor.Compilation.CompilationPipeline:GetAssemblies (UnityEditor.Scripting.ScriptCompilation.EditorCompilation,UnityEditor.Compilation.AssembliesType,string[])
+UnityEditor.Compilation.CompilationPipeline:GetAssemblies (UnityEditor.Compilation.AssembliesType)
+Unity.AI.Assistant.Editor.CodeAnalyze.DynamicAssemblyBuilder:GetAssetsAssemblyNames () (at ./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/CodeAnalyze/DynamicAssemblyBuilder.cs:111)
+Unity.AI.Assistant.Editor.CodeAnalyze.DynamicAssemblyBuilder:GetUnityReferences (string) (at ./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/CodeAnalyze/DynamicAssemblyBuilder.cs:65)
+Unity.AI.Assistant.Editor.CodeAnalyze.DynamicAssemblyBuilder:InitializeReferences () (at ./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/CodeAnalyze/DynamicAssemblyBuilder.cs:91)
+Unity.AI.Assistant.Editor.CodeAnalyze.DynamicAssemblyBuilder:.ctor (string,string) (at ./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/CodeAnalyze/DynamicAssemblyBuilder.cs:43)
+Unity.AI.Assistant.Editor.RunCommand.RunCommandUtils:.cctor () (at ./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/RunCommand/RunCommandUtils.cs:27)
+System.Runtime.CompilerServices.RuntimeHelpers:RunClassConstructor (System.RuntimeTypeHandle)
+UnityEditor.EditorAssemblies:ProcessInitializeOnLoadAttributes (System.ReadOnlySpan`1<intptr>)
+
+[./Library/PackageCache/com.unity.ai.assistant@ceb45b7b3ebd/Editor/Assistant/CodeAnalyze/DynamicAssemblyBuilder.cs line 111]
+
+Start HTTP server: port:7802
+[Licensing::Client] Error: Code 404 while processing request (status: Found 0 entitlement groups and 0 free entitlements matching requested entitlement ids)
+[Licensing::Client] Error: Code 404 while processing request (status: Found 0 entitlement groups and 0 free entitlements matching requested entitlement ids)
+[Licensing::Client] Error: Code 404 while processing request (status: Found 0 entitlement groups and 0 free entitlements matching requested entitlement ids)
+ScheduleIndexationOnStartup MainProcess:True IndexOnStartup:True
+Scripting: successfully reloaded assembly
+- Finished resetting the current domain, in  2.865 seconds
+Domain Reload Profiling: 5234ms
+	BeginReloadAssembly (445ms)
+		DisableScriptedObjects (88ms)
+		CreateAndSetChildDomain (156ms)
+	RebuildCommonClasses (13ms)
+	RebuildNativeTypeToScriptingClass (25ms)
+	initialDomainReloadingComplete (143ms)
+	LoadAllAssembliesAndSetupDomain (1741ms)
+		LoadAssemblies (889ms)
+		TypeCache.Refresh (568ms)
+			TypeCache.ScanAssembly (534ms)
+		AnalyzeDomain (105ms)
+			BuildScriptInfoCaches (98ms)
+			ResolveRequiredComponents (5ms)
+	FinalizeReload (2866ms)
+		SetupLoadedEditorAssemblies (0ms)
+			LogAssemblyErrors (3ms)
+			InitializePlatformSupportModulesInManaged (4ms)
+			BeforeProcessingInitializeOnLoad (190ms)
+			ProcessInitializeOnLoadAttributes (1921ms)
+			ProcessInitializeOnLoadMethodAttributes (283ms)
+			AfterProcessingInitializeOnLoad (13ms)
+			EditorAssembliesLoaded (3ms)
+		AwakeInstancesAfterBackupRestoration (45ms)
+Starting new worker id: 0 with log in C:/nscrev/handoff/Logs/AssetImportWorkerHW0.log
+Importing 'GUID: 2226d1cee052a14448a7ef0bd48e2468 - Path: Assets/Resources/DOTweenSettings.asset' with importer (NativeFormatImporter)
+Imported 'GUID: 2226d1cee052a14448a7ef0bd48e2468' -> (Import Result ID: 'f4fbb91e49e0fca06ac91cb844dfc0bf') in 0.019 seconds [static dependencies only]. Details - ImportResultOutputID=b2a2bc670872e8ff5d682905be5ab97f DependenciesID=490fb062ccbfc790017b5ac73b073ba7 StaticDependenciesID=ee80753bd1bf25dfb6f2974906d6b11b
+
+Asset Pipeline Refresh (id=d1a6d0ac2ce2075419ee20d4f6eb9301): Total: 8.819 seconds - Initiated by InitialRefreshV2(ForceSynchronousImport)
+	(Values over 0.05ms)
+	Summary:
+		Imports: total=1 (actual=1, local cache=0, cache server=0)
+		Asset DB Process Time: managed=2 ms, native=3906 ms
+		Asset DB Callback time: managed=570 ms, native=33 ms
+		Scripting: domain reloads=1, domain reload time=2483 ms, compile time=1626 ms, other=195 ms
+		Project Asset Count: scripts=1779, non-scripts=3217
+		Asset File Changes: new=0, changed=1, moved=0, deleted=0
+		Scan Filter Count: 0
+	InvokePackagesCallback: 30.209ms
+	ApplyChangesToAssetFolders: 1.146ms
+	Scan: 343.762ms
+	Collect global state as custom dependencies: 11.713ms
+	OnSourceAssetsModified: 1.111ms
+	CategorizeScriptCompilationAssets: 82.336ms
+	ProcessAssetsWithTransientArtifactChanges: 136.332ms
+	CategorizeAssets: 59.824ms
+	CompileScripts: 1626.400ms
+	ImportOutOfDateAssets: 2918.955ms (2877.642ms without children)
+		ImportManagerImport: 21.601ms (1.605ms without children)
+		UnloadImportedAssets: 3.913ms
+		EnsureUptoDateAssetsAreRegisteredWithGuidPM: 1.031ms
+		ImportSchedulerStart: 14.750ms
+	PostProcessAllAssets: 571.337ms
+		VCAutoAddAssetPostprocess 0.582ms
+		XRBuildSystem.XRAssetImported 0.529ms
+		MonoPostProcessAllAssets: 569.161ms
+			AssetPostprocessor.OnPostprocessAllAssets 148.621ms
+			AssetReferenceReimportMonitor.OnPostprocessAllAssets 39.408ms
+			StyleCatalogPostProcessor.OnPostprocessAllAssets 28.421ms
+			SpriteSlicePostprocessor.OnPostprocessAllAssets 5.081ms
+			BuilderAssetPostprocessor.OnPostprocessAllAssets 4.146ms
+			SyncVS.PostprocessSyncProject 3.394ms
+			GraphRefreshPostprocessor.OnPostprocessAllAssets 3.355ms
+			WindowAssetPostprocessingWatcher.OnPostprocessAllAssets 2.873ms
+			AssetChangedListener.OnPostprocessAllAssets 2.360ms
+			RetainedModeAssetPostprocessor.OnPostprocessAllAssets 2.177ms
+			SpriteEditorTexturePostprocessor.OnPostprocessAllAssets 1.457ms
+			SpeedTree9Postprocessor.OnPostprocessAllAssets 1.391ms
+			AddressablesAssetPostProcessor.OnPostprocessAllAssets 1.313ms
+			EditModeScopePostprocessor.OnPostprocessAllAssets 1.288ms
+			TextAssetPostProcessor.OnPostprocessAllAssets 1.083ms
+			AssetChangeDetector.OnPostprocessAllAssets 0.946ms
+			UtilityWindowPostProcessor.OnPostprocessAllAssets 0.934ms
+			SkillsProjectAssetPostprocessor.OnPostprocessAllAssets 0.823ms
+			UVCSAssetPostprocessor.OnPostprocessAllAssets 0.725ms
+			AssetEvents.OnPostprocessAllAssets 0.673ms
+			AssetPathToTypes.OnPostprocessAllAssets 0.640ms
+			ArtifactBrowserPostProcessor.OnPostprocessAllAssets 0.633ms
+			TMPro_TexturePostProcessor.OnPostprocessAllAssets 0.599ms
+			AssetProcessor.OnPostprocessAllAssets 0.561ms
+			InputActionAssetPostprocessor.OnPostprocessAllAssets 0.484ms
+			TerrainToolbarOverlayPostProcessor.OnPostprocessAllAssets 0.389ms
+			ThemePostprocessor.OnPostprocessAllAssets 0.381ms
+			InputActionJsonNameModifierAssetProcessor.OnPostprocessAllAssets 0.362ms
+			AudioMixerPostprocessor.OnPostprocessAllAssets 0.345ms
+			ProjectSettingsPostprocessor.OnPostprocessAllAssets 0.309ms
+			SpeedTreePostProcessor.OnPostprocessAllAssets 0.278ms
+			SamplePostprocessor.OnPostprocessAllAssets 0.257ms
+			AssetDatabaseCallbacks.OnPostprocessAllAssets 0.234ms
+			ConfigAssetsTracker.OnPostprocessAllAssets 0.225ms
+			ReferencedClipsPostProcessor.OnPostprocessAllAssets 0.222ms
+			ScenarioDriftAssetsTracker.OnPostprocessAllAssets 0.177ms
+			RenderPipelineGlobalSettingsPostprocessor.OnPostprocessAllAssets 0.162ms
+			AssetReloadNotifier.OnPostprocessAllAssets 0.157ms
+			TrackSelectedAssetsProcessor.OnPostprocessAllAssets 0.113ms
+			AudioContainerPostProcessor.OnPostprocessAllAssets 0.109ms
+	PostAssetChangesProfiler: 3.906ms
+	UnloadStreamsBegin: 2.485ms
+	PersistCurrentRevisions: 0.173ms
+	GenerateScriptTypeHashes: 3.954ms
+	GenerateScriptTypeSerializationHashes: 7.202ms
+	Untracked: 3020.736ms
+
+Application.AssetDatabase Initial Refresh End
+Launched and connected shader compiler UnityShaderCompiler.exe after 0.02 seconds
+Scanning for USB devices : 2.543ms
+Initializing Unity extensions:
+[MODES] ModeService[none].Initialize
+[MODES] ModeService[none].LoadModes
+[MODES] Loading mode Default (0) for mode-current-id-NoSafeCircle
+Unloading 4 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 7723 unused Assets / (3.4 MB). Loaded Objects now: 8455.
+Memory consumption went from 489.1 MB to 485.7 MB.
+Total: 23.377700 ms (FindLiveObjects: 0.950600 ms CreateObjectMapping: 0.593700 ms MarkObjects: 20.039000 ms  DeleteObjects: 1.389900 ms)
+
+[Project] Loading completed in 13.933 seconds
+	Project init time: 				12.926 seconds
+		Template init time: 		0.000 seconds
+		Package Manager init time: 		0.293 seconds
+		Asset Database init time: 		0.437 seconds
+		Global illumination init time: 	0.004 seconds
+		Assemblies load time: 			1.886 seconds
+		Unity extensions init time: 	0.033 seconds
+		Asset Database refresh time: 	8.819 seconds
+	Scene opening time: 			0.514 seconds
+##utp:{"type":"ProjectInfo","version":2,"phase":"Immediate","time":1790546995562,"processId":14844,"projectLoad":13.933128,"projectInit":12.9261416,"templateInit":0.0,"packageManagerInit":0.2928655,"assetDatabaseInit":0.4367134,"globalIlluminationInit":0.0040861,"assembliesLoad":1.8864425,"unityExtensionsInit":0.0334677,"assetDatabaseRefresh":8.8189271,"sceneOpening":0.5138128}
+##utp:{"type":"EditorInfo","version":2,"phase":"Immediate","time":1790546995562,"processId":14844,"editorVersion":"6000.6.3f1 (45d8eee7de74)","branch":"6000.6/staging","buildType":"Release","platform":"Windows"}
+[Licensing::Client] Error: Code 404 while processing request (status: Found 0 entitlement groups and 0 free entitlements matching requested entitlement ids)
+[Licensing::Client] Error: Code 404 while processing request (status: Found 0 entitlement groups and 0 free entitlements matching requested entitlement ids)
+[Licensing::Client] Successfully resolved entitlement details
+Running tests for ExecutionSettings with details:
+targetPlatform =
+playerHeartbeatTimeout = 600
+filters[0] =
+   Filter with settings:
+   testMode = EditMode
+   targetPlatform =
+   testNames = null
+   groupNames = NoSafeCircle.DoorPrototype.Tests.Editor.DoorwayOpeningSealTests
+   categoryNames = null
+   assemblyNames = null
+ignoreTests = {}
+featureFlags = null
+
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+UnityEditor.TestTools.TestRunner.CommandLineTest.Executer:InitializeAndExecuteRun (string[]) (at ./Library/PackageCache/com.unity.test-framework@80f691d4262b/UnityEditor.TestRunner/CommandLineTest/Executer.cs:53)
+UnityEditor.TestTools.TestRunner.CommandLineTest.TestStarter:InitializeAndExecuteRun () (at ./Library/PackageCache/com.unity.test-framework@80f691d4262b/UnityEditor.TestRunner/CommandLineTest/TestStarter.cs:64)
+UnityEditor.EditorApplication:Internal_CallUpdateFunctions ()
+
+(Filename: ./Library/PackageCache/com.unity.test-framework@80f691d4262b/UnityEditor.TestRunner/CommandLineTest/Executer.cs Line: 53)
+
+Start Indexing on Editor startup
+[Indexing] Starting Initial Indexing for Assets
+[UnityConnectServicesConfig] config is NOT valid, switching to default
+Created GICache directory at C:/Users/VincentLiguori/AppData/LocalLow/Unity/Caches/GiCache. Took: 0.013s, timestamps: [13.947 - 13.961]
+[Licensing::Client] Successfully resolved entitlement details
+[Licensing::Client] Error: Code 404 while processing request (status: Found 0 entitlement groups and 0 free entitlements matching requested entitlement ids)
+[Licensing::Client] Error: Code 404 while processing request (status: Found 0 entitlement groups and 0 free entitlements matching requested entitlement ids)
+[Licensing::Client] Error: Code 404 while processing request (status: Found 0 entitlement groups and 0 free entitlements matching requested entitlement ids)
+Worker ready: AssetImportWorkerHW0 0
+Unloading 3 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 1 unused Assets / (12.2 KB). Loaded Objects now: 8613.
+Memory consumption went from 501.6 MB to 501.6 MB.
+Total: 21.666200 ms (FindLiveObjects: 0.739300 ms CreateObjectMapping: 0.249500 ms MarkObjects: 20.272800 ms  DeleteObjects: 0.052200 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (Unknown). Loaded Objects now: 8608.
+Memory consumption went from 505.0 MB to 505.0 MB.
+Total: 26.642200 ms (FindLiveObjects: 0.775100 ms CreateObjectMapping: 0.238600 ms MarkObjects: 25.198200 ms  DeleteObjects: 0.030200 ms)
+
+Unloading 114 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 248 unused Assets / (201.2 KB). Loaded Objects now: 8621.
+Memory consumption went from 0.50 GB to 0.50 GB.
+Total: 24.424000 ms (FindLiveObjects: 0.870800 ms CreateObjectMapping: 0.540700 ms MarkObjects: 22.310400 ms  DeleteObjects: 0.374700 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (Unknown). Loaded Objects now: 8621.
+Memory consumption went from 511.0 MB to 511.0 MB.
+Total: 24.712900 ms (FindLiveObjects: 0.882000 ms CreateObjectMapping: 0.273700 ms MarkObjects: 23.236000 ms  DeleteObjects: 0.023500 ms)
+
+Unloading 113 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 244 unused Assets / (0.7 MB). Loaded Objects now: 8621.
+Memory consumption went from 0.50 GB to 0.50 GB.
+Total: 19.910000 ms (FindLiveObjects: 1.202500 ms CreateObjectMapping: 0.416800 ms MarkObjects: 17.485400 ms  DeleteObjects: 0.383000 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (Unknown). Loaded Objects now: 8621.
+Memory consumption went from 511.2 MB to 511.2 MB.
+Total: 17.813600 ms (FindLiveObjects: 0.436900 ms CreateObjectMapping: 0.125400 ms MarkObjects: 16.933500 ms  DeleteObjects: 0.022000 ms)
+
+Unloading 113 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 244 unused Assets / (0.8 MB). Loaded Objects now: 8621.
+Memory consumption went from 0.50 GB to 0.50 GB.
+Total: 20.370500 ms (FindLiveObjects: 0.514400 ms CreateObjectMapping: 0.130400 ms MarkObjects: 18.616700 ms  DeleteObjects: 0.669700 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (Unknown). Loaded Objects now: 8621.
+Memory consumption went from 511.6 MB to 511.6 MB.
+Total: 22.691000 ms (FindLiveObjects: 1.003500 ms CreateObjectMapping: 0.386200 ms MarkObjects: 20.888700 ms  DeleteObjects: 0.025300 ms)
+
+Unloading 113 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 244 unused Assets / (465.4 KB). Loaded Objects now: 8621.
+Memory consumption went from 0.50 GB to 0.50 GB.
+Total: 21.114700 ms (FindLiveObjects: 0.891000 ms CreateObjectMapping: 0.254700 ms MarkObjects: 19.190700 ms  DeleteObjects: 0.380900 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (Unknown). Loaded Objects now: 8621.
+Memory consumption went from 511.8 MB to 511.8 MB.
+Total: 18.724100 ms (FindLiveObjects: 0.799100 ms CreateObjectMapping: 0.246000 ms MarkObjects: 17.336100 ms  DeleteObjects: 0.023100 ms)
+
+Unloading 113 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 244 unused Assets / (0.9 MB). Loaded Objects now: 8621.
+Memory consumption went from 0.50 GB to 0.50 GB.
+Total: 23.190800 ms (FindLiveObjects: 0.632500 ms CreateObjectMapping: 0.172700 ms MarkObjects: 21.447200 ms  DeleteObjects: 0.468300 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (Unknown). Loaded Objects now: 8621.
+Memory consumption went from 511.2 MB to 511.2 MB.
+Total: 19.678000 ms (FindLiveObjects: 0.518200 ms CreateObjectMapping: 0.154400 ms MarkObjects: 18.631400 ms  DeleteObjects: 0.022900 ms)
+
+Unloading 113 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 244 unused Assets / (0.6 MB). Loaded Objects now: 8621.
+Memory consumption went from 0.50 GB to 0.50 GB.
+Total: 19.231900 ms (FindLiveObjects: 0.864100 ms CreateObjectMapping: 0.131000 ms MarkObjects: 17.510100 ms  DeleteObjects: 0.397800 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (Unknown). Loaded Objects now: 8621.
+Memory consumption went from 511.5 MB to 511.5 MB.
+Total: 20.476700 ms (FindLiveObjects: 0.520800 ms CreateObjectMapping: 0.134400 ms MarkObjects: 19.265600 ms  DeleteObjects: 0.023800 ms)
+
+Unloading 113 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 244 unused Assets / (1.7 MB). Loaded Objects now: 8621.
+Memory consumption went from 0.50 GB to 511.8 MB.
+Total: 21.125700 ms (FindLiveObjects: 0.521300 ms CreateObjectMapping: 0.145100 ms MarkObjects: 18.759000 ms  DeleteObjects: 0.416400 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (Unknown). Loaded Objects now: 8621.
+Memory consumption went from 511.8 MB to 511.8 MB.
+Total: 22.201900 ms (FindLiveObjects: 0.568900 ms CreateObjectMapping: 0.201200 ms MarkObjects: 21.047100 ms  DeleteObjects: 0.024700 ms)
+
+Unloading 113 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 244 unused Assets / (0.6 MB). Loaded Objects now: 8621.
+Memory consumption went from 0.50 GB to 0.50 GB.
+Total: 24.668000 ms (FindLiveObjects: 0.531500 ms CreateObjectMapping: 0.210800 ms MarkObjects: 23.253500 ms  DeleteObjects: 0.367600 ms)
+
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (Unknown). Loaded Objects now: 8621.
+Memory consumption went from 512.0 MB to 512.0 MB.
+Total: 22.060900 ms (FindLiveObjects: 0.843200 ms CreateObjectMapping: 0.398200 ms MarkObjects: 20.459600 ms  DeleteObjects: 0.022300 ms)
+
+Unloading 113 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 244 unused Assets / (0.7 MB). Loaded Objects now: 8621.
+Memory consumption went from 0.50 GB to 0.50 GB.
+Total: 21.422400 ms (FindLiveObjects: 0.515600 ms CreateObjectMapping: 0.149900 ms MarkObjects: 19.896700 ms  DeleteObjects: 0.435900 ms)
+
+Saving results to: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-9a8f4320e19c4d8db750a43c61235afa\test-results.xml
+Unloading 0 Unused Serialized files (Serialized files now loaded: 0)
+Unloading 0 unused Assets / (Unknown). Loaded Objects now: 8627.
+Memory consumption went from 0.50 GB to 0.50 GB.
+Total: 20.195400 ms (FindLiveObjects: 0.451000 ms CreateObjectMapping: 0.137200 ms MarkObjects: 19.290100 ms  DeleteObjects: 0.028600 ms)
+
+DisplayProgressbar: Undo
+Test run completed. Exiting with code 0 (Ok). Run completed.
+UnityEngine.Debug:ExtractStackTraceNoAlloc (byte*,int,string)
+UnityEngine.StackTraceUtility:ExtractStackTrace ()
+UnityEngine.DebugLogHandler:Internal_Log (UnityEngine.LogType,UnityEngine.LogOption,string,UnityEngine.Object)
+UnityEngine.DebugLogHandler:LogFormat (UnityEngine.LogType,UnityEngine.Object,string,object[])
+UnityEngine.Logger:Log (UnityEngine.LogType,object)
+UnityEngine.Debug:Log (object)
+UnityEditor.TestTools.TestRunner.CommandLineTest.Executer:ExitApplication (UnityEditor.TestTools.TestRunner.CommandLineTest.Executer/ReturnCodes,string) (at ./Library/PackageCache/com.unity.test-framework@80f691d4262b/UnityEditor.TestRunner/CommandLineTest/Executer.cs:81)
+UnityEditor.TestTools.TestRunner.CommandLineTest.Executer:ExitIfRunIsCompleted () (at ./Library/PackageCache/com.unity.test-framework@80f691d4262b/UnityEditor.TestRunner/CommandLineTest/Executer.cs:74)
+UnityEditor.EditorApplication:Internal_CallUpdateFunctions ()
+
+(Filename: ./Library/PackageCache/com.unity.test-framework@80f691d4262b/UnityEditor.TestRunner/CommandLineTest/Executer.cs Line: 81)
+
+MonoPathRemapper: Attempts to remap: 65549; Successful remaps: 22104
+Serialized file version minimum: 23, current 23
+Pipeline Server stopped
+[Physics::Module] Cleanup current backend.
+[Physics::Module] Id: 0xf2b8ea05
+Input System module state changed to: ShutdownInProgress.
+Input Polling Thread exited.
+Input System module state changed to: Shutdown.
+[Licensing::IpcConnector] LicenseClient-VincentLiguori-notifications channel disconnected successfully.
+[Licensing::IpcConnector] LicenseClient-VincentLiguori channel disconnected successfully.
+Lingering sessions upon destruction of worker manager
+Unity Data Store service was successfully shut down
+UDS shutting down local client system
+AcceleratorClientConnectionCallback - disconnected - :0
+Cleanup mono
+CodeReloadManager destroyed
+VBCSCompilerPreWarmer: requested VBCSCompiler shutdown
+Checking for leaked weakptr:
+  Found no leaked weakptrs.
+[Package Manager] Server process was shutdown
+##utp:{"type":"MemoryLeaks","version":2,"phase":"Immediate","time":1790547003992,"processId":14844,"allocatedMemory":15639274,"memoryLabels":[{"Default":190296},{"Permanent":15516},{"NewDelete":69791},{"Thread":4163800},{"Manager":35805},{"VertexData":8},{"Geometry":816},{"Texture":24},{"Shader":848358},{"Material":68},{"GfxDevice":58008},{"Animation":23272},{"FreeType":8},{"FontEngine":736},{"Physics":1970},{"Physics2D":16},{"Serialization":32896},{"Input":42840},{"JobScheduler":256},{"TextLib":280},{"Mono":48},{"MonoCode":256},{"ScriptingNativeRuntime":1354912},{"BaseObject":104656},{"Resource":1252},{"Renderer":2376},{"Transform":4685},{"File":4416},{"WebCam":616},{"Culling":32},{"Terrain":11442},{"Wind":24},{"STL":40},{"String":393871},{"StaticString":3808},{"Utility":2675622},{"Curl":2478},{"PoolAlloc":2168},{"AI":80},{"TypeTree":17165},{"ScriptManager":12656},{"CodeReload":448},{"RuntimeInitializeOnLoadManager":64},{"Sprites":102},{"SpriteAtlas":120},{"GI":7816},{"CloudService":288},{"WebRequest":552},{"VR":49650},{"SceneManager":608},{"Video":208},{"LazyScriptCache":32},{"Camera":729},{"Secure":2377},{"SerializationCache":9256},{"APIUpdating":10320},{"Subsystems":336},{"VirtualTexturing":57888},{"StaticSafetyDebugInfo":278528},{"Analytics":464},{"Hierarchy":1188},{"UIElements":40},{"CoreStats":14456},{"Identifiers":7152},{"Gui":128},{"EditorUtility":128905},{"VersionControl":8},{"Undo":931},{"AssetDatabase":4946921},{"AssetImporter":40},{"EditorGi":328},{"UnityConnect":40465},{"Upm":1912},{"UpmDiagnostics":8},{"AssetCompliance":96},{"DrivenProperties":72},{"LocalIPC":278},{"ProfilerEditor":9746},{"CoreBusinessMetrics":3210},{"Windowing":456},{"Licensing":12581},{"AssetReference":32},{"IPCStream":32}]}

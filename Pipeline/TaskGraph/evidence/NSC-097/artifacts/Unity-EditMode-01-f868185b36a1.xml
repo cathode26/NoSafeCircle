@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="9" result="Passed" total="9" passed="9" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-27 22:09:57Z" end-time="2026-09-27 22:09:59Z" duration="1.5559348">
+  <test-suite type="TestSuite" id="1000" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="333" result="Passed" start-time="2026-09-27 22:09:57Z" end-time="2026-09-27 22:09:59Z" duration="1.555935" total="9" passed="9" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1388" name="NoSafeCircle.DoorPrototype.Tests.Editor.dll" fullname="C:/nscrev/handoff/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.Editor.dll" runstate="Runnable" testcasecount="332" result="Passed" start-time="2026-09-27 22:09:57Z" end-time="2026-09-27 22:09:59Z" duration="1.533716" total="9" passed="9" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="14844" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1389" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="332" result="Passed" start-time="2026-09-27 22:09:57Z" end-time="2026-09-27 22:09:59Z" duration="1.522736" total="9" passed="9" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1390" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="332" result="Passed" start-time="2026-09-27 22:09:57Z" end-time="2026-09-27 22:09:59Z" duration="1.515579" total="9" passed="9" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1391" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="332" result="Passed" start-time="2026-09-27 22:09:57Z" end-time="2026-09-27 22:09:59Z" duration="1.508015" total="9" passed="9" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestSuite" id="1392" name="Editor" fullname="NoSafeCircle.DoorPrototype.Tests.Editor" runstate="Runnable" testcasecount="332" result="Passed" start-time="2026-09-27 22:09:57Z" end-time="2026-09-27 22:09:59Z" duration="1.500190" total="9" passed="9" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="TestFixture" id="1052" name="DoorwayOpeningSealTests" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorwayOpeningSealTests" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorwayOpeningSealTests" runstate="Runnable" testcasecount="9" result="Passed" start-time="2026-09-27 22:09:57Z" end-time="2026-09-27 22:09:59Z" duration="1.474458" total="9" passed="9" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1056" name="DoorSpriteBinder_BindsFourApprovedBonestoneSprites_ImportedAsSpritesAtSixtyFourPixelsPerUnit" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorwayOpeningSealTests.DoorSpriteBinder_BindsFourApprovedBonestoneSprites_ImportedAsSpritesAtSixtyFourPixelsPerUnit" methodname="DoorSpriteBinder_BindsFourApprovedBonestoneSprites_ImportedAsSpritesAtSixtyFourPixelsPerUnit" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorwayOpeningSealTests" runstate="Runnable" seed="1135445871" result="Passed" start-time="2026-09-27 22:09:57Z" end-time="2026-09-27 22:09:58Z" duration="0.389643" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1057" name="DoorSpriteBinder_NeverReferencesDamagedOpeningOrBrokenSprites" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorwayOpeningSealTests.DoorSpriteBinder_NeverReferencesDamagedOpeningOrBrokenSprites" methodname="DoorSpriteBinder_NeverReferencesDamagedOpeningOrBrokenSprites" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorwayOpeningSealTests" runstate="Runnable" seed="295527639" result="Passed" start-time="2026-09-27 22:09:58Z" end-time="2026-09-27 22:09:58Z" duration="0.143176" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1053" name="DoorwayBlocker_SpanIsDerivedFromAuthoredOpeningWidth_NotHardcodedLiteralTwo" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorwayOpeningSealTests.DoorwayBlocker_SpanIsDerivedFromAuthoredOpeningWidth_NotHardcodedLiteralTwo" methodname="DoorwayBlocker_SpanIsDerivedFromAuthoredOpeningWidth_NotHardcodedLiteralTwo" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorwayOpeningSealTests" runstate="Runnable" seed="1157955461" result="Passed" start-time="2026-09-27 22:09:58Z" end-time="2026-09-27 22:09:58Z" duration="0.126961" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1055" name="DoorwayBlockerDisabled_AllowsRaysAcrossFullOpeningWidthAndHeight_FromBothSides" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorwayOpeningSealTests.DoorwayBlockerDisabled_AllowsRaysAcrossFullOpeningWidthAndHeight_FromBothSides" methodname="DoorwayBlockerDisabled_AllowsRaysAcrossFullOpeningWidthAndHeight_FromBothSides" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorwayOpeningSealTests" runstate="Runnable" seed="454054656" result="Passed" start-time="2026-09-27 22:09:58Z" end-time="2026-09-27 22:09:58Z" duration="0.131817" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1054" name="DoorwayBlockerEnabled_BlocksRaysAcrossFullOpeningWidthAndHeight_FromBothSides" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorwayOpeningSealTests.DoorwayBlockerEnabled_BlocksRaysAcrossFullOpeningWidthAndHeight_FromBothSides" methodname="DoorwayBlockerEnabled_BlocksRaysAcrossFullOpeningWidthAndHeight_FromBothSides" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorwayOpeningSealTests" runstate="Runnable" seed="1156063753" result="Passed" start-time="2026-09-27 22:09:58Z" end-time="2026-09-27 22:09:58Z" duration="0.133014" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1059" name="FinalDoor_LockedAfterForwardCrossing_RendersFinalSprite" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorwayOpeningSealTests.FinalDoor_LockedAfterForwardCrossing_RendersFinalSprite" methodname="FinalDoor_LockedAfterForwardCrossing_RendersFinalSprite" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorwayOpeningSealTests" runstate="Runnable" seed="2067319420" result="Passed" start-time="2026-09-27 22:09:58Z" end-time="2026-09-27 22:09:58Z" duration="0.132118" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1058" name="FinalDoor_Opened_RendersOpenSprite_NeverFinalSprite" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorwayOpeningSealTests.FinalDoor_Opened_RendersOpenSprite_NeverFinalSprite" methodname="FinalDoor_Opened_RendersOpenSprite_NeverFinalSprite" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorwayOpeningSealTests" runstate="Runnable" seed="1169909753" result="Passed" start-time="2026-09-27 22:09:58Z" end-time="2026-09-27 22:09:58Z" duration="0.129911" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1060" name="NonFinalDoor_LockedAfterForwardCrossing_RendersLockedSprite_NeverFinalSprite" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorwayOpeningSealTests.NonFinalDoor_LockedAfterForwardCrossing_RendersLockedSprite_NeverFinalSprite" methodname="NonFinalDoor_LockedAfterForwardCrossing_RendersLockedSprite_NeverFinalSprite" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorwayOpeningSealTests" runstate="Runnable" seed="593724318" result="Passed" start-time="2026-09-27 22:09:58Z" end-time="2026-09-27 22:09:59Z" duration="0.133989" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1061" name="NonFinalDoor_ResetCompleted_RendersSealedSprite_NeverFinalSprite" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorwayOpeningSealTests.NonFinalDoor_ResetCompleted_RendersSealedSprite_NeverFinalSprite" methodname="NonFinalDoor_ResetCompleted_RendersSealedSprite_NeverFinalSprite" classname="NoSafeCircle.DoorPrototype.Tests.Editor.DoorwayOpeningSealTests" runstate="Runnable" seed="205839305" result="Passed" start-time="2026-09-27 22:09:59Z" end-time="2026-09-27 22:09:59Z" duration="0.127282" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                  <output><![CDATA[Saving results to: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-9a8f4320e19c4d8db750a43c61235afa\test-results.xml
+]]></output>
+                </test-case>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

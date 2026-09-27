@@ -1,0 +1,31 @@
+NSC-097 VAL-004 - Vincent's visual approval, 2026-09-27
+
+Source: Vincent's own words, typed directly in the Game Agent session (this session's own
+coordinator). He played through the exact materialized candidate on canonical main in Play Mode
+from the gameplay camera, against the Game Agent's own four-item checklist at
+C:/nscrev/reports/door-shoulder-20260927/VINCENT-play-mode-checklist-clears-NSC-097-and-NSC-100.md
+("One Play session clears two Sprint 1 tasks - NSC-097 and NSC-100"). Items 1-3 of that checklist
+are NSC-097 VAL-004 in full; item 4 belongs to a different task, NSC-100 VAL-004, and is recorded
+separately below for completeness and exclusion, not as evidence for NSC-097. The Documentation
+Agent was not involved in this approval.
+
+Vincent, verbatim:
+"ok I played through on main"
+
+The checklist and his confirmation, items 1-3 (NSC-097 VAL-004):
+  1. Doors show their authored art in each state you reach
+  2. The doorway looks like it fits the wizard
+  3. Nothing shows through a door's edges while it's closed
+All three were put to him and he confirmed them; no qualification or exception was raised against
+any of the three.
+
+Item 4, NOT NSC-097's, quoted here only to show it was explicitly separated and NOT approved:
+  4. Nothing drawn in the wrong order - no prop, wall or wizard in front of something it should be
+     behind
+Vincent, verbatim, on item 4: "There is issues with 1. Nothing drawn in the wrong order - no prop,
+wall or wizard in front of something it should be behind" and "There are some z sorting issues and
+I need to get you a list of them." This is NSC-100 VAL-004. NSC-100 is NOT approved and is not
+claimed as evidence anywhere in this record.
+
+Recorded by the delivery-evidence recorder from the Game Agent's own session and its checklist
+document, both named above.
