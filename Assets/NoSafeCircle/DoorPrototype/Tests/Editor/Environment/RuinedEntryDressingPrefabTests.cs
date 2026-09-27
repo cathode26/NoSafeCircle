@@ -158,9 +158,13 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing
             // The room is opened and dressed IN MEMORY and never saved. Assets/Scenes/Rooms and
             // Assets/Scenes/DoorPrototype.unity both belong to other tasks; this fixture must leave
             // the repository exactly as it found it.
-            Scene scene = EditorSceneManager.OpenScene(
-                "Assets/Scenes/Rooms/RuinedEntry.unity", OpenSceneMode.Single);
-            Assert.IsTrue(scene.IsValid(), "Could not open Ruined Entry.");
+            //
+            // The dressing is built and rendered IN MEMORY against a fresh empty scene and never
+            // saved. Assets/Scenes/Rooms/RuinedEntry.unity is one of the dying scenes this fixture
+            // must no longer depend on; the dressing root is built standalone by the builder below,
+            // so no room content needs to be loaded to render it.
+            Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            Assert.IsTrue(scene.IsValid(), "Could not create an empty scene to render Ruined Entry dressing in.");
 
             GameObject dressing = RuinedEntryDressingPrefabBuilder.BuildDressingRoot();
             GameObject cameraObject = null;
@@ -177,18 +181,11 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing
                 // this room's composition is the two guardians -- intact west, fallen east,
                 // the reveal at the door -- and a room-centred ortho-8 frame contains NEITHER.
                 // "A panel that does not contain the thing the room is about cannot certify
-                // it." The door position is READ FROM THE SCENE rather than hard-coded, so the
-                // frame follows D1 if the layout ever moves it.
-                GameObject roomRoot = null;
-                foreach (GameObject root in scene.GetRootGameObjects())
-                {
-                    if (root.name == "Room_RuinedEntry") { roomRoot = root; break; }
-                }
-                Assert.IsNotNull(roomRoot, "Ruined Entry has no Room_RuinedEntry root.");
-
-                Transform d1 = roomRoot.transform.Find("DoorAnchors/D1Opening");
-                Assert.IsNotNull(d1, "Ruined Entry has no DoorAnchors/D1Opening to frame on.");
-                var doorCentre = new Vector3(d1.position.x, 0f, d1.position.z);
+                // it." The door position comes from RuinedEntryLayout's own published constants
+                // rather than a scene read: the layout is the SOURCE the builder reads and the
+                // scene was only ever the artifact it produced, so the frame still follows D1 if
+                // the layout ever moves it.
+                var doorCentre = new Vector3(RuinedEntryLayout.DoorCenterX, 0f, RuinedEntryLayout.DoorCenterZ);
 
                 cameraObject = new GameObject("DressingCaptureCamera", typeof(Camera));
                 Camera camera = cameraObject.GetComponent<Camera>();
