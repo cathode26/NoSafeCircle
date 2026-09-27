@@ -1,0 +1,26 @@
+NSC-074 PixelLab Cardinal Wizard Walk Source Art — VAL-002 human approval provenance
+
+Vincent Liguori, typed directly in the GER Agent session, 2026-09-27 (date per GER's handoff file
+C:/nscrev/reports/handoffs/ger-20260927-delivery-records-nsc062-nsc067.md, which quotes him
+verbatim; exact host-clock timestamp not captured by GER):
+
+    "NSC-070 / NSC-073 / NSC-074 / NSC-075 ... These are all done"
+
+This was said in a list alongside NSC-067 ("NSC-067 Four-Wizard Selection Screen is done too") and
+NSC-068 ("NSC-068 Selected Wizard World Placement and Gameplay Entry / This is also done"), not as
+a standalone review of NSC-074 specifically.
+
+What this is: a general completion declaration by Vincent that NSC-074 is done, naming the task by
+its identifier in a short list of four task IDs he also called done.
+
+What this is NOT: a description of Vincent reviewing the exact candidate source set or contact
+sheets for all four wizard variants (Masculine_White, Masculine_Black, Feminine_White,
+Feminine_Black) walking north, east, south, and west, and confirming identity, style, continuity,
+transparency, ground contact, and readability, as VAL-002's own text asks for. He did not name
+those variants, those four directions, a contact sheet, or that checklist in this statement, and
+this record does not claim he performed that review.
+
+This artifact is filed as VAL-002's evidence because it is the only human input on record for this
+task, it names the task by ID, and it states it is done. The gate is recorded as satisfied by this
+general approval, not by a claim of a specific contact-sheet or in-candidate review of the four
+cardinal walk cycles.

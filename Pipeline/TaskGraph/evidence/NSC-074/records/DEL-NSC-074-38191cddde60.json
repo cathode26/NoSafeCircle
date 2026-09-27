@@ -1,0 +1,557 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "c76dafe1aa7304a4c1d30dfe2621cf1df34acd86",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/east/frame_000.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "d8beadb38ea0bf8828b7944328de3252a8e8a4f2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/east/frame_001.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "a8b39bb788c984b75bc95b7e8b65c5b0b200a921",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/east/frame_002.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "3be81a328547b6ed9580f0e19328c317caec6b0f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/east/frame_003.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "213317ca36450d459e499c335bed045132ba8694",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/east/frame_004.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "53dfe47a0919e1f5877401f4073891ff6215ea20",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/east/frame_005.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "89f990d2c6ba6f7f91a55c0466b79fea4e13a70e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/north/frame_000.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "e517df664284735a8c309097326f5f73dd85d3a9",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/north/frame_001.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "d871bb0bede29c44b89b974397b2bea71c8f9b04",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/north/frame_002.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "881be063ff69ea2adbfa89f94a89548a183006f2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/north/frame_003.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "773d7b544ef91aee7a3713af5cb27db477db2fba",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/north/frame_004.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "0c7192d0327ed59c69aad3b3b1ae82bb8984e2e6",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/north/frame_005.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "8cf5b2132abdfe6dd50636ba016c25d987ad2059",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/south/frame_000.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "2cf7e7f639d25cdda01d8fbf88187e80c33911c2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/south/frame_001.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "f86b0f8a6048c3e0890e489a2ffa9efd72ccf3fb",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/south/frame_002.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "ac8d4344df128deb496706f4e3e21bc2725ecc89",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/south/frame_003.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "13c5794fc1b0307e73c419e3b9cb0335c0b0f45f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/south/frame_004.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "9f3151801f476e282dd059eca0bd41c603dbb594",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/south/frame_005.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "268b1431db2bc46604b5f36dce11cae061c10370",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/west/frame_000.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "b11b586c59692a66adb5ab5ed1dc002972ee9bc0",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/west/frame_001.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "b3da031075d4bc088006088f629cbde3c623549c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/west/frame_002.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "03a96dae4faea789d8f1cc4e86243128eaecea48",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/west/frame_003.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "fd2cb88e5fdad2e60ae2d238426c6f47a265d3cc",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/west/frame_004.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "0205cd8217ff348a6cd39c1ae311cd924efcbf90",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/walk/west/frame_005.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "dea5689b657ed6ff3d6d0afa1870052ee6a56f7e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/east/frame_000.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "30dbdfafdc84d57b05613b78a9311aef639544db",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/east/frame_001.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "0fca7fadddc7e46338dc1c007c9ea4243bbefd6b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/east/frame_002.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "218f46f62842615e82151caa91d7dfefb4b76324",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/east/frame_003.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "96cafdde9a5f99ede526f4508141d375f806fbd1",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/east/frame_004.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "f60db564487eb9fe4c04c1ab08257518e9ef36aa",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/east/frame_005.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "47a188b6f8de78dee6c5b79a52a5f68a8f6753cb",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/north/frame_000.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "98325779481879235516aadca18f4e9ebbe42fe8",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/north/frame_001.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "4935fe36c74524a12b2acc20e8f643801658bfa4",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/north/frame_002.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "d042ba50ccad3cc00a83046849f9febf67e9685d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/north/frame_003.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "6bb0fbea97c6675a9f10824a01f6ce81f4af4134",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/north/frame_004.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "db7c68a1e99d6382217e101497180b5bcd0e03b4",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/north/frame_005.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "0dd5c9c1fc78cac97b45b358b6883b774a059be3",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/south/frame_000.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "72d189f22e22c84bddb648838d33ca0fa6648e3d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/south/frame_001.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "738df074325d7ae38877b66678c264a19dfd586a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/south/frame_002.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "b406828fc3c0f3446fe2b0b1eef34d52f54c1947",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/south/frame_003.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "b002021e4bf4ac39ad009a2f702be5b8fbe593b0",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/south/frame_004.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "8ed3decfe9fd2eca2a935e06f5dba1accf901adf",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/south/frame_005.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "2852ae40ef647d2434f5ccd234ea8dc1b4418db0",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/west/frame_000.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "84e3959392737245749aaa9788576dffee966a82",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/west/frame_001.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "1b06d48fe31a46cd0a96dbeadb003686f0867aa0",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/west/frame_002.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "982dea28a8ea777a40d554283dab1b0a46a7d62a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/west/frame_003.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "00eb279bed0a68033a866fd59e9be528c0c4ed7d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/west/frame_004.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "d03af503187c0e20527558cbdce98fe79c1c7641",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/west/frame_005.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "489ba06f536338dfb42779df60a11e2c98858da6",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/east/frame_000.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "14bfad010e5336571bf19d23760d4f30aa639d0a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/east/frame_001.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "ce9b31281bde77975d13fd9c47d6cf3ada2a4a1b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/east/frame_002.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "e9d91865b694cf6db480735f40d8531813741afa",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/east/frame_003.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "8eef3ae6b76f3d99de1b0b044fb1ae3ce207a525",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/east/frame_004.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "f0aa104be571e48c81cf719fb445d3ba64aaa258",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/east/frame_005.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "bc6dfb32999a44d9c5d0754ef71921f6aca661a7",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/north/frame_000.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "089e48aab4b44db24f879d0023b7188e6899da58",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/north/frame_001.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "4e25c8cc160b2b3e05c2cfc8e80d1eaca3059bf0",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/north/frame_002.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "596c3e1b8993c70550ad66b4bab431752259f2b7",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/north/frame_003.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "ca29377714b5f660c48d60b8e7162ed28f834d9e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/north/frame_004.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "e2c91aa18ad98cec63ed053488c4acd358ad6461",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/north/frame_005.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "a1d2d9c2589bf275cbafd48723791fbe4daaf364",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/south/frame_000.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "6ffdb534805ac9f798782b38fd8e3bdcc3c7ae7d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/south/frame_001.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "bd362b260a64fb0827745d8ac4c74e68fedb4b78",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/south/frame_002.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "298fb59229ffadf56e46307423df53ff5734596e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/south/frame_003.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "14aadf76540541f729c11199b26d807e1abf029c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/south/frame_004.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "e2676dd746825591bfd798a30abaccef38d1c78a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/south/frame_005.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "9de42d083169e44042ef4bb3dc1edcde4964e19e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/west/frame_000.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "c29dd61212dd342317ed85b3d1ea15bad7a1f7ca",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/west/frame_001.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "19691f3ac06b85b7a962f4696b16b20c40ead0ca",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/west/frame_002.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "9bc9ebed0c6909fccf43e87efe2a1b986dd7a8d2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/west/frame_003.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "cabd35dea35c107570bf0d791c9b3705c1675ba3",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/west/frame_004.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "10205418b3047127f7a70e26e983fb16bbd6738c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/walk/west/frame_005.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "558474ae33efcb73e8dfa894369bc45f1e08a4b1",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/east/frame_000.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "724ce3071473f293ff6055e6851a81017a02dce7",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/east/frame_001.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "0fe735aa6885146607941f34bb8c064735723a0b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/east/frame_002.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "a9761f43c7d12e9268882e0d40f5529cb90edf9e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/east/frame_003.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "384057b27663cbb40a3e59c6f4f34f60dd94c55b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/east/frame_004.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "2f88ee30b38f175a82b07f1ce801dce0b868f9e5",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/east/frame_005.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "87c851c0e319012a95a099a8a53361879e318426",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/north/frame_000.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "137f7a9ce806a583f94eeb907713d17f645fda3a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/north/frame_001.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "fdf9fc53eeac1d56e88ab73cd4a51d0c6ef95f23",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/north/frame_002.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "a73ba002af2f42782e90600d729613031f3c8385",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/north/frame_003.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "512b2b9a577b188c4f03f311de9596134c72d3f2",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/north/frame_004.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "5efd085c065d991aaabc252f024c017037c7def0",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/north/frame_005.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "02bf9e2e4f33d819b06d94efb817d92763087e2b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/south/frame_000.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "81a286fad75f62d72baef279eb750cf9fca79203",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/south/frame_001.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "52daca85b46d1b387af5ad0f2be5c4d03f89c5b7",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/south/frame_002.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "e2ea6eb34acef1cf06afe758b1c4d751f00c45b4",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/south/frame_003.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "d7fdb705b59e636df4b9a531c027a334498c6f64",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/south/frame_004.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "09d5e03fc8074b222dd0458be88ca701054ca9a7",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/south/frame_005.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "6c7f4dd5f1062ae1aed2117897433f80331ef88a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/west/frame_000.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "53cce715936c46627cef4547a97193ec057cad3f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/west/frame_001.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "b119e34ff8a5786c8723e13879e7cde1be0bd8cb",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/west/frame_002.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "5ed4a614c7b5695e4ae47eff6ee5fd85c5471a5f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/west/frame_003.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "014b3113fcc449b88d4f43236c8b62c1219bcf6b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/west/frame_004.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "49cc015fa54fb57381e145f00ddc81a688ac1385",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/walk/west/frame_005.png",
+      "role": "new_cardinal_walk_frame"
+    },
+    {
+      "blob_sha": "50bbe611fca00b8b9564a8c6f572868d7a359989",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/source-inventory.json",
+      "role": "cardinal_walk_provenance_record"
+    },
+    {
+      "blob_sha": "e0405fa5e3baadcc028ea23d6debd6dc5eff0102",
+      "path": "Docs/Art/Wizard/PIXELLAB_GENERATION.md",
+      "role": "cardinal_walk_provenance_record"
+    },
+    {
+      "blob_sha": "a4600890a4411b89359bafa6765118f3359b2e5b",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardCardinalSourceAuditTests.cs",
+      "role": "bounded_source_audit_test"
+    }
+  ],
+  "delivery": {
+    "base_commit": "38904af152b8d02e25d008677172277284d02304",
+    "candidate_commit": "f7cb0f478d928152aa70f6c35d5cdda9c888d2cb",
+    "integrated_commit": "38191cddde607e5a3237e94d2bbb0b6ebd55c0b8",
+    "integrated_tree": "f7308cac498db9afed83abf9824dfedfafab4087"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "1ab03b10251fe998db068be8c9a99aee333e1ab5",
+          "path": "Pipeline/TaskGraph/evidence/NSC-074/artifacts/WizardCardinalSourceAuditTests-EditMode-38191cddde60.xml"
+        },
+        {
+          "blob_sha": "4594ce3ba2a659e59b12132aeb296e5e600900ad",
+          "path": "Pipeline/TaskGraph/evidence/NSC-074/artifacts/WizardCardinalSourceAuditTests-EditMode-38191cddde60.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Unity EditMode filter NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests, 5/5 passed, 0 failed, 0 skipped, at commit 38191cdd (clean before and after). CardinalWalkFoldersContainExactlySixOrderedFramesEach asserts each of the 4 variants x 4 cardinal directions holds exactly 6 ordered frame_000..frame_005 PNGs (96 total). CardinalWalkPngsAreTransparent180By180Images asserts every one of those 96 PNGs is a transparent 180x180 canvas. CardinalWalkMetaFilesUseInventoryGuidsAndSpriteImport asserts all 96 matching .meta companions exist, use the inventory's deterministic GUIDs, and import as Sprite. InventoryRecordsExactlyTheCardinalFilesOnDisk asserts source-inventory.json records exactly the 96 cardinal files on disk, no more and no fewer, and no pre-existing cardinal files were accidentally claimed. PreExistingStandingAndDiagonalArtIsPreservedAndUnclaimed asserts every pre-existing NSC-061/NSC-073 standing and diagonal-walk source frame is untouched and not re-claimed by this task's inventory entries. Together the five tests cover every clause of VAL-001's requirement: exact count, meta companions, six ordered frames, transparent 180x180 geometry, stable naming, no accidental claims, and preservation of pre-existing art. The candidate commit f7cb0f478 (parent 38904af15, both ancestors of the validated commit 38191cdd) is the sole commit that added these 96 PNGs, their 96 file .meta companions, 16 direction-folder .meta files, the WizardCardinalSourceAuditTests.cs source and its .meta, and updated source-inventory.json (+1414 lines) and Docs/Art/Wizard/PIXELLAB_GENERATION.md (+140 lines) with the corresponding generation identifiers, prompts/settings and selected-path provenance -- the provenance half of VAL-001's requirement, recorded in this record's own conformance_surfaces at commit 38191cdd.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "9b67b114c7c3797ed314aa2f1f730d3112aa41e3",
+          "path": "Pipeline/TaskGraph/evidence/NSC-074/artifacts/VincentVAL002Approval-38191cddde60.txt"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "Vincent Liguori, typed directly in the GER Agent session (per GER's handoff C:/nscrev/reports/handoffs/ger-20260927-delivery-records-nsc062-nsc067.md, 2026-09-27): \"NSC-070 / NSC-073 / NSC-074 / NSC-075 ... These are all done\", said in the same message as NSC-067 (\"is done too\") and NSC-068 (\"This is also done\"). This is recorded as his general approval that the task is done. It is NOT recorded as a claim that he reviewed the exact candidate source set or contact sheets for all four wizard variants walking north, east, south and west, or confirmed identity, style, continuity, transparency, ground contact and readability, as VAL-002's own text describes -- he did not name those variants, those four directions, a contact sheet, or that checklist, and this record does not attribute that review to him.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "Vincent Liguori",
+    "decision": "approved",
+    "notes": "Typed directly in the GER Agent session, per GER's handoff C:/nscrev/reports/handoffs/ger-20260927-delivery-records-nsc062-nsc067.md (2026-09-27): \"NSC-070 / NSC-073 / NSC-074 / NSC-075 ... These are all done\" (same message as NSC-067 \"is done too\" and NSC-068 \"This is also done\"). A general completion declaration naming NSC-074 by ID in a short list, not a description of a specific review of the exact candidate source set or contact sheets for all four wizard variants walking north, east, south and west; this record does not claim the latter.",
+    "required": true
+  },
+  "record_id": "DEL-NSC-074-38191cddde60",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-27T14:25:15Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-074.yaml",
+    "revision": 2,
+    "sha256": "a66e68e3ae5428051ba61a102b7eb587dcea386b8421844a847637b0517bf80f"
+  },
+  "task_id": "NSC-074",
+  "validated_state": {
+    "commit": "38191cddde607e5a3237e94d2bbb0b6ebd55c0b8",
+    "tree": "f7308cac498db9afed83abf9824dfedfafab4087"
+  }
+}

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="5" result="Passed" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-27 14:19:17Z" end-time="2026-09-27 14:19:18Z" duration="1.6013624">
+  <test-suite type="TestSuite" id="1000" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="326" result="Passed" start-time="2026-09-27 14:19:17Z" end-time="2026-09-27 14:19:18Z" duration="1.601362" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1379" name="NoSafeCircle.DoorPrototype.Tests.Editor.dll" fullname="C:/nscrev/doormeta/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.Editor.dll" runstate="Runnable" testcasecount="325" result="Passed" start-time="2026-09-27 14:19:17Z" end-time="2026-09-27 14:19:18Z" duration="1.559278" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="53444" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1380" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="325" result="Passed" start-time="2026-09-27 14:19:17Z" end-time="2026-09-27 14:19:18Z" duration="1.518679" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1381" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="325" result="Passed" start-time="2026-09-27 14:19:17Z" end-time="2026-09-27 14:19:18Z" duration="1.502979" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1382" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="325" result="Passed" start-time="2026-09-27 14:19:17Z" end-time="2026-09-27 14:19:18Z" duration="1.468572" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestSuite" id="1383" name="Editor" fullname="NoSafeCircle.DoorPrototype.Tests.Editor" runstate="Runnable" testcasecount="325" result="Passed" start-time="2026-09-27 14:19:17Z" end-time="2026-09-27 14:19:18Z" duration="1.448993" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="TestFixture" id="1141" name="WizardCardinalSourceAuditTests" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests" runstate="Runnable" testcasecount="5" result="Passed" start-time="2026-09-27 14:19:17Z" end-time="2026-09-27 14:19:18Z" duration="1.416967" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1142" name="CardinalWalkFoldersContainExactlySixOrderedFramesEach" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests.CardinalWalkFoldersContainExactlySixOrderedFramesEach" methodname="CardinalWalkFoldersContainExactlySixOrderedFramesEach" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests" runstate="Runnable" seed="400282305" result="Passed" start-time="2026-09-27 14:19:17Z" end-time="2026-09-27 14:19:17Z" duration="0.073838" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1144" name="CardinalWalkMetaFilesUseInventoryGuidsAndSpriteImport" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests.CardinalWalkMetaFilesUseInventoryGuidsAndSpriteImport" methodname="CardinalWalkMetaFilesUseInventoryGuidsAndSpriteImport" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests" runstate="Runnable" seed="1253127675" result="Passed" start-time="2026-09-27 14:19:17Z" end-time="2026-09-27 14:19:17Z" duration="0.503473" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1143" name="CardinalWalkPngsAreTransparent180By180Images" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests.CardinalWalkPngsAreTransparent180By180Images" methodname="CardinalWalkPngsAreTransparent180By180Images" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests" runstate="Runnable" seed="802393801" result="Passed" start-time="2026-09-27 14:19:17Z" end-time="2026-09-27 14:19:18Z" duration="0.413775" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1145" name="InventoryRecordsExactlyTheCardinalFilesOnDisk" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests.InventoryRecordsExactlyTheCardinalFilesOnDisk" methodname="InventoryRecordsExactlyTheCardinalFilesOnDisk" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests" runstate="Runnable" seed="308609" result="Passed" start-time="2026-09-27 14:19:18Z" end-time="2026-09-27 14:19:18Z" duration="0.104094" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1146" name="PreExistingStandingAndDiagonalArtIsPreservedAndUnclaimed" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests.PreExistingStandingAndDiagonalArtIsPreservedAndUnclaimed" methodname="PreExistingStandingAndDiagonalArtIsPreservedAndUnclaimed" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests" runstate="Runnable" seed="690829408" result="Passed" start-time="2026-09-27 14:19:18Z" end-time="2026-09-27 14:19:18Z" duration="0.254248" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                  <output><![CDATA[Saving results to: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-39505691fe0d4febb630157266d5c791\test-results.xml
+]]></output>
+                </test-case>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>
