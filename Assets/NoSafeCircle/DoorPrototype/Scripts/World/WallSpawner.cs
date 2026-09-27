@@ -186,15 +186,22 @@ namespace NoSafeCircle.DoorPrototype.World
             return 1;
         }
 
-        // PORTED LITERALLY from ArchitecturalWallAccentPlacement.CreateAccent (Editor/Rooms, lines
-        // 447-463 at 0a59043bc): the sprite's OUTER local-x edge is anchored at the run endpoint so
-        // the art extends INTO the run, and the transform's y is whatever puts the sprite's bounds
-        // bottom on the floor. Those offsets are the approved look on screen; they are not
-        // re-tuned here. Note what that y means for a sprite whose pivot sits on its DRAWN base:
-        // wall_corner's transform lands at y 0.25 and wall_door_jamb's at 0.406 - the committed
-        // room scenes carry exactly those values - so a reader expecting root y 0 for overlays is
-        // reading the spec's pivot sentence, not the placer. Change it here, in one place, if the
-        // Art Director decides otherwise.
+        // Ported from ArchitecturalWallAccentPlacement.CreateAccent (Editor/Rooms, lines 447-463 at
+        // 0a59043bc): the sprite's OUTER local-x edge is anchored at the run endpoint so the art
+        // extends INTO the run.
+        //
+        // The root's y is FloorY, NOT FloorY - sprite.bounds.min.y. Every overlay sprite's pivot is
+        // authored ON its drawn base (wall_corner 16px, wall_door_jamb 26px, wall_end_cap 18px of
+        // transparent padding below it), and bounds is the RECT including that padding, so
+        // subtracting bounds.min.y lifted the drawn base off the floor by the padding: corners
+        // floated 0.25 and jambs 0.40625. The editor twin was corrected the same way
+        // (ArchitecturalWallAccentPlacement.ComputeGroundContactAnchorY returns floorY); this is
+        // the path that ships.
+        //
+        // THE JAMB DELIBERATELY KEEPS THE OLD LIFT. Grounded, it wins the sort and shows a full
+        // portal over the dressing beside each door; the Art Director has decided to stop placing
+        // it, and the Game Agent owns that removal and the 0.500 shoulder it leaves. Delete this
+        // exception with the jamb, not before.
         private static Vector3 AccentPosition(GameObject instance, WallPiece piece, Quaternion rotation)
         {
             var renderer = instance.GetComponentInChildren<SpriteRenderer>(true);
@@ -210,7 +217,7 @@ namespace NoSafeCircle.DoorPrototype.World
             bool minEdgeIsInner =
                 Vector3.Dot(worldOffsetAtLocalMinX, piece.Inward) > Vector3.Dot(worldOffsetAtLocalMaxX, piece.Inward);
             Vector3 anchoredWorldOffset = minEdgeIsInner ? worldOffsetAtLocalMaxX : worldOffsetAtLocalMinX;
-            float anchorY = FloorY - localBounds.min.y;
+            float anchorY = piece.Kind == WallPieceKind.Jamb ? FloorY - localBounds.min.y : FloorY;
             return new Vector3(piece.Point.x, anchorY, piece.Point.z) - anchoredWorldOffset;
         }
 
