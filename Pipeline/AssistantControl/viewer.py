@@ -31,6 +31,48 @@ from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
 from Pipeline.TaskReviewAgent.contracts import validate_task_id
 from Pipeline.TaskReviewAgent.GauntletView import server as gauntlet
 
+# EVERY module a request path can still import LAZILY, from anywhere in this
+# viewer's import closure -- not just from this file.
+#
+# Hoisting the imports in THIS module was not enough and pid 78800 proved it
+# after ~2 days: the chain was viewer.py:1217 -> review.py -> a DEFERRED
+# `source_update` import -> source_update's module-level `admission` ->
+# `from ...inspect_project import git, unresolvable_commit`, and
+# `inspect_project` was already cached from process start WITHOUT that name.
+# The name exists on main; the dead process's cached module object did not have
+# it. So the fault needs one module cached EARLY and another imported LATE.
+#
+# Two of these sites CANNOT be hoisted: source_update.py:15 imports `review` at
+# module level, so review <-> source_update is a real mutual dependency and
+# hoisting either deferral closes a cycle. Warming sidesteps that entirely --
+# by the time this runs, both halves load in one pass, in one generation.
+DEFERRED_IMPORT_TARGETS = (
+    "Pipeline.AssistantControl.automation_policy",
+    "Pipeline.AssistantControl.checkouts",
+    "Pipeline.AssistantControl.inspect_project",
+    "Pipeline.AssistantControl.result_inspection",
+    "Pipeline.AssistantControl.review",
+    "Pipeline.AssistantControl.source_update",
+    "Pipeline.TaskReviewAgent.contracts",
+    "Pipeline.TaskReviewAgent.issue_workflow",
+)
+
+
+def warm_deferred_imports() -> tuple[str, ...]:
+    """Import the whole closure now, so no request path is the FIRST to load one.
+
+    Deliberately fail-closed: an ImportError here stops the viewer starting,
+    with the offending module named. The alternative is a partial warm-up that
+    leaves exactly the late-import risk this exists to remove, and reports it
+    days later from a request thread as somebody else's traceback.
+    """
+    import importlib
+
+    for name in DEFERRED_IMPORT_TARGETS:
+        importlib.import_module(name)
+    return DEFERRED_IMPORT_TARGETS
+
+
 # A full project snapshot authenticates TaskGraph and checkout evidence. Reuse
 # that shared result long enough that the live stream does not immediately
 # launch another expensive repository scan after the page's initial request.
@@ -1237,6 +1279,9 @@ class AssistantSnapshot:
 
 
 def make_server(source: Path, checkout_root: Path, port: int = 8813) -> ThreadingHTTPServer:
+    # Before the listener exists, so no request can be the first to load one of
+    # these. This runs on the same generation as this module's own imports.
+    warm_deferred_imports()
     reader = AssistantSnapshot(source, checkout_root)
     instance_id = uuid.uuid4().hex
 

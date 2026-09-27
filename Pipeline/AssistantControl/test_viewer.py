@@ -1552,6 +1552,82 @@ class DeferredImportConsistencyTests(unittest.TestCase):
         self.assertEqual(deferred, [], "deferred Pipeline imports load a NEWER "
                          "generation into a process holding OLDER cached modules")
 
+    # --- the test above scans viewer.py ONLY, and that was the gap -------------
+    # Pid 78800 died after ~2 days on a deferred import in review.py, a module
+    # viewer.py imports. The scan above was green throughout, because it was
+    # complete on the axis it named and blind to the other 28 modules.
+
+    def _closure(self):
+        """Every Pipeline module reachable from viewer.py, following BOTH kinds of import."""
+        root = Path(viewer_module.__file__).parents[2]
+
+        def path_of(dotted):
+            candidate = root.joinpath(*dotted.split(".")).with_suffix(".py")
+            return candidate if candidate.is_file() else None
+
+        start = "Pipeline.AssistantControl.viewer"
+        seen, stack, edges = {start}, [start], []
+        while stack:
+            dotted = stack.pop()
+            path = path_of(dotted)
+            if path is None:
+                continue
+            tree = ast.parse(path.read_bytes().decode("utf-8"), filename=str(path))
+            top_level = {id(node) for node in tree.body}
+            for node in ast.walk(tree):
+                if not isinstance(node, (ast.Import, ast.ImportFrom)):
+                    continue
+                for name in self._names(node):
+                    if not name.startswith("Pipeline."):
+                        continue
+                    if id(node) not in top_level:
+                        edges.append((dotted, node.lineno, name))
+                    if name not in seen:
+                        seen.add(name)
+                        stack.append(name)
+        return seen, edges
+
+    def test_every_deferred_pipeline_import_in_the_closure_is_warmed(self):
+        modules, deferred = self._closure()
+        # Sanity probe: the scan must find the site that actually killed pid
+        # 78800 -- review.py's deferred source_update import. Without this, a
+        # broken walk returns no edges and the assertion passes vacuously.
+        self.assertIn(
+            "Pipeline.AssistantControl.source_update",
+            [name for owner, _line, name in deferred
+             if owner == "Pipeline.AssistantControl.review"],
+            "closure scan did not find the known crash site",
+        )
+        self.assertGreater(len(modules), 20, "closure walk collapsed to almost nothing")
+        # Expectation derived from the SOURCE, never from a copy of the tuple it
+        # checks. Asserted as set EQUALITY in both directions, because "nothing
+        # is missing" alone would pass on a walk that found only the one edge the
+        # probe above demands, leaving the other sites unwarmed and unreported.
+        # Equality also catches a warmed entry no deferred import needs any more.
+        self.assertEqual(
+            set(viewer_module.DEFERRED_IMPORT_TARGETS),
+            {name for _owner, _line, name in deferred},
+            "deferred import targets and the warm-up list have diverged",
+        )
+        # nsc_viewer.py's three deferred imports are deliberately NOT here: it is
+        # the standalone control tool, a fresh short-lived process per command,
+        # so it never accumulates the cross-generation staleness this guards.
+        self.assertNotIn("nsc_viewer", {owner for owner, _line, _name in deferred})
+
+    def test_warming_imports_every_target_for_real(self):
+        warmed = viewer_module.warm_deferred_imports()
+        self.assertEqual(viewer_module.DEFERRED_IMPORT_TARGETS, warmed)
+        for name in warmed:
+            self.assertIn(name, sys.modules, name)
+        # A name that cannot be imported must be reported loudly rather than
+        # skipped, because a partial warm-up leaves the exact late-import risk
+        # this function exists to remove.
+        with self.assertRaises(ModuleNotFoundError):
+            with unittest.mock.patch.object(
+                viewer_module, "DEFERRED_IMPORT_TARGETS",
+                ("Pipeline.AssistantControl.zzz_not_a_module",)):
+                viewer_module.warm_deferred_imports()
+
 
 if __name__ == "__main__":
     unittest.main()
