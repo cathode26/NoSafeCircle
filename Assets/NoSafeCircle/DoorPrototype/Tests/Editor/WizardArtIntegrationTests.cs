@@ -145,19 +145,30 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.IsFalse(importer.mipmapEnabled, path);
             Assert.AreEqual(180f, importer.spritePixelsPerUnit, path);
 
+            // The pivot sits on the frame's OWN drawn base: 8-28px of transparent padding under
+            // the feet varies by frame, so no single literal is right. Until 2026-09-27 this
+            // asserted pivot y 0 (the canvas bottom), which floated the feet up to 0.28u and
+            // bobbed them between walk frames. Witnessed from the PNG bytes, not the importer.
+            int bottomPad = DrawnBottomPadding(path);
+
             var textureSettings = new TextureImporterSettings();
             importer.ReadTextureSettings(textureSettings);
             Assert.AreEqual((int)SpriteAlignment.Custom, textureSettings.spriteAlignment, path);
             Assert.That(textureSettings.spritePivot.x, Is.EqualTo(0.5f).Within(0.001f), path);
-            Assert.That(textureSettings.spritePivot.y, Is.EqualTo(0f).Within(0.001f), path);
+            Assert.That(textureSettings.spritePivot.y, Is.EqualTo(bottomPad / (float)SourceSize).Within(0.001f),
+                path + ": the pivot is not on the drawn base (" + bottomPad + "px of padding under the feet).");
 
             Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
             Assert.IsNotNull(sprite, path);
             Assert.That(sprite.rect.width, Is.EqualTo(SourceSize).Within(0.001f), path);
             Assert.That(sprite.rect.height, Is.EqualTo(SourceSize).Within(0.001f), path);
             Assert.That(sprite.pivot.x, Is.EqualTo(SourceSize * 0.5f).Within(0.001f), path);
-            Assert.That(sprite.pivot.y, Is.EqualTo(0f).Within(0.001f), path);
+            Assert.That(sprite.pivot.y, Is.EqualTo((float)bottomPad).Within(0.001f), path);
+        }
 
+        // Fully transparent rows below the lowest visible pixel, read from the PNG itself.
+        private static int DrawnBottomPadding(string path)
+        {
             var sourceTexture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
             try
             {
@@ -167,6 +178,10 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 Color32[] pixels = sourceTexture.GetPixels32();
                 Assert.IsTrue(pixels.Any(pixel => pixel.a == 0), "No transparent pixels: " + path);
                 Assert.IsTrue(pixels.Any(pixel => pixel.a > 0), "No visible character pixels: " + path);
+
+                // GetPixels32 is row-major from the BOTTOM row up.
+                int lowestVisibleIndex = System.Array.FindIndex(pixels, pixel => pixel.a > 0);
+                return lowestVisibleIndex / sourceTexture.width;
             }
             finally
             {
