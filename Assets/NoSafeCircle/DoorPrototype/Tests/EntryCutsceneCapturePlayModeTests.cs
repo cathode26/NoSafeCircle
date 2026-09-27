@@ -20,8 +20,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
         private const int Width = 1920;
         private const int Height = 1080;
         private const int TemporaryUiLayer = 31;
-        private const float MaximumEntrySeconds = 15f;
-        private const float VisualWaitSeconds = 8f;
+        private const float MaximumEntrySeconds = 20f;
+        private const float VisualWaitSeconds = 12f;
 
         [UnityTest]
         [Explicit("Set NSC_ENTRY_CAPTURE_OUTPUT to a new directory outside the project.")]
@@ -98,7 +98,14 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsTrue(entry.IsEntryCutsceneRunning,
                 "Wizard control began without the selected-wizard chase.");
             Assert.IsTrue(startDoor.IsOpen, "The entrance door did not open for the wizard.");
+            Assert.IsNotNull(chase.EntryPursuerTransform);
+            Assert.IsNotNull(chase.EntrySecondPursuerTransform);
+            Assert.IsNotNull(chase.EntryWraithTransform);
 
+            yield return WaitForActiveObject("TitleEntryLanternWisp", VisualWaitSeconds);
+            Assert.AreEqual(1, chase.FiredEntryWispCount);
+            Capture(output, "02-wraith-wisp-launch", gameCamera, canvas, manifest,
+                entry, chase, startDoor);
             yield return WaitForActiveObject("TitleEntryFireball_0", VisualWaitSeconds);
             SpriteRenderer doorWall = FindEntranceWallSprite();
             Assert.IsNotNull(doorWall);
@@ -106,10 +113,20 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "The south entrance wall became translucent during the chase.");
             Assert.Less(gameCamera.orthographicSize, gameplayCameraSize - 1f,
                 "The entry chase camera did not frame the actors closely.");
-            Capture(output, "02-first-fireball-miss", gameCamera, canvas, manifest,
+            Capture(output, "03-first-fireball-miss", gameCamera, canvas, manifest,
+                entry, chase, startDoor);
+            yield return WaitForPhase(() => chase.IsEntryWizardDodging &&
+                chase.EntryWizardTransform.position.x > EntryApproachLayout.CenterX + 1.5f,
+                "wizard dodging the Wraith wisp", VisualWaitSeconds);
+            Assert.IsNotNull(chase.EntryWispTransform,
+                "The Wraith's shot vanished before the wizard visibly dodged it.");
+            Assert.Greater(chase.EntryWizardTransform.position.x -
+                chase.EntryWispTransform.position.x, 1.5f,
+                "The wizard did not step clear of the Wraith's aimed shot.");
+            Capture(output, "03a-wizard-dodges-wisp", gameCamera, canvas, manifest,
                 entry, chase, startDoor);
             yield return WaitForActiveObject("TitleEntryFireball_1", VisualWaitSeconds);
-            Capture(output, "03-second-fireball-miss", gameCamera, canvas, manifest,
+            Capture(output, "04-second-fireball-miss", gameCamera, canvas, manifest,
                 entry, chase, startDoor);
             yield return WaitForPhase(() => chase.IsEntryWizardTurningToShoot,
                 "wizard turning to shoot", VisualWaitSeconds);
@@ -119,12 +136,12 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "The northbound wizard must turn to face the pursuer before firing.");
             StringAssert.EndsWith("_idle_south-west", firingWizard.CurrentState);
             Assert.AreEqual(2, chase.FiredEntryShotCount);
-            Capture(output, "04-wizard-turn-to-fire", gameCamera, canvas, manifest,
+            Capture(output, "05-wizard-turn-to-fire", gameCamera, canvas, manifest,
                 entry, chase, startDoor);
             yield return WaitForActiveObject("TitleEntryFireball_2", VisualWaitSeconds);
             Assert.IsTrue(chase.IsEntryWizardTurningToShoot,
                 "The final fireball must launch while the wizard holds the turned pose.");
-            Capture(output, "04a-third-fireball-hit-flight", gameCamera, canvas, manifest,
+            Capture(output, "05a-third-fireball-hit-flight", gameCamera, canvas, manifest,
                 entry, chase, startDoor);
             yield return WaitForActiveObject("TitleEntryFireballImpact", VisualWaitSeconds);
             Assert.IsTrue(chase.IsEntryPursuerStunned,
@@ -146,15 +163,16 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsFalse(doorBlocker.enabled,
                 "The open door's visible arch must permit passage.");
             Assert.IsFalse(doorObstacle.enabled);
-            Capture(output, "05-fireball-hit-impact", gameCamera, canvas, manifest,
+            Capture(output, "06-fireball-hit-impact", gameCamera, canvas, manifest,
                 entry, chase, startDoor);
-            chase.Tick(0.15f);
+            chase.Tick(0.2f);
             Assert.IsTrue(chase.IsEntryPursuerStunned);
             Assert.Less(Vector3.Distance(stunnedPursuerPosition,
                 chase.EntryPursuerTransform.position), 0.01f);
-            Assert.Less(Vector3.Distance(stunnedWizardPosition,
-                chase.EntryWizardTransform.position), 0.01f);
-            Capture(output, "05a-pursuer-stunned", gameCamera, canvas, manifest,
+            Assert.Greater(chase.EntryWizardTransform.position.z,
+                stunnedWizardPosition.z + 0.1f,
+                "The wizard should run while the faster melee enemy is stunned.");
+            Capture(output, "06a-lead-stunned-wizard-running", gameCamera, canvas, manifest,
                 entry, chase, startDoor);
             chase.AutomaticTick = true;
 
@@ -179,7 +197,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsTrue(doorObstacle.enabled);
             Assert.IsFalse(entry.HasEnteredGameplay,
                 "The door must visibly seal before control starts.");
-            Capture(output, "06-start-door-sealed", gameCamera, canvas, manifest,
+            Capture(output, "07-start-door-sealed", gameCamera, canvas, manifest,
                 entry, chase, startDoor);
 
             while (!entry.HasEnteredGameplay && Time.realtimeSinceStartup < deadline)
@@ -196,6 +214,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "The wizard did not fire the two misses and final hit.");
             Assert.AreEqual(1, chase.EntryImpactCount,
                 "The final fireball did not show its hit effect.");
+            Assert.AreEqual(1, chase.FiredEntryWispCount);
+            Assert.AreEqual(1, chase.DodgedEntryWispCount);
             GameObject player = GameObject.Find("Player");
             PlayerMovement movement = player?.GetComponent<PlayerMovement>();
             Assert.IsNotNull(movement);
@@ -205,7 +225,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     EntryApproachLayout.FirstRoomArrival), 0.1f,
                 "The player did not start inside Ruined Entry after the chase.");
             yield return null;
-            Capture(output, "07-first-room-player-ready", gameCamera, canvas, manifest,
+            Capture(output, "08-first-room-player-ready", gameCamera, canvas, manifest,
                 entry, chase, startDoor);
             File.WriteAllText(Path.Combine(output, "capture-source.txt"), manifest.ToString());
             Debug.Log("Entry cutscene review capture: " + output);
@@ -330,6 +350,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     + ", startDoorOpen=" + startDoor.IsOpen
                     + ", shotsFired=" + chase.FiredEntryShotCount
                     + ", hitsShown=" + chase.EntryImpactCount
+                    + ", wispFired=" + chase.FiredEntryWispCount
+                    + ", wispDodged=" + chase.DodgedEntryWispCount
                     + ", cameraSize=" + gameCamera.orthographicSize.ToString("0.##")
                     + ", scene=" + SceneManager.GetActiveScene().name);
             }

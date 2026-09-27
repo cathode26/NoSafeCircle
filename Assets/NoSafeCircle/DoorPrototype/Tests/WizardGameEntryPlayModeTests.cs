@@ -263,10 +263,16 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.AreEqual(EntryApproachLayout.WizardEntryStart,
                 chase.EntryWizardTransform.position);
             Assert.Less(chase.EntryPursuerTransform.position.z, EntryApproachLayout.GateZ);
+            Assert.AreEqual(EntryApproachLayout.PursuerEntryStart.z,
+                chase.EntryPursuerTransform.position.z, 0.001f);
+            Assert.IsNotNull(chase.EntrySecondPursuerTransform);
+            Assert.IsNotNull(chase.EntryWraithTransform);
 
-            for (int step = 0; step < 30 && chase.FiredEntryShotCount < 3; step++)
+            for (int step = 0; step < 90 && chase.FiredEntryShotCount < 3; step++)
                 chase.Tick(0.1f);
             Assert.AreEqual(3, chase.FiredEntryShotCount);
+            Assert.AreEqual(1, chase.FiredEntryWispCount);
+            Assert.AreEqual(1, chase.DodgedEntryWispCount);
             Assert.IsTrue(gate.IsOpen,
                 "The three fireballs should launch before the entrance seals.");
             Assert.Less(chase.EntryWizardTransform.position.z, EntryApproachLayout.GateZ);
@@ -282,6 +288,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.GreaterOrEqual(chase.EntryWizardTransform.position.z - gate.transform.position.z,
                 2f, "The door should seal after the wizard clears its wall sprites.");
             Assert.Less(chase.EntryPursuerTransform.position.z, EntryApproachLayout.GateZ);
+            Assert.Less(chase.EntrySecondPursuerTransform.position.z, EntryApproachLayout.GateZ);
+            Assert.Less(chase.EntryWraithTransform.position.z, EntryApproachLayout.GateZ);
             Assert.AreEqual(3, chase.FiredEntryShotCount);
             Assert.AreEqual(1, chase.EntryImpactCount);
             Assert.IsFalse(door.IsOpen, "D1 must stay closed through the entire entry.");
