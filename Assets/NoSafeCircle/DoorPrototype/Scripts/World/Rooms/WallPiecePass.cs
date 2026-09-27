@@ -92,7 +92,7 @@ namespace NoSafeCircle.DoorPrototype.World.Rooms
                 }
             }
 
-            Jambs(pieces, room, state);
+            DoorShoulders(pieces, room, state);
             return pieces;
         }
 
@@ -192,7 +192,7 @@ namespace NoSafeCircle.DoorPrototype.World.Rooms
             if (highFree) pieces.Add(new WallPiece(WallPieceKind.EndCap, OnLine(alongX, high, line), -lowInward, alongX));
         }
 
-        private static void Jambs(List<WallPiece> pieces, WallRoom room, WallPassState state)
+        private static void DoorShoulders(List<WallPiece> pieces, WallRoom room, WallPassState state)
         {
             foreach (Vector3 door in room.Doors)
             {
@@ -207,11 +207,33 @@ namespace NoSafeCircle.DoorPrototype.World.Rooms
                 float centre = alongX ? door.x : door.z;
                 float half = room.DoorWidth * 0.5f;
 
-                // Each jamb is anchored at the collider gap edge (centre +/- 1.5) and extends INTO
-                // its run, away from the door - the run direction CreateAccent received.
-                Vector3 lowInward = alongX ? Vector3.left : Vector3.back;
-                pieces.Add(new WallPiece(WallPieceKind.Jamb, OnLine(alongX, centre - half, line), lowInward, alongX));
-                pieces.Add(new WallPiece(WallPieceKind.Jamb, OnLine(alongX, centre + half, line), -lowInward, alongX));
+                // THE SHOULDER. WallSpawner's own note: the visual door gap is 4 units against a
+                // contract-pinned 3-unit collider gap, so 0.500u each side of the leaf sits
+                // between the door's edge and where the wall run resumes. wall_door_jamb used to
+                // cover it and is no longer placed: measured 2026-09-27, it drew a COMPLETE stone
+                // portal - two piers plus a lintel - twice, flanking a leaf that carries its own
+                // frame, and 75% of it was overlapped by the stub run anyway.
+                //
+                // Fill it with the WALL'S OWN TILE, which is what Vincent asked for: "the brick
+                // around the door should be the same tiles of the wall". Same tiles by identity,
+                // not by resemblance, and no new art.
+                //
+                // BASE piece, deliberately. WallPiece's doc: a base Point is the slot CENTRE and
+                // Inward is the inset direction; an overlay Point is a run ENDPOINT and Inward
+                // runs along the run. So centre +/- (half + 0.5) centres a 1.000u wall_straight
+                // on [centre+1.5, centre+2.5] and its mirror - covering the shoulder exactly and
+                // touching the leaf without overlapping it. Emitting it with the jamb's OVERLAY
+                // arguments would have centred it ON the gap edge, painting 0.5u ACROSS the leaf:
+                // fill across a doorway is what occluded a door once already.
+                //
+                // Trialled in PlayMode before it was written: the 0.500u band closes and the door
+                // is not occluded. Base pieces are placed at Point directly rather than through
+                // AccentPosition, so they also carry the prefab's own 0.151 inward inset and sit
+                // on the floor - both of which wall_door_jamb lacked.
+                Vector3 inward = WallRoom.Inward(edge);
+                float shoulder = half + 0.5f;
+                pieces.Add(new WallPiece(WallPieceKind.Straight, OnLine(alongX, centre - shoulder, line), inward, alongX));
+                pieces.Add(new WallPiece(WallPieceKind.Straight, OnLine(alongX, centre + shoulder, line), inward, alongX));
             }
         }
 

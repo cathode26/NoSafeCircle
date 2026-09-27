@@ -163,8 +163,9 @@ namespace NoSafeCircle.DoorPrototype.World
             GameObject instance = Instantiate(prefab, parent);
             instance.name = $"{prefab.name} {piece.Point.x:0.##},{piece.Point.z:0.##}";
 
-            bool overlay = piece.Kind == WallPieceKind.Corner || piece.Kind == WallPieceKind.Jamb
-                || piece.Kind == WallPieceKind.EndCap;
+            // Jamb is no longer emitted: the door shoulder is filled with a BASE wall_straight
+            // piece instead, so it takes the base path and the prefab's own inset.
+            bool overlay = piece.Kind == WallPieceKind.Corner || piece.Kind == WallPieceKind.EndCap;
             instance.transform.SetPositionAndRotation(overlay ? AccentPosition(instance, piece, rotation) : piece.Point, rotation);
             if (overlay)
             {
@@ -217,7 +218,10 @@ namespace NoSafeCircle.DoorPrototype.World
             bool minEdgeIsInner =
                 Vector3.Dot(worldOffsetAtLocalMinX, piece.Inward) > Vector3.Dot(worldOffsetAtLocalMaxX, piece.Inward);
             Vector3 anchoredWorldOffset = minEdgeIsInner ? worldOffsetAtLocalMaxX : worldOffsetAtLocalMinX;
-            float anchorY = piece.Kind == WallPieceKind.Jamb ? FloorY - localBounds.min.y : FloorY;
+            // The Jamb carve-out that used to live here is GONE with the jambs themselves. It
+            // preserved a known-wrong double-subtraction behind a condition that can no longer
+            // fire, which is the worst kind to leave: nothing fails, so nothing removes it.
+            float anchorY = FloorY;
             return new Vector3(piece.Point.x, anchorY, piece.Point.z) - anchoredWorldOffset;
         }
 
