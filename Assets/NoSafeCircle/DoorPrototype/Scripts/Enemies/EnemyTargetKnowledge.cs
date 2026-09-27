@@ -105,12 +105,53 @@ namespace NoSafeCircle.DoorPrototype.Enemies
             {
                 var distanceToWizard = Vector3.Distance(transform.position, wizardTransform.position);
 
+                // A NEW CONTACT BEGINS WHEN THE WIZARD RE-ENTERS DETECTION RANGE.
+                if (distanceToWizard > detectionDistance)
+                {
+                    hasInvestigatedCurrentContact = false;
+                }
+
                 if (State != EnemyTargetKnowledgeState.Pursuing
                     && distanceToWizard <= detectionDistance
                     && HasUnobstructedViewOfWizard()
                     && !IsBeyondPursuitLeash())
                 {
                     AcquireTarget();
+                    return;
+                }
+
+                // SIGHT-BLOCKED CONTACT: INVESTIGATE RATHER THAN FREEZE. Vincent reported this
+                // as the enemy not walking around the furniture: a wizard standing behind a
+                // 2.73-tall shelf is inside detectionDistance, so the distance test passes, but
+                // HasUnobstructedViewOfWizard gates acquisition and NOTHING else ran - the enemy
+                // stayed Idle with no path and zero velocity for the whole window.
+                //
+                // GER's ruling, 2026-09-27, stated as outcomes because a criterion naming the
+                // mechanism would be satisfied by the defect itself:
+                //   1  the root moves and the straight-line gap to the wizard closes
+                //   2  while obstructed it is NOT Pursuing - this is what keeps cover meaningful,
+                //      and it is why making the shelf stop occluding is NOT the fix
+                //   3  it terminates, without alternating between moving and stationary twice
+                //
+                // Reusing SearchingLastKnownPosition gives 1 and 3 from machinery that already
+                // exists: EnemyPursuitMovement.HandleSearching paths to LastKnownPosition, reports
+                // arrival, and the bounded Wandering timer ends in ClearTarget. CurrentTarget is
+                // deliberately NOT set - an investigating enemy is suspicious, not locked on, so it
+                // can still be evaded, and TryRedirectToSpectralDecoy still requires Pursuing.
+                //
+                // LastKnownPosition is snapped ONCE, not re-aimed each tick: the enemy investigates
+                // where it detected something, which is what makes the outcome terminal. This is
+                // NOT an approach to the last-glimpsed point - GER ruled that unsatisfiable here
+                // precisely because the enemy never acquired, so there is no glimpse to approach.
+                if (State == EnemyTargetKnowledgeState.Idle
+                    && distanceToWizard <= detectionDistance
+                    && !hasInvestigatedCurrentContact
+                    && !HasUnobstructedViewOfWizard())
+                {
+                    hasInvestigatedCurrentContact = true;
+                    LastKnownPosition = wizardTransform.position;
+                    State = EnemyTargetKnowledgeState.SearchingLastKnownPosition;
+                    searchTimeRemaining = 0f;
                     return;
                 }
 
@@ -184,6 +225,13 @@ namespace NoSafeCircle.DoorPrototype.Enemies
 
         private Vector3 startPosition;
         private bool hasStartPosition;
+
+        // ONE INVESTIGATION PER CONTACT. Cleared when the wizard leaves detection range
+        // and when the target is acquired, so a later blocked contact investigates again.
+        // WITHOUT THIS THE FIX OSCILLATES: investigate, arrive, wander, go idle, notice the
+        // same blocked wizard, investigate again - which is the pacing defect in a different
+        // state's clothing. GER's outcome 3 forbids alternating more than once.
+        private bool hasInvestigatedCurrentContact;
 
         public void SetRequiresLineOfSight(bool required)
         {
@@ -334,6 +382,7 @@ namespace NoSafeCircle.DoorPrototype.Enemies
             CurrentTarget = wizardTransform;
             State = EnemyTargetKnowledgeState.Pursuing;
             searchTimeRemaining = 0f;
+            hasInvestigatedCurrentContact = false;
         }
 
         /// Movement-facing transition entry point: movement calls this once its owned
@@ -362,6 +411,7 @@ namespace NoSafeCircle.DoorPrototype.Enemies
         {
             ClearTarget();
             ClearSpectralDecoyRedirectState();
+            hasInvestigatedCurrentContact = false;
         }
     }
 }
