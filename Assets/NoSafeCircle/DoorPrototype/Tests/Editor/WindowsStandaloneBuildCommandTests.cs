@@ -12,7 +12,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
     // any tracked asset, or produce build output.
     public class WindowsStandaloneBuildCommandTests
     {
-        private const string CanonicalScenePath = "Assets/Scenes/DoorPrototype.unity";
+        private const string CanonicalScenePath = "Assets/Scenes/RuntimeWorld.unity";
         private const string SampleLocationPathName = "Build/Windows/NoSafeCircle.exe";
 
         [Test]
