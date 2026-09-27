@@ -56,7 +56,7 @@
   ],
   "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 3,
+  "contract_revision": 4,
   "decomposition_reason": "This remains one bounded feedback responsibility: one DoorBreachFeedback component, existing DoorInteractable events and public methods, deterministic builder wiring, focused runtime and conformance tests, controller-owned scene materialization, and one controlled human readability/audio gate. Real enemy-pressure readability is preserved as one downstream integration obligation rather than being implemented here.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -99,9 +99,29 @@
   ],
   "id": "NSC-052",
   "kind": "implementation",
-  "notes": "Exact durability totals, enemy door-hit timing and damage, crack thresholds, shake duration and magnitude, indicator styling, and audio mix are not fixed by the GDD. Tests use normalized remaining durability rather than canonizing the snapshot's 100-durability or 25-damage examples. The selected within-current-GDD visibility rule hides the indicator while sealed or open and shows it no later than the first accepted locked-door hit; an always-visible bar would require Vincent to reverse that choice. The assertable NSC-052 broken state uses the existing door-local cracks, indicator, and AudioSource and deliberately does not change the door SpriteRenderer; whether the door sprite itself should look open or broken and which task owns that appearance remains a Vincent decision. No off-screen marker or HUD cue is authorized. NSC-017 owns qualifying enemy locked-door attacks; NSC-049 owns D1-D5 composition; NSC-044 through NSC-048 and NSC-079 through NSC-084 own room geometry and dressing. DoorBreachFeedback.generatedBangClip is an intentional session-lifetime HideFlags.DontSave runtime object; tests must not depend on whether the shared clip already exists and must not create or expect a saved AudioClip asset. Vincent's controlled visual/audio review and the later real-enemy integration review remain required after automated tests pass.",
+  "notes": "Exact durability totals, enemy door-hit timing and damage, crack thresholds, shake duration and magnitude, indicator styling, and audio mix are not fixed by the GDD. Tests use normalized remaining durability rather than canonizing the snapshot's 100-durability or 25-damage examples. The selected within-current-GDD visibility rule hides the indicator while sealed or open and shows it no later than the first accepted locked-door hit; an always-visible bar would require Vincent to reverse that choice. The assertable NSC-052 broken state uses the existing door-local cracks, indicator, and AudioSource and deliberately does not change the door SpriteRenderer; whether the door sprite itself should look open or broken and which task owns that appearance remains a Vincent decision. No off-screen marker or HUD cue is authorized. NSC-017 owns qualifying enemy locked-door attacks; NSC-049 owns D1-D5 composition; NSC-044 through NSC-048 and NSC-079 through NSC-084 own room geometry and dressing. DoorBreachFeedback.generatedBangClip is an intentional session-lifetime HideFlags.DontSave runtime object; tests must not depend on whether the shared clip already exists and must not create or expect a saved AudioClip asset. Vincent's controlled visual/audio review and the later real-enemy integration review remain required after automated tests pass. *** REVISION 4, 2026-09-27: A DEAD TEST FILTER, NOT A CONTRACT CHANGE. *** This task's validation policy bound EditMode to two classes and one of them, DoorPrototypeSceneBuilderTests, was DELETED at eee0a6ac. The dead part is dropped and WizardArtIntegrationTests, which is alive on main, is kept; PlayMode was already two live classes and is untouched. NO CRITERION, GATE OR RESOURCE CHANGED - the contract is revised only because rebinding a filter is possible no other way: policy_entry_commit.py refuses an entry that already exists and directs you to contract_commit.py, which requires the revision number to rise. A DEAD FILTER IS THE QUIETEST FAULT IN THIS PIPELINE: it lives in Pipeline/TaskReviewAgent/authoritative_validation_policy.json, is invisible from the contract text, and FAILS GREEN - the run simply discovers fewer tests than intended and reports success. Found by the Pipeline Runner's sweep of 113 filter parts across 66 entries, with two witnesses that fail differently (a content grep for the class declaration, which catches a partial class in a file named otherwise, and the set of .cs basenames on main) plus a generated control token. I re-derived this task's own row before acting. THE DISCRIMINATOR IS NOT 'ABSENT FROM MAIN': 28 of its first-pass 34 were fixtures a not_delivered task is meant to CREATE, which is an absence something MANDATES. The test is 'WAS on main and is now gone', measured per class with git log main --diff-filter=D, main only and never --all - the same correction I had to make to my own deleted-versus-never-written discriminator earlier today.",
   "parent": "NSC-021",
   "provenance": {
+    "contract_followups": [
+      {
+        "base_contract_sha256": "5cb2855e492ee0c1aa1bbee5a291bb66a2b2b332e0093038cf81230a094bd986",
+        "date": "2026-09-26",
+        "previous_contract_revision": 2,
+        "reason": "VAL-004: the materialization half of this gate no longer exists under the instantiate path, so the build command, generated-scene recording and second-run equivalence check are withdrawn; every door-breach assertion is untouched",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)",
+        "revised_contract_sha256": "846a55c839b4a3f87b0aa46eb393356e567dd92e78b770704ea22d622b40b6cb",
+        "source_head": "b8607aa9541d7ef818e7e2d96d27d1c6357c2477"
+      },
+      {
+        "date": "2026-09-27",
+        "reason": "Rev 4 drops a DEAD test filter, and nothing else. The validation policy bound EditMode to two classes and one of them, DoorPrototypeSceneBuilderTests, was DELETED at eee0a6ac; the dead part is dropped and WizardArtIntegrationTests, alive on main, is kept, while PlayMode was already two live classes and is untouched. No criterion, gate or resource changed - the contract is revised only because rebinding a filter is possible no other way: policy_entry_commit.py refuses an entry that already exists and directs you to contract_commit.py, which requires the revision number to rise. A dead filter is the quietest fault in this pipeline: it lives in authoritative_validation_policy.json, is invisible from the contract text, and FAILS GREEN, because the run simply discovers fewer tests than intended and reports success. Found by the Pipeline Runner's sweep of 113 filter parts across 66 entries with two witnesses that fail differently plus a generated control token; I re-derived this task's own row before acting. The discriminator is not absent-from-main - 28 of its first-pass 34 were fixtures a not_delivered task is meant to CREATE - it is WAS-on-main-and-now-gone, measured with git log main --diff-filter=D, main only and never --all.",
+        "source_head": "3e4c7b9d21d22f8c0b070145db5d6ea235aff5f9",
+        "previous_contract_revision": 3,
+        "base_contract_sha256": "d0a36e01a54cfa38cd7d34eae4e6e6c5335bf76873e8473c365cc9cf73202e03",
+        "revised_contract_sha256": "74f4dd5738384fa2c7174bade47ae1226600975e27eab71156eada3a476f746a",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ],
     "graph_delta_plan_id": "GDP-f09937afe7f3a88895af12c9cb8dd1b76ae60aca0a902d7e960499bc8478d4fc",
     "origin": "progressive_decomposition",
     "parent_contract_revision": 2,
@@ -110,8 +130,11 @@
     "task_design_ger": [
       {
         "ger_run_id": "20260914-073309-NSC-052",
+        "owner_patch_contract_sha256": "ab2819e95127cd4de941ad22ec83a3eb5987458a502b01c687dbf76a64d58837",
         "packet_source_head": "22c93fbc93cfab5ef3aa6fca54822274782d10b6",
         "previous_contract_revision": 1,
+        "reaudit_recommendation": "commit_contract",
+        "recheck_recommendation": "commit_contract",
         "round_output_sha256": {
           "01-codex-generate": "92446d3316bad8b884861e149fadfc3229b42d54c30e362b76e81d07ae3412da",
           "02-claude-evaluate": "e9785265a8d5017bc8424a85aa67c1674dfbdf8a6ac08a0df0471dc0290a9669",
@@ -119,21 +142,7 @@
           "04-claude-reaudit": "1be070d6ec89b92de1629f87fe8700d75989418b3447222b4b4b2b8ff05ac5bc",
           "05-owner-patch": "ef0eaa51657dd89f89a4e72e4b165bd8cbbe9bc5129225bd06d6396a4a3670d2",
           "06-claude-recheck": "3588baf4f845f5eb152772161c160de5110008183a2e25091ce77a1566903192"
-        },
-        "reaudit_recommendation": "commit_contract",
-        "owner_patch_contract_sha256": "ab2819e95127cd4de941ad22ec83a3eb5987458a502b01c687dbf76a64d58837",
-        "recheck_recommendation": "commit_contract"
-      }
-    ],
-    "contract_followups": [
-      {
-        "date": "2026-09-26",
-        "reason": "VAL-004: the materialization half of this gate no longer exists under the instantiate path, so the build command, generated-scene recording and second-run equivalence check are withdrawn; every door-breach assertion is untouched",
-        "source_head": "b8607aa9541d7ef818e7e2d96d27d1c6357c2477",
-        "previous_contract_revision": 2,
-        "base_contract_sha256": "5cb2855e492ee0c1aa1bbee5a291bb66a2b2b332e0093038cf81230a094bd986",
-        "revised_contract_sha256": "846a55c839b4a3f87b0aa46eb393356e567dd92e78b770704ea22d622b40b6cb",
-        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+        }
       }
     ]
   },

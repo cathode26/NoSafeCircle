@@ -386,13 +386,13 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-052": {
-      "task_contract_sha256": "f389d76ec7f0c4135e5ad1b64f395dec3dee0808cbe3a99c6b4f12e0b07a9b0b",
+      "task_contract_sha256": "d678fc33ff867388ebea39e6762950af7de64128e58729bd42d717b4b4c2cc46",
       "required_test_platforms": [
         "EditMode",
         "PlayMode"
       ],
       "test_filters": {
-        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.DoorPrototypeSceneBuilderTests;NoSafeCircle.DoorPrototype.Tests.Editor.WizardArtIntegrationTests",
+        "EditMode": "NoSafeCircle.DoorPrototype.Tests.Editor.WizardArtIntegrationTests",
         "PlayMode": "NoSafeCircle.DoorPrototype.Tests.DoorBreachFeedbackPlayModeTests;NoSafeCircle.DoorPrototype.Tests.FiveRoomDoorSequencePlayModeTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
