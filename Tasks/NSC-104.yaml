@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-104",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "PixelLab Enemy Eight-Direction Attack Source Art",
   "reconciliation_key": "pixellab-enemy-attack-art",
@@ -23,7 +23,7 @@
   "acceptance_criteria": [
     {
       "criterion_id": "AC-001",
-      "requirement": "Generate attack wind-up source art in all EIGHT facings for BOTH enemies, from the two already selected PixelLab characters and from no others: the melee Dungeon Brute, character_id 3db4582d-8b48-4486-be1a-19d1a8c6b9d2 in group a9d1ee9f-090f-4df8-9534-a44bba438c12, and the ranged Lantern Wraith, character_id 361131dd-8c48-4b99-8b81-c79bd30078dc in group f8421090-c9f3-42e9-aaae-262ee997238c, both at 180x180. THIS TASK MUST NOT CREATE A NEW CHARACTER. Docs/Art/Enemies/PIXELLAB_GENERATION.md lists non-selected candidates alongside these two, and animating one of those would silently replace an enemy whose idle and walk clips are already on main in eight directions - a substitution that no gate here would catch, because the frames would be internally consistent. Covering only one enemy also fails this criterion: both lack attack art, so a half-covered contract leaves the same gap open.",
+      "requirement": "Generate attack wind-up source art in all EIGHT facings for BOTH enemies, from the two already selected PixelLab characters and from no others: *** THE TWO IDS THIS CRITERION USED TO NAME WERE WRONG, AND THEY CAUSED EXACTLY THE SUBSTITUTION THE SENTENCE AFTER THEM WARNS ABOUT. CORRECTED 2026-09-27. *** The characters are the ones the SHIPPED WALK ART RECORDS, which is the only source that cannot disagree with what is on screen: read Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/inventory.json and take the character_id of each archetype - all 96 entries agree, 48 per archetype, melee 070592db-d334-4e7d-b5c9-5dad404d7f98 and ranged adf018b5-b4c9-4533-8ea2-9d9d28537dcb. *** DO NOT COPY THOSE TWO IDS INTO A GATE AS LITERALS AGAIN: name the relation - the character the shipped walk frames for that archetype were generated from - and read it from inventory.json at the moment of generating. *** They are written here once, as today's value and as evidence the relation resolves, not as the thing to match. THE IDS THIS CRITERION PREVIOUSLY DEMANDED WERE 3db4582d-8b48-4486-be1a-19d1a8c6b9d2 (melee) and 361131dd-8c48-4b99-8b81-c79bd30078dc (ranged), recorded here so the 96 frames already under Source/Attack can be identified as their output and discarded rather than re-adopted. Frames are generated at the canvas size the archetype's walk frames already use, read the same way, rather than a size pinned in this sentence. THIS TASK MUST NOT CREATE A NEW CHARACTER. Docs/Art/Enemies/PIXELLAB_GENERATION.md lists non-selected candidates alongside these two, and animating one of those would silently replace an enemy whose idle and walk clips are already on main in eight directions - a substitution that no gate here would catch, because the frames would be internally consistent. Covering only one enemy also fails this criterion: both lack attack art, so a half-covered contract leaves the same gap open.",
       "reference": "Docs/Art/Enemies/PIXELLAB_GENERATION.md selected-character table; Art Director Agent, 2026-09-22; NSC-063 selection"
     },
     {
@@ -82,6 +82,17 @@
     "source_art_task_id": "NSC-063",
     "approved_development_tool": "PixelLab MCP",
     "created_by_human_request": true,
-    "task_design_ger": "not_reviewed"
+    "task_design_ger": "not_reviewed",
+    "contract_followups": [
+      {
+        "date": "2026-09-27",
+        "reason": "AC-001 named two PixelLab character ids that are NOT the characters the shipped walk art uses - measured from all 96 entries of Source/Walk/inventory.json by archetype: melee 070592db, ranged adf018b5, against AC-001's 3db4582d and 361131dd. Whoever generated the 96 frames under Source/Attack followed this criterion faithfully and produced two different characters, which is the exact substitution AC-001's own next sentence warns about. THIS DELIBERATELY UN-DELIVERS NSC-104: the task is not done, its output is unusable, and the delivery record attests compliance with a defective spec rather than a finished job.",
+        "source_head": "58bbb882d9f269bf8a31d8b9b65c7f8824c712f0",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "34a8070a0e76afe8c9f0e70a400b11da7fc199a7a4f769b81f2b14d98134c72d",
+        "revised_contract_sha256": "94edf5434a542566f92ae87ec610914be9123913016746cb4490f841d0693d04",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   }
 }
