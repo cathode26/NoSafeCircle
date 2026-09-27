@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-077",
-  "contract_revision": 11,
+  "contract_revision": 12,
   "contract_disposition": "active",
   "title": "Enemy Art Integration for the Existing Moving Enemies",
   "reconciliation_key": "stationary-enemy-sprite-integration",
@@ -161,143 +161,152 @@
   "basis": "human_requested_moving_enemy_art_integration",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "Revision 3 replaces revision 2's stationary, presentation-only review scope at Vincent's direction on 2026-09-16: \"So 77 needs to be changed. We have moving enemies. We need to integrate the art into the already created enemies that have no art.\" It absorbs NSC-094's walk animation scope; NSC-094 is superseded by this task. The same day Vincent decided the ranged enemy becomes the Lantern Wraith and its fireball becomes a teal ghost-light lantern wisp with the same gameplay (art-director guide section 11, item 2). The reconciliation key keeps its original stationary wording because reconciliation keys never change. On main the scene enemies come from the playable-build commit 9a3d22c56, which has no task: MeleeEnemy moves through NSC-092's EnemyPursuitMovement and NSC-091's EnemyTargetKnowledge, and the fire caster holds its ground with EnemyFireballCaster and no NavMeshAgent, which no test covers. Their code is integrated on main; missing delivery records for NSC-075, NSC-091 and NSC-092 are graph bookkeeping, not missing code. RangedEnemyKeepDistanceMovement (NSC-053), RangedEnemyAttack and RangedEnemyProjectile (NSC-054) are not used by the scene's ranged enemy and are outside this task; their Lantern Wraith wording belongs to the NSC-016 and NSC-055 revisions. The Melee Enemy north-east single-cleaver idle and walk correction, approved by Vincent, is on main since b05a06ee1. walk_00 to walk_05 are PixelLab frames 1 to 6; the start pose was never committed. Revision 4 (2026-09-16) applies Vincent's pixel-density decision B: characters are a 128x128 canvas at about 64 pixels per unit in a camera-facing 2x2-unit box. The enemy art is already drawn at 128, so only the import constant and the Visual box change; the wizard's re-make and its own camera-facing Visual are separate work. The Art Director advised the pivot rules and the VAL-008 checks. Attack, hit and defeat animations need new approved art and a separate task. The unmerged branch codex/nsc077-stationary-enemies-20260914 may be read for its source-inventory check only; do not merge or copy its prefabs, review placement, copied PNGs or scene, and never delete it. Lessons: GUID-only stub .meta files import as Cube with point-light cookie defaults in Unity 6000.1 (NSC-075 fixes 0d28b0bf5 and bf97d116c), so set the texture shape and reset the cookie defaults explicitly; DoorPrototype.unity is binary, so rebuild it with the builder and never merge scene files; NSC-075 shipped with its screen-up axis inverted and its tests encoded the same mistake until Vincent saw it in Unity, which is why AC-005 spells out the mapping and VAL-008 requires his in-game check; Unity test filters are separated by semicolons. No .asmdef, ProjectSettings, DoorPrototypeSceneBuilder.cs or WizardAnimationController.cs change is authorized; stop and report if one is needed.",
+  "notes": "Revision 3 replaces revision 2's stationary, presentation-only review scope at Vincent's direction on 2026-09-16: \"So 77 needs to be changed. We have moving enemies. We need to integrate the art into the already created enemies that have no art.\" It absorbs NSC-094's walk animation scope; NSC-094 is superseded by this task. The same day Vincent decided the ranged enemy becomes the Lantern Wraith and its fireball becomes a teal ghost-light lantern wisp with the same gameplay (art-director guide section 11, item 2). The reconciliation key keeps its original stationary wording because reconciliation keys never change. On main the scene enemies come from the playable-build commit 9a3d22c56, which has no task: MeleeEnemy moves through NSC-092's EnemyPursuitMovement and NSC-091's EnemyTargetKnowledge, and the fire caster holds its ground with EnemyFireballCaster and no NavMeshAgent, which no test covers. Their code is integrated on main; missing delivery records for NSC-075, NSC-091 and NSC-092 are graph bookkeeping, not missing code. RangedEnemyKeepDistanceMovement (NSC-053), RangedEnemyAttack and RangedEnemyProjectile (NSC-054) are not used by the scene's ranged enemy and are outside this task; their Lantern Wraith wording belongs to the NSC-016 and NSC-055 revisions. The Melee Enemy north-east single-cleaver idle and walk correction, approved by Vincent, is on main since b05a06ee1. walk_00 to walk_05 are PixelLab frames 1 to 6; the start pose was never committed. Revision 4 (2026-09-16) applies Vincent's pixel-density decision B: characters are a 128x128 canvas at about 64 pixels per unit in a camera-facing 2x2-unit box. The enemy art is already drawn at 128, so only the import constant and the Visual box change; the wizard's re-make and its own camera-facing Visual are separate work. The Art Director advised the pivot rules and the VAL-008 checks. Attack, hit and defeat animations need new approved art and a separate task. The unmerged branch codex/nsc077-stationary-enemies-20260914 may be read for its source-inventory check only; do not merge or copy its prefabs, review placement, copied PNGs or scene, and never delete it. Lessons: GUID-only stub .meta files import as Cube with point-light cookie defaults in Unity 6000.1 (NSC-075 fixes 0d28b0bf5 and bf97d116c), so set the texture shape and reset the cookie defaults explicitly; DoorPrototype.unity is binary, so rebuild it with the builder and never merge scene files; NSC-075 shipped with its screen-up axis inverted and its tests encoded the same mistake until Vincent saw it in Unity, which is why AC-005 spells out the mapping and VAL-008 requires his in-game check; Unity test filters are separated by semicolons. No .asmdef, ProjectSettings, DoorPrototypeSceneBuilder.cs or WizardAnimationController.cs change is authorized; stop and report if one is needed. *** REVISION 12, 2026-09-27: A DEAD TEST FILTER, NOT A CONTRACT CHANGE. *** This task's validation policy bound EditMode to three classes and one of them, DoorPrototypeSceneBuilderTests, was DELETED at eee0a6ac. The dead part is dropped and EnemyArtIntegrationTests and WizardArtIntegrationTests, both alive on main, are kept; the ten PlayMode classes were all verified alive and are untouched. NO CRITERION, GATE OR RESOURCE CHANGED - the contract is revised only because rebinding a filter is possible no other way. A DEAD FILTER IS THE QUIETEST FAULT IN THIS PIPELINE: it lives in Pipeline/TaskReviewAgent/authoritative_validation_policy.json, is invisible from the contract text, and FAILS GREEN - the run simply discovers fewer tests than intended and reports success. Found by the Pipeline Runner's sweep of 113 filter parts across 66 entries, with two witnesses that fail differently (a content grep for the class declaration, which catches a partial class in a file named otherwise, and the set of .cs basenames on main) plus a generated control token. I re-derived this task's own row before acting. THE DISCRIMINATOR IS NOT 'ABSENT FROM MAIN': 28 of its first-pass 34 were fixtures a not_delivered task is meant to CREATE, which is an absence something MANDATES. The test is 'WAS on main and is now gone', measured per class with git log main --diff-filter=D, main only and never --all - the same correction I had to make to my own deleted-versus-never-written discriminator earlier today.",
   "repository_state_at_bootstrap": "partial",
   "repository_evidence_at_bootstrap": [
     {
-      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
       "evidence_type": "code",
-      "observation": "BuildChaseEnemies builds five MeleeEnemy and four FireCasterEnemy objects whose Visual children show the generated MeleeEnemySprite and FireCasterEnemySprite placeholder silhouettes. BuildWizardAnimationAssets and ImportWizardSprite are the established import, clip and controller pattern."
+      "observation": "BuildChaseEnemies builds five MeleeEnemy and four FireCasterEnemy objects whose Visual children show the generated MeleeEnemySprite and FireCasterEnemySprite placeholder silhouettes. BuildWizardAnimationAssets and ImportWizardSprite are the established import, clip and controller pattern.",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs"
     },
     {
-      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/WizardAnimationController.cs",
       "evidence_type": "code",
-      "observation": "Holds the Vincent-approved eight-direction screen mapping (screen right X + Z, screen up Z - X) with angular hysteresis, corrected in 7fc15c528."
+      "observation": "Holds the Vincent-approved eight-direction screen mapping (screen right X + Z, screen up Z - X) with angular hysteresis, corrected in 7fc15c528.",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/WizardAnimationController.cs"
     },
     {
-      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyFireballCaster.cs",
       "evidence_type": "code",
-      "observation": "A stationary caster with private cast-range and line-of-sight checks, orange primitive-sphere EnemyFireball projectiles, and no NavMeshAgent or pursuit components; no test fixture covers it."
+      "observation": "A stationary caster with private cast-range and line-of-sight checks, orange primitive-sphere EnemyFireball projectiles, and no NavMeshAgent or pursuit components; no test fixture covers it.",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyFireballCaster.cs"
     },
     {
-      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/inventory.json",
       "evidence_type": "asset",
-      "observation": "96 approved walk frames, 176x176, with the alpha bottom normalized to y=132. The 16 idle stills are 128x128. Both sets carry Unity-generated default texture .meta files, not Sprite imports."
+      "observation": "96 approved walk frames, 176x176, with the alpha bottom normalized to y=132. The 16 idle stills are 128x128. Both sets carry Unity-generated default texture .meta files, not Sprite imports.",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Walk/inventory.json"
     }
   ],
   "provenance": {
-    "origin": "human_requested_stationary_enemy_integration_graph_candidate",
-    "source_art_task_id": "NSC-063",
-    "sorting_foundation_task_id": "NSC-039",
-    "room_composition_task_id": "NSC-069",
+    "approved_at_utc_date": "2026-09-13",
     "behavior_boundaries": [
       "NSC-015",
       "NSC-055",
       "NSC-030"
     ],
+    "contract_followups": [
+      {
+        "base_contract_sha256": "eefff76a784bcb00823a659f95483dbe9a53ff42a55080e3734718f4ef074790",
+        "date": "2026-09-17",
+        "previous_contract_revision": 2,
+        "reason": "Owner contract revision 3 at Vincent's direction (2026-09-16): put the approved Melee Enemy and Lantern Wraith art on the existing scene enemies, absorb NSC-094's walk scope, and turn the fire caster into the Lantern Wraith with a teal lantern wisp and unchanged gameplay.",
+        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)",
+        "revised_contract_sha256": "0b3dff8241c469f1a68dd226c31e3163a871123d58219f8af10971b6ca4fb2e8",
+        "source_head": "bdf618744c5f286d9d4e78e2fe05e244e0366e5f"
+      },
+      {
+        "base_contract_sha256": "676b96ce66a6ac00b5f2c503b39b6920f43475cf6a3557687f090bd670dca422",
+        "date": "2026-09-17",
+        "previous_contract_revision": 3,
+        "reason": "Follow-up revision 4: apply Vincent's pixel-density decision B (2026-09-16) - enemy sprites at 64 pixels per unit in a uniform, camera-facing Visual box - and record his lantern-wisp look pick in INT-002. No gameplay change.",
+        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)",
+        "revised_contract_sha256": "b0aec6d396140e0d31cac7429b6f12f038ac6d8cd1235f74535c6528abc66057",
+        "source_head": "95492e43d7519049c32056b6548c13765cdc157c"
+      },
+      {
+        "base_contract_sha256": "ea3917cf1425a54059e8937cba8357b80617a68155f7b3423ca867db6541590f",
+        "date": "2026-09-17",
+        "previous_contract_revision": 4,
+        "reason": "Follow-up revision 5 from the rev 4 contract check (revise): EnemyAnimationController keeps the camera rotation (30, -45, 0) as its own runtime constant instead of referencing the Editor-only DoorPrototypeGlobalSceneBuilder.IsometricCameraEulerAngles, which would not compile; an Edit Mode test asserts the two match.",
+        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)",
+        "revised_contract_sha256": "c264950f7bb74b3eb60495aa4aba615833f5ba6c70730986bec39f16230a211c",
+        "source_head": "17fbcdfcdc9e591270245e12f6d34bb914f157e5"
+      },
+      {
+        "base_contract_sha256": "b6fc4bd6b1e5207ddbd664d208b99c6c6c7be1d588e7ccd9d019409011e66062",
+        "date": "2026-09-17",
+        "previous_contract_revision": 5,
+        "reason": "Follow-up revision 6 from the rev 5 Codex check (revise): the script rename keeps the GUID when the executor can move .meta files and accepts a pipeline-generated .meta otherwise (VAL-003 proves no missing scripts); VAL-008 states pixel density is settled at 64 PPU.",
+        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)",
+        "revised_contract_sha256": "04a098148cc16aacf2ea86a19ee7f8f1f937e88a1542c84b038c2e871a297d01",
+        "source_head": "5c81b33c95f04ae8c39b6622988ed3d33bff846c"
+      },
+      {
+        "base_contract_sha256": "f6379d912563bfa17e1cb291765484b0bef43b3656993199d975f7447933c7ba",
+        "date": "2026-09-17",
+        "previous_contract_revision": 6,
+        "reason": "Follow-up revision 7 from the rev 6 Codex check (revise) and nsc-33's candidate evidence: the script rename again keeps GUID 73b9fddab19c3f34e878119acd894458 through a host-owned .cs/.meta git move (UNITY_TESTING_POLICY.md forbids regenerated tracked metas); VAL-007 exempts DoorPrototype.unity's regenerated local fileIDs and requires semantic scene identity instead, and tolerates two DoorPrototypeSceneBuilderTests tests made stale by 9a3d22c56's spawn move when they fail identically on the base commit; the authoritative validation policy is rebound to this revision with VAL-007's Edit Mode and Play Mode fixtures.",
+        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)",
+        "revised_contract_sha256": "15f4ffde8c7336d3bf7d4691db11e68d565697a57313df5baba9d2595c1f6bea",
+        "source_head": "32c6223d3e0e8c6a311958a4fddce92840b1d907"
+      },
+      {
+        "base_contract_sha256": "9f0cb361b63f6d5133883ca778b04e7b891268bd9f5f85fff9a0925dc118ac97",
+        "date": "2026-09-17",
+        "previous_contract_revision": 7,
+        "reason": "Follow-up revision 8 from the rev 7 Codex check (revise): VAL-007 requires the whole DoorPrototypeSceneBuilderTests fixture to pass (the Unity runner and manifests accept no failed test), with the candidate rebased onto the separate test-maintenance fix for the two tests made stale by 9a3d22c56; scene idempotence is proven by identical normalized SerializedObject snapshots of the two Builds (fileID-free references) instead of counts and sizes; the validation policy keeps its filters and is rebound to this revision.",
+        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)",
+        "revised_contract_sha256": "e9e2e7baca712a3361fb26be9dd7654023ec412965c147bda32318e52055e91e",
+        "source_head": "a58d21e31873fdbe8484b568b6e12f44a5fcd78a"
+      },
+      {
+        "base_contract_sha256": "6f28c3bd0d1a78391f7524be64f4b7aead4edc978825cf79fb02ca21e55afc03",
+        "date": "2026-09-17",
+        "previous_contract_revision": 8,
+        "reason": "Follow-up revision 9 from the rev 8 Codex check (revise): VAL-007 no longer requires scene idempotence or a snapshot tool. The second Build must change no file except Assets/Scenes/DoorPrototype.unity, which Unity re-saves with regenerated local fileIDs and whose whole-scene determinism is pre-existing builder behavior outside this task; the scene content this task owns is proven by VAL-003's saved-scene tests in the authoritative Edit Mode filter. The candidate base must be local main at or after 74207b22f, which merges the DoorPrototypeSceneBuilderTests maintenance fix. The validation policy filters are unchanged and rebound to this revision.",
+        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)",
+        "revised_contract_sha256": "4fe0bfe35ca8b190d2728b1dc10393b19c2a0847de25ef6485f6d13248701f19",
+        "source_head": "23dfe8ac1f5251c528c94d2b569685d14f868c0d"
+      },
+      {
+        "base_contract_sha256": "1b3377af2db8310e8bb2c62dd08d331e8d29dc785187e754340ba69b7a6a1418",
+        "date": "2026-09-17",
+        "previous_contract_revision": 9,
+        "reason": "Follow-up revision 10 from the rev 9 Codex check (revise, blocking): AC-008's rebuild clause no longer covers scene objects; a repeat Build changes no generated controller, clip, placeholder asset or .meta import setting and duplicates nothing, while Assets/Scenes/DoorPrototype.unity is excluded from byte comparison (VAL-007) and VAL-003 now proves exactly one MeleeEnemy and one LanternWraith per entry of the builder's spawn-position arrays. The validation policy filters are unchanged and rebound to this revision.",
+        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)",
+        "revised_contract_sha256": "de61930546ce3875bde1129966fb75eff946c559ca87694fbd6e09a1fe1e818a",
+        "source_head": "2f54be6853479d886d032b107a8a871196a1d02f"
+      },
+      {
+        "base_contract_sha256": "f9a92ccdda4cb4ee58cfe85e27128da419dda5a446e199c6aa2b46299f9a7a83",
+        "date": "2026-09-26",
+        "previous_contract_revision": 10,
+        "reason": "VAL-008: repoint Vincent's human review from the old composed scene to RuntimeWorld.unity on his instruction that the old world is removed; the review itself is unchanged",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)",
+        "revised_contract_sha256": "61dab6389abd023cb4b7cebf87540b9daf816d2cd2c3ec42c7e8a544398c0fb8",
+        "source_head": "f463e20d0526c9b5d146bda50726d6a4db41b28d"
+      },
+      {
+        "date": "2026-09-27",
+        "reason": "Rev 12 drops a DEAD test filter, and nothing else. The validation policy bound EditMode to three classes and one of them, DoorPrototypeSceneBuilderTests, was DELETED at eee0a6ac; the dead part is dropped and EnemyArtIntegrationTests and WizardArtIntegrationTests, both alive on main, are kept, while all ten PlayMode classes were verified alive and are untouched. No criterion, gate or resource changed - the contract is revised only because rebinding a filter is possible no other way: policy_entry_commit.py refuses an entry that already exists and directs you to contract_commit.py, which requires the revision number to rise. A dead filter is the quietest fault in this pipeline: it lives in authoritative_validation_policy.json, is invisible from the contract text, and FAILS GREEN, because the run simply discovers fewer tests than intended and reports success. Found by the Pipeline Runner's sweep of 113 filter parts across 66 entries with two witnesses that fail differently plus a generated control token; I re-derived this task's own row before acting. The discriminator is not absent-from-main - 28 of its first-pass 34 were fixtures a not_delivered task is meant to CREATE - it is WAS-on-main-and-now-gone, measured with git log main --diff-filter=D, main only and never --all.",
+        "source_head": "9332fda75a60f87b3f72cbd7011d22f2b093bda3",
+        "previous_contract_revision": 11,
+        "base_contract_sha256": "2e88b275a1b18d93b8a438361f2569346994b9228951c72cd9d8c416b445ec64",
+        "revised_contract_sha256": "7c0fadc071a2ecff6ebcbdf868906c698844378ca18c2d1159ef0474e2873872",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ],
     "created_by_human_request": true,
-    "approved_at_utc_date": "2026-09-13",
-    "walk_source_art_task_id": "NSC-093",
     "facing_mapping_task_id": "NSC-075",
-    "supersedes_task_id": "NSC-094",
-    "revision_3_direction": {
+    "origin": "human_requested_stationary_enemy_integration_graph_candidate",
+    "pixel_density_decision": {
       "by": "Vincent",
       "date": "2026-09-16",
-      "quote": "So 77 needs to be changed. We have moving enemies. We need to integrate the art into the already created enemies that have no art."
+      "decision": "B",
+      "summary": "Characters are a 128x128 canvas at about 64 pixels per world unit in a camera-facing 2x2-unit box."
     },
     "ranged_enemy_identity_decision": {
       "by": "Vincent",
       "date": "2026-09-16",
       "decision": "The ranged enemy becomes the Lantern Wraith, and its fireball becomes a teal ghost-light lantern wisp with the same gameplay."
     },
-    "contract_followups": [
-      {
-        "date": "2026-09-17",
-        "reason": "Owner contract revision 3 at Vincent's direction (2026-09-16): put the approved Melee Enemy and Lantern Wraith art on the existing scene enemies, absorb NSC-094's walk scope, and turn the fire caster into the Lantern Wraith with a teal lantern wisp and unchanged gameplay.",
-        "source_head": "bdf618744c5f286d9d4e78e2fe05e244e0366e5f",
-        "previous_contract_revision": 2,
-        "base_contract_sha256": "eefff76a784bcb00823a659f95483dbe9a53ff42a55080e3734718f4ef074790",
-        "revised_contract_sha256": "0b3dff8241c469f1a68dd226c31e3163a871123d58219f8af10971b6ca4fb2e8",
-        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
-      },
-      {
-        "date": "2026-09-17",
-        "reason": "Follow-up revision 4: apply Vincent's pixel-density decision B (2026-09-16) - enemy sprites at 64 pixels per unit in a uniform, camera-facing Visual box - and record his lantern-wisp look pick in INT-002. No gameplay change.",
-        "source_head": "95492e43d7519049c32056b6548c13765cdc157c",
-        "previous_contract_revision": 3,
-        "base_contract_sha256": "676b96ce66a6ac00b5f2c503b39b6920f43475cf6a3557687f090bd670dca422",
-        "revised_contract_sha256": "b0aec6d396140e0d31cac7429b6f12f038ac6d8cd1235f74535c6528abc66057",
-        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
-      },
-      {
-        "date": "2026-09-17",
-        "reason": "Follow-up revision 5 from the rev 4 contract check (revise): EnemyAnimationController keeps the camera rotation (30, -45, 0) as its own runtime constant instead of referencing the Editor-only DoorPrototypeGlobalSceneBuilder.IsometricCameraEulerAngles, which would not compile; an Edit Mode test asserts the two match.",
-        "source_head": "17fbcdfcdc9e591270245e12f6d34bb914f157e5",
-        "previous_contract_revision": 4,
-        "base_contract_sha256": "ea3917cf1425a54059e8937cba8357b80617a68155f7b3423ca867db6541590f",
-        "revised_contract_sha256": "c264950f7bb74b3eb60495aa4aba615833f5ba6c70730986bec39f16230a211c",
-        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
-      },
-      {
-        "date": "2026-09-17",
-        "reason": "Follow-up revision 6 from the rev 5 Codex check (revise): the script rename keeps the GUID when the executor can move .meta files and accepts a pipeline-generated .meta otherwise (VAL-003 proves no missing scripts); VAL-008 states pixel density is settled at 64 PPU.",
-        "source_head": "5c81b33c95f04ae8c39b6622988ed3d33bff846c",
-        "previous_contract_revision": 5,
-        "base_contract_sha256": "b6fc4bd6b1e5207ddbd664d208b99c6c6c7be1d588e7ccd9d019409011e66062",
-        "revised_contract_sha256": "04a098148cc16aacf2ea86a19ee7f8f1f937e88a1542c84b038c2e871a297d01",
-        "review": "none; taskcontrol validate only (Vincent, 2026-09-16)"
-      },
-      {
-        "date": "2026-09-17",
-        "reason": "Follow-up revision 7 from the rev 6 Codex check (revise) and nsc-33's candidate evidence: the script rename again keeps GUID 73b9fddab19c3f34e878119acd894458 through a host-owned .cs/.meta git move (UNITY_TESTING_POLICY.md forbids regenerated tracked metas); VAL-007 exempts DoorPrototype.unity's regenerated local fileIDs and requires semantic scene identity instead, and tolerates two DoorPrototypeSceneBuilderTests tests made stale by 9a3d22c56's spawn move when they fail identically on the base commit; the authoritative validation policy is rebound to this revision with VAL-007's Edit Mode and Play Mode fixtures.",
-        "source_head": "32c6223d3e0e8c6a311958a4fddce92840b1d907",
-        "previous_contract_revision": 6,
-        "base_contract_sha256": "f6379d912563bfa17e1cb291765484b0bef43b3656993199d975f7447933c7ba",
-        "revised_contract_sha256": "15f4ffde8c7336d3bf7d4691db11e68d565697a57313df5baba9d2595c1f6bea",
-        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
-      },
-      {
-        "date": "2026-09-17",
-        "reason": "Follow-up revision 8 from the rev 7 Codex check (revise): VAL-007 requires the whole DoorPrototypeSceneBuilderTests fixture to pass (the Unity runner and manifests accept no failed test), with the candidate rebased onto the separate test-maintenance fix for the two tests made stale by 9a3d22c56; scene idempotence is proven by identical normalized SerializedObject snapshots of the two Builds (fileID-free references) instead of counts and sizes; the validation policy keeps its filters and is rebound to this revision.",
-        "source_head": "a58d21e31873fdbe8484b568b6e12f44a5fcd78a",
-        "previous_contract_revision": 7,
-        "base_contract_sha256": "9f0cb361b63f6d5133883ca778b04e7b891268bd9f5f85fff9a0925dc118ac97",
-        "revised_contract_sha256": "e9e2e7baca712a3361fb26be9dd7654023ec412965c147bda32318e52055e91e",
-        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
-      },
-      {
-        "date": "2026-09-17",
-        "reason": "Follow-up revision 9 from the rev 8 Codex check (revise): VAL-007 no longer requires scene idempotence or a snapshot tool. The second Build must change no file except Assets/Scenes/DoorPrototype.unity, which Unity re-saves with regenerated local fileIDs and whose whole-scene determinism is pre-existing builder behavior outside this task; the scene content this task owns is proven by VAL-003's saved-scene tests in the authoritative Edit Mode filter. The candidate base must be local main at or after 74207b22f, which merges the DoorPrototypeSceneBuilderTests maintenance fix. The validation policy filters are unchanged and rebound to this revision.",
-        "source_head": "23dfe8ac1f5251c528c94d2b569685d14f868c0d",
-        "previous_contract_revision": 8,
-        "base_contract_sha256": "6f28c3bd0d1a78391f7524be64f4b7aead4edc978825cf79fb02ca21e55afc03",
-        "revised_contract_sha256": "4fe0bfe35ca8b190d2728b1dc10393b19c2a0847de25ef6485f6d13248701f19",
-        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
-      },
-      {
-        "date": "2026-09-17",
-        "reason": "Follow-up revision 10 from the rev 9 Codex check (revise, blocking): AC-008's rebuild clause no longer covers scene objects; a repeat Build changes no generated controller, clip, placeholder asset or .meta import setting and duplicates nothing, while Assets/Scenes/DoorPrototype.unity is excluded from byte comparison (VAL-007) and VAL-003 now proves exactly one MeleeEnemy and one LanternWraith per entry of the builder's spawn-position arrays. The validation policy filters are unchanged and rebound to this revision.",
-        "source_head": "2f54be6853479d886d032b107a8a871196a1d02f",
-        "previous_contract_revision": 9,
-        "base_contract_sha256": "1b3377af2db8310e8bb2c62dd08d331e8d29dc785187e754340ba69b7a6a1418",
-        "revised_contract_sha256": "de61930546ce3875bde1129966fb75eff946c559ca87694fbd6e09a1fe1e818a",
-        "review": "post-commit Codex contract check (tiered rule, 2026-09-17)"
-      },
-      {
-        "date": "2026-09-26",
-        "reason": "VAL-008: repoint Vincent's human review from the old composed scene to RuntimeWorld.unity on his instruction that the old world is removed; the review itself is unchanged",
-        "source_head": "f463e20d0526c9b5d146bda50726d6a4db41b28d",
-        "previous_contract_revision": 10,
-        "base_contract_sha256": "f9a92ccdda4cb4ee58cfe85e27128da419dda5a446e199c6aa2b46299f9a7a83",
-        "revised_contract_sha256": "61dab6389abd023cb4b7cebf87540b9daf816d2cd2c3ec42c7e8a544398c0fb8",
-        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
-      }
-    ],
-    "pixel_density_decision": {
+    "revision_3_direction": {
       "by": "Vincent",
       "date": "2026-09-16",
-      "decision": "B",
-      "summary": "Characters are a 128x128 canvas at about 64 pixels per world unit in a camera-facing 2x2-unit box."
-    }
+      "quote": "So 77 needs to be changed. We have moving enemies. We need to integrate the art into the already created enemies that have no art."
+    },
+    "room_composition_task_id": "NSC-069",
+    "sorting_foundation_task_id": "NSC-039",
+    "source_art_task_id": "NSC-063",
+    "supersedes_task_id": "NSC-094",
+    "walk_source_art_task_id": "NSC-093"
   }
 }
