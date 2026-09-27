@@ -10,10 +10,15 @@ namespace NoSafeCircle.DoorPrototype.Tests
     // is a SLACK RADIUS around a movable anchor, not a fixed distance from the original spawn
     // point, so absolute pursuit distance from spawn is unbounded.
     //
-    // These assert the RELATION the spec requires - the anchor has moved from spawn AND the
-    // rope is exactly taut - rather than a frozen coordinate, so the suite cannot pass on the
-    // pre-change fixed-at-spawn anchor and will not falsely fail the next time an unrelated
-    // change nudges an incidental value.
+    // Towing the anchor is only half the spec. Running out of slack no longer ends an ordinary
+    // chase either - the enemy must stay Pursuing while the anchor trails it, or the two halves
+    // combine into the reported defect ("the enemy keeps pacing back and forth"): walk to the
+    // slack limit, give up, walk back to the anchor just towed, re-acquire, repeat forever one
+    // leash-length from wherever it started. These assert the RELATION the spec requires - the
+    // anchor has moved from spawn, the rope is exactly taut, AND the chase never breaks off for
+    // distance - rather than a frozen coordinate, so the suite cannot pass on either the
+    // pre-change fixed-at-spawn anchor or the tow-with-give-up half-fix, and will not falsely
+    // fail the next time an unrelated change nudges an incidental value.
     public class EnemyTargetKnowledgeLeashAnchorPlayModeTests
     {
         private GameObject enemyObject;
@@ -58,11 +63,14 @@ namespace NoSafeCircle.DoorPrototype.Tests
         }
 
         // Spec: "once the enemy is further than the leash, the anchor is dragged along behind
-        // it so the rope stays exactly taut." The enemy starts at the spawn anchor (0,0,0),
-        // acquires the wizard, then is dragged 8 units out on a 5-unit leash - 3 units past
-        // slack. The anchor must have moved off spawn, and the enemy's distance from the
-        // (moved) anchor must equal the leash length within tolerance, not the frozen spawn
-        // point.
+        // it so the rope stays exactly taut" AND running out of slack no longer ends an
+        // ordinary chase. The enemy starts at the spawn anchor (0,0,0), acquires the wizard,
+        // then is dragged 8 units out on a 5-unit leash - 3 units past slack. The chase must
+        // stay Pursuing (the give-up branch fires only for a spectral-decoy redirect, not here),
+        // the anchor must have moved off spawn, and the enemy's distance from the (moved)
+        // anchor must equal the leash length within tolerance, not the frozen spawn point.
+        // Read via PursuitAnchor rather than LastKnownPosition: the give-up branch that used to
+        // surface the anchor onto LastKnownPosition no longer runs for an ordinary chase.
         [Test]
         public void UpdateTargetKnowledge_DraggedBeyondSlack_AnchorMovesFromSpawnAndRopeIsExactlyTaut()
         {
@@ -73,12 +81,10 @@ namespace NoSafeCircle.DoorPrototype.Tests
             enemyObject.transform.position = new Vector3(8f, 0f, 0f);
             targetKnowledge.UpdateTargetKnowledge(0f);
 
-            // The give-up-while-beyond-leash branch is what surfaces the anchor value onto the
-            // public LastKnownPosition field; see the SpectralDecoy leash tests for the same
-            // mechanism. This is a case of it firing without any spectral decoy involved.
-            Assert.That(targetKnowledge.State, Is.EqualTo(EnemyTargetKnowledgeState.SearchingLastKnownPosition));
+            Assert.That(targetKnowledge.State, Is.EqualTo(EnemyTargetKnowledgeState.Pursuing),
+                "an ordinary chase must not give up for distance once the anchor is towed");
 
-            var anchor = targetKnowledge.LastKnownPosition;
+            var anchor = targetKnowledge.PursuitAnchor;
             Assert.That(anchor, Is.Not.EqualTo(spawnPosition),
                 "the anchor must have been dragged off its original spawn point");
             Assert.That(Vector3.Distance(anchor, enemyObject.transform.position), Is.EqualTo(5f).Within(0.001f),
@@ -87,27 +93,77 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
         // Spec: "Pursuit is thereby unbounded in absolute terms." Demonstrates the actual
         // consequence: an enemy dragged 8 units from its ORIGINAL spawn - beyond the old
-        // fixed-at-spawn 5-unit cap, which would have permanently blocked re-acquisition past
-        // that radius - can still re-acquire the wizard, because the (towed) anchor trails the
-        // enemy rather than staying pinned to spawn.
+        // fixed-at-spawn 5-unit cap, which under the pre-change behaviour would have ended the
+        // chase for good - simply keeps chasing, because the (towed) anchor trails the enemy
+        // rather than staying pinned to spawn. Renamed from "Reacquires...": with the give-up
+        // removed there is nothing to re-acquire - CurrentTarget was never cleared - so a name
+        // built around re-acquisition would no longer describe what the test does.
         [Test]
-        public void UpdateTargetKnowledge_ReacquiresFarFromOriginalSpawn_BecauseAnchorTrailedTheDrag()
+        public void UpdateTargetKnowledge_ContinuesFarFromOriginalSpawn_BecauseAnchorTrailedTheDrag()
         {
+            var spawnPosition = enemyObject.transform.position;
             targetKnowledge.SetMaximumPursuitDistanceFromStart(5f);
             AcquirePursuit(new Vector3(4f, 0f, 0f));
 
             enemyObject.transform.position = new Vector3(8f, 0f, 0f);
             targetKnowledge.UpdateTargetKnowledge(0f);
-            Assert.That(targetKnowledge.State, Is.EqualTo(EnemyTargetKnowledgeState.SearchingLastKnownPosition));
+            Assert.That(targetKnowledge.State, Is.EqualTo(EnemyTargetKnowledgeState.Pursuing));
 
             // Wizard stays close to the enemy's current (far-from-spawn) position, well inside
-            // detection distance and exactly at the fresh anchor's slack boundary.
-            wizardTransform.position = new Vector3(10f, 0f, 0f);
+            // detection/lose-target distance. Push the enemy to 1000 units from its ORIGINAL
+            // spawn - vastly beyond the old fixed 5-unit cap - in one further step.
+            enemyObject.transform.position = new Vector3(1000f, 0f, 0f);
+            wizardTransform.position = new Vector3(1004f, 0f, 0f);
             targetKnowledge.UpdateTargetKnowledge(0f);
 
             Assert.That(targetKnowledge.State, Is.EqualTo(EnemyTargetKnowledgeState.Pursuing),
-                "re-acquisition 8 units from original spawn must succeed once the anchor has trailed the drag");
+                "the chase 1000 units from original spawn must continue uninterrupted once the anchor has trailed the drag");
             Assert.That(targetKnowledge.CurrentTarget, Is.SameAs(wizardTransform));
+
+            var anchor = targetKnowledge.PursuitAnchor;
+            Assert.That(anchor, Is.Not.EqualTo(spawnPosition),
+                "the anchor must have been dragged off its original spawn point");
+            Assert.That(Vector3.Distance(anchor, enemyObject.transform.position), Is.EqualTo(5f).Within(0.001f),
+                "the rope must be exactly taut at the leash length after the drag");
+        }
+
+        // THE DEFECT ITSELF, not just the tow. Towing the anchor while still giving up produces
+        // exactly the reported symptom - "The enemy keeps pacing back and forth" - because the
+        // enemy walks to the slack limit, gives up, walks back to the anchor it just towed,
+        // re-acquires, and repeats forever, one leash-length from wherever it started. A
+        // single-step test cannot tell "towed and still gives up" apart from "towed and keeps
+        // chasing," because both produce a moved anchor and a taut rope on step one; only
+        // driving several cycles, progressively further out, can. This drives the enemy well
+        // past two and three leash-lengths (10f, 15f) from the original spawn over repeated
+        // steps and asserts the chase never once breaks off into SearchingLastKnownPosition for
+        // distance reasons, and that the anchor keeps trailing at exactly the leash length on
+        // every step - not just the first.
+        [Test]
+        public void UpdateTargetKnowledge_RepeatedDragCycles_NeverPacesIntoSearchingLastKnownPosition()
+        {
+            targetKnowledge.SetMaximumPursuitDistanceFromStart(5f);
+            AcquirePursuit(new Vector3(4f, 0f, 0f));
+
+            // Each step keeps the wizard 2 units ahead of the enemy on the same line, so
+            // distanceToWizard(2) never approaches loseTargetDistance(10) - only the leash
+            // mechanism is under test, not the separate lose-target-distance give-up path.
+            // 14 and 20 are past two and three leash-lengths (10f, 15f) from the spawn at 0.
+            float[] enemyXPositions = { 8f, 14f, 20f, 26f, 32f };
+
+            foreach (var x in enemyXPositions)
+            {
+                enemyObject.transform.position = new Vector3(x, 0f, 0f);
+                wizardTransform.position = new Vector3(x + 2f, 0f, 0f);
+                targetKnowledge.UpdateTargetKnowledge(0f);
+
+                Assert.That(targetKnowledge.State, Is.EqualTo(EnemyTargetKnowledgeState.Pursuing),
+                    $"an ordinary chase must never pace into SearchingLastKnownPosition for distance reasons (x={x})");
+                Assert.That(targetKnowledge.CurrentTarget, Is.SameAs(wizardTransform));
+
+                var anchor = targetKnowledge.PursuitAnchor;
+                Assert.That(Vector3.Distance(anchor, enemyObject.transform.position), Is.EqualTo(5f).Within(0.001f),
+                    $"the rope must stay exactly taut at the leash length as the anchor trails (x={x})");
+            }
         }
 
         // Acceptance check: zero must keep meaning "unlimited," unchanged. An enemy dragged an
