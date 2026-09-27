@@ -7,8 +7,8 @@ using UnityEngine;
 namespace NoSafeCircle.DoorPrototype
 {
     /// <summary>
-    /// Presentation-only chase actors behind the title. The scene builder supplies all art,
-    /// controller, camera, and floor references; this component never creates gameplay actors.
+    /// Presentation-only wizard and Brute entry chase. The scene builder supplies the art,
+    /// camera, and floor references; this component never creates gameplay actors.
     /// </summary>
     public sealed class TitleScreenChaseBackdrop : MonoBehaviour
     {
@@ -39,11 +39,48 @@ namespace NoSafeCircle.DoorPrototype
             public EnemyAnimationController PursuerAnimation;
         }
 
+        private sealed class EntryShot
+        {
+            public GameObject Visual;
+            public SpriteRenderer Renderer;
+            public Vector3 Start;
+            public Vector3 End;
+            public float FiredAt;
+            public bool HitsPursuer;
+        }
+
+        private sealed class EntrySequence
+        {
+            public Vector3 Start;
+            public Vector3 Destination;
+            public Vector3 BruteStart;
+            public Vector3 BruteStop;
+            public float Duration;
+            public float Elapsed;
+            public int NextShot;
+            public bool DoorwayNotified;
+            public bool EndingNotified;
+            public GameObject Wizard;
+            public SpriteRenderer WizardRenderer;
+            public GameObject Brute;
+            public SpriteRenderer BruteRenderer;
+            public EnemyAnimationController BruteAnimation;
+            public readonly List<EntryShot> Shots = new List<EntryShot>();
+            public GameObject Impact;
+            public float ImpactEndsAt;
+        }
+
         private const float ViewportMinX = 0.55f;
         private const float ViewportMaxX = 0.9f;
         private const float ViewportSafeMin = 0.05f;
         private const float ViewportSafeMax = 0.95f;
         private const float TimeEpsilon = 0.00001f;
+        private const float EntrySpeed = 3f;
+        private const float BruteEntrySpeed = 2.4f;
+        private const float DoorwayInsideZ = -1.5f;
+        private const float EntryShotFlightSeconds = 0.28f;
+        private const float EntryImpactSeconds = 0.28f;
+        private static readonly float[] EntryShotTimes = { 0.25f, 0.62f, 0.98f };
 
         [Header("Title and art")]
         [SerializeField] private TitleScreenController titleScreen;
@@ -74,6 +111,8 @@ namespace NoSafeCircle.DoorPrototype
         [SerializeField] private float minLaneLength = 6f;
         [SerializeField] private float wizardVisualScale = 2f;
         [SerializeField] private float pursuerVisualScale = 2f;
+        [SerializeField] private Sprite[] entryFireballFrames;
+        [SerializeField] private Sprite entryFireballImpact;
 
         private readonly List<ChasePairing> pairings = new List<ChasePairing>();
         private System.Random random;
@@ -85,12 +124,26 @@ namespace NoSafeCircle.DoorPrototype
         private float nextPairingIn;
         private int nextPairingIndex;
         private int startedPairingCount;
+        private EntrySequence entry;
 
         /// <summary>Disable the Unity clock when a test drives Tick directly.</summary>
         public bool AutomaticTick { get; set; } = true;
         public int NextPairingIndex => nextPairingIndex;
         public int StartedPairingCount => startedPairingCount;
         public int ActiveActorCount { get; private set; }
+        public int ActiveFireballCount => entry != null ? entry.Shots.Count : 0;
+        public int FiredEntryShotCount { get; private set; }
+        public int EntryImpactCount { get; private set; }
+        public bool IsEntryChaseRunning => entry != null;
+        public Transform EntryWizardTransform => entry != null && entry.Wizard != null
+            ? entry.Wizard.transform : null;
+
+        // The older repeating-pairing seam remains useful for its deterministic regression
+        // fixtures. Production leaves it false: the chosen wizard now runs once after selection.
+        public bool TitlePreviewLoopEnabled { get; set; }
+        public event Action EntryWizardCrossedDoorway;
+        public event Action EntryChaseEnding;
+        public event Action EntryChaseCompleted;
 
         private void OnEnable()
         {
@@ -206,11 +259,100 @@ namespace NoSafeCircle.DoorPrototype
             ResetSchedule();
         }
 
+        public void ConfigureFireballArt(Sprite[] projectileFrames, Sprite impact)
+        {
+            if (projectileFrames == null || projectileFrames.Length == 0)
+                throw new ArgumentException("At least one fireball frame is required.",
+                    nameof(projectileFrames));
+            foreach (Sprite frame in projectileFrames)
+            {
+                if (frame == null)
+                    throw new ArgumentException("Fireball frames cannot contain null.",
+                        nameof(projectileFrames));
+            }
+            if (impact == null) throw new ArgumentNullException(nameof(impact));
+            entryFireballFrames = (Sprite[])projectileFrames.Clone();
+            entryFireballImpact = impact;
+        }
+
+        /// <summary>
+        /// Starts one cosmetic entrance after the selected wizard has left the menus. The caller
+        /// owns the real door, camera follow, and gameplay handoff; this component only animates
+        /// the chosen wizard, a Brute outside D1, and three harmless backward fireballs.
+        /// </summary>
+        public bool BeginEntryChase(ConfirmedWizardSelection selection,
+            Vector3 entryStart, Vector3 gameplayDestination)
+        {
+            if (entry != null || titleScreen == null ||
+                !titleScreen.HasRequestedWizardSelection || !HasRuntimeInputs() ||
+                entryFireballFrames == null || entryFireballFrames.Length == 0 ||
+                entryFireballImpact == null ||
+                !IsFinite(entryStart.x) || !IsFinite(entryStart.y) || !IsFinite(entryStart.z) ||
+                !IsFinite(gameplayDestination.x) || !IsFinite(gameplayDestination.y) ||
+                !IsFinite(gameplayDestination.z) ||
+                Vector3.Distance(entryStart, gameplayDestination) < minLaneLength)
+                return false;
+
+            int choiceIndex = (int)selection.Presentation * 2 + (int)selection.Skin;
+            if (choiceIndex < 0 || choiceIndex >= wizardChoices.Length ||
+                !IsExpectedChoice(choiceIndex, selection.Presentation, selection.Skin))
+                return false;
+
+            ClearActors();
+            stopped = false;
+            FiredEntryShotCount = 0;
+            EntryImpactCount = 0;
+            Vector3 forward = (gameplayDestination - entryStart).normalized;
+            Vector3 bruteStart = entryStart - forward * pursuerSeparation;
+            var sequence = new EntrySequence
+            {
+                Start = entryStart,
+                Destination = gameplayDestination,
+                BruteStart = bruteStart,
+                BruteStop = new Vector3(entryStart.x, entryStart.y, 0.75f),
+                Duration = Vector3.Distance(entryStart, gameplayDestination) / EntrySpeed
+            };
+            sequence.Wizard = CreateActor("TitleEntryWizard_" + WizardName(choiceIndex),
+                wizardAnimatorController, entryStart, out sequence.WizardRenderer);
+            Transform wizardVisual = sequence.Wizard.transform.Find("Visual");
+            wizardVisual.localRotation = Quaternion.identity;
+            wizardVisual.localScale = new Vector3(wizardVisualScale, wizardVisualScale, 1f);
+            sequence.Wizard.AddComponent<WizardAnimationController>()
+                .ApplyPresentation(selection.Presentation, selection.Skin);
+
+            sequence.Brute = CreateActor("TitleEntryPursuer_DungeonBrute",
+                meleeAnimatorController, bruteStart, out sequence.BruteRenderer);
+            sequence.Brute.transform.Find("Visual").localScale =
+                new Vector3(pursuerVisualScale, pursuerVisualScale, 1f);
+            sequence.BruteAnimation = sequence.Brute.AddComponent<EnemyAnimationController>();
+            sequence.BruteAnimation.Initialize(sequence.Brute.GetComponent<Animator>(),
+                EnemyAnimationKind.MeleeEnemy);
+            sequence.BruteAnimation.enabled = false;
+            sequence.Brute.GetComponent<Animator>().Update(0f);
+            entry = sequence;
+            return true;
+        }
+
+        /// <summary>Aborts an interrupted menu or scene rebuild without a gameplay handoff.</summary>
+        public void CancelEntryChase()
+        {
+            ClearActors();
+            stopped = true;
+        }
+
         /// <summary>Advances the schedule and all actor transforms by precisely deltaTime.</summary>
         public void Tick(float deltaTime)
         {
             if (!IsFinite(deltaTime) || deltaTime < 0f)
                 throw new ArgumentOutOfRangeException(nameof(deltaTime));
+
+            if (entry != null)
+            {
+                AdvanceEntry(deltaTime);
+                return;
+            }
+
+            if (!TitlePreviewLoopEnabled) return;
 
             if (stopped || titleScreen == null) return;
             if (titleScreen.HasRequestedWizardSelection)
@@ -477,6 +619,128 @@ namespace NoSafeCircle.DoorPrototype
             }
         }
 
+        private void AdvanceEntry(float deltaTime)
+        {
+            EntrySequence sequence = entry;
+            float previous = sequence.Elapsed;
+            sequence.Elapsed = Mathf.Min(sequence.Duration, previous + deltaTime);
+            float elapsed = sequence.Elapsed;
+
+            sequence.Wizard.transform.position = Vector3.Lerp(
+                sequence.Start, sequence.Destination, elapsed / sequence.Duration);
+            sequence.Brute.transform.position = Vector3.MoveTowards(
+                sequence.BruteStart, sequence.BruteStop, BruteEntrySpeed * elapsed);
+            sequence.BruteAnimation.Tick(elapsed - previous);
+
+            while (sequence.NextShot < EntryShotTimes.Length &&
+                   EntryShotTimes[sequence.NextShot] <= elapsed)
+            {
+                FireEntryShot(sequence, sequence.NextShot);
+                sequence.NextShot++;
+            }
+
+            for (int index = sequence.Shots.Count - 1; index >= 0; index--)
+            {
+                EntryShot shot = sequence.Shots[index];
+                float flight = (elapsed - shot.FiredAt) / EntryShotFlightSeconds;
+                if (flight >= 1f)
+                {
+                    if (shot.HitsPursuer)
+                        ShowEntryImpact(sequence, shot.End, shot.FiredAt + EntryShotFlightSeconds);
+                    RetireVisual(shot.Visual);
+                    sequence.Shots.RemoveAt(index);
+                    continue;
+                }
+
+                shot.Visual.transform.position = Vector3.Lerp(shot.Start, shot.End, flight);
+                int frameIndex = Mathf.Min(entryFireballFrames.Length - 1,
+                    Mathf.FloorToInt(flight * entryFireballFrames.Length));
+                shot.Renderer.sprite = entryFireballFrames[frameIndex];
+            }
+
+            if (sequence.Impact != null && elapsed >= sequence.ImpactEndsAt)
+            {
+                RetireVisual(sequence.Impact);
+                sequence.Impact = null;
+            }
+
+            if (!sequence.DoorwayNotified && sequence.Wizard.transform.position.z <= DoorwayInsideZ)
+            {
+                sequence.DoorwayNotified = true;
+                EntryWizardCrossedDoorway?.Invoke();
+            }
+
+            if (!sequence.EndingNotified && elapsed >= sequence.Duration - 0.3f)
+            {
+                sequence.EndingNotified = true;
+                EntryChaseEnding?.Invoke();
+            }
+
+            if (elapsed >= sequence.Duration)
+            {
+                ClearActors();
+                EntryChaseCompleted?.Invoke();
+            }
+        }
+
+        private void FireEntryShot(EntrySequence sequence, int shotIndex)
+        {
+            float firedAt = EntryShotTimes[shotIndex];
+            float arrival = firedAt + EntryShotFlightSeconds;
+            Vector3 wizardPosition = Vector3.Lerp(
+                sequence.Start, sequence.Destination, firedAt / sequence.Duration);
+            Vector3 brutePosition = Vector3.MoveTowards(
+                sequence.BruteStart, sequence.BruteStop, BruteEntrySpeed * arrival);
+            Vector3 origin = wizardPosition + Vector3.up * 1.15f;
+            Vector3 target = brutePosition + Vector3.up * 1.15f;
+            bool hits = shotIndex == EntryShotTimes.Length - 1;
+            if (!hits)
+                target.x += shotIndex == 0 ? -1.75f : 1.75f;
+
+            GameObject visual = CreateEntrySpriteVisual(
+                "TitleEntryFireball_" + shotIndex, entryFireballFrames[0], origin, 1f);
+            sequence.Shots.Add(new EntryShot
+            {
+                Visual = visual,
+                Renderer = visual.GetComponent<SpriteRenderer>(),
+                Start = origin,
+                End = target,
+                FiredAt = firedAt,
+                HitsPursuer = hits
+            });
+            FiredEntryShotCount++;
+        }
+
+        private void ShowEntryImpact(EntrySequence sequence, Vector3 position, float impactAt)
+        {
+            sequence.Impact = CreateEntrySpriteVisual(
+                "TitleEntryFireballImpact", entryFireballImpact, position, 1.15f);
+            sequence.ImpactEndsAt = impactAt + EntryImpactSeconds;
+            EntryImpactCount++;
+        }
+
+        private GameObject CreateEntrySpriteVisual(string name, Sprite sprite,
+            Vector3 position, float scale)
+        {
+            var visual = new GameObject(name);
+            visual.transform.SetParent(actorContainer, false);
+            visual.transform.position = position;
+            visual.transform.rotation = chaseCamera.transform.rotation;
+            visual.transform.localScale = Vector3.one * scale;
+            var renderer = visual.AddComponent<SpriteRenderer>();
+            renderer.sprite = sprite;
+            renderer.sortingLayerName = WorldSpriteConvention.SortingLayerName;
+            renderer.sortingOrder = WorldSpriteConvention.SortingOrder + 2;
+            return visual;
+        }
+
+        private void RetireVisual(GameObject visual)
+        {
+            if (visual == null) return;
+            visual.SetActive(false);
+            Destroy(visual);
+        }
+
         private GameObject CreateActor(
             string name, RuntimeAnimatorController controller, Vector3 position,
             out SpriteRenderer renderer)
@@ -552,6 +816,7 @@ namespace NoSafeCircle.DoorPrototype
         private void ClearActors()
         {
             pairings.Clear();
+            entry = null;
             ActiveActorCount = 0;
             if (actorContainer == null) return;
             actorContainer.gameObject.SetActive(false);

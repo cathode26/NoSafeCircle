@@ -157,6 +157,19 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.AreEqual(4, serialized.FindProperty("wizardChoices").arraySize);
             Assert.AreEqual(1f, serialized.FindProperty("wizardVisualScale").floatValue);
             Assert.AreEqual(1f, serialized.FindProperty("pursuerVisualScale").floatValue);
+            const string fireballArtPath =
+                "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/";
+            SerializedProperty projectileFrames = serialized.FindProperty("entryFireballFrames");
+            Assert.AreEqual(4, projectileFrames.arraySize);
+            for (int index = 0; index < projectileFrames.arraySize; index++)
+            {
+                Assert.AreSame(
+                    AssetDatabase.LoadAssetAtPath<Sprite>(fireballArtPath + "projectile_" + index + ".png"),
+                    projectileFrames.GetArrayElementAtIndex(index).objectReferenceValue);
+            }
+            Assert.AreSame(
+                AssetDatabase.LoadAssetAtPath<Sprite>(fireballArtPath + "impact_still.png"),
+                serialized.FindProperty("entryFireballImpact").objectReferenceValue);
 
             Vector3 start = serialized.FindProperty("floorSegmentStart").vector3Value;
             Vector3 end = serialized.FindProperty("floorSegmentEnd").vector3Value;
@@ -179,6 +192,12 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
 
             GameObject canvas = GameObject.Find("Canvas");
             Assert.IsNotNull(canvas.GetComponent<TitleScreenGameplayHudVisibility>());
+            GameObject player = GameObject.Find("Player");
+            SpriteRenderer playerVisual = player?.transform.Find("Visual")?.GetComponent<SpriteRenderer>();
+            Assert.IsNotNull(playerVisual, "The legacy builder lost the gameplay player's Visual sprite.");
+            Assert.IsTrue(player.activeInHierarchy);
+            Assert.IsFalse(playerVisual.enabled,
+                "The legacy title must hide its stationary gameplay player sprite.");
             string[] gameplayNames =
             {
                 "InteractPrompt", "ProgressFill", "HealthFill", "ManaFill",
@@ -193,6 +212,16 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             }
 
             canvas.GetComponent<TitleScreenController>().StartGame();
+            Assert.IsFalse(playerVisual.enabled,
+                "Wizard selection has not finished the chase entry; the player sprite is still hidden.");
+            foreach (string name in gameplayNames)
+            {
+                CanvasGroup group = canvas.transform.Find(name).GetComponent<CanvasGroup>();
+                Assert.AreEqual(0f, group.alpha, name);
+                Assert.IsFalse(group.blocksRaycasts, name);
+            }
+            canvas.GetComponent<TitleScreenGameplayHudVisibility>().RestoreGameplayPresentation();
+            Assert.IsTrue(playerVisual.enabled, "Entry completion must restore the previous player sprite state.");
             foreach (string name in gameplayNames)
             {
                 CanvasGroup group = canvas.transform.Find(name).GetComponent<CanvasGroup>();

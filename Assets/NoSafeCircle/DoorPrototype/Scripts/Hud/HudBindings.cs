@@ -121,7 +121,7 @@ namespace NoSafeCircle.DoorPrototype.Hud
             manaButton.onClick.AddListener(debugMana.TriggerDebugSpend);
 
             // What TitleScreenController.Awake would have done had it known the player (see the class
-            // remarks): the title owns input until wizard selection hands it back.
+            // remarks): menus and the entry cutscene own input until gameplay handoff.
             if (titleScreen.IsTitleScreenVisible)
             {
                 movement.SuspendGameplayInput();
@@ -129,6 +129,12 @@ namespace NoSafeCircle.DoorPrototype.Hud
                 debugDamage.enabled = false;
                 debugMana.enabled = false;
             }
+
+            // The player exists before the HUD prefab is spawned. Hide only its world-space sprite;
+            // the entry cutscene later draws its chosen wizard and Brute while the player root stays live.
+            SpriteRenderer playerVisual = movement.transform.Find("Visual")?.GetComponent<SpriteRenderer>();
+            if (playerVisual != null)
+                GetComponent<TitleScreenGameplayHudVisibility>().BindPlayerVisual(playerVisual);
 
             Camera chaseCamera = Camera.main;
             if (TitleScreenChaseLane.TryGetFloorSegment(chaseCamera, out Vector3 floorStart,
@@ -169,6 +175,7 @@ namespace NoSafeCircle.DoorPrototype.Hud
                 (manaUi, nameof(manaUi)), (manaFill, nameof(manaFill)),
                 (damageButton, nameof(damageButton)), (manaButton, nameof(manaButton)),
                 (titleScreen, nameof(titleScreen)), (titleChase, nameof(titleChase)),
+                (GetComponent<TitleScreenGameplayHudVisibility>(), nameof(TitleScreenGameplayHudVisibility)),
                 (wizardChaseAnimator, nameof(wizardChaseAnimator)),
                 (meleeChaseAnimator, nameof(meleeChaseAnimator)),
                 (wraithChaseAnimator, nameof(wraithChaseAnimator)),

@@ -311,6 +311,12 @@ MonoBehaviour:
   minLaneLength: 6
   wizardVisualScale: 1
   pursuerVisualScale: 1
+  entryFireballFrames:
+  - {fileID: 21300000, guid: e61d52e2f31d0b5e386a351a3cf9afc1, type: 3}
+  - {fileID: 21300000, guid: 26ba9a42e17a36bb99ea301506b9b15a, type: 3}
+  - {fileID: 21300000, guid: 077ac3eb27d18d2ba0832c604a7f2288, type: 3}
+  - {fileID: 21300000, guid: cac3b58d82c29717b1e7400b4618cef4, type: 3}
+  entryFireballImpact: {fileID: 21300000, guid: 92cd7fd26b9c15243f26e7a29d83c9ed, type: 3}
 --- !u!114 &2285380109521794148
 MonoBehaviour:
   m_ObjectHideFlags: 0

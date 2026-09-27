@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace NoSafeCircle.DoorPrototype
 {
-    /// <summary>Hides gameplay HUD graphics while the title owns the screen.</summary>
+    /// <summary>Hides gameplay HUD graphics and the stationary player sprite until gameplay entry.</summary>
     [DisallowMultipleComponent]
     public sealed class TitleScreenGameplayHudVisibility : MonoBehaviour
     {
@@ -12,6 +12,9 @@ namespace NoSafeCircle.DoorPrototype
 
         private VisualState[] previousStates;
         private bool isHidden;
+        private SpriteRenderer gameplayPlayerVisual;
+        private bool previousPlayerVisualEnabled;
+        private bool isPlayerVisualHidden;
 
         public void Configure(TitleScreenController controller, CanvasGroup[] groups)
         {
@@ -24,11 +27,29 @@ namespace NoSafeCircle.DoorPrototype
                     throw new ArgumentException("Gameplay HUD groups cannot contain null.", nameof(groups));
             }
 
-            Restore();
-            Unsubscribe();
+            RestoreHud();
+            RestorePlayerVisual();
             titleScreen = controller;
             gameplayGroups = groups;
             ApplyTitleState();
+        }
+
+        /// <summary>Connects the spawned player's visual without disabling its root, camera, or input components.</summary>
+        public void BindPlayerVisual(SpriteRenderer visual)
+        {
+            if (visual == null) throw new ArgumentNullException(nameof(visual));
+
+            RestorePlayerVisual();
+            gameplayPlayerVisual = visual;
+            if (titleScreen != null && titleScreen.IsTitleScreenVisible)
+                HidePlayerVisual();
+        }
+
+        /// <summary>Reveals the HUD and player sprite when entry hands control back to gameplay.</summary>
+        public void RestoreGameplayPresentation()
+        {
+            RestoreHud();
+            RestorePlayerVisual();
         }
 
         private void Awake()
@@ -41,56 +62,62 @@ namespace NoSafeCircle.DoorPrototype
             ApplyTitleState();
         }
 
-        private void OnDisable()
+        private void OnDestroy()
         {
-            Unsubscribe();
+            // A HUD re-spawn destroys this owner before binding a replacement. Do not leave the
+            // surviving gameplay player invisible if entry never reached its handoff.
+            RestorePlayerVisual();
         }
 
         private void ApplyTitleState()
         {
             if (titleScreen == null || gameplayGroups == null) return;
-            Unsubscribe();
-            titleScreen.WizardSelectionRequested += OnWizardSelectionRequested;
             if (titleScreen.IsTitleScreenVisible) Hide();
-            else Restore();
         }
 
         private void Hide()
         {
-            if (isHidden) return;
-            previousStates = new VisualState[gameplayGroups.Length];
-            for (int index = 0; index < gameplayGroups.Length; index++)
+            if (!isHidden)
             {
-                CanvasGroup group = gameplayGroups[index];
-                previousStates[index] = new VisualState(group);
-                group.alpha = 0f;
-                group.interactable = false;
-                group.blocksRaycasts = false;
+                previousStates = new VisualState[gameplayGroups.Length];
+                for (int index = 0; index < gameplayGroups.Length; index++)
+                {
+                    CanvasGroup group = gameplayGroups[index];
+                    previousStates[index] = new VisualState(group);
+                    group.alpha = 0f;
+                    group.interactable = false;
+                    group.blocksRaycasts = false;
+                }
+                isHidden = true;
             }
-            isHidden = true;
+            HidePlayerVisual();
         }
 
-        private void OnWizardSelectionRequested()
+        private void RestoreHud()
         {
-            Restore();
-            Unsubscribe();
-        }
-
-        private void Restore()
-        {
-            if (!isHidden) return;
-            for (int index = 0; index < gameplayGroups.Length; index++)
+            if (isHidden)
             {
-                previousStates[index].Restore(gameplayGroups[index]);
+                for (int index = 0; index < gameplayGroups.Length; index++)
+                    previousStates[index].Restore(gameplayGroups[index]);
+                previousStates = null;
+                isHidden = false;
             }
-            previousStates = null;
-            isHidden = false;
         }
 
-        private void Unsubscribe()
+        private void HidePlayerVisual()
         {
-            if (titleScreen != null)
-                titleScreen.WizardSelectionRequested -= OnWizardSelectionRequested;
+            if (gameplayPlayerVisual == null || isPlayerVisualHidden) return;
+            previousPlayerVisualEnabled = gameplayPlayerVisual.enabled;
+            gameplayPlayerVisual.enabled = false;
+            isPlayerVisualHidden = true;
+        }
+
+        private void RestorePlayerVisual()
+        {
+            if (!isPlayerVisualHidden) return;
+            if (gameplayPlayerVisual != null)
+                gameplayPlayerVisual.enabled = previousPlayerVisualEnabled;
+            isPlayerVisualHidden = false;
         }
 
         private readonly struct VisualState

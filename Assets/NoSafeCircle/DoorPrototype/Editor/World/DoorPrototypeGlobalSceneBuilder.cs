@@ -22,6 +22,8 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
     internal static class DoorPrototypeGlobalSceneBuilder
     {
         private const string InputActionsAssetPath = "Assets/InputSystem_Actions.inputactions";
+        private const string TitleFireballArtPath =
+            "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/";
 
         private static readonly WizardSelectionDefinition[] WizardSelectionDefinitions =
         {
@@ -817,6 +819,10 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 floorStart,
                 floorEnd);
             backdrop.ConfigureMotion(2.5f, 10f, 20f, 1.5f, 2.5f, 0.5f, 6f);
+            var fireballFrames = new Sprite[4];
+            for (int index = 0; index < fireballFrames.Length; index++)
+                fireballFrames[index] = LoadTitleFireballSprite("projectile_" + index + ".png");
+            backdrop.ConfigureFireballArt(fireballFrames, LoadTitleFireballSprite("impact_still.png"));
             SetPrivateFieldValue(backdrop, "wizardVisualScale", 1f);
             SetPrivateFieldValue(backdrop, "pursuerVisualScale", 1f);
 
@@ -833,9 +839,22 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                     throw new System.InvalidOperationException("Missing gameplay HUD: " + gameplayNames[index]);
                 gameplayGroups[index] = visual.gameObject.AddComponent<CanvasGroup>();
             }
-            canvasObject.AddComponent<TitleScreenGameplayHudVisibility>()
-                .Configure(controller, gameplayGroups);
+            var visibility = canvasObject.AddComponent<TitleScreenGameplayHudVisibility>();
+            visibility.Configure(controller, gameplayGroups);
+            SpriteRenderer playerVisual = movement.transform.Find("Visual")?.GetComponent<SpriteRenderer>();
+            if (playerVisual == null)
+                throw new System.InvalidOperationException("The gameplay Player has no Visual sprite.");
+            visibility.BindPlayerVisual(playerVisual);
             return controller;
+        }
+
+        private static Sprite LoadTitleFireballSprite(string fileName)
+        {
+            string path = TitleFireballArtPath + fileName;
+            Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (sprite == null)
+                throw new System.InvalidOperationException("Missing title entry fireball art: " + path);
+            return sprite;
         }
 
         private static void LeftAlignTitleText(Text text)

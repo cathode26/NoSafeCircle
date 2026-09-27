@@ -237,6 +237,11 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsFalse(player.GetComponent<PlayerMovement>().IsGameplayEnabled);
             Assert.IsFalse(player.GetComponent<PlayerInteractionController>().IsGameplayEnabled);
             Assert.IsFalse(player.GetComponent<DebugManaSpendControl>().enabled);
+            SpriteRenderer playerVisual = player.transform.Find("Visual")?.GetComponent<SpriteRenderer>();
+            Assert.IsNotNull(playerVisual, "The spawned gameplay player lost its Visual sprite.");
+            Assert.IsTrue(player.activeInHierarchy, "The title must not disable the player root.");
+            Assert.IsFalse(playerVisual.enabled,
+                "The stationary gameplay player is visible behind the title chase.");
 
             string[] gameplayNames =
             {
@@ -260,10 +265,21 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.AreEqual(1, requestCount);
             Assert.IsFalse(titlePanel.gameObject.activeSelf);
             Assert.IsFalse(player.GetComponent<PlayerMovement>().IsGameplayEnabled);
+            Assert.IsFalse(playerVisual.enabled,
+                "Wizard selection is still before the chase entry, so the gameplay sprite must stay hidden.");
             foreach (string name in gameplayNames)
             {
                 CanvasGroup group = canvas.transform.Find(name).GetComponent<CanvasGroup>();
-                Assert.AreEqual(1f, group.alpha, name + " did not return for wizard selection.");
+                Assert.AreEqual(0f, group.alpha, name + " is visible before gameplay entry.");
+                Assert.IsFalse(group.blocksRaycasts, name + " receives clicks during wizard selection.");
+            }
+            canvas.GetComponent<TitleScreenGameplayHudVisibility>().RestoreGameplayPresentation();
+            Assert.IsTrue(playerVisual.enabled,
+                "The entry completion handoff did not restore the player's prior sprite state.");
+            foreach (string name in gameplayNames)
+            {
+                CanvasGroup group = canvas.transform.Find(name).GetComponent<CanvasGroup>();
+                Assert.AreEqual(1f, group.alpha, name + " did not return at gameplay entry.");
                 Assert.IsTrue(group.blocksRaycasts, name + " did not restore its UI input.");
             }
         }

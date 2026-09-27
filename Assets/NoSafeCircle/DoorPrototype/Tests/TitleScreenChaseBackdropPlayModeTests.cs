@@ -40,6 +40,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
         private TitleScreenController title;
         private TitleScreenChaseBackdrop backdrop;
         private ActiveEnemyRegistry registry;
+        private Texture2D fireballTexture;
+        private Sprite fireballSprite;
 
         [SetUp]
         public void SetUp()
@@ -78,6 +80,14 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 new Vector3(-14f, 0f, -3f),
                 new Vector3(14f, 0f, -3f));
             backdrop.ConfigureMotion(3f, 10f, 20f, 1.5f, 2.5f, 0.5f, 6f);
+            backdrop.TitlePreviewLoopEnabled = true;
+            fireballTexture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
+            fireballTexture.SetPixels(new[] { Color.red, Color.red, Color.red, Color.red });
+            fireballTexture.Apply();
+            fireballSprite = Sprite.Create(fireballTexture, new Rect(0, 0, 2, 2),
+                new Vector2(0.5f, 0.5f), 2f);
+            backdrop.ConfigureFireballArt(new[]
+                { fireballSprite, fireballSprite, fireballSprite, fireballSprite }, fireballSprite);
             // The shipped title uses unit scale for 128 px wizard art at 64 PPU.
             SetPrivateField(backdrop, "wizardVisualScale", 1f);
             SetPrivateField(backdrop, "pursuerVisualScale", 1f);
@@ -92,6 +102,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
             GameObject actors = GameObject.Find("TitleScreenChaseActors");
             if (actors != null) UnityEngine.Object.DestroyImmediate(actors);
             if (registryObject != null) UnityEngine.Object.DestroyImmediate(registryObject);
+            if (fireballSprite != null) UnityEngine.Object.DestroyImmediate(fireballSprite);
+            if (fireballTexture != null) UnityEngine.Object.DestroyImmediate(fireballTexture);
             if (titleObject != null) UnityEngine.Object.DestroyImmediate(titleObject);
             if (cameraObject != null) UnityEngine.Object.DestroyImmediate(cameraObject);
             if (targetTexture != null)
@@ -99,6 +111,128 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 targetTexture.Release();
                 UnityEngine.Object.DestroyImmediate(targetTexture);
             }
+        }
+
+        [Test]
+        public void TitleScreen_DoesNotLoopChaseBeforeWizardSelection()
+        {
+            backdrop.TitlePreviewLoopEnabled = false;
+            backdrop.Tick(60f);
+            Assert.AreEqual(0, backdrop.StartedPairingCount);
+            Assert.AreEqual(0, backdrop.ActiveActorCount);
+            Assert.IsNull(GameObject.Find("TitleScreenChaseActors"));
+        }
+
+        [TestCase(WizardPresentation.Masculine, WizardSkin.White, "Ember")]
+        [TestCase(WizardPresentation.Masculine, WizardSkin.Black, "Ash")]
+        [TestCase(WizardPresentation.Feminine, WizardSkin.White, "Frost")]
+        [TestCase(WizardPresentation.Feminine, WizardSkin.Black, "Dusk")]
+        public void EntryChase_UsesConfirmedWizardAndAlwaysOneCosmeticBrute(
+            WizardPresentation presentation, WizardSkin skin, string wizardName)
+        {
+            backdrop.TitlePreviewLoopEnabled = false;
+            title.StartGame();
+            Assert.IsTrue(backdrop.BeginEntryChase(
+                new ConfirmedWizardSelection(presentation, skin),
+                new Vector3(0f, 0f, 2.5f), new Vector3(-4f, 0f, -22f)));
+
+            GameObject wizard = GameObject.Find("TitleEntryWizard_" + wizardName);
+            GameObject brute = GameObject.Find("TitleEntryPursuer_DungeonBrute");
+            Assert.IsNotNull(wizard);
+            Assert.IsNotNull(brute);
+            Assert.IsNull(GameObject.Find("TitleChasePursuer_LanternWraith"));
+            Assert.AreSame(wizard.transform, backdrop.EntryWizardTransform);
+            Assert.AreEqual(presentation, wizard.GetComponent<WizardAnimationController>().Presentation);
+            Assert.AreEqual(skin, wizard.GetComponent<WizardAnimationController>().Skin);
+            AssertPresentationOnly(wizard);
+            AssertPresentationOnly(brute);
+            Assert.AreEqual(0, registry.ActiveCount);
+        }
+
+        [Test]
+        public void EntryChase_FiresTwoMissesThenOneHit_ClosesDoorAndKeepsRunning()
+        {
+            backdrop.TitlePreviewLoopEnabled = false;
+            title.StartGame();
+            int doorwayCalls = 0;
+            int endingCalls = 0;
+            int completionCalls = 0;
+            backdrop.EntryWizardCrossedDoorway += () => doorwayCalls++;
+            backdrop.EntryChaseEnding += () =>
+            {
+                endingCalls++;
+                Assert.IsNotNull(backdrop.EntryWizardTransform,
+                    "The fade begins while the selected wizard is still visible.");
+            };
+            backdrop.EntryChaseCompleted += () => completionCalls++;
+            Assert.IsTrue(backdrop.BeginEntryChase(OrderedWizards[0],
+                new Vector3(0f, 0f, 2.5f), new Vector3(-4f, 0f, -22f)));
+
+            GameObject wizard = GameObject.Find("TitleEntryWizard_Ember");
+            GameObject brute = GameObject.Find("TitleEntryPursuer_DungeonBrute");
+            backdrop.Tick(0.3f);
+            Assert.AreEqual(1, backdrop.FiredEntryShotCount);
+            Assert.AreEqual(1, backdrop.ActiveFireballCount);
+            Assert.IsNotNull(GameObject.Find("TitleEntryFireball_0"));
+            Assert.IsNull(GameObject.Find("TitleEntryFireball_0").GetComponent<Collider>());
+
+            backdrop.Tick(0.7f);
+            Assert.AreEqual(3, backdrop.FiredEntryShotCount);
+            Assert.AreEqual(0, backdrop.EntryImpactCount);
+            Vector3 beforeHit = wizard.transform.position;
+            backdrop.Tick(0.28f);
+            Assert.AreEqual(1, backdrop.EntryImpactCount,
+                "Only the final of three cosmetic shots should hit the Brute.");
+            Assert.Greater(Vector3.Distance(beforeHit, wizard.transform.position), 0.5f,
+                "The wizard keeps running while the hit effect plays.");
+            Assert.AreEqual(0, doorwayCalls);
+            Assert.GreaterOrEqual(brute.transform.position.z, 0.75f,
+                "The cosmetic Brute must stay outside D1.");
+
+            backdrop.Tick(0.1f);
+            Assert.AreEqual(1, doorwayCalls);
+            Assert.IsTrue(backdrop.IsEntryChaseRunning);
+            Assert.GreaterOrEqual(brute.transform.position.z, 0.75f);
+            backdrop.Tick(10f);
+            Assert.AreEqual(1, endingCalls);
+            Assert.AreEqual(1, completionCalls);
+            Assert.IsFalse(backdrop.IsEntryChaseRunning);
+            Assert.IsNull(backdrop.EntryWizardTransform);
+            Assert.AreEqual(0, backdrop.ActiveActorCount);
+            Assert.AreEqual(0, backdrop.ActiveFireballCount);
+            Assert.IsNull(GameObject.Find("TitleEntryWizard_Ember"));
+            Assert.IsNull(GameObject.Find("TitleEntryPursuer_DungeonBrute"));
+            Assert.AreEqual(0, registry.ActiveCount);
+            backdrop.Tick(10f);
+            Assert.AreEqual(1, endingCalls);
+            Assert.AreEqual(1, completionCalls,
+                "The gameplay handoff must happen exactly once.");
+        }
+
+        [Test]
+        public void CancelEntryChase_CleansVisualsWithoutCompletingOrClosingDoor()
+        {
+            backdrop.TitlePreviewLoopEnabled = false;
+            title.StartGame();
+            int doorwayCalls = 0;
+            int completionCalls = 0;
+            backdrop.EntryWizardCrossedDoorway += () => doorwayCalls++;
+            backdrop.EntryChaseCompleted += () => completionCalls++;
+            Assert.IsTrue(backdrop.BeginEntryChase(OrderedWizards[2],
+                new Vector3(0f, 0f, 2.5f), new Vector3(-4f, 0f, -22f)));
+            backdrop.Tick(0.4f);
+            Assert.AreEqual(1, backdrop.ActiveFireballCount);
+
+            backdrop.CancelEntryChase();
+            backdrop.CancelEntryChase();
+            backdrop.Tick(20f);
+            Assert.IsFalse(backdrop.IsEntryChaseRunning);
+            Assert.IsNull(backdrop.EntryWizardTransform);
+            Assert.AreEqual(0, backdrop.ActiveActorCount);
+            Assert.AreEqual(0, backdrop.ActiveFireballCount);
+            Assert.AreEqual(0, doorwayCalls);
+            Assert.AreEqual(0, completionCalls);
+            Assert.IsNull(GameObject.Find("TitleScreenChaseActors"));
         }
 
         [Test]
