@@ -1,4 +1,7 @@
+using System.Collections.Generic;
 using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
 using System;
 using NoSafeCircle.DoorPrototype.Diagnostics;
 using NUnit.Framework;
@@ -113,6 +116,75 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                     WalkthroughCapture.TryCreateFreshDirectory(root, day, stamp, out string third));
                 Assert.AreNotEqual(first, third);
                 Assert.AreNotEqual(second, third);
+            }
+            finally
+            {
+                if (Directory.Exists(root))
+                {
+                    Directory.Delete(root, true);
+                }
+            }
+        }
+
+        // U2 REGRESSION, SECOND HALF. The sequential test above proves the suffix
+        // search works when calls happen one after another. It cannot detect the real
+        // defect: Directory.Exists-then-CreateDirectory has a WINDOW between the check
+        // and the create, so two sessions starting at the same instant can both see a
+        // candidate absent and both proceed. Prove it by actually starting many
+        // allocations at once rather than one at a time, and require every one of them
+        // to land in a directory nobody else was handed.
+        [Test]
+        public void SessionDirectory_IsNeverHandedOutTwiceUnderConcurrentStarts()
+        {
+            string root = Path.Combine(
+                Path.GetTempPath(),
+                "nsc-walkthrough-concurrent-test-" + Guid.NewGuid().ToString("N"));
+            try
+            {
+                const string day = "2026-09-26";
+                const string stamp = "18_30_00";
+                const int concurrentStarts = 40;
+
+                // A Barrier releases every task at once instead of leaving them to
+                // trickle out of the thread pool one at a time, which would just
+                // reproduce the sequential test above under a different name.
+                var barrier = new Barrier(concurrentStarts);
+                var createdPaths = new string[concurrentStarts];
+                var succeeded = new bool[concurrentStarts];
+                var tasks = new Task[concurrentStarts];
+
+                for (int i = 0; i < concurrentStarts; i++)
+                {
+                    int index = i;
+                    tasks[index] = Task.Run(() =>
+                    {
+                        barrier.SignalAndWait();
+                        succeeded[index] = WalkthroughCapture.TryCreateFreshDirectory(
+                            root, day, stamp, out createdPaths[index]);
+                    });
+                }
+
+                Task.WaitAll(tasks);
+
+                var seen = new HashSet<string>(StringComparer.Ordinal);
+                int collisions = 0;
+
+                for (int i = 0; i < concurrentStarts; i++)
+                {
+                    Assert.IsTrue(succeeded[i], "Concurrent start " + i + " was not given a directory at all.");
+
+                    if (!seen.Add(createdPaths[i]))
+                    {
+                        collisions++;
+                    }
+                }
+
+                Assert.AreEqual(
+                    0, collisions,
+                    collisions + " of " + concurrentStarts + " concurrent session starts were handed " +
+                    "a directory some other start already owned. Two walkthroughs sharing one " +
+                    "directory silently overwrite each other's frames -- the exact regression this " +
+                    "test exists to catch.");
             }
             finally
             {
