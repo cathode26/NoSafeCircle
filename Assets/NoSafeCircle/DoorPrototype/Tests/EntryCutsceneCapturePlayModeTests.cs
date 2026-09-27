@@ -22,6 +22,58 @@ namespace NoSafeCircle.DoorPrototype.Tests
         private const int TemporaryUiLayer = 31;
         private const float MaximumEntrySeconds = 20f;
         private const float VisualWaitSeconds = 12f;
+        private const string RuntimeWorldScenePath = "Assets/Scenes/RuntimeWorld.unity";
+
+        private Scene previousActiveScene;
+        private Scene captureScene;
+        private AsyncOperation captureSceneLoad;
+        private bool captureLoadRequested;
+
+        [SetUp]
+        public void RememberCaptureSceneOwnership()
+        {
+            previousActiveScene = SceneManager.GetActiveScene();
+            captureScene = default;
+            captureSceneLoad = null;
+            captureLoadRequested = false;
+            SceneManager.sceneLoaded += RecordLoadedCaptureScene;
+        }
+
+        private void RecordLoadedCaptureScene(Scene scene, LoadSceneMode mode)
+        {
+            if (!captureLoadRequested || scene.path != RuntimeWorldScenePath) return;
+            captureScene = scene;
+            captureLoadRequested = false;
+        }
+
+        // Evidence-producing Play Mode capture; regression cleanup for the capture world
+        // leaking its player, fallen wizards, and door into later component fixtures.
+        [UnityTearDown]
+        public IEnumerator UnloadOwnedCaptureSceneWithoutSaving()
+        {
+            // A failed assertion during loading must still leave a completed load to unload.
+            if (captureSceneLoad != null && !captureSceneLoad.isDone)
+                yield return captureSceneLoad;
+
+            SceneManager.sceneLoaded -= RecordLoadedCaptureScene;
+            captureSceneLoad = null;
+            captureLoadRequested = false;
+            Scene ownedScene = captureScene;
+            captureScene = default;
+            if (!ownedScene.IsValid() || !ownedScene.isLoaded) yield break;
+
+            Scene restoreScene = previousActiveScene;
+            if (!restoreScene.IsValid() || !restoreScene.isLoaded || restoreScene == ownedScene)
+            {
+                // Loading RuntimeWorld in Single mode normally retires the previous test scene.
+                // Unity cannot unload its last scene, so leave an empty in-memory test scene.
+                restoreScene = SceneManager.CreateScene("EntryCutsceneCaptureTestCleanup");
+            }
+            SceneManager.SetActiveScene(restoreScene);
+            yield return SceneManager.UnloadSceneAsync(ownedScene);
+            Assert.IsFalse(ownedScene.IsValid() && ownedScene.isLoaded,
+                "The capture's RuntimeWorld scene must not survive into the next fixture.");
+        }
 
         [UnityTest]
         [Explicit("Set NSC_ENTRY_CAPTURE_OUTPUT to a new directory outside the project.")]
@@ -38,7 +90,12 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "Capture output must be outside the Unity project.");
             Directory.CreateDirectory(output);
 
-            SceneManager.LoadScene("RuntimeWorld", LoadSceneMode.Single);
+            captureLoadRequested = true;
+            captureSceneLoad = SceneManager.LoadSceneAsync("RuntimeWorld", LoadSceneMode.Single);
+            Assert.IsNotNull(captureSceneLoad, "RuntimeWorld did not begin loading.");
+            yield return captureSceneLoad;
+            Assert.IsTrue(captureScene.IsValid() && captureScene.isLoaded,
+                "The capture must own the exact RuntimeWorld scene it loaded.");
             yield return null;
             yield return null;
             yield return null;
