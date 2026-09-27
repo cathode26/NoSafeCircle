@@ -36,6 +36,7 @@ namespace NoSafeCircle.DoorPrototype
             public SpriteRenderer WizardRenderer;
             public GameObject Pursuer;
             public SpriteRenderer PursuerRenderer;
+            public EnemyAnimationController PursuerAnimation;
         }
 
         private const float ViewportMinX = 0.55f;
@@ -72,6 +73,7 @@ namespace NoSafeCircle.DoorPrototype
         [SerializeField] private float fadeDuration = 0.5f;
         [SerializeField] private float minLaneLength = 6f;
         [SerializeField] private float wizardVisualScale = 2f;
+        [SerializeField] private float pursuerVisualScale = 2f;
 
         private readonly List<ChasePairing> pairings = new List<ChasePairing>();
         private System.Random random;
@@ -266,7 +268,9 @@ namespace NoSafeCircle.DoorPrototype
                    meleeAnimatorController != null && wraithAnimatorController != null &&
                    HasOrderedWizardChoices() &&
                    actorSpeed > 0f && minInterval > TimeEpsilon &&
-                   maxInterval >= minInterval;
+                   maxInterval >= minInterval &&
+                   IsFinite(wizardVisualScale) && wizardVisualScale > 0f &&
+                   IsFinite(pursuerVisualScale) && pursuerVisualScale > 0f;
         }
 
         private bool HasOrderedWizardChoices()
@@ -437,10 +441,15 @@ namespace NoSafeCircle.DoorPrototype
                         pairing.EnemyKind == EnemyAnimationKind.MeleeEnemy
                             ? meleeAnimatorController : wraithAnimatorController,
                         pairing.Start, out pairing.PursuerRenderer);
-                    var pursuerAnimation =
+                    pairing.Pursuer.transform.Find("Visual").localScale =
+                        new Vector3(pursuerVisualScale, pursuerVisualScale, 1f);
+                    pairing.PursuerAnimation =
                         pairing.Pursuer.AddComponent<EnemyAnimationController>();
-                    pursuerAnimation.Initialize(
+                    pairing.PursuerAnimation.Initialize(
                         pairing.Pursuer.GetComponent<Animator>(), pairing.EnemyKind);
+                    // The backdrop drives this presentation controller from Tick. Leaving its
+                    // own LateUpdate enabled would immediately turn a moved actor idle again.
+                    pairing.PursuerAnimation.enabled = false;
                     pairing.Pursuer.GetComponent<Animator>().Update(0f);
                     SetAlpha(pairing.PursuerRenderer, 0f);
                 }
@@ -451,6 +460,8 @@ namespace NoSafeCircle.DoorPrototype
                     float clampedTime = Mathf.Min(pursuerTime, pairing.Duration);
                     pairing.Pursuer.transform.position = Vector3.Lerp(
                         pairing.Start, pairing.End, clampedTime / pairing.Duration);
+                    pairing.PursuerAnimation.Tick(Mathf.Max(
+                        0f, pairing.Elapsed - Mathf.Max(previousElapsed, pursuerDelay)));
                     SetAlpha(pairing.PursuerRenderer,
                         AlphaAt(clampedTime, pairing.Duration));
                     if (pursuerTime >= pairing.Duration)

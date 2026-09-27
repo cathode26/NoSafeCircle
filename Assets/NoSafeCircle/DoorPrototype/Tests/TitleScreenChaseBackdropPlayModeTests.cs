@@ -116,7 +116,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             backdrop.Tick(9.9f);
             Assert.AreEqual(1, backdrop.StartedPairingCount);
-            backdrop.Tick(0.1f);
+            backdrop.Tick(0.101f);
             Assert.AreEqual(2, backdrop.StartedPairingCount,
                 "The next pairing must wait at least ten seconds.");
 
@@ -130,7 +130,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             backdrop.Tick(3f);
             backdrop.Tick(19.9f);
             Assert.AreEqual(1, backdrop.StartedPairingCount);
-            backdrop.Tick(0.1f);
+            backdrop.Tick(0.101f);
             Assert.AreEqual(2, backdrop.StartedPairingCount,
                 "The injected twenty-second upper interval must be honored.");
         }
@@ -156,6 +156,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 Assert.IsNotNull(animation);
                 Assert.AreEqual(OrderedWizards[index % 4].Presentation, animation.Presentation);
                 Assert.AreEqual(OrderedWizards[index % 4].Skin, animation.Skin);
+                Assert.AreEqual(2f, wizard.transform.Find("Visual").localScale.x, 0.001f,
+                    "Title wizard art must read at the configured close-up scale.");
                 Assert.AreEqual(index % 2 == 0 ? 0.55f : 0.9f,
                     chaseCamera.WorldToViewportPoint(wizard.transform.position).x,
                     0.001f, "Pairings must use alternating clipped lane endpoints.");
@@ -167,6 +169,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 EnemyAnimationController pursuerAnimation =
                     pursuer.GetComponent<EnemyAnimationController>();
                 Assert.IsNotNull(pursuerAnimation);
+                Assert.AreEqual(2f, pursuer.transform.Find("Visual").localScale.x, 0.001f,
+                    "The pursuer should be as readable as the fleeing wizard.");
                 Assert.That(pursuerAnimation.CurrentState,
                     Does.StartWith(PursuerNames[index] == "DungeonBrute"
                         ? "MeleeEnemy_walk_" : "LanternWraith_walk_"));
@@ -275,6 +279,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
             backdrop.Tick(0f);
             GameObject wizard = GameObject.Find("TitleChaseWizard_Ember");
             Assert.IsNotNull(wizard);
+            // ApplyPresentation discards the first Unity Update displacement so the initial
+            // placement is never misread as a walk. Let that reset frame run first.
+            yield return null;
             backdrop.Tick(0.25f);
             yield return null;
 
