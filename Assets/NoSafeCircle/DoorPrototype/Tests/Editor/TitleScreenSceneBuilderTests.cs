@@ -46,6 +46,8 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.AreEqual(1, controllers.Length);
             Assert.AreEqual(1, Resources.FindObjectsOfTypeAll<TitleScreenChaseBackdrop>()
                 .Count(backdrop => backdrop.gameObject.scene == scene));
+            Assert.AreEqual(1, Resources.FindObjectsOfTypeAll<TitleScreenGameplayHudVisibility>()
+                .Count(visibility => visibility.gameObject.scene == scene));
 
             Transform canvas = roots.Single(root => root.name == "Canvas").transform;
             Transform[] titlePanels = canvas.Cast<Transform>()
@@ -166,6 +168,35 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.Greater(Vector3.Distance(start, end), 6f);
             Assert.That(Vector3.Dot((end - start).normalized, new Vector3(1f, 0f, 1f).normalized),
                 Is.EqualTo(1f).Within(0.001f));
+        }
+
+        [Test]
+        public void Build_GameplayHudIsHiddenUntilStartGame()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            GameObject canvas = GameObject.Find("Canvas");
+            Assert.IsNotNull(canvas.GetComponent<TitleScreenGameplayHudVisibility>());
+            string[] gameplayNames =
+            {
+                "InteractPrompt", "ProgressFill", "HealthFill", "ManaFill",
+                "DebugDamageButton", "DebugManaSpendButton", "ControlsHud"
+            };
+            foreach (string name in gameplayNames)
+            {
+                CanvasGroup group = canvas.transform.Find(name)?.GetComponent<CanvasGroup>();
+                Assert.IsNotNull(group, name);
+                Assert.AreEqual(0f, group.alpha, name);
+                Assert.IsFalse(group.blocksRaycasts, name);
+            }
+
+            canvas.GetComponent<TitleScreenController>().StartGame();
+            foreach (string name in gameplayNames)
+            {
+                CanvasGroup group = canvas.transform.Find(name).GetComponent<CanvasGroup>();
+                Assert.AreEqual(1f, group.alpha, name);
+                Assert.IsTrue(group.blocksRaycasts, name);
+            }
         }
 
         // NSC-039 regression-only: adding the Canvas title flow must leave the established

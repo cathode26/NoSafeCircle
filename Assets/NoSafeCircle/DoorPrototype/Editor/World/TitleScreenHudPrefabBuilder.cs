@@ -95,6 +95,34 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 AssignFloat(chaseSerialized, "pursuerVisualScale", 2f);
                 chaseSerialized.ApplyModifiedPropertiesWithoutUndo();
 
+                string[] gameplayNames =
+                {
+                    "InteractPrompt", "ProgressFill", "HealthFill", "ManaFill",
+                    "DebugDamageButton", "DebugManaSpendButton", "ControlsHud"
+                };
+                var gameplayGroups = new CanvasGroup[gameplayNames.Length];
+                for (int index = 0; index < gameplayNames.Length; index++)
+                {
+                    GameObject visual = Required(root.transform, gameplayNames[index]).gameObject;
+                    gameplayGroups[index] = visual.GetComponent<CanvasGroup>();
+                    if (gameplayGroups[index] == null)
+                        gameplayGroups[index] = visual.AddComponent<CanvasGroup>();
+                }
+
+                TitleScreenGameplayHudVisibility visibility =
+                    root.GetComponent<TitleScreenGameplayHudVisibility>();
+                if (visibility == null)
+                    visibility = root.AddComponent<TitleScreenGameplayHudVisibility>();
+                SerializedObject visibilitySerialized = new SerializedObject(visibility);
+                Assign(visibilitySerialized, "titleScreen", root.GetComponent<TitleScreenController>());
+                SerializedProperty groups = visibilitySerialized.FindProperty("gameplayGroups");
+                if (groups == null)
+                    throw new InvalidOperationException("Title HUD visibility is missing gameplayGroups.");
+                groups.arraySize = gameplayGroups.Length;
+                for (int index = 0; index < gameplayGroups.Length; index++)
+                    groups.GetArrayElementAtIndex(index).objectReferenceValue = gameplayGroups[index];
+                visibilitySerialized.ApplyModifiedPropertiesWithoutUndo();
+
                 GameObject saved = PrefabUtility.SaveAsPrefabAsset(root, HudPath);
                 if (saved == null)
                 {

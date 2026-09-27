@@ -817,6 +817,22 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 floorStart,
                 floorEnd);
             backdrop.ConfigureMotion(2.5f, 10f, 20f, 1.5f, 2.5f, 0.5f, 6f);
+
+            string[] gameplayNames =
+            {
+                "InteractPrompt", "ProgressFill", "HealthFill", "ManaFill",
+                "DebugDamageButton", "DebugManaSpendButton", "ControlsHud"
+            };
+            var gameplayGroups = new CanvasGroup[gameplayNames.Length];
+            for (int index = 0; index < gameplayNames.Length; index++)
+            {
+                Transform visual = canvasObject.transform.Find(gameplayNames[index]);
+                if (visual == null)
+                    throw new System.InvalidOperationException("Missing gameplay HUD: " + gameplayNames[index]);
+                gameplayGroups[index] = visual.gameObject.AddComponent<CanvasGroup>();
+            }
+            canvasObject.AddComponent<TitleScreenGameplayHudVisibility>()
+                .Configure(controller, gameplayGroups);
             return controller;
         }
 

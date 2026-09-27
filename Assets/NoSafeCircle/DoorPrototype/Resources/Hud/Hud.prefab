@@ -20,6 +20,7 @@ GameObject:
   - component: {fileID: 7300000000000000011}
   - component: {fileID: 7300000000000000012}
   - component: {fileID: 361473297779284770}
+  - component: {fileID: 2285380109521794148}
   m_Layer: 0
   m_Name: Hud
   m_TagString: Untagged
@@ -310,6 +311,27 @@ MonoBehaviour:
   minLaneLength: 6
   wizardVisualScale: 2
   pursuerVisualScale: 2
+--- !u!114 &2285380109521794148
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7300000000000000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9e9f7477656038840b613d970f54976c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: NoSafeCircle.DoorPrototype::NoSafeCircle.DoorPrototype.TitleScreenGameplayHudVisibility
+  titleScreen: {fileID: 7300000000000000009}
+  gameplayGroups:
+  - {fileID: 1919569285923447784}
+  - {fileID: 4921859702227308715}
+  - {fileID: 143395342901357841}
+  - {fileID: 2526997848276640239}
+  - {fileID: 8522257382136473132}
+  - {fileID: 7794006290275797980}
+  - {fileID: 1993562814307037074}
 --- !u!1 &7300000000000000013
 GameObject:
   m_ObjectHideFlags: 0
@@ -400,6 +422,7 @@ GameObject:
   - component: {fileID: 7300000000000000018}
   - component: {fileID: 7300000000000000019}
   - component: {fileID: 7300000000000000020}
+  - component: {fileID: 1919569285923447784}
   m_Layer: 0
   m_Name: InteractPrompt
   m_TagString: Untagged
@@ -468,6 +491,18 @@ MonoBehaviour:
     m_VerticalOverflow: 0
     m_LineSpacing: 1
   m_Text: Sealed Door - Click to Open
+--- !u!225 &1919569285923447784
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7300000000000000017}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &7300000000000000021
 GameObject:
   m_ObjectHideFlags: 0
@@ -479,6 +514,7 @@ GameObject:
   - component: {fileID: 7300000000000000022}
   - component: {fileID: 7300000000000000023}
   - component: {fileID: 7300000000000000024}
+  - component: {fileID: 4921859702227308715}
   m_Layer: 0
   m_Name: ProgressFill
   m_TagString: Untagged
@@ -544,6 +580,18 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!225 &4921859702227308715
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7300000000000000021}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &7300000000000000025
 GameObject:
   m_ObjectHideFlags: 0
@@ -631,6 +679,7 @@ GameObject:
   - component: {fileID: 7300000000000000031}
   - component: {fileID: 7300000000000000032}
   - component: {fileID: 7300000000000000033}
+  - component: {fileID: 8522257382136473132}
   m_Layer: 0
   m_Name: DebugDamageButton
   m_TagString: Untagged
@@ -740,6 +789,18 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!225 &8522257382136473132
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7300000000000000029}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &7300000000000000034
 GameObject:
   m_ObjectHideFlags: 0
@@ -830,6 +891,7 @@ GameObject:
   - component: {fileID: 7300000000000000039}
   - component: {fileID: 7300000000000000040}
   - component: {fileID: 7300000000000000041}
+  - component: {fileID: 143395342901357841}
   m_Layer: 0
   m_Name: HealthFill
   m_TagString: Untagged
@@ -895,6 +957,18 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!225 &143395342901357841
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7300000000000000038}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &7300000000000000042
 GameObject:
   m_ObjectHideFlags: 0
@@ -981,6 +1055,7 @@ GameObject:
   - component: {fileID: 7300000000000000047}
   - component: {fileID: 7300000000000000048}
   - component: {fileID: 7300000000000000049}
+  - component: {fileID: 2526997848276640239}
   m_Layer: 0
   m_Name: ManaFill
   m_TagString: Untagged
@@ -1046,6 +1121,18 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!225 &2526997848276640239
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7300000000000000046}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &7300000000000000050
 GameObject:
   m_ObjectHideFlags: 0
@@ -1133,6 +1220,7 @@ GameObject:
   - component: {fileID: 7300000000000000056}
   - component: {fileID: 7300000000000000057}
   - component: {fileID: 7300000000000000058}
+  - component: {fileID: 7794006290275797980}
   m_Layer: 0
   m_Name: DebugManaSpendButton
   m_TagString: Untagged
@@ -1242,6 +1330,18 @@ MonoBehaviour:
   m_OnClick:
     m_PersistentCalls:
       m_Calls: []
+--- !u!225 &7794006290275797980
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7300000000000000054}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &7300000000000000059
 GameObject:
   m_ObjectHideFlags: 0
@@ -1332,6 +1432,7 @@ GameObject:
   - component: {fileID: 7300000000000000064}
   - component: {fileID: 7300000000000000065}
   - component: {fileID: 7300000000000000066}
+  - component: {fileID: 1993562814307037074}
   m_Layer: 0
   m_Name: ControlsHud
   m_TagString: Untagged
@@ -1397,6 +1498,18 @@ MonoBehaviour:
   m_FillOrigin: 0
   m_UseSpriteMesh: 0
   m_PixelsPerUnitMultiplier: 1
+--- !u!225 &1993562814307037074
+CanvasGroup:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7300000000000000063}
+  m_Enabled: 1
+  m_Alpha: 1
+  m_Interactable: 1
+  m_BlocksRaycasts: 1
+  m_IgnoreParentGroups: 0
 --- !u!1 &7300000000000000067
 GameObject:
   m_ObjectHideFlags: 0

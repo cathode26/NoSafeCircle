@@ -52,6 +52,26 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.IsNotNull(bindings.FindProperty("wizardChaseAnimator").objectReferenceValue);
             Assert.IsNotNull(bindings.FindProperty("meleeChaseAnimator").objectReferenceValue);
             Assert.IsNotNull(bindings.FindProperty("wraithChaseAnimator").objectReferenceValue);
+
+            TitleScreenGameplayHudVisibility visibility =
+                hud.GetComponent<TitleScreenGameplayHudVisibility>();
+            Assert.IsNotNull(visibility);
+            SerializedObject visibilitySerialized = new SerializedObject(visibility);
+            Assert.AreSame(hud.GetComponent<TitleScreenController>(),
+                visibilitySerialized.FindProperty("titleScreen").objectReferenceValue);
+            SerializedProperty groups = visibilitySerialized.FindProperty("gameplayGroups");
+            string[] gameplayNames =
+            {
+                "InteractPrompt", "ProgressFill", "HealthFill", "ManaFill",
+                "DebugDamageButton", "DebugManaSpendButton", "ControlsHud"
+            };
+            Assert.AreEqual(gameplayNames.Length, groups.arraySize);
+            for (int index = 0; index < gameplayNames.Length; index++)
+            {
+                CanvasGroup group = hud.transform.Find(gameplayNames[index])?.GetComponent<CanvasGroup>();
+                Assert.IsNotNull(group, gameplayNames[index]);
+                Assert.AreSame(group, groups.GetArrayElementAtIndex(index).objectReferenceValue);
+            }
         }
 
         private static void AssertSaying(Transform card, string name, string expected)
