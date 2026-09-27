@@ -30,10 +30,21 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
     public sealed class DoorwayOpeningSealTests
     {
         private const string DoorArtSourceFolder = "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source";
-        private const string SealedSpriteAssetPath = DoorArtSourceFolder + "/door_bonestone_sealed_S_000.png";
-        private const string LockedSpriteAssetPath = DoorArtSourceFolder + "/door_bonestone_locked_S_000.png";
-        private const string OpenSpriteAssetPath = DoorArtSourceFolder + "/door_bonestone_open_S_000.png";
-        private const string FinalSpriteAssetPath = DoorArtSourceFolder + "/door_bonestone_final_S_000.png";
+        // THE FACING. Docs/Art/Doors/APPROVAL.md, "South-west facing, 2026-09-26": the _SW_ set is
+        // a new generation the Art Director made for Vincent's "Door is pointing south and it should
+        // point south west", registered on one union box so the slab lands where the _S_ slab landed.
+        // The art shipped on 2026-09-26 and nothing pointed at it until 2026-09-27, which is why he
+        // reported the same defect twice. Named rather than inlined so the decision is visible.
+        private const string ApprovedFacing = "SW";
+
+        private const string SealedSpriteAssetPath =
+            DoorArtSourceFolder + "/door_bonestone_sealed_" + ApprovedFacing + "_000.png";
+        private const string LockedSpriteAssetPath =
+            DoorArtSourceFolder + "/door_bonestone_locked_" + ApprovedFacing + "_000.png";
+        private const string OpenSpriteAssetPath =
+            DoorArtSourceFolder + "/door_bonestone_open_" + ApprovedFacing + "_000.png";
+        private const string FinalSpriteAssetPath =
+            DoorArtSourceFolder + "/door_bonestone_final_" + ApprovedFacing + "_000.png";
 
         // VAL-001: fractions of the blocker's own current half-width. 0.95 sits well outside the
         // former hard-coded blocker's half-width (1.0) whenever the authored opening is wider

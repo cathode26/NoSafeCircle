@@ -38,6 +38,15 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
         private const float ApprovedPixelsPerUnit = 64f;
         private const float ApprovedArtScale = 1.54f;
 
+        // THE FACING. Vincent, 2026-09-27, playing the game: "Door is not facing south west".
+        // The _SW_ sprites for all four reachable states were already committed beside the _S_
+        // ones at the same 128px and PPU 64 and nothing pointed at them, so the defect was four
+        // guid references - and this fixture was enforcing them. The scale above is NOT part of
+        // the fix: measured from the alpha bbox rather than the canvas, the drawn SW figure is
+        // 1.484 x 1.938 units against a 4.000 x 2.500 opening, so aspect 0.766 against 1.600 and
+        // NO uniform scale fills it. The width shortfall is an art request, not a number here.
+        private const string ApprovedFacing = "SW";
+
         private static GameObject LoadDoorPrefab()
         {
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(DoorPrefabPath);
@@ -114,8 +123,12 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
                 string assetPath = AssetDatabase.GetAssetPath(boundSprite);
                 // sealedSprite -> sealed, lockedSprite -> locked, openSprite -> open, finalSprite -> final.
                 string state = field.Name.Replace("Sprite", string.Empty);
-                Assert.AreEqual(DoorArtSourceFolder + "door_bonestone_" + state + "_S_000.png", assetPath,
-                    field.Name + " does not reference the approved " + state + " sprite.");
+                Assert.AreEqual(
+                    DoorArtSourceFolder + "door_bonestone_" + state + "_" + ApprovedFacing + "_000.png",
+                    assetPath,
+                    field.Name + " does not reference the approved " + state + " sprite at the "
+                        + ApprovedFacing + " facing. The camera is a fixed isometric at yaw -45, so a"
+                        + " door drawn face-on reads as facing the wrong way.");
                 foreach (string forbidden in forbiddenWords)
                 {
                     Assert.IsFalse(assetPath.ToLowerInvariant().Contains(forbidden),
@@ -191,6 +204,45 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
             }
         }
 
+        // Asserts a RELATION between the art folder and the code rather than any facing literal,
+        // so it survives a re-export under new guids and it is what makes the facing swap safe:
+        // the three states with no SW art on disk are exactly the three the binder cannot reach.
+        [Test]
+        public void EveryReachableDoorStateHasTheApprovedFacingOnDiskAndEveryStateWithoutItIsUnreachable()
+        {
+            // The four the binder exposes, read from the type rather than listed here.
+            string[] reachable = typeof(DoorStateSpriteBinder)
+                .GetFields(BindingFlags.NonPublic | BindingFlags.Instance)
+                .Where(field => field.FieldType == typeof(Sprite))
+                .Select(field => field.Name.Replace("Sprite", string.Empty))
+                .ToArray();
+            Assert.AreEqual(4, reachable.Length, "DoorStateSpriteBinder must expose exactly four sprite slots.");
+
+            foreach (string state in reachable)
+            {
+                string path = DoorArtSourceFolder + "door_bonestone_" + state + "_" + ApprovedFacing + "_000.png";
+                Assert.IsNotNull(AssetDatabase.LoadAssetAtPath<Sprite>(path),
+                    "State '" + state + "' is reachable through DoorStateSpriteBinder but has no "
+                        + ApprovedFacing + " art at " + path + ". A reachable state with no art at "
+                        + "the approved facing is a door that faces the wrong way in play.");
+            }
+
+            // And the inverse, which is the half that earns its keep: a state that HAS no approved
+            // facing must be one no code path can reach. Without this, adding art for a fifth state
+            // and forgetting to wire it would pass silently.
+            foreach (string unreachable in new[] { "damaged", "opening", "broken" })
+            {
+                string sPath = DoorArtSourceFolder + "door_bonestone_" + unreachable + "_S_000.png";
+                Assert.IsNotNull(AssetDatabase.LoadAssetAtPath<Sprite>(sPath),
+                    unreachable + " has no _S_ art either, so this list is stale rather than describing "
+                        + "art that exists at one facing only.");
+                Assert.IsNull(AssetDatabase.LoadAssetAtPath<Sprite>(
+                        DoorArtSourceFolder + "door_bonestone_" + unreachable + "_" + ApprovedFacing + "_000.png"),
+                    unreachable + " now HAS " + ApprovedFacing + " art. Either wire it through "
+                        + "DoorStateSpriteBinder or drop it from this list - a state with art at the "
+                        + "approved facing and no way to reach it is art nobody will ever see.");
+            }
+        }
         [Test]
         public void CanonicalDoorsAgreeWithTheEditorCatalogAndWithBothRoomsOfEachSharedLine()
         {
