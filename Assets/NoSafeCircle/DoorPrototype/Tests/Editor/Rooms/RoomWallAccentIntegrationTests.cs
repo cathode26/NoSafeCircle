@@ -4,6 +4,7 @@ using System.Linq;
 using NoSafeCircle.DoorPrototype.Editor.Rooms;
 using NoSafeCircle.DoorPrototype.World.Rooms;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.Tilemaps;
@@ -107,12 +108,24 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             Assert.Greater(accents.Count(accent => accent.name.StartsWith("Jamb", StringComparison.Ordinal)), 0,
                 roomRootName + " must place at least one Jamb accent.");
 
+            // AC-003 (corrected wording queued by GER): ground contact is measured against the
+            // DRAWN ART'S base, not the sprite rect. Renderer.bounds covers the rect INCLUDING each
+            // sprite's transparent bottom padding, so asserting renderer.bounds.min.y == floorY is
+            // the exact defect ComputeGroundContactAnchorY's fix removed -- see its own remarks in
+            // ArchitecturalWallAccentPlacement.cs and the shared measurement in
+            // WallAccentGroundContactTestSupport.
             foreach (Transform accent in accents)
             {
                 SpriteRenderer renderer = accent.GetComponent<SpriteRenderer>();
                 Assert.IsNotNull(renderer, accent.name + " must carry a SpriteRenderer.");
-                Assert.That(renderer.bounds.min.y, Is.EqualTo(floorY).Within(0.0001f),
-                    accent.name + " rendered bottom edge must land on " + roomRootName + "'s floor Y.");
+
+                string spritePath = AssetDatabase.GetAssetPath(renderer.sprite);
+                int padPx = WallAccentGroundContactTestSupport.MeasureAlphaTightBottomPaddingPixels(spritePath);
+                float artBaseWorldY = renderer.bounds.min.y + (padPx / renderer.sprite.pixelsPerUnit);
+
+                Assert.That(artBaseWorldY, Is.EqualTo(floorY).Within(0.0001f),
+                    accent.name + " drawn art base must land on " + roomRootName + "'s floor Y -- "
+                    + "the sprite rect bottom sits one padding below it by design.");
             }
 
             int firstBuildAccentCount = accents.Count;

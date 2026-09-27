@@ -80,10 +80,6 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             AssertGameplayGeometryColliderBoundsUnchanged(gameplayGeometryBefore);
         }
 
-        // AC-002: reading the sprite's own pivot and bounds at placement time -- rather than
-        // assuming a bottom-centre pivot -- must keep producing the same rendered ground contact
-        // whether the sprite currently imports with its committed non-zero vertical pivot or with
-        // a corrected pivot of zero supplied to the same derivation.
         // NSC-120 AC-002/AC-003. REPLACES A TEST THAT COULD NOT FAIL: the previous version computed
         // anchorY = floorY - bounds.min.y and then asserted anchorY + bounds.min.y == floorY, which is
         // identically true for every sprite and every pivot, including under the defect it guarded.
@@ -125,7 +121,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
                 Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
                 Assert.IsNotNull(sprite, "Requires the committed sprite at " + path);
 
-                int padPx = MeasureAlphaTightBottomPaddingPixels(path);
+                int padPx = WallAccentGroundContactTestSupport.MeasureAlphaTightBottomPaddingPixels(path);
                 measuredPads.Add(System.IO.Path.GetFileName(path) + " pad=" + padPx
                                  + "px pivot=" + sprite.pivot.y + "px");
 
@@ -148,49 +144,25 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             UnityEngine.Debug.Log("[NSC-120] accent pad/pivot measured: " + string.Join(", ", measuredPads));
         }
 
-        /// <summary>The alpha-tight bottom padding, in pixels, of the PNG at <paramref name="assetPath"/>.
-        /// Decoded from the file's own bytes rather than read off the imported texture, so the test does
-        /// not depend on a TextureImporter isReadable flag it does not own.</summary>
-        private static int MeasureAlphaTightBottomPaddingPixels(string assetPath)
-        {
-            byte[] fileBytes = System.IO.File.ReadAllBytes(assetPath);
-            var decoded = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-            decoded.hideFlags = HideFlags.HideAndDontSave;
-            try
-            {
-                Assert.IsTrue(ImageConversion.LoadImage(decoded, fileBytes, false),
-                    "Could not decode " + assetPath + " as an image.");
-
-                Color32[] pixels = decoded.GetPixels32();
-                for (int y = 0; y < decoded.height; y++)
-                {
-                    int rowStart = y * decoded.width;
-                    for (int x = 0; x < decoded.width; x++)
-                    {
-                        if (pixels[rowStart + x].a != 0)
-                        {
-                            // GetPixels32 is bottom-up, so the first non-empty row IS the padding.
-                            return y;
-                        }
-                    }
-                }
-
-                Assert.Fail(assetPath + " is fully transparent - there is no art to anchor.");
-                return 0;
-            }
-            finally
-            {
-                Object.DestroyImmediate(decoded);
-            }
-        }
+        // AC-002/AC-003: ground contact is measured against the DRAWN ART'S base, not the sprite
+        // rect. Renderer.bounds covers the rect INCLUDING each sprite's transparent bottom padding,
+        // so asserting worldBounds.min.y == floorY is the exact defect this task removed --
+        // ComputeGroundContactAnchorY now lands the art base on the floor, which puts the rect
+        // bottom one padding BELOW it. See WallAccentGroundContactTestSupport for the shared
+        // measurement and ArchitecturalWallAccentPlacement.ComputeGroundContactAnchorY's own remarks.
         private static void AssertGroundContactAndFootprint(PlacedWallAccent accent, float floorY)
         {
             SpriteRenderer renderer = accent.Instance.GetComponent<SpriteRenderer>();
             Assert.IsNotNull(renderer, accent.Role + " accent must carry a SpriteRenderer.");
             Bounds worldBounds = renderer.bounds;
 
-            Assert.That(worldBounds.min.y, Is.EqualTo(floorY).Within(0.01f),
-                accent.Role + " accent's rendered ground contact must equal its wall run's floor plane.");
+            string spritePath = AssetDatabase.GetAssetPath(renderer.sprite);
+            int padPx = WallAccentGroundContactTestSupport.MeasureAlphaTightBottomPaddingPixels(spritePath);
+            float artBaseWorldY = worldBounds.min.y + (padPx / renderer.sprite.pixelsPerUnit);
+
+            Assert.That(artBaseWorldY, Is.EqualTo(floorY).Within(0.01f),
+                accent.Role + " accent's DRAWN ART base must land on its wall run's floor plane -- "
+                + "the sprite RECT bottom (worldBounds.min.y) sits one padding below it by design.");
 
             if (accent.Run.RunsAlongX)
             {
