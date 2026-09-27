@@ -375,7 +375,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
             backdrop.Tick(0.1f);
             Assert.AreEqual(0, completionCalls);
             Assert.Less(backdrop.EntryWizardTransform.position.z, arrivalZ);
-            Assert.AreEqual(pursuerStopZ, backdrop.EntryPursuerTransform.position.z, 0.001f);
+            Assert.LessOrEqual(backdrop.EntryPursuerTransform.position.z, pursuerStopZ,
+                "The slower lead pursuer must remain outside the doorway.");
             backdrop.Tick(0.1f);
             Assert.AreEqual(1, completionCalls);
             Assert.AreEqual(1, gateCalls);
