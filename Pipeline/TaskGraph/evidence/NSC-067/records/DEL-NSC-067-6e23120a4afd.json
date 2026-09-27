@@ -1,0 +1,132 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "b9f375e74520804b166f6c7f3dea7de7e7130c9a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/WizardSelectionController.cs",
+      "role": "wizard_selection_screen_controller"
+    },
+    {
+      "blob_sha": "a186c83feebfa53ffa781b18d5782a10b2fa156d",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/WizardSelection.cs",
+      "role": "confirmed_wizard_selection_data_model"
+    },
+    {
+      "blob_sha": "69ebdc3f822350382a5bfc5b48cf1e1d4a1daf17",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "role": "idempotent_builder_integration_seam"
+    },
+    {
+      "blob_sha": "59ec89af9551cd9c16c3c47143bebfd7871e5269",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardSelectionSceneBuilderTests.cs",
+      "role": "editmode_option_catalog_and_rebuild_regression_proof"
+    },
+    {
+      "blob_sha": "3c1d48d4799c697c921756c63b0558458a375f83",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/WizardSelectionPlayModeTests.cs",
+      "role": "playmode_selection_flow_and_handoff_proof"
+    }
+  ],
+  "delivery": {
+    "base_commit": "a2c6771a8025eba46848eb9a1e50dcdef560320c",
+    "candidate_commit": "6e23120a4afd836922bc642cb064cf15e8e03746",
+    "integrated_commit": "6e23120a4afd836922bc642cb064cf15e8e03746",
+    "integrated_tree": "a6ad805c7a1ab66149dab568768bf9d07f395476"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "77f73b4270a9a5d41ae807ba2dc22f6c2e0c0eea",
+          "path": "Pipeline/TaskGraph/evidence/NSC-067/artifacts/WizardSelectionSceneBuilderTests-EditMode-6e23120a4afd.xml"
+        },
+        {
+          "blob_sha": "0a195eb5184d16c1e4a7f4b5be023645130ebc4a",
+          "path": "Pipeline/TaskGraph/evidence/NSC-067/artifacts/WizardSelectionSceneBuilderTests-EditMode-6e23120a4afd.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Unity EditMode filter NoSafeCircle.DoorPrototype.Tests.Editor.WizardSelectionSceneBuilderTests, 2/2 passed, 0 failed, 0 skipped, at commit 6e23120a (clean before and after). Build_OptionsResolveToFourDistinctCompleteNsc062Presentations (the test's own comment cites NSC-067 AC-001/AC-002 and VAL-001) asserts the controller resolves exactly four options, each complete, each with a distinct presentation/skin pair matching the four NSC-062 combinations, its exact integrated south-east standing preview sprite path, and its plain-language label, with none selected by default.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "f6871ada40e10bb4a850e2dc7198d0a306c336cb",
+          "path": "Pipeline/TaskGraph/evidence/NSC-067/artifacts/WizardSelectionPlayModeTests-PlayMode-6e23120a4afd.xml"
+        },
+        {
+          "blob_sha": "d1700b2d26946571cb01a71171c4ef7f3bc167dd",
+          "path": "Pipeline/TaskGraph/evidence/NSC-067/artifacts/WizardSelectionPlayModeTests-PlayMode-6e23120a4afd.log"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "Unity PlayMode filter NoSafeCircle.DoorPrototype.Tests.WizardSelectionPlayModeTests, 2/2 passed, 0 failed, 0 skipped, at commit 6e23120a. StartGame_OpensSelectionWithoutDefaultAndKeepsGameplayInputInactive (comment cites AC-003/AC-005 and VAL-002) asserts Start Game opens selection with no default selected option, confirmation unavailable without a choice, and PlayerMovement/PlayerInteractionController/DebugDamageControl/DebugManaSpendControl all inactive both before and after an unselected confirm click. EachOption_ConfirmsOneMatchingHandoffWithoutChangingPlayer (comment cites AC-003/AC-004/AC-005 and VAL-002/VAL-003) exercises each of the four options in turn and asserts each can be selected and confirmed, producing exactly one matching WizardSelectionConfirmed handoff per run.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "f6871ada40e10bb4a850e2dc7198d0a306c336cb",
+          "path": "Pipeline/TaskGraph/evidence/NSC-067/artifacts/WizardSelectionPlayModeTests-PlayMode-6e23120a4afd.xml"
+        },
+        {
+          "blob_sha": "d1700b2d26946571cb01a71171c4ef7f3bc167dd",
+          "path": "Pipeline/TaskGraph/evidence/NSC-067/artifacts/WizardSelectionPlayModeTests-PlayMode-6e23120a4afd.log"
+        }
+      ],
+      "gate_id": "VAL-003",
+      "notes": "Same PlayMode run, same test (EachOption_ConfirmsOneMatchingHandoffWithoutChangingPlayer, comment cites AC-003/AC-004/AC-005 and VAL-002/VAL-003). For every one of the four options it asserts the confirmed handoff's presentation/skin exactly matches the selected option, the scene keeps exactly one Player, and that Player's active state, position, rotation, sprite and WizardAnimationController presentation/skin are unchanged from before selection began -- distinguishing all four options via the handoff with no default or stale prior choice retained on the world Player.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "77f73b4270a9a5d41ae807ba2dc22f6c2e0c0eea",
+          "path": "Pipeline/TaskGraph/evidence/NSC-067/artifacts/WizardSelectionSceneBuilderTests-EditMode-6e23120a4afd.xml"
+        },
+        {
+          "blob_sha": "0a195eb5184d16c1e4a7f4b5be023645130ebc4a",
+          "path": "Pipeline/TaskGraph/evidence/NSC-067/artifacts/WizardSelectionSceneBuilderTests-EditMode-6e23120a4afd.log"
+        }
+      ],
+      "gate_id": "VAL-004",
+      "notes": "Same EditMode run. Build_RunTwice_LeavesOneSelectionControllerFourOptionsAndOnePlayer (comment cites AC-005/AC-006 and VAL-004) calls DoorPrototypeSceneBuilder.BuildInMemoryForTests() twice and asserts exactly one Canvas, one Player, one WizardSelectionController, one inactive WizardSelectionScreen panel, four options each with exactly one persistent SelectOption listener, and exactly one persistent ConfirmSelection listener on the confirm button -- proving the repeated-build path does not duplicate the selection controller, its four option bindings, or the Player.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "4f1e7668db76d1c0fa3ca1efecfdc628e14d7fb8",
+          "path": "Pipeline/TaskGraph/evidence/NSC-067/artifacts/VincentVAL005Approval-6e23120a4afd.txt"
+        }
+      ],
+      "gate_id": "VAL-005",
+      "notes": "Vincent Liguori, typed directly in the GER Agent session (per GER's handoff C:/nscrev/reports/handoffs/ger-20260927-delivery-records-nsc062-nsc067.md, 2026-09-27): \"NSC-067 Four-Wizard Selection Screen is done too\", said in a list with NSC-068/070/073/074/075 (\"These are all done\"). This is recorded as his general approval that the task is done. It is NOT recorded as a claim that he opened RuntimeWorld.unity in Play Mode, walked the title-to-selection flow, or selected all four wizard options in separate runs as VAL-005's own text describes -- he did not name those specific actions and this record does not attribute them to him.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "Vincent Liguori",
+    "decision": "approved",
+    "notes": "Typed directly in the GER Agent session, per GER's handoff C:/nscrev/reports/handoffs/ger-20260927-delivery-records-nsc062-nsc067.md (2026-09-27): \"NSC-067 Four-Wizard Selection Screen is done too\" (in a list with NSC-068/070/073/074/075, \"These are all done\"). A general completion declaration naming this task, not a description of a specific in-engine Play Mode walkthrough of the four options; this record does not claim the latter.",
+    "required": true
+  },
+  "record_id": "DEL-NSC-067-6e23120a4afd",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-27T13:37:58Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-067.yaml",
+    "revision": 5,
+    "sha256": "fe7f5136fc6f009be278ef8c09f89647b2245055db1e42f1359a2acb7ff133bc"
+  },
+  "task_id": "NSC-067",
+  "validated_state": {
+    "commit": "6e23120a4afd836922bc642cb064cf15e8e03746",
+    "tree": "a6ad805c7a1ab66149dab568768bf9d07f395476"
+  }
+}
