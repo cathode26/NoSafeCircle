@@ -90,7 +90,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             public Vector3 Center => new Vector3((XMin + XMax) * 0.5f, 0f, (ZMin + ZMax) * 0.5f);
         }
 
-        // Built from the five *Layout.cs files directly, so a layout edit moves the expectation
+        // Built from the five progression layouts, so a layout edit moves the expectation
         // and a WallRoom table edit does not. Northernmost first, by each room's own ZMax.
         private static List<Room> LayoutRooms()
         {
@@ -143,7 +143,11 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     ZMin = RuinedEntryLayout.MinimumZ, ZMax = RuinedEntryLayout.MaximumZ,
                     DoorWidth = RuinedEntryLayout.DoorOpeningWidth, Thickness = RuinedEntryLayout.WallThickness,
                     Height = RuinedEntryLayout.WallHeight,
-                    Doors = new[] { new Vector3(RuinedEntryLayout.DoorCenterX, 0f, RuinedEntryLayout.DoorCenterZ) }
+                    Doors = new[] {
+                        new Vector3(RuinedEntryLayout.DoorCenterX, 0f, RuinedEntryLayout.DoorCenterZ),
+                        new Vector3(RuinedEntryLayout.EntryDoorCenterX, 0f,
+                            RuinedEntryLayout.EntryDoorCenterZ)
+                    }
                 }
             };
 
@@ -521,13 +525,16 @@ namespace NoSafeCircle.DoorPrototype.Tests
             SpriteRenderer[] renderers = spawnerObject.GetComponentsInChildren<SpriteRenderer>(true);
             Assert.Greater(renderers.Length, 0, "Nothing spawned, so this passes vacuously.");
 
+            List<Room> rooms = LayoutRooms();
+            int distinctDoorCount = rooms.SelectMany(room => room.Doors).Select(Key).Distinct().Count();
+            Assert.Greater(distinctDoorCount, 0, "The layouts must define at least one doorway.");
             var doorwayPoints = new HashSet<(int, int)>();
-            foreach (Shoulder doorway in ExpectedShoulders(LayoutRooms()))
+            foreach (Shoulder doorway in ExpectedShoulders(rooms))
             {
                 doorwayPoints.Add(Key(doorway.Point));
             }
-            Assert.AreEqual(20, doorwayPoints.Count,
-                "Five doorways at four slots each is 20 points; got " + doorwayPoints.Count
+            Assert.AreEqual(distinctDoorCount * 4, doorwayPoints.Count,
+                "Each distinct layout doorway needs four backing-wall slots; got " + doorwayPoints.Count
                 + ", so the exception below is being applied to the wrong set.");
 
             foreach (SpriteRenderer renderer in renderers)
@@ -543,7 +550,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 Assert.AreEqual(WorldSpriteConvention.SortingOrder, renderer.sortingOrder,
                     who + " must share the player's sorting order so solid wall occlusion follows position.");
                 // Regression for the 2026-09-27 request to see through an open doorway. The
-                // committed wall prefabs stay unmasked; only these twenty backing tiles opt in.
+                // committed wall prefabs stay unmasked; only doorway backing tiles opt in.
                 Assert.AreEqual(doorwayFill ? SpriteMaskInteraction.VisibleOutsideMask : SpriteMaskInteraction.None,
                     renderer.maskInteraction, who + ": only doorway fill tiles may respond to a door mask.");
                 Assert.AreEqual(SpriteSortPoint.Pivot, renderer.spriteSortPoint,
@@ -762,6 +769,21 @@ namespace NoSafeCircle.DoorPrototype.Tests
             yield return null;
             Physics.SyncTransforms();
 
+            Assert.AreEqual(5, rooms.Count, "The exterior approach is not a separate walled room.");
+            Assert.IsNull(spawnerObject.transform.Find("EntryChamberWalls"));
+
+            Transform entryWalls = spawnerObject.transform.Find("RuinedEntryWalls");
+            Assert.IsNotNull(entryWalls);
+            SpriteRenderer[] entranceArt = entryWalls.GetComponentsInChildren<SpriteRenderer>(true);
+            Assert.IsTrue(entranceArt.Any(sprite =>
+                Mathf.Abs(sprite.transform.parent.position.z - RuinedEntryLayout.MinimumZ) < 0.01f &&
+                sprite.transform.parent.position.x < RuinedEntryLayout.EntryDoorCenterX - 1.5f),
+                "The south entrance has no west wall art beside the doorway.");
+            Assert.IsTrue(entranceArt.Any(sprite =>
+                Mathf.Abs(sprite.transform.parent.position.z - RuinedEntryLayout.MinimumZ) < 0.01f &&
+                sprite.transform.parent.position.x > RuinedEntryLayout.EntryDoorCenterX + 1.5f),
+                "The south entrance has no east wall art beside the doorway.");
+
             BoxCollider[] boxes = spawnerObject.GetComponentsInChildren<BoxCollider>(true);
             Assert.Greater(boxes.Length, 0, "No wall collider was spawned, so walls block nothing.");
 
@@ -853,11 +875,19 @@ namespace NoSafeCircle.DoorPrototype.Tests
             // THE REAL PROOF: a chest-height ray, triggers ignored - FireballProjectile's shape -
             // fired at an unshared wall is stopped by a spawned wall collider.
             Room entry = rooms.Single(r => r.Name == "RuinedEntry");
-            Vector3 origin = new Vector3(entry.Center.x, 1f, entry.ZMin + 6f);
+            Vector3 origin = new Vector3(6f, 1f, entry.ZMin + 6f);
             bool hit = Physics.Raycast(origin, Vector3.back, out RaycastHit info, 12f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
             Assert.IsTrue(hit, "A chest-height ray at the Ruined Entry's south wall hit nothing.");
             Assert.Contains(info.collider, boxes, "The ray was stopped by '" + info.collider.name + "', which is not a spawned wall.");
-            Assert.AreEqual("SouthWallCollision", info.collider.name);
+            Assert.AreEqual("SouthWallEastCollision", info.collider.name);
+            Assert.IsFalse(Physics.Raycast(
+                new Vector3(RuinedEntryLayout.EntryDoorCenterX, 1f, entry.ZMin + 6f),
+                Vector3.back, 12f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore),
+                "The south entrance opening must let the wizard run into Ruined Entry.");
+            Assert.IsTrue(Physics.Raycast(
+                new Vector3(RuinedEntryLayout.EntryDoorCenterX - 4f, 1f, entry.ZMin + 6f),
+                Vector3.back, 12f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore),
+                "The west flank of the south entrance must block walking around the door.");
         }
 
         [UnityTest]

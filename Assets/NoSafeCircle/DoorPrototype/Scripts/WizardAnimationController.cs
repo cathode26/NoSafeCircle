@@ -23,6 +23,7 @@ namespace NoSafeCircle.DoorPrototype
         private const float DirectionThreshold = 0.01f;
         private const float DirectionSwitchMargin = 0.001f;
         private const float DirectionTieEpsilon = 0.0001f;
+        private static readonly Quaternion CameraFacingRotation = Quaternion.Euler(30f, -45f, 0f);
         internal const string CanonicalInitialDirection = "south-east";
 
         private static readonly string[] screenDirections =
@@ -52,6 +53,7 @@ namespace NoSafeCircle.DoorPrototype
         private string currentState;
         private string lastDirection = CanonicalInitialDirection;
         private bool ignoreNextDisplacement;
+        private bool cutsceneFacingOverride;
 
         public WizardPresentation Presentation => presentation;
         public WizardSkin Skin => skin;
@@ -63,10 +65,30 @@ namespace NoSafeCircle.DoorPrototype
             if (animator == null) animator = GetComponent<Animator>();
             spriteRenderer = GetComponentInChildren<SpriteRenderer>();
             previousPosition = transform.position;
+            RestoreCameraFacingVisual();
+        }
+
+        private void LateUpdate()
+        {
+            // Player movement can rotate the root. Keep the sprite parallel to the fixed
+            // isometric camera after its final movement pose, as the enemy visuals do.
+            RestoreCameraFacingVisual();
+        }
+
+        private void RestoreCameraFacingVisual()
+        {
+            if (spriteRenderer != null)
+                spriteRenderer.transform.rotation = CameraFacingRotation;
         }
 
         private void Update()
         {
+            if (cutsceneFacingOverride)
+            {
+                previousPosition = transform.position;
+                return;
+            }
+
             if (ignoreNextDisplacement)
             {
                 previousPosition = transform.position;
@@ -108,6 +130,35 @@ namespace NoSafeCircle.DoorPrototype
             if (animator == null || animator.runtimeAnimatorController == null) return;
 
             animator.Play(currentState, 0, 0f);
+            animator.Update(0f);
+        }
+
+        /// <summary>Holds an idle facing for a scripted beat, independent of root movement.</summary>
+        public void FaceForCutscene(Vector3 worldDirection)
+        {
+            cutsceneFacingOverride = true;
+            previousPosition = transform.position;
+            lastDirection = DirectionFor(worldDirection);
+            PlayCutsceneState("idle");
+        }
+
+        /// <summary>Returns a scripted actor to its travel-facing walk animation.</summary>
+        public void ResumeForCutscene(Vector3 worldDirection)
+        {
+            cutsceneFacingOverride = false;
+            previousPosition = transform.position;
+            ignoreNextDisplacement = true;
+            lastDirection = DirectionFor(worldDirection);
+            PlayCutsceneState("walk");
+        }
+
+        private void PlayCutsceneState(string motion)
+        {
+            string state = StateName(motion, lastDirection);
+            if (state == currentState) return;
+            currentState = state;
+            if (animator == null || animator.runtimeAnimatorController == null) return;
+            animator.Play(state, 0, 0f);
             animator.Update(0f);
         }
 

@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using UnityEngine.Tilemaps;
 using UnityEngine.UI;
 
 namespace NoSafeCircle.DoorPrototype.Tests
@@ -237,6 +238,20 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsFalse(player.GetComponent<PlayerMovement>().IsGameplayEnabled);
             Assert.IsFalse(player.GetComponent<PlayerInteractionController>().IsGameplayEnabled);
             Assert.IsFalse(player.GetComponent<DebugManaSpendControl>().enabled);
+            SpriteRenderer playerVisual = player.transform.Find("Visual")?.GetComponent<SpriteRenderer>();
+            Assert.IsNotNull(playerVisual, "The spawned gameplay player lost its Visual sprite.");
+            Assert.IsTrue(player.activeInHierarchy, "The title must not disable the player root.");
+            Assert.IsFalse(playerVisual.enabled,
+                "The stationary gameplay player is visible behind the title chase.");
+            Transform approachFloor = GameObject.Find("EntryApproachFloor")?.transform;
+            Assert.IsNotNull(approachFloor, "The exterior grass did not spawn.");
+            TilemapRenderer grassBase = approachFloor.Find("FloorTilemap")?.GetComponent<TilemapRenderer>();
+            TilemapRenderer grassDetail = approachFloor.Find("GrassTilemap")?.GetComponent<TilemapRenderer>();
+            Assert.IsNotNull(grassBase, "The opaque grass underlay did not spawn.");
+            Assert.IsNotNull(grassDetail, "The grass detail tilemap did not spawn.");
+            Assert.IsTrue(grassBase.enabled,
+                "The title hid the opaque underlay and exposed gaps between grass diamonds.");
+            Assert.IsTrue(grassDetail.enabled, "The title hid the grass detail tiles.");
 
             string[] gameplayNames =
             {
@@ -259,11 +274,26 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             Assert.AreEqual(1, requestCount);
             Assert.IsFalse(titlePanel.gameObject.activeSelf);
+            Assert.IsTrue(grassBase.enabled,
+                "The opaque grass underlay must remain visible during wizard selection.");
+            Assert.IsTrue(grassDetail.enabled,
+                "The grass detail tiles must remain visible during wizard selection.");
             Assert.IsFalse(player.GetComponent<PlayerMovement>().IsGameplayEnabled);
+            Assert.IsFalse(playerVisual.enabled,
+                "Wizard selection is still before the chase entry, so the gameplay sprite must stay hidden.");
             foreach (string name in gameplayNames)
             {
                 CanvasGroup group = canvas.transform.Find(name).GetComponent<CanvasGroup>();
-                Assert.AreEqual(1f, group.alpha, name + " did not return for wizard selection.");
+                Assert.AreEqual(0f, group.alpha, name + " is visible before gameplay entry.");
+                Assert.IsFalse(group.blocksRaycasts, name + " receives clicks during wizard selection.");
+            }
+            canvas.GetComponent<TitleScreenGameplayHudVisibility>().RestoreGameplayPresentation();
+            Assert.IsTrue(playerVisual.enabled,
+                "The entry completion handoff did not restore the player's prior sprite state.");
+            foreach (string name in gameplayNames)
+            {
+                CanvasGroup group = canvas.transform.Find(name).GetComponent<CanvasGroup>();
+                Assert.AreEqual(1f, group.alpha, name + " did not return at gameplay entry.");
                 Assert.IsTrue(group.blocksRaycasts, name + " did not restore its UI input.");
             }
         }

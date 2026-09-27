@@ -12,6 +12,8 @@ namespace NoSafeCircle.DoorPrototype.World.Rooms
         public const float DoorCenterX = 0f;
         public const float DoorCenterZ = 0f;
         public const float DoorOpeningWidth = 3f;
+        public const float EntryDoorCenterX = -4f;
+        public const float EntryDoorCenterZ = MinimumZ;
 
         public const float RubbleAMinimumX = 2f;
         public const float RubbleAMaximumX = 8f;

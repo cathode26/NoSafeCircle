@@ -309,8 +309,14 @@ MonoBehaviour:
   pursuerSeparation: 2.5
   fadeDuration: 0.5
   minLaneLength: 6
-  wizardVisualScale: 2
-  pursuerVisualScale: 2
+  wizardVisualScale: 1
+  pursuerVisualScale: 1
+  entryFireballFrames:
+  - {fileID: 21300000, guid: e61d52e2f31d0b5e386a351a3cf9afc1, type: 3}
+  - {fileID: 21300000, guid: 26ba9a42e17a36bb99ea301506b9b15a, type: 3}
+  - {fileID: 21300000, guid: 077ac3eb27d18d2ba0832c604a7f2288, type: 3}
+  - {fileID: 21300000, guid: cac3b58d82c29717b1e7400b4618cef4, type: 3}
+  entryFireballImpact: {fileID: 21300000, guid: 92cd7fd26b9c15243f26e7a29d83c9ed, type: 3}
 --- !u!114 &2285380109521794148
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1801,6 +1807,7 @@ GameObject:
   - component: {fileID: 7300000000000000085}
   - component: {fileID: 7300000000000000086}
   - component: {fileID: 7300000000000000087}
+  - component: {fileID: 7300000000000000310}
   m_Layer: 0
   m_Name: Eyebrow
   m_TagString: Untagged
@@ -1869,6 +1876,21 @@ MonoBehaviour:
     m_VerticalOverflow: 0
     m_LineSpacing: 1
   m_Text: WELCOME, TINY WIZARD
+--- !u!114 &7300000000000000310
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7300000000000000084}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  m_EffectColor: {r: 0.03137255, g: 0.015686275, b: 0.047058824, a: 1}
+  m_EffectDistance: {x: 2, y: -2}
+  m_UseGraphicAlpha: 1
 --- !u!1 &7300000000000000088
 GameObject:
   m_ObjectHideFlags: 0
@@ -1881,6 +1903,7 @@ GameObject:
   - component: {fileID: 7300000000000000090}
   - component: {fileID: 7300000000000000091}
   - component: {fileID: 7300000000000000092}
+  - component: {fileID: 7300000000000000311}
   m_Layer: 0
   m_Name: Title
   m_TagString: Untagged
@@ -1964,6 +1987,21 @@ MonoBehaviour:
   m_EffectColor: {r: 0.031372547, g: 0.015686275, b: 0.047058824, a: 0.8627451}
   m_EffectDistance: {x: 5, y: -5}
   m_UseGraphicAlpha: 1
+--- !u!114 &7300000000000000311
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7300000000000000088}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  m_EffectColor: {r: 0.03137255, g: 0.015686275, b: 0.047058824, a: 1}
+  m_EffectDistance: {x: 3, y: -3}
+  m_UseGraphicAlpha: 1
 --- !u!1 &7300000000000000093
 GameObject:
   m_ObjectHideFlags: 0
@@ -1975,6 +2013,7 @@ GameObject:
   - component: {fileID: 7300000000000000094}
   - component: {fileID: 7300000000000000095}
   - component: {fileID: 7300000000000000096}
+  - component: {fileID: 7300000000000000312}
   m_Layer: 0
   m_Name: Tagline
   m_TagString: Untagged
@@ -2043,6 +2082,21 @@ MonoBehaviour:
     m_VerticalOverflow: 0
     m_LineSpacing: 1
   m_Text: Cute wizards. Terrible odds.
+--- !u!114 &7300000000000000312
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7300000000000000093}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e19747de3f5aca642ab2be37e372fb86, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  m_EffectColor: {r: 0.03137255, g: 0.015686275, b: 0.047058824, a: 1}
+  m_EffectDistance: {x: 2, y: -2}
+  m_UseGraphicAlpha: 1
 --- !u!1 &7300000000000000097
 GameObject:
   m_ObjectHideFlags: 0
@@ -2727,7 +2781,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: ba32e804c3c549e43aa53b4a61cad7be, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 76b157b12b4a0fc6fa59ec93d877659d, type: 3}
   m_Type: 0
   m_PreserveAspect: 1
   m_FillCenter: 1
@@ -3187,7 +3241,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 64d787ff2e602f6429731e96dfa9db4d, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 81bd79687db884b84d4e6a9f4e6940f9, type: 3}
   m_Type: 0
   m_PreserveAspect: 1
   m_FillCenter: 1
@@ -3647,7 +3701,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 1fb2dac316457be4bada3f5a5606f7df, type: 3}
+  m_Sprite: {fileID: 21300000, guid: bfd4d6b54153784cfe1f336f06573ef5, type: 3}
   m_Type: 0
   m_PreserveAspect: 1
   m_FillCenter: 1
@@ -4107,7 +4161,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 21300000, guid: 69f3c2f3d7452fd41b949253110967be, type: 3}
+  m_Sprite: {fileID: 21300000, guid: 74155d78c50f84670f6a0298789811e0, type: 3}
   m_Type: 0
   m_PreserveAspect: 1
   m_FillCenter: 1

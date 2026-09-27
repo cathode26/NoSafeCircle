@@ -37,7 +37,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         private const string SpawnerResourcePath = GameBootstrap.SpawnerResourceFolder + "/PlayerSpawner";
         private const string PlayerPrefabResourcePath = "Player/Player";
         private const string WizardIdleAssetPath =
-            "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/south-east.png";
+            "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/standing/south-east.png";
         private const string MainCameraTag = "MainCamera";
 
         // Unity's CharacterController default, pinned independently by
@@ -272,9 +272,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.That(drawnFeetY, Is.InRange(-dilation - 0.0005f, 0.0005f),
                 "The wizard's DRAWN feet are at world y " + drawnFeetY + " (sprite '" + renderer.sprite.name
                 + "'), not on the floor.");
-            Assert.Less(Quaternion.Angle(Quaternion.identity, visual.localRotation), 0.01f,
-                "The wizard's visual is rotated. Unlike enemies it is NOT camera-tilted (builder "
-                + "lines 280-284).");
+            Assert.Less(Quaternion.Angle(Quaternion.Euler(30f, -45f, 0f), visual.rotation), 0.01f,
+                "The wizard's visual must face the same isometric camera as the enemies.");
 
             yield return null;
         }
@@ -346,7 +345,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
 #if UNITY_EDITOR
             // Expected from the ART and the CONTROLLER, not from the Visual: the wizard's world
             // height is the CharacterController's height (2 units, the capsule he fills), the sprite
-            // is 180 px at PPU 180 (bounds 1.0), so the uniform scale must be height / bounds.
+            // is 128 px at PPU 64 (bounds 2.0), so the uniform scale must be height / bounds.
             var sprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(WizardIdleAssetPath);
             Assert.IsNotNull(sprite, WizardIdleAssetPath + " did not load as a Sprite.");
             float spriteHeight = sprite.bounds.size.y;

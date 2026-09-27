@@ -36,7 +36,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
         // Z from RuinedEntryLayout.MinimumZ (-26) to FinalRoomLayout.MaximumZ (104).
         private const float MinimumX = -20f;
         private const float MaximumX = 20f;
-        private const float MinimumZ = -26f;
+        private const float MinimumZ = RuinedEntryLayout.MinimumZ;
         private const float MaximumZ = 104f;
 
         private static string ReadMap()
@@ -101,7 +101,8 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
 
             // Spawn inside the first room. Row/column from the parser's own ToCell, so this test
             // cannot disagree with the mapping the game will use.
-            AsciiCellIndex spawn = map.ToCell(0f, -22f, MinimumX, MaximumZ);
+            AsciiCellIndex spawn = map.ToCell(RuinedEntryLayout.PlayerStart.x,
+                RuinedEntryLayout.PlayerStart.z, MinimumX, MaximumZ);
             Assert.IsTrue(map.IsWalkable(spawn.Column, spawn.Row),
                 "Spawn cell " + spawn + " is not walkable; the flood fill would prove nothing.");
 
@@ -144,6 +145,8 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
                 ("D3", -8f, 54f, false),
                 ("D4", 4f, 76f, false),
                 ("D5", 0f, 104f, true),   // the floor's northern boundary: one wall row, not two
+                ("SouthEntrance", RuinedEntryLayout.EntryDoorCenterX,
+                    RuinedEntryLayout.EntryDoorCenterZ, true),
             };
 
             foreach ((string name, float x, float z, bool outerEdge) in doors)

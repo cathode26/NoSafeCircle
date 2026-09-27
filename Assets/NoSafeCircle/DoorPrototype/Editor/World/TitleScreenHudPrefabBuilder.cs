@@ -17,6 +17,8 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/MeleeEnemyAnimator.controller";
         private const string WraithControllerPath =
             "Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Generated/LanternWraithAnimator.controller";
+        private const string FireballSourcePath =
+            "Assets/NoSafeCircle/DoorPrototype/Art/Spells/Fireball/Source/";
 
         [MenuItem("No Safe Circle/Build/Title Screen HUD Prefab")]
         public static void Build()
@@ -91,8 +93,19 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 Assign(chaseSerialized, "wizardAnimatorController", wizard);
                 Assign(chaseSerialized, "meleeAnimatorController", melee);
                 Assign(chaseSerialized, "wraithAnimatorController", wraith);
-                AssignFloat(chaseSerialized, "wizardVisualScale", 2f);
-                AssignFloat(chaseSerialized, "pursuerVisualScale", 2f);
+                AssignFloat(chaseSerialized, "wizardVisualScale", 1f);
+                AssignFloat(chaseSerialized, "pursuerVisualScale", 1f);
+                SerializedProperty fireballFrames = chaseSerialized.FindProperty("entryFireballFrames");
+                if (fireballFrames == null)
+                    throw new InvalidOperationException("Title chase is missing entryFireballFrames.");
+                fireballFrames.arraySize = 4;
+                for (int index = 0; index < 4; index++)
+                {
+                    fireballFrames.GetArrayElementAtIndex(index).objectReferenceValue =
+                        RequiredSprite(FireballSourcePath + "projectile_" + index + ".png");
+                }
+                Assign(chaseSerialized, "entryFireballImpact",
+                    RequiredSprite(FireballSourcePath + "impact_still.png"));
                 chaseSerialized.ApplyModifiedPropertiesWithoutUndo();
 
                 string[] gameplayNames =
@@ -176,6 +189,14 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 throw new InvalidOperationException($"Animator controller is missing: {path}");
             }
             return controller;
+        }
+
+        private static Sprite RequiredSprite(string path)
+        {
+            Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (sprite == null)
+                throw new InvalidOperationException($"Title fireball sprite is missing: {path}");
+            return sprite;
         }
 
         private static void Assign(SerializedObject serialized, string name, Object value)

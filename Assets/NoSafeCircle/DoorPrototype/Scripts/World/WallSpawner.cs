@@ -219,7 +219,7 @@ namespace NoSafeCircle.DoorPrototype.World
         // THE JAMB EXCEPTION THAT USED TO BE DOCUMENTED HERE IS GONE, WITH THE JAMBS. Nothing is
         // placed as a Jamb any more, so every overlay that reaches this method - corner and end
         // cap - stands on the floor, and the double-subtraction has no surviving caller.
-        private static Vector3 AccentPosition(GameObject instance, WallPiece piece, Quaternion rotation)
+        internal static Vector3 AccentPosition(GameObject instance, WallPiece piece, Quaternion rotation)
         {
             var renderer = instance.GetComponentInChildren<SpriteRenderer>(true);
             if (renderer == null || renderer.sprite == null)

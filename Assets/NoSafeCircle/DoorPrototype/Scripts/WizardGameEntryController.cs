@@ -1,3 +1,6 @@
+using System;
+using NoSafeCircle.DoorPrototype.World;
+using NoSafeCircle.DoorPrototype.World.Rooms;
 using UnityEngine;
 
 namespace NoSafeCircle.DoorPrototype
@@ -5,7 +8,7 @@ namespace NoSafeCircle.DoorPrototype
     /// <summary>
     /// Consumes the confirmed wizard choice and hands control to the existing Player.
     /// </summary>
-    public sealed class WizardGameEntryController : MonoBehaviour
+    public sealed partial class WizardGameEntryController : MonoBehaviour
     {
         [SerializeField] private WizardSelectionController wizardSelectionController;
         [SerializeField] private WizardAnimationController wizardAnimationController;
@@ -16,10 +19,24 @@ namespace NoSafeCircle.DoorPrototype
         [SerializeField] private GameObject[] menuUiRoots;
 
         private bool isSubscribed;
+        private bool isEntryCutsceneRunning;
+        private bool entryGateFailed;
+        private bool isWaitingForGameplayReveal;
+        private bool hasRevealedGameplayPresentation;
+        private TitleScreenChaseBackdrop entryChase;
+        private TitleScreenGameplayHudVisibility presentationVisibility;
+        private EntranceDoor entryDoor;
+        private IsometricCameraFollow cameraFollow;
+        private Vector3 cameraOffset;
 
         public bool HasEnteredGameplay { get; private set; }
+        public bool IsEntryCutsceneRunning => isEntryCutsceneRunning;
+        public bool IsWaitingForGameplayReveal => isWaitingForGameplayReveal;
         public int GameplayEntryCount { get; private set; }
         public ConfirmedWizardSelection? AppliedSelection { get; private set; }
+
+        /// <summary>Optional transition seam. A subscriber calls CompleteEntryAfterCutscene after its fade.</summary>
+        public event Action EntryCutsceneReadyForGameplay;
 
         private void OnEnable()
         {
@@ -29,6 +46,9 @@ namespace NoSafeCircle.DoorPrototype
         private void OnDisable()
         {
             UnsubscribeFromSelection();
+            if (isEntryCutsceneRunning || isWaitingForGameplayReveal)
+                RecoverWithoutCutscene();
+            else UnsubscribeFromEntryChase();
         }
 
         private void SubscribeToSelection()
@@ -52,12 +72,14 @@ namespace NoSafeCircle.DoorPrototype
         }
 
         /// <summary>
-        /// Applies one confirmed selection, places the existing Player, and enables its input owners.
-        /// Repeated callbacks are ignored after the first completed entry.
+        /// Applies the confirmed appearance to the existing Player, then plays one inbound chase.
+        /// Gameplay input remains suspended until the first room's entrance door has
+        /// closed behind the wizard and the chase has completed.
         /// </summary>
         public void EnterWorld(ConfirmedWizardSelection selection)
         {
-            if (HasEnteredGameplay) return;
+            if (HasEnteredGameplay || isEntryCutsceneRunning || isWaitingForGameplayReveal) return;
+            entryGateFailed = false;
             if (!HasValidReferences())
             {
                 Debug.LogError(
@@ -67,8 +89,16 @@ namespace NoSafeCircle.DoorPrototype
                 return;
             }
 
+            entryChase = GetComponent<TitleScreenChaseBackdrop>();
+            presentationVisibility = GetComponent<TitleScreenGameplayHudVisibility>();
+            entryDoor = FindEntryDoor();
+            Camera camera = Camera.main;
+            cameraFollow = camera != null ? camera.GetComponent<IsometricCameraFollow>() : null;
+
             wizardAnimationController.ApplyPresentation(selection.Presentation, selection.Skin);
             player.SetPositionAndRotation(worldSpawn.position, worldSpawn.rotation);
+            playerMovement.SuspendGameplayInput();
+            playerInteractionController.SuspendGameplayInput();
 
             foreach (GameObject menuUiRoot in menuUiRoots)
             {
@@ -76,12 +106,121 @@ namespace NoSafeCircle.DoorPrototype
             }
 
             AppliedSelection = selection;
-            HasEnteredGameplay = true;
-            GameplayEntryCount++;
             UnsubscribeFromSelection();
 
+            if (entryChase == null || presentationVisibility == null || entryDoor == null ||
+                cameraFollow == null)
+            {
+                Debug.LogError("Wizard entry needs the title chase, presentation visibility, " +
+                    "the entrance door, and the gameplay camera follow.", this);
+                RecoverWithoutCutscene();
+                return;
+            }
+
+            cameraOffset = cameraFollow.transform.position - player.position;
+            if (!entryDoor.OpenForEntryCutscene())
+            {
+                Debug.LogError("The entrance door could not open for wizard entry.", this);
+                RecoverWithoutCutscene();
+                return;
+            }
+
+            entryChase.EntryWizardCrossedDoorway += OnEntryWizardCrossedDoorway;
+            entryChase.EntryChaseCompleted += OnEntryChaseCompleted;
+            if (!entryChase.BeginEntryChase(selection,
+                    EntryApproachLayout.WizardEntryStart,
+                    EntryApproachLayout.FirstRoomArrival,
+                    EntryApproachLayout.DoorCloseTrigger.z,
+                    EntryApproachLayout.PursuerStop.z))
+            {
+                Debug.LogError("The selected wizard chase could not start.", this);
+                RecoverWithoutCutscene();
+                return;
+            }
+
+            isEntryCutsceneRunning = true;
+            if (GetComponentInParent<Canvas>() != null)
+            {
+                WizardEntryFadeTransition fade = GetComponent<WizardEntryFadeTransition>();
+                if (fade == null) fade = gameObject.AddComponent<WizardEntryFadeTransition>();
+                fade.Configure(entryChase, this);
+            }
+            Transform entryWizard = entryChase.EntryWizardTransform;
+            cameraFollow.transform.position = entryWizard.position + cameraOffset;
+            cameraFollow.Initialize(entryWizard);
+        }
+
+        private void OnEntryWizardCrossedDoorway()
+        {
+            if (!isEntryCutsceneRunning || entryDoor == null) return;
+            Transform wizard = entryChase != null ? entryChase.EntryWizardTransform : null;
+            Transform pursuer = entryChase != null ? entryChase.EntryPursuerTransform : null;
+            if (wizard == null || pursuer == null ||
+                !entryDoor.CloseAfterEntryCutscene(wizard.position, pursuer.position))
+            {
+                Debug.LogError("The entrance door failed to close with the wizard north " +
+                    "and the pursuer south; restoring playable state.", this);
+                entryGateFailed = true;
+                entryDoor.ResetDoor();
+            }
+        }
+
+        private void OnEntryChaseCompleted()
+        {
+            if (!isEntryCutsceneRunning) return;
+            isEntryCutsceneRunning = false;
+            UnsubscribeFromEntryChase();
+            if (entryGateFailed)
+            {
+                RecoverWithoutCutscene();
+                return;
+            }
+            if (entryDoor == null || entryDoor.IsOpen)
+            {
+                Debug.LogError("The entrance door was not sealed at wizard entry " +
+                    "completion; restoring it before enabling control.", this);
+                RecoverWithoutCutscene();
+                return;
+            }
+
+            cameraFollow.transform.position = player.position + cameraOffset;
+            cameraFollow.Initialize(player);
+            isWaitingForGameplayReveal = true;
+            Action transition = EntryCutsceneReadyForGameplay;
+            if (transition == null) CompleteEntryAfterCutscene();
+            else transition.Invoke();
+        }
+
+        /// <summary>Shows the playable wizard behind the fade while input remains suspended.</summary>
+        public void RevealGameplayPresentation()
+        {
+            if (!isWaitingForGameplayReveal || hasRevealedGameplayPresentation) return;
+            hasRevealedGameplayPresentation = true;
+            presentationVisibility.RestoreGameplayPresentation();
+        }
+
+        /// <summary>Called after the room has been revealed and the player may take control.</summary>
+        public void CompleteEntryAfterCutscene()
+        {
+            if (!isWaitingForGameplayReveal || HasEnteredGameplay) return;
+            RevealGameplayPresentation();
+            isWaitingForGameplayReveal = false;
+            HasEnteredGameplay = true;
+            GameplayEntryCount++;
             playerMovement.EnableGameplayInput();
             playerInteractionController.EnableGameplayInput();
+        }
+
+        private void UnsubscribeFromEntryChase()
+        {
+            if (entryChase == null) return;
+            entryChase.EntryWizardCrossedDoorway -= OnEntryWizardCrossedDoorway;
+            entryChase.EntryChaseCompleted -= OnEntryChaseCompleted;
+        }
+
+        private static EntranceDoor FindEntryDoor()
+        {
+            return UnityEngine.Object.FindFirstObjectByType<EntranceDoor>();
         }
 
         private bool HasValidReferences()

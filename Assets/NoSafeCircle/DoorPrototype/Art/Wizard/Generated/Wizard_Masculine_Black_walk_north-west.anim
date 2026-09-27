@@ -7,7 +7,7 @@ AnimationClip:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Wizard_Masculine_Black_walk_north-west
-  serializedVersion: 7
+  serializedVersion: 8
   m_Legacy: 0
   m_Compressed: 0
   m_UseHighQualityCurve: 1
@@ -21,17 +21,17 @@ AnimationClip:
   - serializedVersion: 2
     curve:
     - time: 0
-      value: {fileID: 21300000, guid: 59be03f1f8ed05044b44945bfb672c37, type: 3}
+      value: {fileID: 21300000, guid: ae79a2551b39f38df4e78311d53dfe3b, type: 3}
     - time: 0.083333336
-      value: {fileID: 21300000, guid: ac8d39179fc68a0498b9c8efc35d1ea6, type: 3}
+      value: {fileID: 21300000, guid: e94e5fbadce58b0e884273b7dca6f14a, type: 3}
     - time: 0.16666667
-      value: {fileID: 21300000, guid: 47ac16eb16a35744190743cc30f44756, type: 3}
+      value: {fileID: 21300000, guid: 5127e7a5797ce01c7063ae76fb646e99, type: 3}
     - time: 0.25
-      value: {fileID: 21300000, guid: bd77fb88b248f494c9d5619b0b04fd2e, type: 3}
+      value: {fileID: 21300000, guid: ca02ea9d2e3a8e1c862177878f5f3c0e, type: 3}
     - time: 0.33333334
-      value: {fileID: 21300000, guid: 68823b30a08d2a84c80a7e2d2c377c51, type: 3}
+      value: {fileID: 21300000, guid: b25472a8e22c7673cb3b0b756875fd06, type: 3}
     - time: 0.41666666
-      value: {fileID: 21300000, guid: cbfaa1dec76a34840905881d83fcf717, type: 3}
+      value: {fileID: 21300000, guid: 92add7ed2b6a74ebbf25e7da9099b4f3, type: 3}
     attribute: m_Sprite
     path: Visual
     classID: 212
@@ -53,13 +53,14 @@ AnimationClip:
       isPPtrCurve: 1
       isIntCurve: 0
       isSerializeReferenceCurve: 0
+      metaData: 0
     pptrCurveMapping:
-    - {fileID: 21300000, guid: 59be03f1f8ed05044b44945bfb672c37, type: 3}
-    - {fileID: 21300000, guid: ac8d39179fc68a0498b9c8efc35d1ea6, type: 3}
-    - {fileID: 21300000, guid: 47ac16eb16a35744190743cc30f44756, type: 3}
-    - {fileID: 21300000, guid: bd77fb88b248f494c9d5619b0b04fd2e, type: 3}
-    - {fileID: 21300000, guid: 68823b30a08d2a84c80a7e2d2c377c51, type: 3}
-    - {fileID: 21300000, guid: cbfaa1dec76a34840905881d83fcf717, type: 3}
+    - {fileID: 21300000, guid: ae79a2551b39f38df4e78311d53dfe3b, type: 3}
+    - {fileID: 21300000, guid: e94e5fbadce58b0e884273b7dca6f14a, type: 3}
+    - {fileID: 21300000, guid: 5127e7a5797ce01c7063ae76fb646e99, type: 3}
+    - {fileID: 21300000, guid: ca02ea9d2e3a8e1c862177878f5f3c0e, type: 3}
+    - {fileID: 21300000, guid: b25472a8e22c7673cb3b0b756875fd06, type: 3}
+    - {fileID: 21300000, guid: 92add7ed2b6a74ebbf25e7da9099b4f3, type: 3}
   m_AnimationClipSettings:
     serializedVersion: 2
     m_AdditiveReferencePoseClip: {fileID: 0}

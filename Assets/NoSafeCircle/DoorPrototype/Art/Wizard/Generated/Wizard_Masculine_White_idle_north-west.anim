@@ -7,7 +7,7 @@ AnimationClip:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: Wizard_Masculine_White_idle_north-west
-  serializedVersion: 7
+  serializedVersion: 8
   m_Legacy: 0
   m_Compressed: 0
   m_UseHighQualityCurve: 1
@@ -21,7 +21,7 @@ AnimationClip:
   - serializedVersion: 2
     curve:
     - time: 0
-      value: {fileID: 21300000, guid: 90987ee35d8dc3942b6c07b1e7be561d, type: 3}
+      value: {fileID: 21300000, guid: 3f348aa2a9f15f6a4c43b9de0122f6e2, type: 3}
     attribute: m_Sprite
     path: Visual
     classID: 212
@@ -43,8 +43,9 @@ AnimationClip:
       isPPtrCurve: 1
       isIntCurve: 0
       isSerializeReferenceCurve: 0
+      metaData: 0
     pptrCurveMapping:
-    - {fileID: 21300000, guid: 90987ee35d8dc3942b6c07b1e7be561d, type: 3}
+    - {fileID: 21300000, guid: 3f348aa2a9f15f6a4c43b9de0122f6e2, type: 3}
   m_AnimationClipSettings:
     serializedVersion: 2
     m_AdditiveReferencePoseClip: {fileID: 0}

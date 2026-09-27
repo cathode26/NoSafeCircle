@@ -45,8 +45,8 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             TitleScreenChaseBackdrop[] backdrops = hud.GetComponents<TitleScreenChaseBackdrop>();
             Assert.AreEqual(1, backdrops.Length);
             SerializedObject chase = new SerializedObject(backdrops[0]);
-            Assert.AreEqual(2f, chase.FindProperty("wizardVisualScale").floatValue);
-            Assert.AreEqual(2f, chase.FindProperty("pursuerVisualScale").floatValue);
+            Assert.AreEqual(1f, chase.FindProperty("wizardVisualScale").floatValue);
+            Assert.AreEqual(1f, chase.FindProperty("pursuerVisualScale").floatValue);
             SerializedObject bindings = new SerializedObject(hud.GetComponent<HudBindings>());
             Assert.AreSame(backdrops[0], bindings.FindProperty("titleChase").objectReferenceValue);
             Assert.IsNotNull(bindings.FindProperty("wizardChaseAnimator").objectReferenceValue);

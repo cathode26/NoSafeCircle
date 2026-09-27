@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEditor.Animations;
@@ -11,7 +13,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
     // The old scenes and their builders are going away; this is the wizard's only asset producer
     // and has to survive that delete so the 64 committed .anim files plus WizardAnimator.controller
     // under Art/Wizard/Generated/ can still be regenerated. Pure move: same asset paths, same clip
-    // and controller names, same frame ordering, same import settings as before.
+    // and controller names and frame ordering. NSC-096 switches the source and import geometry.
     //
     // The enemy equivalent (melee + lantern wraith) was already its own file before this move -
     // World/EnemyAnimationAssetBuilder.cs - and is left where it is.
@@ -19,7 +21,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
     {
         // Also read by DoorPrototypeGlobalSceneBuilder.LoadWizardSelectionPreview, for the wizard
         // selection screen's preview art, which is why these two stay internal instead of private.
-        internal const string WizardSourceRoot = "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab";
+        internal const string WizardSourceRoot = "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128";
         internal const string WizardCanonicalInitialDirection = "south-east";
 
         private const string WizardGeneratedRoot = "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated";
@@ -60,6 +62,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
 
         internal static WizardAnimationAssets BuildWizardAnimationAssets()
         {
+            Dictionary<string, Vector2> sourcePivots = ReadWizardSourcePivots();
             EnsureFolder("Assets/NoSafeCircle/DoorPrototype/Art");
             EnsureFolder("Assets/NoSafeCircle/DoorPrototype/Art/Wizard");
             EnsureFolder(WizardGeneratedRoot);
@@ -73,14 +76,15 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
             {
                 var sourceVariant = variant.Replace("_White", "-light").Replace("_Black", "-dark")
                     .Replace("Masculine", "masculine").Replace("Feminine", "feminine");
+                Vector2 sourcePivot = sourcePivots[sourceVariant];
                 foreach (var standingDirection in WizardStandingDirections)
                 {
-                    ImportWizardSprite(WizardSourceRoot + "/" + sourceVariant + "/selected/standing/" + standingDirection + ".png");
+                    ImportWizardSprite(WizardSourceRoot + "/" + sourceVariant + "/selected/standing/" + standingDirection + ".png", sourcePivot);
                 }
                 foreach (var direction in WizardDirections)
                 {
                     var standingPath = WizardSourceRoot + "/" + sourceVariant + "/selected/standing/" + direction + ".png";
-                    var idle = ImportWizardSprite(standingPath);
+                    var idle = ImportWizardSprite(standingPath, sourcePivot);
                     var idleName = "Wizard_" + variant + "_idle_" + direction;
                     EnsureWizardState(stateMachine, idleName, EnsureWizardClip(idleName, new[] { idle }, 1));
                     if (variant == "Masculine_White" && direction == WizardCanonicalInitialDirection)
@@ -90,7 +94,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
                     for (var frame = 0; frame < walk.Length; frame++)
                     {
                         var walkPath = WizardSourceRoot + "/" + sourceVariant + "/selected/walk/" + direction + "/frame_00" + frame + ".png";
-                        walk[frame] = ImportWizardSprite(walkPath);
+                        walk[frame] = ImportWizardSprite(walkPath, sourcePivot);
                     }
                     var walkName = "Wizard_" + variant + "_walk_" + direction;
                     EnsureWizardState(stateMachine, walkName, EnsureWizardClip(walkName, walk, 12));
@@ -110,7 +114,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
             return new WizardAnimationAssets(controller, defaultIdle);
         }
 
-        private static Sprite ImportWizardSprite(string path)
+        private static Sprite ImportWizardSprite(string path, Vector2 sourcePivot)
         {
             AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
             var importer = AssetImporter.GetAtPath(path) as TextureImporter;
@@ -121,17 +125,76 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
             importer.filterMode = FilterMode.Point;
             importer.textureCompression = TextureImporterCompression.Uncompressed;
             importer.mipmapEnabled = false;
-            importer.spritePixelsPerUnit = 180f;
+            importer.spritePixelsPerUnit = 64f;
             var textureSettings = new TextureImporterSettings();
             importer.ReadTextureSettings(textureSettings);
             textureSettings.spriteAlignment = (int)SpriteAlignment.Custom;
-            textureSettings.spritePivot = new Vector2(0.5f, 0f);
+            textureSettings.spritePivot = sourcePivot;
             importer.SetTextureSettings(textureSettings);
             ClearCookieImportDefaults(importer);
             importer.SaveAndReimport();
             var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
             if (sprite == null) throw new InvalidDataException("Wizard source did not import as a Sprite: " + path);
             return sprite;
+        }
+
+        private static Dictionary<string, Vector2> ReadWizardSourcePivots()
+        {
+            string inventoryPath = WizardSourceRoot + "/source-inventory.json";
+            if (!File.Exists(inventoryPath))
+                throw new FileNotFoundException("Wizard source inventory is missing", inventoryPath);
+
+            // JsonUtility has no dictionary support. Only the four property names are changed;
+            // source file paths and provenance records keep their committed PixelLab spelling.
+            string json = File.ReadAllText(inventoryPath);
+            foreach (string variant in new[]
+            {
+                "masculine-light", "masculine-dark", "feminine-light", "feminine-dark"
+            })
+                json = json.Replace("\"" + variant + "\":", "\"" + variant.Replace('-', '_') + "\":");
+
+            WizardSourceInventory inventory = JsonUtility.FromJson<WizardSourceInventory>(json);
+            if (inventory == null || inventory.canvas == null || inventory.canvas.Length != 2 ||
+                inventory.canvas[0] != 128 || inventory.canvas[1] != 128 || inventory.wizards == null)
+                throw new InvalidDataException("Wizard source inventory must describe a 128 x 128 canvas and four wizards: " + inventoryPath);
+
+            return new Dictionary<string, Vector2>
+            {
+                { "masculine-light", GroundLinePivot(inventory.wizards.masculine_light, "masculine-light") },
+                { "masculine-dark", GroundLinePivot(inventory.wizards.masculine_dark, "masculine-dark") },
+                { "feminine-light", GroundLinePivot(inventory.wizards.feminine_light, "feminine-light") },
+                { "feminine-dark", GroundLinePivot(inventory.wizards.feminine_dark, "feminine-dark") }
+            };
+        }
+
+        private static Vector2 GroundLinePivot(WizardSourceWizard wizard, string variant)
+        {
+            if (wizard == null || wizard.ground_line_y_from_top < 1 ||
+                wizard.ground_line_y_from_top > 128)
+                throw new InvalidDataException("Wizard source inventory has no valid ground line for " + variant);
+            return new Vector2(0.5f, (128f - wizard.ground_line_y_from_top) / 128f);
+        }
+
+        [Serializable]
+        private sealed class WizardSourceInventory
+        {
+            public int[] canvas;
+            public WizardSourceWizards wizards;
+        }
+
+        [Serializable]
+        private sealed class WizardSourceWizards
+        {
+            public WizardSourceWizard masculine_light;
+            public WizardSourceWizard masculine_dark;
+            public WizardSourceWizard feminine_light;
+            public WizardSourceWizard feminine_dark;
+        }
+
+        [Serializable]
+        private sealed class WizardSourceWizard
+        {
+            public int ground_line_y_from_top;
         }
 
         // A GUID-only .meta imports with point-light cookie defaults; reset them to match every other wizard source.

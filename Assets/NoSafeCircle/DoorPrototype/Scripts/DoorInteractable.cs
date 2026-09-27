@@ -5,7 +5,7 @@ using UnityEngine;
 namespace NoSafeCircle.DoorPrototype
 {
     [DisallowMultipleComponent]
-    public class DoorInteractable : MonoBehaviour
+    public sealed class DoorInteractable : MonoBehaviour
     {
         [SerializeField] private float duration = 5f;
         [SerializeField] private World.DoorId doorId = World.DoorId.D1;
