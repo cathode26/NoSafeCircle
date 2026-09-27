@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-042",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Seamless Scalable Wall Tiling for Long Isometric Walls",
   "reconciliation_key": "seamless-scalable-wall-tiling",
@@ -17,9 +17,7 @@
   ],
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WallTile.asset",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Generated/ArchitecturalTiles/WallTile.asset"
   ],
   "acceptance_criteria": [
     {
@@ -70,13 +68,24 @@
   "basis": "direct_gdd",
   "source_scope": "required",
   "confidence": "high",
-  "notes": "This is an explicit follow-up to NSC-039 and must not block closing NSC-039 once its sorting foundation is conformant. Scope is straight-wall visual continuity and scalable repetition. Final wall art, decorative variation, corners, junctions, end caps, and room-specific wall dressing are out of scope unless a minimal treatment is required to prove seamless straight-wall repetition.",
+  "notes": "This is an explicit follow-up to NSC-039 and must not block closing NSC-039 once its sorting foundation is conformant. Scope is straight-wall visual continuity and scalable repetition. Final wall art, decorative variation, corners, junctions, end caps, and room-specific wall dressing are out of scope unless a minimal treatment is required to prove seamless straight-wall repetition. *** REVISION 2, 2026-09-27: THE VALIDATION POLICY ENTRY IS REMOVED AND TWO DEAD RESOURCES ARE DROPPED. *** The entry bound EditMode to a single class, DoorPrototypeSceneBuilderTests, DELETED at eee0a6ac, so the platform could only ever discover zero tests. I DID NOT SUBSTITUTE A CLASS, and the reason is a rule I wrote for a tool and must obey myself: a replacement filter must be REACHABLE FROM THE TASK'S OWN GATES. NSC-042's three gates name NO fixture at all - VAL-001 and VAL-002 say only \"Unity validation confirms...\" and VAL-003 is a human check at the gameplay camera - and the one test file this task owned was the deleted one. There is nothing for a filter to point at, so pointing it anywhere would be an invention. A MISSING ENTRY AND A STALE ENTRY HAVE THE SAME EFFECT on candidate validation - policy_entry_commit.py's own docstring says the candidate stays retained either way - so the choice is made on which misleads a reader less, and an entry naming a deleted class actively misleads: a real run against it was observed to exit 30 with a generic \"zero passed tests\" message that does not name the missing class. WHAT IS NOT FIXED: this task still has no way to be re-validated in Unity. That is a real cost and it is recorded rather than hidden. WHY THIS IS SAFE ON A DELIVERED TASK, AND WHY I PREVIOUSLY REFUSED IT: I had concluded that ANY revision un-delivers, from current_conformance.py's needs_replan/contract_changed message. THAT WAS WRONG AND THE FUNCTION'S OWN DOCSTRING SAYS SO IN ITS FIRST LINE - _delivered_scope_unchanged: \"A revision or provenance edit does not undo an approved delivery. A changed acceptance criterion or completion gate still needs a new decision.\" It compares exactly five fields - kind, type, execution_scope, acceptance_criteria, completion_gates - and :485's ancestry test short-circuits the staleness branch, which CLAUDE.md already documents. I read the condition and never read the semantics, with the file open. Corrected by the Pipeline Maintainer, which also measured 13 tasks currently conformant AFTER a post-delivery revision against a control of 48 whose revisions match. This revision touches notes, provenance and exclusive_resources ONLY - none of the five - so the approved delivery stands and earns at most one more advisory.",
   "repository_state_at_bootstrap": "not_applicable",
   "repository_evidence_at_bootstrap": [],
   "provenance": {
     "origin": "human_scope_correction",
+    "reason": "Human runtime validation confirmed NSC-039's one-cell wall segmentation fixes player/wall sorting, but exposed a separate visual-quality and scalability concern: repeated placeholder wall segments do not join cleanly and future walls may span roughly 100 cells. The issue was deliberately deferred so NSC-039 can finish without expanding its scope.",
     "source_task_id": "NSC-039",
     "source_task_revision_before_move": 1,
-    "reason": "Human runtime validation confirmed NSC-039's one-cell wall segmentation fixes player/wall sorting, but exposed a separate visual-quality and scalability concern: repeated placeholder wall segments do not join cleanly and future walls may span roughly 100 cells. The issue was deliberately deferred so NSC-039 can finish without expanding its scope."
+    "contract_followups": [
+      {
+        "date": "2026-09-27",
+        "reason": "Rev 2 removes the validation policy entry and drops two dead resources. The entry bound EditMode to a single class, DoorPrototypeSceneBuilderTests, deleted at eee0a6ac, so the platform could only discover zero tests. I did NOT substitute a class: a replacement filter must be reachable from the task's own gates, and NSC-042's three gates name NO fixture at all while the one test file it owned was the deleted one. A missing entry and a stale entry have the same effect on candidate validation, so the choice is which misleads a reader less, and an entry naming a deleted class actively misleads - an observed run against one exits 30 with a generic zero-passed message that does not name the missing class. SAFE ON A DELIVERED TASK, and I previously refused this on a wrong reading: _delivered_scope_unchanged's own docstring says a revision or provenance edit does not undo an approved delivery, and it compares only kind, type, execution_scope, acceptance_criteria and completion_gates. This touches notes, provenance and exclusive_resources only.",
+        "source_head": "268bb3659d780c4a2aef9e5926830ec8c11d86ad",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "53144e54a8bba0ed160707f89bb5e208a0821d636083b752cb47338b595caf15",
+        "revised_contract_sha256": "e6a48a1f654178dd275f548db5b72f8aa424c3e7c949947a5d309ba9659c908e",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   }
 }
