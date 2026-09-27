@@ -178,7 +178,6 @@
         "door-lock-break-state",
         "door-passability-publication",
         "independent-room-scene-composition",
-        "stationary-enemy-sprite-integration",
         "navmesh-agent-configuration-foundation"
       ],
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
@@ -197,7 +196,6 @@
         "NSC-050",
         "NSC-051",
         "NSC-069",
-        "NSC-077",
         "NSC-089"
       ]
     },
