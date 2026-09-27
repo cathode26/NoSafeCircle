@@ -158,11 +158,32 @@ def refresh_prepared(checkouts: Checkouts, task_id: str, expected_source_commit:
                 raise PreparedRefreshError("expected Source is not a descendant of prepared HEAD") from exc
             if journal_path.is_file():
                 pending = _read(journal_path)
-                if (pending.get("task_id") != task_id
-                        or pending.get("source_commit") != expected_source_commit
-                        or pending.get("new_commit") != expected_source_commit):
+                if pending.get("task_id") != task_id:
                     raise PreparedRefreshError("retained refresh journal requires inspection")
-                if _head(checkout) == pending.get("new_commit"):
+                # `phase` IS WRITTEN ONLY AFTER THE FAST-FORWARD COMPLETED, below, so
+                # its ABSENCE is positive evidence that nothing was applied and the
+                # checkout is exactly where it was before the attempt. Discarding such
+                # a journal and starting over IS the whole recovery.
+                #
+                # THIS MUST NOT BE GATED ON THE JOURNAL NAMING THE CURRENT SOURCE. That
+                # equality, together with the `expected_source_commit == _head(source)`
+                # check above, closed the recovery window on the next merge into Source
+                # -- minutes, on a floor with eleven agents. NSC-128 sat unrecoverable
+                # on exactly that: its journal pinned a9911aaa, Source moved past it,
+                # and three retries produced three DIFFERENT messages and no route
+                # forward. Reported from production by the Pipeline Runner, which
+                # correctly refused to hand-delete the journal.
+                if pending.get("phase") != "post_ff":
+                    journal_path.unlink(missing_ok=True)
+                else:
+                    # The fast-forward DID happen, so the record may still need
+                    # finishing and this journal is the only thing that knows which
+                    # commit it moved to. Nothing here may be discarded on a guess.
+                    if (pending.get("source_commit") != expected_source_commit
+                            or pending.get("new_commit") != expected_source_commit):
+                        raise PreparedRefreshError("retained refresh journal requires inspection")
+                    if _head(checkout) != pending.get("new_commit"):
+                        raise PreparedRefreshError("retained refresh journal is not safely recoverable")
                     _clean_owned(checkouts, record)
                     load_committed_task(checkout, task_id, commit=expected_source_commit,
                                         expected_sha256=pending.get("task_contract_sha256"))
@@ -172,13 +193,20 @@ def refresh_prepared(checkouts: Checkouts, task_id: str, expected_source_commit:
                     result = _finish(record_path, record, pending)
                     journal_path.unlink(missing_ok=True)
                     return result
-                raise PreparedRefreshError("retained refresh journal is not safely recoverable")
             task = load_committed_task(checkouts.source, task_id, commit=expected_source_commit)
             if task.get("contract_disposition") != "active":
                 raise PreparedRefreshError("task is no longer active at inspected Source")
             operation = uuid.uuid4().hex
+            # THE HEAD WE ACTUALLY OBSERVED, which is not necessarily `old`. `old` is
+            # the Source baseline the record was PREPARED from; a dispatched worker
+            # commits on top of it, so the two legitimately differ and the record is
+            # not a statement about where the checkout sits. Recorded so a retained
+            # journal says where the checkout really was rather than only what the
+            # record claimed.
+            before_fetch = _head(checkout)
             journal = {"schema_version": "assistant-prepared-refresh/v1", "task_id": task_id,
-                       "old_commit": old, "source_commit": expected_source_commit,
+                       "old_commit": old, "checkout_commit": before_fetch,
+                       "source_commit": expected_source_commit,
                        "new_commit": expected_source_commit,
                        "task_contract_sha256": task["task_contract_sha256"],
                        "created_at": datetime.now(timezone.utc).isoformat(), "operation": operation}
@@ -188,7 +216,17 @@ def refresh_prepared(checkouts: Checkouts, task_id: str, expected_source_commit:
                     raise PreparedRefreshError("Source changed before checkout fetch")
                 git(checkout, "fetch", "--no-tags", str(checkouts.source), expected_source_commit,
                     timeout_seconds=180)
-                if _head(checkouts.source) != expected_source_commit or _head(checkout) != old:
+                # A TIME-OF-CHECK TEST, SO IT COMPARES AGAINST WHAT WAS CHECKED.
+                # This used to compare the checkout against `old` -- the RECORD's
+                # baseline -- which made it refuse every prepared checkout whose
+                # worker had committed, however cleanly it could fast-forward.
+                # NSC-128 was stuck here: checkout at its own commit eac2f70e, record
+                # still naming 45e367a8, and that commit already an ancestor of main,
+                # so the `--ff-only` below would have succeeded. The safety property
+                # is "the advance is a fast-forward", and git enforces that two lines
+                # down; a record comparison never did.
+                if (_head(checkouts.source) != expected_source_commit
+                        or _head(checkout) != before_fetch):
                     raise PreparedRefreshError("Source or prepared checkout changed after fetch")
                 _clean_owned(checkouts, record)
                 load_committed_task(checkouts.source, task_id, commit=expected_source_commit,

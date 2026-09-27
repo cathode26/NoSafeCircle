@@ -89,6 +89,155 @@ class PreparedRefreshTests(unittest.TestCase):
         self.assertEqual(expected, result["source_commit"])
         self.assertFalse((self.manager.records / "NSC-042.prepared-refresh.json").exists())
 
+    def _advance(self) -> str:
+        """A REPEATABLE Source advance.
+
+        `advance_source` writes the same bytes to the same path every call, so a
+        second call has nothing to commit and git exits 1 -- which reads as a
+        defect in the code under test and is not one. Distinct file per call.
+        """
+
+        self._advanced = getattr(self, "_advanced", 0) + 1
+        name = "source-step-%d.txt" % self._advanced
+        (self.base.root / name).write_text("step %d\n" % self._advanced, encoding="utf-8")
+        self.base.run_git("add", name)
+        self.base.run_git("commit", "-q", "-m", "source step %d" % self._advanced)
+        return self.base.run_git("rev-parse", "HEAD").decode().strip()
+
+    def _commit_in_checkout(self, checkout: Path, name: str) -> str:
+        (checkout / name).write_text("worker\n", encoding="utf-8")
+        prepared_refresh.git(checkout, "add", name)
+        prepared_refresh.git(checkout, "-c", "user.name=Worker",
+                             "-c", "user.email=worker@nosafecircle.invalid",
+                             "commit", "-q", "-m", "worker work")
+        return prepared_refresh._head(checkout)
+
+    def test_a_checkout_carrying_work_source_already_has_still_refreshes(self):
+        """NSC-128's exact shape: the checkout is AHEAD of the recorded baseline.
+
+        `refresh_prepared` compared the post-fetch checkout HEAD against
+        `record["source_commit"]`, so a prepared checkout whose worker commit had
+        already landed on Source could never be refreshed -- and every attempt
+        left a journal behind, which then refused earlier and differently. The
+        property that matters is that the advance is a fast-forward, and
+        `merge --ff-only` is what enforces it; comparing against a value from the
+        RECORD instead of the HEAD actually observed is the defect.
+        """
+
+        checkout = self.manager.root / "NSC-042"
+        landed = self._advance()
+        prepared_refresh.git(checkout, "fetch", "--no-tags", str(self.base.root), landed)
+        prepared_refresh.git(checkout, "merge", "--ff-only", "FETCH_HEAD")
+        self.assertEqual(landed, prepared_refresh._head(checkout))
+        baseline = json.loads(self.record_path.read_text())["source_commit"]
+        self.assertNotEqual(landed, baseline, "the fixture did not reproduce the drift")
+
+        moved = self._advance()
+        result = refresh_prepared(self.manager, "NSC-042", moved)
+
+        self.assertEqual(moved, result["source_commit"])
+        self.assertEqual(moved, prepared_refresh._head(checkout))
+        self.assertFalse((self.manager.records / "NSC-042.prepared-refresh.json").exists())
+
+    def test_a_checkout_carrying_work_source_does_not_have_is_still_refused(self):
+        """The control. Unmerged local work must not be fast-forwarded away.
+
+        This must refuse before and after the fix, and the commit must survive --
+        otherwise the repair above would be a way to lose a worker's output.
+        """
+
+        checkout = self.manager.root / "NSC-042"
+        unmerged = self._commit_in_checkout(checkout, "unmerged.txt")
+        moved = self._advance()
+
+        with self.assertRaises(PreparedRefreshError):
+            refresh_prepared(self.manager, "NSC-042", moved)
+
+        self.assertEqual(unmerged, prepared_refresh._head(checkout))
+        self.assertNotEqual(moved, prepared_refresh._head(checkout))
+
+    def test_a_journal_written_before_the_fast_forward_is_discarded_and_retried(self):
+        """A journal with no `phase` proves nothing was applied, so restart.
+
+        `phase` is written ONLY after the fast-forward completes, so its absence is
+        positive evidence that the checkout is exactly where it was. Gating the
+        discard on the journal naming the CURRENT Source made that window close on
+        the next merge -- minutes, on this floor. NSC-128 was retried three times
+        and got three different messages and no route forward.
+        """
+
+        journal_path = self.manager.records / "NSC-042.prepared-refresh.json"
+        record = json.loads(self.record_path.read_text())
+        abandoned_target = self._advance()
+        write_record(journal_path, {
+            "schema_version": "assistant-prepared-refresh/v1", "task_id": "NSC-042",
+            "old_commit": record["source_commit"], "source_commit": abandoned_target,
+            "new_commit": abandoned_target,
+            "task_contract_sha256": record["task_contract_sha256"],
+            "created_at": "2026-09-27T11:46:08.314421+00:00", "operation": "a" * 32,
+        })
+        moved = self._advance()
+
+        result = refresh_prepared(self.manager, "NSC-042", moved)
+
+        self.assertEqual(moved, result["source_commit"])
+        self.assertEqual(moved, prepared_refresh._head(self.manager.root / "NSC-042"))
+        self.assertFalse(journal_path.exists())
+
+    def test_a_post_ff_journal_that_cannot_be_proven_still_refuses(self):
+        """The other control. A journal that DID fast-forward is not discardable.
+
+        Once the checkout moved, the record may need finishing, and throwing the
+        journal away would lose that. This must refuse before and after, and the
+        journal must survive for inspection.
+        """
+
+        journal_path = self.manager.records / "NSC-042.prepared-refresh.json"
+        record = json.loads(self.record_path.read_text())
+        moved = self._advance()
+        write_record(journal_path, {
+            "schema_version": "assistant-prepared-refresh/v1", "task_id": "NSC-042",
+            "old_commit": record["source_commit"], "source_commit": moved,
+            "new_commit": moved, "task_contract_sha256": record["task_contract_sha256"],
+            "created_at": "2026-09-27T11:46:08.314421+00:00", "operation": "b" * 32,
+            "phase": "post_ff",
+        })
+
+        with self.assertRaisesRegex(PreparedRefreshError, "not safely recoverable"):
+            refresh_prepared(self.manager, "NSC-042", moved)
+
+        self.assertTrue(journal_path.exists())
+
+
+    def test_a_checkout_that_moves_during_the_fetch_is_refused(self):
+        """The post-fetch time-of-use check itself, which nothing guarded.
+
+        Measured with a mutation: deleting that whole comparison left every other
+        test in this file green, so the line was unguarded and a later tidy-up
+        would have removed it silently. The window it protects is open only
+        during the fetch, so this advances the checkout from inside that call.
+        """
+
+        checkout = self.manager.root / "NSC-042"
+        moved = self._advance()
+        real_git = prepared_refresh.git
+
+        def sneak(path, *args, **kwargs):
+            result = real_git(path, *args, **kwargs)
+            if Path(path) == checkout and args and args[0] == "fetch":
+                real_git(checkout, "merge", "--ff-only", "FETCH_HEAD")
+            return result
+
+        with patch.object(prepared_refresh, "git", side_effect=sneak):
+            with self.assertRaisesRegex(PreparedRefreshError, "changed after fetch"):
+                refresh_prepared(self.manager, "NSC-042", moved)
+
+        # It refused rather than finishing, and said so: the record still names the
+        # old baseline even though the checkout was dragged forward underneath it.
+        self.assertEqual(moved, prepared_refresh._head(checkout))
+        self.assertNotEqual(moved, json.loads(self.record_path.read_text())["source_commit"])
+
+
 
 class RefreshAcceptsFinishedHistoryTests(unittest.TestCase):
     """A refresh refuses live work; finished history must not block it forever.
