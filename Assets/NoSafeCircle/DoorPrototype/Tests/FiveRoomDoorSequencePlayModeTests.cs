@@ -525,20 +525,54 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 Assert.LessOrEqual(position.z, room.MaxZ - 1.5f,
                     $"AC-006: {position} must lie at least 1.5 units inside {room.Name}'s north wall.");
 
-                // The 0.1 maxDistance is the contract's own number (AC-006 and VAL-008 both state
-                // it), so it is asserted exactly as written. The wide probe before it exists only
-                // to say HOW FAR the nearest walkable point actually is when this fails - a bare
-                // "sampled false" cannot tell a missing bake apart from a surface a few
-                // centimetres above the authored spawn height.
+                // AC-006 revision 11: the old single 0.1-unit maxDistance reported an obstructed
+                // spawn and a too-tight tolerance as THE SAME FAILURE. FinalRoom_Melee_1 is a
+                // CORRECT spawn whose surface simply bakes 0.1766 above y=0 - all of it vertical,
+                // XZ identical - and the old number failed it. BoneArchive_Melee_1 is displaced
+                // ~1.05 units with dY only 0.0366 - almost entirely horizontal, a REAL
+                // obstruction. One check cannot tell these apart; they need opposite remedies, so
+                // the contract now asserts two conditions that fail SEPARATELY:
+                //   (a) HORIZONTAL - the thing this contract actually authored. The nearest
+                //       walkable point must share the spawn's X/Z; any displacement there means
+                //       something occupies the spawn (an obstruction or a placement error), and
+                //       it must fail on its own, loudly, naming the displacement.
+                //   (b) VERTICAL - NOT a property of the spawn at all. The walkable surface may
+                //       bake above or below the authored y, and how far is bounded by the
+                //       project's own agent climb, NavMesh.GetSettingsByIndex(0).agentClimb -
+                //       the same single source GameplayNavigationSurface, NavigationSpawner,
+                //       DoorPrototypeGlobalSceneBuilder and this file's own VAL-007 case above
+                //       already read for agent parameters. NO VERTICAL CONSTANT IS WRITTEN HERE:
+                //       a number chosen before the bake existed cannot survive the bake moving.
+                //
+                // Both conditions read the SAME wide (5-unit) nearest-walkable-point sample, so a
+                // genuine bake gap - no walkable surface anywhere near the spawn - still fails
+                // loudly on nearestFound instead of silently satisfying either half.
                 var nearestFound = NavMesh.SamplePosition(position, out var nearest, 5f, NavMesh.AllAreas);
-                var nearestDetail = nearestFound
-                    ? $" Nearest walkable point is {nearest.position}, {Vector3.Distance(position, nearest.position):F4} away " +
-                      $"(dY {nearest.position.y - position.y:F4})."
-                    : " No walkable point within 5 units, so this is a bake gap rather than a height offset.";
+                Assert.IsTrue(nearestFound,
+                    $"AC-006: {position} in {roomNameForMessage} found no walkable point on the " +
+                    "baked gameplay NavMesh within 5 units - a bake gap, not a height offset.");
 
-                Assert.IsTrue(NavMesh.SamplePosition(position, out _, 0.1f, NavMesh.AllAreas),
-                    $"AC-006: {position} in {roomNameForMessage} must sample the baked gameplay NavMesh within 0.1 units." +
-                    nearestDetail);
+                var horizontalDelta = new Vector2(nearest.position.x - position.x, nearest.position.z - position.z).magnitude;
+                var verticalDelta = Mathf.Abs(nearest.position.y - position.y);
+
+                // This epsilon is float-equality tolerance for "the same point", not a domain
+                // tolerance chosen for convenience - it plays no role in separating the two known
+                // failure shapes above (~0 units horizontal vs ~1 unit horizontal), which are
+                // three orders of magnitude apart and would split the same way at any small
+                // epsilon. It exists only so triangulation/floating-point noise on a genuinely
+                // matching XZ does not report a phantom displacement.
+                const float horizontalEqualityEpsilon = 0.01f;
+                Assert.LessOrEqual(horizontalDelta, horizontalEqualityEpsilon,
+                    $"AC-006 (a) HORIZONTAL: {position} in {roomNameForMessage} - nearest walkable " +
+                    $"point {nearest.position} is displaced {horizontalDelta:F4} units in X/Z from " +
+                    "the spawn. Something occupies the spawn - an obstruction or a placement error.");
+
+                var agentClimb = NavMesh.GetSettingsByIndex(0).agentClimb;
+                Assert.LessOrEqual(verticalDelta, agentClimb,
+                    $"AC-006 (b) VERTICAL: {position} in {roomNameForMessage} - nearest walkable " +
+                    $"point {nearest.position} is {verticalDelta:F4} units above/below the authored " +
+                    $"y, which exceeds the project's agent climb ({agentClimb:F4}, from " +
+                    "NavMesh.GetSettingsByIndex(0)). This is not about the spawn's placement.");
 
                 var checkPoint = position + Vector3.up;
                 Assert.IsFalse(Physics.CheckSphere(checkPoint, 0.5f, Physics.AllLayers, QueryTriggerInteraction.Ignore),
