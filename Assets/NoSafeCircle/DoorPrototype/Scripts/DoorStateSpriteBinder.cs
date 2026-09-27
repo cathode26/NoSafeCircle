@@ -39,6 +39,7 @@ namespace NoSafeCircle.DoorPrototype
             door.Opened += HandleOpened;
             door.Locked += HandleLocked;
             door.ResetCompleted += HandleResetCompleted;
+            door.EntryCutsceneClosed += HandleResetCompleted;
 
             // AC-002: a door that has not yet transitioned state at runtime (e.g. a sealed,
             // never-opened final door composed by DoorSequenceBuilder cloning an already-built
@@ -80,6 +81,7 @@ namespace NoSafeCircle.DoorPrototype
             door.Opened -= HandleOpened;
             door.Locked -= HandleLocked;
             door.ResetCompleted -= HandleResetCompleted;
+            door.EntryCutsceneClosed -= HandleResetCompleted;
         }
 
         private void HandleOpened()

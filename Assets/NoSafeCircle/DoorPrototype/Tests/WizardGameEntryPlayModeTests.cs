@@ -88,6 +88,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 GameObject canvas = FindInScene(scene, "Canvas");
                 WizardSelectionController selection = canvas.GetComponent<WizardSelectionController>();
                 WizardGameEntryController entry = canvas.GetComponent<WizardGameEntryController>();
+                TitleScreenChaseBackdrop chase = canvas.GetComponent<TitleScreenChaseBackdrop>();
                 WizardAnimationController wizard = player.GetComponent<WizardAnimationController>();
                 PlayerMovement movement = player.GetComponent<PlayerMovement>();
                 PlayerInteractionController interaction = player.GetComponent<PlayerInteractionController>();
@@ -96,6 +97,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
                 Assert.IsNotNull(selection);
                 Assert.IsNotNull(entry);
+                Assert.IsNotNull(chase);
+                chase.AutomaticTick = false;
                 Assert.IsNotNull(wizard);
                 Assert.IsNotNull(movement);
                 Assert.IsNotNull(interaction);
@@ -120,6 +123,12 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
                 var expectedSelection = new ConfirmedWizardSelection(
                     ExpectedPresentations[optionIndex], ExpectedSkins[optionIndex]);
+                Assert.IsTrue(entry.IsEntryCutsceneRunning);
+                Assert.IsFalse(entry.HasEnteredGameplay);
+                Assert.IsFalse(movement.IsGameplayEnabled);
+                Assert.IsFalse(interaction.IsGameplayEnabled);
+                chase.Tick(100f);
+
                 Assert.IsTrue(entry.HasEnteredGameplay);
                 Assert.AreEqual(1, entry.GameplayEntryCount);
                 Assert.AreEqual(expectedSelection, entry.AppliedSelection);
@@ -174,6 +183,73 @@ namespace NoSafeCircle.DoorPrototype.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator SelectedWizardCrossesRealD1_ThenDoorSealsBeforeControl()
+        {
+            yield return LoadRuntimeWorldScene();
+
+            Scene scene = SceneManager.GetSceneByName("RuntimeWorld");
+            GameObject canvas = FindInScene(scene, "Canvas");
+            GameObject player = FindInScene(scene, "Player");
+            WizardSelectionController selection = canvas.GetComponent<WizardSelectionController>();
+            WizardGameEntryController entry = canvas.GetComponent<WizardGameEntryController>();
+            TitleScreenChaseBackdrop chase = canvas.GetComponent<TitleScreenChaseBackdrop>();
+            PlayerMovement movement = player.GetComponent<PlayerMovement>();
+            PlayerInteractionController interaction = player.GetComponent<PlayerInteractionController>();
+            DoorInteractable door = FindInScene(scene, "DoorRoot").GetComponent<DoorInteractable>();
+            DoorEnemyPassability passability = door.GetComponent<DoorEnemyPassability>();
+            Collider blocker = GetPrivateField<Collider>(door, "doorwayBlocker");
+            DoorStateSpriteBinder doorSprite = door.GetComponent<DoorStateSpriteBinder>();
+            SpriteRenderer doorRenderer = GetPrivateField<SpriteRenderer>(doorSprite, "spriteRenderer");
+            Sprite sealedSprite = GetPrivateField<Sprite>(doorSprite, "sealedSprite");
+            Sprite openSprite = GetPrivateField<Sprite>(doorSprite, "openSprite");
+            IsometricCameraFollow follow = Camera.main.GetComponent<IsometricCameraFollow>();
+
+            Assert.IsNotNull(chase);
+            Assert.IsNotNull(passability);
+            Assert.IsNotNull(follow);
+            chase.AutomaticTick = false;
+            BeginSelection(canvas);
+            selection.GetOption(2).Button.onClick.Invoke();
+            ConfirmSelection(canvas);
+
+            Assert.IsTrue(entry.IsEntryCutsceneRunning);
+            Assert.IsFalse(entry.HasEnteredGameplay);
+            Assert.IsFalse(movement.IsGameplayEnabled);
+            Assert.IsFalse(interaction.IsGameplayEnabled);
+            Assert.IsTrue(door.IsOpen, "The real D1 leaf opens for the inbound wizard.");
+            Assert.IsFalse(blocker.enabled);
+            Assert.AreEqual(DoorPassabilityState.Open, passability.CurrentState);
+            Assert.AreSame(openSprite, doorRenderer.sprite);
+            Assert.IsFalse(door.IsLocked);
+            Assert.AreSame(chase.EntryWizardTransform, GetPrivateField<Transform>(follow, "target"));
+            Assert.Greater(chase.EntryWizardTransform.position.z, RuinedEntryLayout.DoorCenterZ);
+
+            for (int step = 0; step < 300 && door.IsOpen; step++) chase.Tick(0.1f);
+
+            Assert.IsFalse(door.IsOpen, "D1 must close behind the wizard before chase completion.");
+            Assert.IsFalse(door.IsLocked, "D1 remains usable as the later gameplay exit.");
+            Assert.IsFalse(door.HasCrossedForward,
+                "Cosmetic actors must not trigger the Player's outbound crossing state.");
+            Assert.IsTrue(blocker.enabled);
+            Assert.AreEqual(DoorPassabilityState.Sealed, passability.CurrentState);
+            Assert.AreSame(sealedSprite, doorRenderer.sprite);
+            Assert.IsTrue(entry.IsEntryCutsceneRunning);
+            Assert.IsFalse(movement.IsGameplayEnabled);
+
+            chase.Tick(100f);
+            Assert.IsTrue(entry.HasEnteredGameplay);
+            Assert.AreEqual(1, entry.GameplayEntryCount);
+            Assert.IsTrue(movement.IsGameplayEnabled);
+            Assert.IsTrue(interaction.IsGameplayEnabled);
+            Assert.AreSame(player.transform, GetPrivateField<Transform>(follow, "target"));
+            Assert.AreEqual(new ConfirmedWizardSelection(WizardPresentation.Feminine, WizardSkin.White),
+                entry.AppliedSelection);
+            Assert.IsFalse(door.IsOpen);
+            Assert.IsFalse(door.IsLocked);
+            Assert.IsTrue(blocker.enabled);
+        }
+
         // NSC-068 AC-004 and VAL-002: Start Game alone cannot bypass the required selection.
         [UnityTest]
         public IEnumerator StartWithoutSelection_LeavesGameplaySuspendedAndPlayerUnchanged()
@@ -222,10 +298,13 @@ namespace NoSafeCircle.DoorPrototype.Tests
             PlayerInteractionController interaction = player.GetComponent<PlayerInteractionController>();
             WizardSelectionController selection = canvas.GetComponent<WizardSelectionController>();
             WizardGameEntryController entry = canvas.GetComponent<WizardGameEntryController>();
+            TitleScreenChaseBackdrop chase = canvas.GetComponent<TitleScreenChaseBackdrop>();
             DoorInteractable door = FindInScene(scene, "DoorRoot").GetComponent<DoorInteractable>();
 
             Assert.IsNotNull(camera);
             Assert.IsNotNull(door);
+            Assert.IsNotNull(chase);
+            chase.AutomaticTick = false;
             testRenderTexture = new RenderTexture(800, 600, 24);
             testRenderTexture.Create();
             camera.targetTexture = testRenderTexture;
@@ -245,6 +324,11 @@ namespace NoSafeCircle.DoorPrototype.Tests
             BeginSelection(canvas);
             selection.GetOption(3).Button.onClick.Invoke();
             ConfirmSelection(canvas);
+
+            Assert.IsFalse(entry.HasEnteredGameplay);
+            Assert.IsFalse(movement.IsGameplayEnabled);
+            Assert.IsFalse(interaction.IsGameplayEnabled);
+            chase.Tick(100f);
 
             Assert.IsTrue(entry.HasEnteredGameplay);
             Assert.IsTrue(movement.IsGameplayEnabled);
