@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-057",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "contract_disposition": "active",
   "title": "Preferred Unity Tooling Library Integration",
   "reconciliation_key": "preferred-unity-tooling-library-integration",
@@ -31,7 +31,7 @@
     {
       "criterion_id": "AC-003",
       "reference": "Engineering Standards §5.4 dependency availability rule",
-      "requirement": "No Safe Circle runtime/editor assemblies that are intended to consume deVoid Signals or DOTween can resolve those APIs in Unity 6000.1.8f1 without missing-reference or assembly-definition errors."
+      "requirement": "No Safe Circle runtime/editor assemblies that are intended to consume deVoid Signals or DOTween can resolve those APIs in the Unity editor version the project declares in ProjectSettings/ProjectVersion.txt (m_EditorVersion), without missing-reference or assembly-definition errors. The requirement tracks whatever version that file records; it is not satisfied by resolving under some earlier editor the project has since left."
     },
     {
       "criterion_id": "AC-004",
@@ -53,7 +53,7 @@
     {
       "gate_id": "VAL-002",
       "reference": "Unity project integration",
-      "requirement": "Open the project in Unity 6000.1.8f1 and verify the project compiles without errors after the dependency integration."
+      "requirement": "Open the project in the Unity editor version the project declares in ProjectSettings/ProjectVersion.txt (m_EditorVersion) and verify the project compiles without errors after the dependency integration. Record which version was opened, so a later upgrade can tell whether this gate still speaks for the current project."
     },
     {
       "gate_id": "VAL-003",
@@ -65,10 +65,21 @@
   "basis": "human_approved_engineering_guidance",
   "source_scope": "engineering",
   "confidence": "high",
-  "notes": "This task establishes availability, not mandatory use. Engineering agents still apply the consider-don't-force rules in ENGINEERING_STANDARDS.md.",
+  "notes": "This task establishes availability, not mandatory use. Engineering agents still apply the consider-don't-force rules in ENGINEERING_STANDARDS.md. *** GER REVISION 2, 2026-09-27: TWO CLAUSES STOPPED DESCRIBING THIS PROJECT, AND A NEWER NUMBER WOULD NOT HAVE FIXED THEM. *** AC-003 and VAL-002 both named Unity 6000.1.8f1. That was TRUE WHEN WRITTEN and true when satisfied - THIRD_PARTY_DEPENDENCIES.md records Vincent completing DOTween's interactive Utility Panel setup in 6000.1.8f1 on 2026-09-14 - but ProjectSettings/ProjectVersion.txt at main 97524d12 reads 6000.6.3f1, so both clauses had come to attest an editor this project no longer runs. A SATISFIED CLAUSE ABOUT A DEAD VERSION PROVES NOTHING ABOUT THE SHIPPED PROJECT, which is why this is a correction rather than housekeeping. NO NEWER LITERAL IS WRITTEN HERE AND THAT IS THE POINT: bumping 6000.1.8f1 to 6000.6.3f1 would be stale again at the next upgrade, by exactly the route that produced this one. Both clauses now name ProjectSettings/ProjectVersion.txt (m_EditorVersion) as the single live source, so the requirement follows the project instead of a date. THE SUBSTANCE IS UNCHANGED - the libraries must resolve, and the project must compile after integration - and there is no scope, resource, dependency or gate-platform change; the validation policy keeps its EditMode ThirdPartyDependencyAvailabilityTests filter, which is declared on main. WHAT IS ALREADY DONE AND IS NOT A CONTRACT MATTER: both libraries are integrated (Assets/Plugins/Demigiant/DOTween v1.3.030, Assets/Plugins/deVoid/Signals at upstream commit b1969caa) and AC-001, AC-002 and VAL-001 are recorded in Docs/Engineering/THIRD_PARTY_DEPENDENCIES.md. This task has ZERO evidence records, so it is done-and-unrecorded; the delivery record is the Game Agent's and needs a Unity run. NOT ESTABLISHED: I ran no Unity for this revision, so whether both libraries resolve under 6000.6.3f1 is INFERRED from the project compiling for other work today and is not measured. Re-pointed, VAL-002 is the check that would settle it, and it is cheap.",
   "provenance": {
     "origin": "human_approved_engineering_followup",
     "engineering_source_commit": "014f3c55fca988ed4f253806aa71316196fd57d0",
-    "engineering_standard": "Docs/Engineering/ENGINEERING_STANDARDS.md"
+    "engineering_standard": "Docs/Engineering/ENGINEERING_STANDARDS.md",
+    "contract_followups": [
+      {
+        "date": "2026-09-27",
+        "reason": "AC-003 and VAL-002 named Unity 6000.1.8f1; the project is on 6000.6.3f1. Both clauses now name ProjectSettings/ProjectVersion.txt (m_EditorVersion) as the live single source instead of a literal that goes stale at every upgrade.",
+        "source_head": "97524d12511de3937130f4daf7d4d7a77e96a44d",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "3e18058ec1d6de7d6b3c2a92c4f5bae017c666e777846f61b264d966a9e8eb41",
+        "revised_contract_sha256": "bc78dacdc669d0fc1bf8f1f67cf062d71e3399c3dfaad156b82adb19a22d4605",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   }
 }
