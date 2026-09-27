@@ -526,8 +526,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
             yield return null;
 
             // Posts: one per distinct layout corner, anchored so the sprite's outer edge is AT the
-            // corner and its bounds bottom on the floor - (xMin + halfWidth, -min.y, zMax) - which
-            // is what the committed FinalRoom.unity holds at (+/-14, 0.25, 76|104).
+            // corner and its root ON the floor - (xMin + halfWidth, 0, zMax). The root is 0, not
+            // -min.y: the pivot is authored on the drawn base, so -min.y (the committed scenes'
+            // 0.25) lifted the post off the floor by its transparent padding.
             var expectedPosts = new HashSet<(int, int)>();
             var expectedPostPositions = new List<Vector3>();
             foreach (Room room in rooms)
@@ -537,7 +538,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     foreach ((float x, float sign) in new[] { (room.XMin, 1f), (room.XMax, -1f) })
                     {
                         if (!expectedPosts.Add((Mathf.RoundToInt(x), Mathf.RoundToInt(z)))) continue;
-                        expectedPostPositions.Add(new Vector3(x + sign * corner.extents.x, -corner.min.y, z));
+                        expectedPostPositions.Add(new Vector3(x + sign * corner.extents.x, 0f, z));
                     }
                 }
             }
@@ -553,7 +554,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
             }
 
             // Jambs: one pair per distinct door, each anchored at the collider gap edge
-            // (centre +/- 1.5) and extending into its run: (centre -/+ (1.5 + halfWidth), -min.y, z).
+            // (centre +/- 1.5) and extending into its run: (centre -/+ (1.5 + halfWidth), 0, z).
+            // Root y 0, not -min.y: that lifted the jamb 0.40625 and let the stubs sort over it.
             var expectedDoors = new HashSet<(int, int)>();
             var expectedJambPositions = new List<Vector3>();
             foreach (Room room in rooms)
@@ -563,8 +565,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     if (!expectedDoors.Add((Mathf.RoundToInt(door.x * 2f), Mathf.RoundToInt(door.z * 2f)))) continue;
                     Assert.IsTrue(AlongX(room.EdgeOf(door)), "floor01's doors all cut north/south lines; extend this oracle if that changes.");
                     float reach = room.DoorWidth * 0.5f + jamb.extents.x;
-                    expectedJambPositions.Add(new Vector3(door.x - reach, -jamb.min.y, door.z));
-                    expectedJambPositions.Add(new Vector3(door.x + reach, -jamb.min.y, door.z));
+                    expectedJambPositions.Add(new Vector3(door.x - reach, 0f, door.z));
+                    expectedJambPositions.Add(new Vector3(door.x + reach, 0f, door.z));
                 }
             }
 
@@ -590,6 +592,47 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             Assert.AreEqual(0, RenderersWithSprite(EndCapSprite).Count(),
                 "floor01's rings leave no free run end, so no end cap should be placed.");
+        }
+
+        [UnityTest]
+        public IEnumerator EveryOverlayPiecesDrawnBaseRestsOnTheFloor()
+        {
+            WallSpawner spawner = CreateSpawner();
+            spawner.Spawn();
+            yield return null;
+
+            // The witness is the sprite's TIGHT MESH, not sprite.bounds: bounds is the rect with its
+            // transparent padding (corner 16px, jamb 26px, end cap 18px below the art), and
+            // subtracting it is exactly the defect this guards. A tight mesh hugs the alpha with a
+            // dilation of at most 2px (1/32 at 64 PPU), so its lowest vertex is the drawn base.
+            const float MeshDilation = 2f / 64f + 0.001f;
+            var overlays = RenderersWithSprite(CornerSprite).Concat(RenderersWithSprite(JambSprite))
+                .Concat(RenderersWithSprite(EndCapSprite)).ToList();
+            Assert.Greater(overlays.Count, 0, "No overlay pieces were spawned, so this test would pass on nothing.");
+
+            var floating = new List<string>();
+            foreach (SpriteRenderer r in overlays)
+            {
+                Assert.AreEqual(SpriteMeshType.Tight, MeshTypeOf(r.sprite),
+                    r.sprite.name + " is not a Tight mesh, so its vertices are the rect and cannot witness the drawn base.");
+                float lowest = r.sprite.vertices.Min(v => v.y);
+                float drawnBaseY = r.transform.position.y + lowest;
+                if (drawnBaseY > 0.001f || drawnBaseY < -MeshDilation)
+                {
+                    floating.Add(r.sprite.name + " at " + r.transform.parent.position.ToString("0.###") + " drawn base y " + drawnBaseY.ToString("0.#####"));
+                }
+            }
+
+            Assert.AreEqual(0, floating.Count, floating.Count + " of " + overlays.Count
+                + " overlay pieces do not stand on the floor: " + string.Join("; ", floating));
+        }
+
+        private static SpriteMeshType MeshTypeOf(Sprite sprite)
+        {
+            var importer = (UnityEditor.TextureImporter)UnityEditor.AssetImporter.GetAtPath(UnityEditor.AssetDatabase.GetAssetPath(sprite));
+            var settings = new UnityEditor.TextureImporterSettings();
+            importer.ReadTextureSettings(settings);
+            return settings.spriteMeshType;
         }
 
         [UnityTest]
