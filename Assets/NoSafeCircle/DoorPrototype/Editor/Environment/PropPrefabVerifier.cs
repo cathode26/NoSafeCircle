@@ -60,17 +60,66 @@ namespace NoSafeCircle.DoorPrototype.Editor.Environment
         private static string ExpectedSortingLayer =>
             WorldSpriteConvention.SortingLayerName;
 
+        // Everything Collect() found, carried back rather than logged or exited, so a caller
+        // decides what to do with it - Verify() logs and exits, a test can assert on it directly.
+        public sealed class PropPrefabVerifyReport
+        {
+            public List<string> Failures = new List<string>();
+            public List<string> Lines = new List<string>();
+
+            // Non-null means the ENVIRONMENT was broken (folder missing, or zero prefabs found)
+            // and nothing was verified - which is not the same as everything passing. Corresponds
+            // to exit code 2.
+            public string EnvironmentError;
+
+            // How many .prefab files were actually examined. Only meaningful when
+            // EnvironmentError is null.
+            public int PrefabCount;
+        }
+
         [MenuItem("Tools/No Safe Circle/Verify Prop Prefabs")]
         public static void Verify()
         {
-            var failures = new List<string>();
-            var lines = new List<string>();
+            PropPrefabVerifyReport report = Collect();
+
+            if (report.EnvironmentError != null)
+            {
+                Debug.LogError(report.EnvironmentError);
+                EditorApplication.Exit(2);
+                return;
+            }
+
+            foreach (string line in report.Lines) Debug.Log(line);
+
+            if (report.Failures.Count > 0)
+            {
+                foreach (string f in report.Failures) Debug.LogError("PROP PREFAB VERIFY FAIL: " + f);
+                Debug.LogError($"PROP PREFAB VERIFY: {report.Failures.Count} failure(s) across "
+                    + $"{report.PrefabCount} prefab(s).");
+                EditorApplication.Exit(1);
+                return;
+            }
+
+            Debug.Log($"PROP PREFAB VERIFY: PASS. {report.PrefabCount} prefab(s), 0 failures.");
+            EditorApplication.Exit(0);
+        }
+
+        // Does the same work Verify() used to do inline, but only collects - it never calls
+        // EditorApplication.Exit, Debug.LogError or Debug.Log. That is the whole point: a test can
+        // call this and assert on the verifier's own reported failures without killing the test
+        // run the way calling Verify() itself would (every path through Verify() used to end in
+        // EditorApplication.Exit, which terminates the Unity process mid test run).
+        public static PropPrefabVerifyReport Collect()
+        {
+            var report = new PropPrefabVerifyReport();
+            var failures = report.Failures;
+            var lines = report.Lines;
 
             if (!Directory.Exists(PrefabFolder))
             {
-                Debug.LogError($"PROP PREFAB VERIFY: folder does not exist: {PrefabFolder}");
-                EditorApplication.Exit(2);
-                return;
+                report.EnvironmentError =
+                    $"PROP PREFAB VERIFY: folder does not exist: {PrefabFolder}";
+                return report;
             }
 
             // Enumerate the FILES on disk, not an AssetDatabase search. A search that returns
@@ -86,10 +135,9 @@ namespace NoSafeCircle.DoorPrototype.Editor.Environment
 
             if (paths.Length == 0)
             {
-                Debug.LogError("PROP PREFAB VERIFY: no prefab files found. Nothing was verified, "
-                    + "which is not the same as everything passing.");
-                EditorApplication.Exit(2);
-                return;
+                report.EnvironmentError = "PROP PREFAB VERIFY: no prefab files found. Nothing was "
+                    + "verified, which is not the same as everything passing.";
+                return report;
             }
 
             foreach (string path in paths)
@@ -203,19 +251,8 @@ namespace NoSafeCircle.DoorPrototype.Editor.Environment
                     Fmt(box.center)));
             }
 
-            foreach (string line in lines) Debug.Log(line);
-
-            if (failures.Count > 0)
-            {
-                foreach (string f in failures) Debug.LogError("PROP PREFAB VERIFY FAIL: " + f);
-                Debug.LogError($"PROP PREFAB VERIFY: {failures.Count} failure(s) across "
-                    + $"{paths.Length} prefab(s).");
-                EditorApplication.Exit(1);
-                return;
-            }
-
-            Debug.Log($"PROP PREFAB VERIFY: PASS. {paths.Length} prefab(s), 0 failures.");
-            EditorApplication.Exit(0);
+            report.PrefabCount = paths.Length;
+            return report;
         }
 
         private static string Fmt(Vector3 v)
