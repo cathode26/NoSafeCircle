@@ -18,11 +18,11 @@ namespace NoSafeCircle.DoorPrototype.Content
     /// <para>
     /// IT LOADS BY LOCATION, NOT BY KEY, AND THAT IS WHAT MAKES A MISSING VARIANT QUIET. Loading an absent
     /// key fails the operation and the ResourceManager's exception handler logs an error - which
-    /// STANDARDS 8.4 forbids for an optional variant. Locating first costs one in-memory lookup against
-    /// the catalog Addressables has already loaded (<see cref="Addressables.ResourceLocators"/>), finds
-    /// nothing without complaint, and gives the load a location it cannot fail to find. This is
+    /// STANDARDS 8.4 forbids for an optional variant. Locating first reads the catalog Addressables has
+    /// already loaded (<see cref="Addressables.ResourceLocators"/>), finds nothing without complaint,
+    /// and retains the actual location for the load. This is
     /// SlotEngineGemReview 05 rule 7, "pre-resolved locations", and NOT the sediment it lists as
-    /// "existence-check followed by a load lookup for the same key": nothing is looked up twice.
+    /// "existence-check followed by a load lookup for the same key": the load uses the chosen location.
     /// </para>
     /// <para>
     /// LOGICAL ADDRESSES ARE THE KEYS OF THE RESIDENT TABLE. A folder entry names its assets with the file
@@ -45,26 +45,65 @@ namespace NoSafeCircle.DoorPrototype.Content
             public int Leases;
         }
 
+        private sealed class AddressableOperations : IAddressableAssetOperations
+        {
+            public IEnumerable<IResourceLocator> ResourceLocators => Addressables.ResourceLocators;
+
+            public Task EnsureInitializedAsync() => AddressablesInitialization.EnsureInitializedAsync();
+
+            public IAddressableAssetOperation<T> LoadAssetAsync<T>(IResourceLocation location) where T : Object =>
+                new HandleOperation<T>(Addressables.LoadAssetAsync<T>(location));
+        }
+
+        private sealed class HandleOperation<T> : IAddressableAssetOperation<T> where T : Object
+        {
+            private readonly AsyncOperationHandle<T> handle;
+
+            public HandleOperation(AsyncOperationHandle<T> handle)
+            {
+                this.handle = handle;
+            }
+
+            public bool Succeeded => handle.Status == AsyncOperationStatus.Succeeded;
+            public T Result => handle.Result;
+            public Exception OperationException => handle.OperationException;
+
+            public Task<bool> WhenDoneOrCancelled(CancellationToken cancellation) =>
+                AddressableHandles.WhenDoneOrCancelled(handle, cancellation);
+
+            public void Release() => Addressables.Release(handle);
+        }
+
         private readonly IContentResolver resolver;
+        private readonly IAddressableAssetOperations operations;
         private readonly Dictionary<string, Resident> resident = new Dictionary<string, Resident>();
 
         public AddressableAssetService(IContentResolver resolver)
+            : this(resolver, new AddressableOperations())
+        {
+        }
+
+        internal AddressableAssetService(IContentResolver resolver, IAddressableAssetOperations operations)
         {
             this.resolver = resolver ?? throw new ArgumentNullException(nameof(resolver),
                 "The service needs a resolver; it never forms an address itself.");
+            this.operations = operations ?? throw new ArgumentNullException(nameof(operations));
         }
 
         public async Task<AssetLoad<T>> LoadAsync<T>(ContentQuery query, CancellationToken cancellation)
             where T : Object
         {
-            await AddressablesInitialization.EnsureInitializedAsync();
+            await operations.EnsureInitializedAsync();
             IReadOnlyList<string> candidates = resolver.Resolve(query);
             if (cancellation.IsCancellationRequested)
             {
                 return AssetLoad<T>.Failed(AssetLoadResult<T>.Cancelled(candidates[0]));
             }
 
-            CandidateSelection selection = ContentResolver.Select(candidates, address => Probe(address, typeof(T)));
+            Dictionary<string, List<IResourceLocation>> catalog = IndexLocations();
+            IResourceLocation location = null;
+            CandidateSelection selection = ContentResolver.Select(candidates, address =>
+                Probe(catalog, address, typeof(T), out location));
             switch (selection.Status)
             {
                 case AssetLoadStatus.RequiredMissing:
@@ -73,7 +112,6 @@ namespace NoSafeCircle.DoorPrototype.Content
                     return AssetLoad<T>.Failed(AssetLoadResult<T>.TypeMismatch(selection.Address, selection.Message));
             }
 
-            IResourceLocation location = Locate(selection.Address, typeof(T))[0];
             AssetLoad<T> load = await LoadLocationAsync<T>(location, selection.Address, cancellation);
             if (selection.Status != AssetLoadStatus.FallbackUsed || !load.Result.HasAsset)
             {
@@ -92,30 +130,78 @@ namespace NoSafeCircle.DoorPrototype.Content
                 throw new ArgumentNullException(nameof(owner), "A preload needs the scope that will own what it loads.");
             }
 
-            await AddressablesInitialization.EnsureInitializedAsync();
+            await operations.EnsureInitializedAsync();
 
             // Start every load before awaiting any, so the bundle work overlaps instead of serialising
             // one frame per asset. Results come back in catalog order regardless.
             IList<IResourceLocation> locations = Locate(ContentId.FamilyLabel(family), typeof(T));
-            var loads = new List<Task<AssetLoad<T>>>(locations.Count);
+            var loads = new List<Task<AssetLoadResult<T>>>(locations.Count);
             foreach (IResourceLocation location in locations)
             {
-                loads.Add(LoadLocationAsync<T>(location, ContentId.LogicalAddress(location.PrimaryKey), cancellation));
+                loads.Add(LoadAndOwnAsync<T>(location, owner, cancellation));
             }
 
-            var results = new List<AssetLoadResult<T>>(loads.Count);
-            foreach (Task<AssetLoad<T>> pending in loads)
+            // Each task settles its own lease even if a sibling faults. WhenAll observes every
+            // started task and preserves catalog order while ownership follows completion order.
+            AssetLoadResult<T>[] results = await Task.WhenAll(loads);
+            if (owner.IsDisposed)
             {
-                AssetLoad<T> load = await pending;
-                if (load.Result.HasAsset)
+                for (int i = 0; i < results.Length; i++)
                 {
-                    owner.Add(load.Lease);
+                    if (results[i].HasAsset)
+                    {
+                        results[i] = AssetLoadResult<T>.Cancelled(results[i].Address);
+                    }
                 }
-
-                results.Add(load.Result);
             }
 
             return results;
+        }
+
+        private async Task<AssetLoadResult<T>> LoadAndOwnAsync<T>(IResourceLocation location,
+            AssetScope owner, CancellationToken cancellation) where T : Object
+        {
+            string address = location.PrimaryKey;
+            AssetLease<T> unowned = null;
+            try
+            {
+                address = ContentId.LogicalAddress(address);
+                if (owner.IsDisposed)
+                {
+                    return AssetLoadResult<T>.Cancelled(address);
+                }
+
+                AssetLoad<T> load = await LoadLocationAsync<T>(location, address, cancellation);
+                if (!load.Result.HasAsset)
+                {
+                    return load.Result;
+                }
+
+                unowned = load.Lease;
+                if (owner.IsDisposed || cancellation.IsCancellationRequested)
+                {
+                    unowned.Dispose();
+                    return AssetLoadResult<T>.Cancelled(address);
+                }
+
+                owner.Add(unowned);
+                unowned = null;
+                return load.Result;
+            }
+            catch (Exception failure)
+            {
+                try
+                {
+                    unowned?.Dispose();
+                }
+                catch (Exception releaseFailure)
+                {
+                    failure = new AggregateException(failure, releaseFailure);
+                }
+
+                return AssetLoadResult<T>.LoadFailed(address,
+                    "'" + address + "' failed to preload: " + failure.Message);
+            }
         }
 
         public bool TryGetResident<T>(ContentQuery query, out T asset) where T : Object
@@ -142,51 +228,125 @@ namespace NoSafeCircle.DoorPrototype.Content
                 return AssetLoad<T>.Failed(AssetLoadResult<T>.Cancelled(address));
             }
 
-            AsyncOperationHandle<T> handle = Addressables.LoadAssetAsync<T>(location);
-            bool finished = await AddressableHandles.WhenDoneOrCancelled(handle, cancellation);
-            if (!finished)
+            IAddressableAssetOperation<T> operation = operations.LoadAssetAsync<T>(location);
+            bool releaseHandle = true;
+            try
             {
-                // The helper releases the handle when the load lands; it is not ours to touch now.
-                return AssetLoad<T>.Failed(AssetLoadResult<T>.Cancelled(address));
-            }
+                bool finished = await operation.WhenDoneOrCancelled(cancellation);
+                if (!finished)
+                {
+                    // The helper releases the handle when the load lands; it is not ours to touch now.
+                    releaseHandle = false;
+                    return AssetLoad<T>.Failed(AssetLoadResult<T>.Cancelled(address));
+                }
 
-            if (handle.Status != AsyncOperationStatus.Succeeded || handle.Result == null)
-            {
-                string reason = handle.OperationException?.Message ?? "no exception was reported";
-                Addressables.Release(handle);
-                return AssetLoad<T>.Failed(AssetLoadResult<T>.LoadFailed(address,
-                    "'" + address + "' failed to load: " + reason));
-            }
+                if (!operation.Succeeded || operation.Result == null)
+                {
+                    string reason = operation.OperationException?.Message ?? "no exception was reported";
+                    return AssetLoad<T>.Failed(AssetLoadResult<T>.LoadFailed(address,
+                        "'" + address + "' failed to load: " + reason));
+                }
 
-            if (cancellation.IsCancellationRequested)
-            {
-                Addressables.Release(handle);
-                return AssetLoad<T>.Failed(AssetLoadResult<T>.Cancelled(address));
-            }
+                if (cancellation.IsCancellationRequested)
+                {
+                    return AssetLoad<T>.Failed(AssetLoadResult<T>.Cancelled(address));
+                }
 
-            T asset = handle.Result;
-            Register(address, asset);
-            var lease = new AssetLease<T>(asset, address, () =>
+                T asset = operation.Result;
+                Register(address, asset);
+                var lease = new AssetLease<T>(asset, address, () =>
+                {
+                    try
+                    {
+                        operation.Release();
+                    }
+                    finally
+                    {
+                        Unregister(address);
+                    }
+                });
+                releaseHandle = false;
+                return AssetLoad<T>.Leased(AssetLoadResult<T>.Success(asset, address), lease);
+            }
+            finally
             {
-                Addressables.Release(handle);
-                Unregister(address);
-            });
-            return AssetLoad<T>.Leased(AssetLoadResult<T>.Success(asset, address), lease);
+                if (releaseHandle)
+                {
+                    operation.Release();
+                }
+            }
         }
 
-        private static CandidateProbe Probe(string address, Type type)
+        private static CandidateProbe Probe(Dictionary<string, List<IResourceLocation>> catalog,
+            string address, Type type, out IResourceLocation selected)
         {
-            if (Locate(address, type).Count > 0)
+            selected = null;
+            if (!catalog.TryGetValue(address, out List<IResourceLocation> locations))
             {
-                return CandidateProbe.Found;
+                return CandidateProbe.Missing;
             }
 
-            return Locate(address, null).Count > 0 ? CandidateProbe.WrongType : CandidateProbe.Missing;
+            foreach (IResourceLocation location in locations)
+            {
+                if (type.IsAssignableFrom(location.ResourceType))
+                {
+                    selected = location;
+                    return CandidateProbe.Found;
+                }
+            }
+
+            return CandidateProbe.WrongType;
         }
 
-        private static IList<IResourceLocation> Locate(object key, Type type)
+        private Dictionary<string, List<IResourceLocation>> IndexLocations()
         {
-            foreach (IResourceLocator locator in Addressables.ResourceLocators)
+            // Locators can be replaced when a catalog is updated. Keep this snapshot local to one
+            // request; a service-wide index would retain removed locations and miss new variants.
+            var catalog = new Dictionary<string, List<IResourceLocation>>(StringComparer.Ordinal);
+            foreach (IResourceLocator locator in operations.ResourceLocators)
+            {
+                foreach (object key in locator.Keys)
+                {
+                    if (!locator.Locate(key, null, out IList<IResourceLocation> locations))
+                    {
+                        continue;
+                    }
+
+                    foreach (IResourceLocation location in locations)
+                    {
+                        AddLocation(catalog, key as string, location);
+                        AddLocation(catalog, location.PrimaryKey, location);
+                        AddLocation(catalog, ContentId.LogicalAddress(location.PrimaryKey), location);
+                    }
+                }
+            }
+
+            return catalog;
+        }
+
+        private static void AddLocation(Dictionary<string, List<IResourceLocation>> catalog,
+            string address, IResourceLocation location)
+        {
+            if (address == null)
+            {
+                return;
+            }
+
+            if (!catalog.TryGetValue(address, out List<IResourceLocation> locations))
+            {
+                locations = new List<IResourceLocation>();
+                catalog.Add(address, locations);
+            }
+
+            if (!locations.Contains(location))
+            {
+                locations.Add(location);
+            }
+        }
+
+        private IList<IResourceLocation> Locate(object key, Type type)
+        {
+            foreach (IResourceLocator locator in operations.ResourceLocators)
             {
                 if (locator.Locate(key, type, out IList<IResourceLocation> locations) && locations.Count > 0)
                 {

@@ -3,6 +3,8 @@
     "rootNamespace": "NoSafeCircle.DoorPrototype.Tests.Editor",
     "references": [
         "NoSafeCircle.DoorPrototype",
+        "Unity.Addressables",
+        "Unity.ResourceManager",
         "deVoid.Signals",
         "NoSafeCircle.DoorPrototype.Editor",
         "UnityEngine.TestRunner",
