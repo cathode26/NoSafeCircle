@@ -183,6 +183,24 @@ namespace NoSafeCircle.DoorPrototype.Tests
             // TitleScreenPlayModeTests:203 asserts this exact text in the committed scene.
             Assert.AreEqual("NO SAFE CIRCLE", Part<Text>(canvas, "TitleScreen/TitleCard/Title").text);
 
+            // The world remains visible behind the title while all three text lines keep a
+            // dark edge over the patterned wall. A full-size backing would hide the chase.
+            Image titlePanel = Part<Image>(canvas, "TitleScreen");
+            Assert.AreEqual(0f, titlePanel.color.a, 0.001f);
+            Assert.IsNull(canvas.Find("TitleScreen/TitleCard").GetComponent<Image>());
+            foreach (string line in new[] { "Eyebrow", "Title", "Tagline" })
+            {
+                Text text = Part<Text>(canvas, "TitleScreen/TitleCard/" + line);
+                Outline edge = text.GetComponent<Outline>();
+                Assert.IsNotNull(edge, line + " needs a dark edge against the world art.");
+                Assert.IsTrue(edge.enabled);
+                Assert.Less(edge.effectColor.grayscale, 0.1f);
+                Assert.GreaterOrEqual(edge.effectColor.a, 0.9f);
+                Assert.GreaterOrEqual(Mathf.Abs(edge.effectDistance.x), 2f);
+                Assert.IsFalse(text.raycastTarget,
+                    line + " must not intercept clicks intended for Start Game.");
+            }
+
             Part<Button>(canvas, "TitleScreen/TitleCard/StartGameButton");
             Part<Button>(canvas, "WizardSelectionScreen/ConfirmSelectionButton");
             for (int option = 1; option <= 4; option++)
