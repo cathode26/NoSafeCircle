@@ -68,6 +68,8 @@ namespace NoSafeCircle.DoorPrototype
             public Vector3 Start;
             public float FallsAt;
             public bool Fallen;
+            public GameObject HitVisual;
+            public float HitEndsAt;
         }
 
         private sealed class EntrySequence
@@ -1070,6 +1072,16 @@ namespace NoSafeCircle.DoorPrototype
                         if (fallenContainer == null)
                             fallenContainer = new GameObject("EntryChaseFallenWizards").transform;
                         companion.Actor.transform.SetParent(fallenContainer, true);
+                        if (index < 2)
+                        {
+                            companion.HitVisual = CreateEntrySpriteVisual(
+                                "TitleEntryMeleeImpact_" + index, entryFireballImpact,
+                                companion.Actor.transform.position + Vector3.up * 1.1f,
+                                0.8f);
+                            companion.HitVisual.GetComponent<SpriteRenderer>().color =
+                                new Color(1f, 0.45f, 0.3f, 0.95f);
+                            companion.HitEndsAt = companion.FallsAt + 0.25f;
+                        }
                         FallenEntryCompanionCount++;
                     }
                 }
@@ -1083,6 +1095,12 @@ namespace NoSafeCircle.DoorPrototype
                     visual.rotation = chaseCamera.transform.rotation *
                         Quaternion.Euler(0f, 0f, index % 2 == 0 ? -83f * fall : 83f * fall);
                     visual.localPosition = new Vector3(0f, 0.2f * fall, 0f);
+                }
+
+                if (companion.HitVisual != null && elapsed >= companion.HitEndsAt)
+                {
+                    RetireVisual(companion.HitVisual);
+                    companion.HitVisual = null;
                 }
             }
         }
