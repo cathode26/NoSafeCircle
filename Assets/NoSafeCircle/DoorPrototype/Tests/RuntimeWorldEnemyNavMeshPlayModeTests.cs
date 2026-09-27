@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Text;
+using NoSafeCircle.DoorPrototype;
 using NoSafeCircle.DoorPrototype.Enemies;
 using NoSafeCircle.DoorPrototype.Enemies.Pooling;
 using NUnit.Framework;
@@ -71,20 +72,27 @@ namespace NoSafeCircle.DoorPrototype.Tests
             if (controller != null) controller.enabled = true;
         }
 
-        // Tries several directions around origin at the given distance and returns the first that
-        // samples onto the navmesh, so the behavioural test does not depend on a hardcoded offset
-        // that might land inside a wall in some room. Reports which direction worked, since a
-        // future reader diagnosing a failure needs that as much as the point itself.
-        // NavMesh.SamplePosition succeeding near a candidate point proves the point is ON the
-        // navmesh; it does NOT prove it is REACHABLE from origin - a thin wall can put two
-        // on-mesh points on disconnected islands. Without this check, a direction that happens to
-        // land on a disconnected pocket would read as "moved 0.0000, hasPath=False" and look
-        // exactly like a locomotion defect when it is actually an unreachable test point. So each
-        // candidate is also required to produce NavMeshPathStatus.PathComplete from origin, using
-        // the static NavMesh query (not the live agent, so this does not depend on the agent's
-        // own state) before it is accepted.
-        private static bool TryFindWalkablePointAtDistance(
-            Vector3 origin, float distance, out Vector3 point, out string directionLabel)
+        // Classifies all 8 directions around origin into SIGHT-BLOCKED and SIGHT-CLEAR, keeping
+        // only the ones that are walkable - the same NavMesh.SamplePosition + CalculatePath/
+        // PathComplete reachability check the old first-match helper used (NavMesh.SamplePosition
+        // succeeding near a candidate proves the point is ON the navmesh; it does NOT prove it is
+        // REACHABLE from origin, since a thin wall can put two on-mesh points on disconnected
+        // islands - hence the CalculatePath/PathComplete check on top of it, unchanged from
+        // before).
+        //
+        // This REPLACES the old TryFindWalkablePointAtDistance, which returned the FIRST walkable
+        // direction in a fixed +X,-X,+Z,-Z,... order. In the Bone Archive +X happened to be the
+        // sight-occluded direction, so the old behavioural test measured "never begins pursuit
+        // when approached from +X in this room" while its name claimed "never begins pursuit" with
+        // no qualification - approached from +Z, pursuit starts. Classifying every direction lets
+        // the caller deliberately pick one of each class instead of being at the mercy of
+        // enumeration order (NSC-131 INT-001).
+        //
+        // A direction that fails the walkable/reachable test is excluded from BOTH sets (logged,
+        // not silently dropped) - exactly as the old helper silently skipped it before trying the
+        // next candidate.
+        private static List<DirectionClassification> ClassifyDirectionsBySight(
+            Vector3 origin, float distance, GameObject player)
         {
             var candidates = new (Vector3 dir, string label)[]
             {
@@ -96,31 +104,94 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 ((Vector3.left + Vector3.back).normalized, "-X-Z"),
             };
 
+            var results = new List<DirectionClassification>();
             var path = new NavMeshPath();
+
             foreach (var (dir, label) in candidates)
             {
-                Vector3 candidate = origin + dir * distance;
-                if (!NavMesh.SamplePosition(candidate, out NavMeshHit hit, 1.5f, NavMesh.AllAreas))
+                var entry = new DirectionClassification { Label = label };
+                Vector3 candidatePoint = origin + dir * distance;
+
+                if (!NavMesh.SamplePosition(candidatePoint, out NavMeshHit hit, 1.5f, NavMesh.AllAreas))
+                {
+                    Debug.Log(MeasurementTag + " direction " + label + " from " + origin
+                        + " did not sample onto the navmesh - excluded from both sight classes.");
+                    results.Add(entry);
                     continue;
+                }
 
                 if (!NavMesh.CalculatePath(origin, hit.position, NavMesh.AllAreas, path)
                     || path.status != NavMeshPathStatus.PathComplete)
                 {
-                    Debug.Log(MeasurementTag + " candidate " + label + " from " + origin
-                        + " sampled onto the navmesh at " + hit.position
-                        + " but NavMesh.CalculatePath status was "
-                        + (path.status.ToString()) + " - rejected as unreachable, trying the next direction.");
+                    Debug.Log(MeasurementTag + " direction " + label + " sampled onto the navmesh "
+                        + "at " + hit.position + " but NavMesh.CalculatePath status was "
+                        + path.status + " - rejected as unreachable, excluded from both sight "
+                        + "classes.");
+                    results.Add(entry);
                     continue;
                 }
 
-                point = hit.position;
-                directionLabel = label;
+                entry.Walkable = true;
+                entry.Point = hit.position;
+
+                // The sight test needs a real collider at the candidate point to agree with
+                // production (production's own exception is "a hit on the target's own transform
+                // is still clear" - see HasUnobstructedViewMirroringProduction below), so the real
+                // player is teleported to each walkable candidate in turn, the same TeleportPlayer
+                // + Physics.SyncTransforms discipline used everywhere else in this file, then
+                // teleported back out of the way before the next candidate so classification does
+                // not contaminate whatever runs after it.
+                TeleportPlayer(player, hit.position);
+                Physics.SyncTransforms();
+                entry.SightBlocked = !HasUnobstructedViewMirroringProduction(origin, player.transform);
+                TeleportPlayer(player, new Vector3(-1000f, 0f, -1000f));
+                Physics.SyncTransforms();
+
+                Debug.Log(MeasurementTag + " direction " + label + " walkable at " + hit.position
+                    + " classified " + (entry.SightBlocked ? "SIGHT-BLOCKED" : "SIGHT-CLEAR")
+                    + " from origin " + origin);
+
+                results.Add(entry);
+            }
+
+            return results;
+        }
+
+        // Mirrors EnemyTargetKnowledge.HasUnobstructedViewOfWizard EXACTLY for the
+        // requiresLineOfSight == true branch (Scripts/Enemies/EnemyTargetKnowledge.cs:357-378):
+        // same SightOcclusionLayers.EyeOffset chest-height sample on both ends, same
+        // SightOcclusionLayers.ExcludeLowDressing(Physics.DefaultRaycastLayers) mask, same
+        // QueryTriggerInteraction.Ignore, same "a hit on the target's own transform or a child of
+        // it still counts as clear" exception. Every authored enemy has requiresLineOfSight
+        // permanently true (Editor/World/DoorPrototypeGlobalSceneBuilder.cs:518), so there is no
+        // "false" branch to mirror. Copied rather than reached via reflection, so if production's
+        // rule changes and this is not updated to match, the two will visibly DISAGREE instead of
+        // silently drifting apart - a predicate that can never disagree with the thing it checks is
+        // worthless.
+        private static bool HasUnobstructedViewMirroringProduction(Vector3 originPosition, Transform targetTransform)
+        {
+            var eye = originPosition + SightOcclusionLayers.EyeOffset;
+            var target = targetTransform.position + SightOcclusionLayers.EyeOffset;
+            var toTarget = target - eye;
+            var distance = toTarget.magnitude;
+            if (distance <= 0.01f) return true;
+
+            if (!Physics.Raycast(eye, toTarget / distance, out RaycastHit hit, distance,
+                    SightOcclusionLayers.ExcludeLowDressing(Physics.DefaultRaycastLayers),
+                    QueryTriggerInteraction.Ignore))
+            {
                 return true;
             }
 
-            point = origin;
-            directionLabel = null;
-            return false;
+            return hit.transform == targetTransform || hit.transform.IsChildOf(targetTransform);
+        }
+
+        private struct DirectionClassification
+        {
+            public string Label;
+            public bool Walkable;
+            public Vector3 Point;
+            public bool SightBlocked;
         }
 
         // Diagnostic only, for the case a melee reports a complete path but does not move: the
@@ -263,37 +334,57 @@ namespace NoSafeCircle.DoorPrototype.Tests
             yield return UnloadRuntimeWorldSceneWithoutSaving();
         }
 
-        // KNOWINGLY RED, AND DELIBERATELY [Explicit] RATHER THAN DELETED OR WEAKENED.
-        // This reproduces ba-melee-1: the BoneArchive melee enemy sits ON the navmesh at a
-        // point an independent NavMesh.CalculatePath proves reachable, and still never begins
-        // pursuit at 4u - hasPath=False, velocity 0, remainingDistance 0 for the whole window,
-        // reproduced twice byte-identical. fr-melee-1 is FINE; its earlier 0.0000 was a
-        // measurement artifact of teleporting the player inside the 1.5u attack range.
+        // FORMERLY RuntimeWorld_BaMeleeAndFrMelee_CloseADistantGapToThePlayer, and FORMERLY
+        // KNOWINGLY RED because it measured the wrong thing: it teleported the player to the
+        // FIRST walkable direction in a fixed +X,-X,+Z,-Z,... order, with no regard for whether
+        // that direction was inside the enemy's line of sight. In the Bone Archive +X happened to
+        // be the sight-occluded direction, so it reported "ba-melee-1 never begins pursuit" when
+        // the truer statement is "never begins pursuit when approached from +X in this room" -
+        // approached from +Z, pursuit starts. That is obligation INT-001 on NSC-131.
         //
-        // It is [Explicit] so the suite stays green and a real regression stays visible, NOT to
-        // hide the defect: ba-melee-1 is written up in the Game Agent todo and was reported to
-        // Vincent directly. Remove [Explicit] the moment the defect is fixed - if this starts
-        // passing, that is the signal the fix landed.
+        // Repaired to classify all 8 directions by line of sight FIRST (ClassifyDirectionsBySight
+        // above, mirroring EnemyTargetKnowledge's own rule exactly - see
+        // HasUnobstructedViewMirroringProduction), then measure TWO controlled approaches per
+        // enemy instead of one arbitrary one:
+        //   sight-clear-control    the enemy must ACQUIRE (Pursuing) and close the gap - the
+        //                          control that proves pursuit itself still works.
+        //   sight-blocked-fallback the enemy must NOT be Pursuing while the view is obstructed,
+        //                          AND still displace and close the straight-line gap - GER's
+        //                          2026-09-27 sight-fallback ruling: investigate without locking
+        //                          on (EnemyTargetKnowledge.cs:123-156). The component-level
+        //                          state-machine half of this (outcomes 2 and 3) is already
+        //                          covered by EnemySightFallbackPlayModeTests; this method is the
+        //                          one place outcome 1 - the root actually moving, on the real
+        //                          baked room - is proved.
+        //
+        // ON THIS BRANCH THE FALLBACK MEASUREMENT FOR ba-melee-1 CANNOT RUN, AND THAT IS THE
+        // CORRECT, EXPECTED RESULT, NOT A GAP IN THIS TEST: a merged prop-collider reshape dropped
+        // colliders reaching the y=1.0 eye line in the Bone Archive from 35/41 to 7/41 (tallest
+        // collider top 3.590 -> 1.573), so ZERO of ba-melee-1's walkable approach directions are
+        // currently sight-blocked. That is a live cover regression the Game Agent already caused
+        // and reported. Rather than skip, pass vacuously, or quietly drop the fallback assertion,
+        // the absence of a sight-blocked candidate is itself recorded as a named failure below.
+        //
+        // Gated with an env-var Assert.Ignore, NOT [Explicit] - measured in this project,
+        // [Explicit] does NOT prevent execution under the broad -TestFilter (CaptureRuntimeWorld
+        // carries [Explicit] and still ran and failed there), while this idiom genuinely skips.
         [UnityTest]
-        public IEnumerator RuntimeWorld_BaMeleeAndFrMelee_CloseADistantGapToThePlayer()
+        public IEnumerator RuntimeWorld_BaMeleeAndFrMelee_ClosesTheGapFromSightClearAndInvestigatesFromSightBlocked()
         {
-            // GATED, NOT HIDDEN - and NOT with [Explicit], which does NOT prevent
-            // execution under this project's broad -TestFilter. Measured: CaptureRuntimeWorld
-            // carries [Explicit] and still RAN AND FAILED under -TestFilter NoSafeCircle, while
-            // the capture fixtures that genuinely skip do it with an env-var Assert.Ignore
-            // exactly like this one. Copy the idiom that works, not the attribute that reads
-            // like it should.
-            //
-            // Set NSC_RUN_KNOWN_DEFECTS to run it. It reproduces ba-melee-1 and FAILS on
-            // purpose: the BoneArchive melee enemy is on the navmesh at a point an independent
-            // NavMesh.CalculatePath proves reachable, and still never begins pursuit at 4u.
-            // Delete this gate when the defect is fixed.
+            // GATED, NOT HIDDEN. Set NSC_RUN_KNOWN_DEFECTS to run it. It reproduces ba-melee-1's
+            // absent-cover defect and FAILS ON PURPOSE: zero of its walkable approach directions
+            // are sight-blocked, so the room currently provides no cover for this enemy at all.
+            // Delete this gate once the collider reshape that caused it is fixed and the room has
+            // a sight-blocked walkable approach again.
             if (string.IsNullOrWhiteSpace(
                     System.Environment.GetEnvironmentVariable("NSC_RUN_KNOWN_DEFECTS")))
             {
-                Assert.Ignore("ba-melee-1 is an OPEN defect: the BoneArchive melee enemy never "
-                              + "begins pursuit at 4u although its target is on-mesh and "
-                              + "path-reachable. Set NSC_RUN_KNOWN_DEFECTS to reproduce it.");
+                Assert.Ignore("ba-melee-1's room (Bone Archive) currently has ZERO walkable "
+                    + "approach directions that are sight-blocked - a merged prop-collider "
+                    + "reshape dropped colliders reaching the y=1.0 eye line from 35/41 to 7/41 "
+                    + "(tallest collider top 3.590 -> 1.573), so this room no longer provides "
+                    + "cover for this enemy and the sight-blocked-fallback measurement below "
+                    + "cannot run. Set NSC_RUN_KNOWN_DEFECTS to reproduce it.");
             }
 
             yield return SceneManager.LoadSceneAsync("RuntimeWorld", LoadSceneMode.Single);
@@ -313,158 +404,249 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 + "real player to detect.");
             GameObject player = playerMovement.gameObject;
 
-            // Collected first, asserted after - a real defect on ba-melee-1 must not cost us the
-            // fr-melee-1 reading in the same run. (This is exactly what happened the first time
-            // this method was written with the assert inside the loop: ba-melee-1 failed, the
-            // UnityTest coroutine aborted, and fr-melee-1 was never measured.)
+            // Collected first, asserted after - one id's or one phase's failure must not cost the
+            // rest of the run its own reading. (This is exactly what happened the first time this
+            // method was written with the assert inside the loop: an earlier failure aborted the
+            // UnityTest coroutine and later readings were never measured.)
             var readings = new List<BehaviorReading>();
+            var failures = new List<string>();
 
             foreach (var id in new[] { "ba-melee-1", "fr-melee-1" })
             {
-                var reading = new BehaviorReading { Id = id };
-
                 EnemySpawnEntry entry = null;
                 foreach (var e in table.Entries) { if (e.Id == id) { entry = e; break; } }
                 if (entry == null)
                 {
-                    reading.FailureReason = "not in the table - cannot test what does not exist.";
-                    readings.Add(reading);
+                    failures.Add(id + ": not in the table - cannot test what does not exist.");
                     continue;
                 }
 
                 if (!spawner.MeleePool.TryGetInstance(id, out GameObject instance))
                 {
-                    reading.FailureReason = "no live instance in its pool.";
-                    readings.Add(reading);
+                    failures.Add(id + ": no live instance in its pool.");
                     continue;
                 }
 
                 var agent = instance.GetComponent<NavMeshAgent>();
                 if (agent == null)
                 {
-                    reading.FailureReason = "a melee must carry a NavMeshAgent, and this one has none.";
-                    readings.Add(reading);
+                    failures.Add(id + ": a melee must carry a NavMeshAgent, and this one has none.");
                     continue;
                 }
 
-                reading.OnMeshBefore = agent.isOnNavMesh;
-                Vector3 startPos = instance.transform.position;
-                reading.StartPos = startPos;
-
-                // From the enemy's ACTUAL warped position, not the authored point - the whole
-                // point of this run is to rule out the sampling gap itself as the confound.
-                bool foundSpot = TryFindWalkablePointAtDistance(
-                    startPos, PursuitTestDistance, out Vector3 playerSpot, out string directionUsed);
-                if (!foundSpot)
+                var targetKnowledge = instance.GetComponent<EnemyTargetKnowledge>();
+                var pursuitMovement = instance.GetComponent<EnemyPursuitMovement>();
+                if (targetKnowledge == null || pursuitMovement == null)
                 {
-                    reading.FailureReason = "no walkable point found " + PursuitTestDistance
-                        + "u from its actual position " + startPos + " in any of 8 directions.";
-                    readings.Add(reading);
+                    failures.Add(id + ": a melee must carry EnemyTargetKnowledge and "
+                        + "EnemyPursuitMovement, and this one is missing one of them.");
                     continue;
                 }
-                reading.DirectionUsed = directionUsed;
 
-                TeleportPlayer(player, playerSpot);
-                Physics.SyncTransforms();
+                Vector3 startPos = instance.transform.position;
 
-                // Real time, real Update()/Tick() calls - EnemyPursuitMovement.Update drives
-                // itself; nothing here calls Tick directly, so this is exactly what Vincent would
-                // see happen over a few seconds of play.
-                yield return new WaitForSeconds(PursuitTestWaitSeconds);
+                // Classify BEFORE moving anything so every candidate is measured against the
+                // enemy's untouched authored position.
+                var classification = ClassifyDirectionsBySight(startPos, PursuitTestDistance, player);
 
-                reading.EndPos = instance.transform.position;
-                reading.Moved = Vector3.Distance(startPos, reading.EndPos);
-                reading.RemainingDistance = agent.remainingDistance;
-                reading.VelocityMag = agent.velocity.magnitude;
-                reading.IsStopped = agent.isStopped;
-                reading.Radius = agent.radius;
-                reading.HasPath = agent.hasPath;
-                reading.PathStatus = agent.pathStatus;
-                reading.NearestOther = NearestOtherColliderDistance(instance, reading.EndPos, 3f);
-                reading.Measured = true;
-                readings.Add(reading);
+                int walkableCount = 0, sightBlockedCount = 0, sightClearCount = 0;
+                DirectionClassification? clearPick = null;
+                DirectionClassification? blockedPick = null;
+                foreach (var c in classification)
+                {
+                    if (!c.Walkable) continue;
+                    walkableCount++;
+                    if (c.SightBlocked)
+                    {
+                        sightBlockedCount++;
+                        if (blockedPick == null) blockedPick = c;
+                    }
+                    else
+                    {
+                        sightClearCount++;
+                        if (clearPick == null) clearPick = c;
+                    }
+                }
 
-                Debug.Log(MeasurementTag + " " + id + " behavioural (player placed " + PursuitTestDistance
-                    + "u away toward " + directionUsed + " from its actual position, well outside "
-                    + "MeleeEnemyAttack's 1.5u range): isOnNavMeshBefore=" + reading.OnMeshBefore
-                    + " hasPath=" + reading.HasPath + " pathStatus=" + reading.PathStatus
-                    + " startPos=" + startPos + " endPos=" + reading.EndPos
-                    + " movedDistance=" + reading.Moved.ToString("F4")
-                    + " remainingDistance=" + reading.RemainingDistance.ToString("F4")
-                    + " velocityMagnitude=" + reading.VelocityMag.ToString("F4")
-                    + " isStopped=" + reading.IsStopped
-                    + " agentRadius=" + reading.Radius.ToString("F4")
-                    + " nearestOtherColliderDistance=" + reading.NearestOther.ToString("F4"));
+                Debug.Log(MeasurementTag + " " + id + " direction classification from " + startPos
+                    + ": " + walkableCount + "/8 walkable, " + sightBlockedCount + " sight-blocked, "
+                    + sightClearCount + " sight-clear.");
 
-                // Move the player far away again before testing the next id, so the two
-                // measurements do not contaminate each other.
-                TeleportPlayer(player, new Vector3(-1000f, 0f, -1000f));
-                Physics.SyncTransforms();
-                yield return null;
+                // THE CONTROL: pursuit itself must still work from an unobstructed approach, or
+                // nothing below is worth measuring.
+                if (clearPick == null)
+                {
+                    failures.Add(id + ": no walkable direction is sight-clear (" + walkableCount
+                        + " walkable of 8 candidates, all sight-blocked) - cannot run the control "
+                        + "measurement that proves pursuit works at all.");
+                }
+                else
+                {
+                    pursuitMovement.ResetPursuit();
+                    yield return null;
+
+                    var outReading = new BehaviorReading[1];
+                    yield return MeasureApproach(instance, agent, targetKnowledge, player, startPos,
+                        clearPick.Value, outReading);
+                    var r = outReading[0];
+                    r.Id = id;
+                    r.Phase = "sight-clear-control";
+                    readings.Add(r);
+
+                    if (!r.Measured)
+                    {
+                        failures.Add(id + " (sight-clear control): "
+                            + (r.FailureReason ?? "not measured, no reason recorded."));
+                    }
+                    else if (r.State != EnemyTargetKnowledgeState.Pursuing || !(r.Moved > 1.5f))
+                    {
+                        failures.Add(id + " (sight-clear control): expected the enemy to ACQUIRE "
+                            + "(Pursuing) and close most of the " + PursuitTestDistance
+                            + "u gap; got state=" + r.State + " moved=" + r.Moved.ToString("F4")
+                            + "u hasPath=" + r.HasPath + " pathStatus=" + r.PathStatus
+                            + " remainingDistance=" + r.RemainingDistance.ToString("F4")
+                            + " velocityMagnitude=" + r.VelocityMag.ToString("F4")
+                            + " isStopped=" + r.IsStopped
+                            + " - pursuit itself is broken, this is not a sight-classification "
+                            + "question.");
+                    }
+                }
+
+                // THE FALLBACK - the thing NSC-131 INT-001 actually asked this test to measure.
+                // On this branch it is EXPECTED to find zero sight-blocked walkable directions for
+                // ba-melee-1, and that absence IS the assertion: see the comment above this
+                // method.
+                if (blockedPick == null)
+                {
+                    failures.Add(id + ": zero of " + walkableCount + " walkable approach "
+                        + "directions are sight-blocked (0 sight-blocked / " + sightClearCount
+                        + " sight-clear / " + walkableCount + " walkable / 8 candidates total). "
+                        + "This room currently provides NO cover-capable approach to " + id
+                        + " - a live regression from a merged prop-collider reshape (tallest "
+                        + "collider top dropped from 3.590u to 1.573u, colliders reaching the "
+                        + "y=1.0 eye line dropped from 35/41 to 7/41), already reported by the "
+                        + "Game Agent. This is not a sampling or classification defect in the "
+                        + "test - it is the room failing to provide the cover this measurement "
+                        + "needs.");
+                }
+                else
+                {
+                    pursuitMovement.ResetPursuit();
+                    yield return null;
+
+                    var outReading = new BehaviorReading[1];
+                    yield return MeasureApproach(instance, agent, targetKnowledge, player, startPos,
+                        blockedPick.Value, outReading);
+                    var r = outReading[0];
+                    r.Id = id;
+                    r.Phase = "sight-blocked-fallback";
+                    readings.Add(r);
+
+                    if (!r.Measured)
+                    {
+                        failures.Add(id + " (sight-blocked fallback): "
+                            + (r.FailureReason ?? "not measured, no reason recorded."));
+                    }
+                    else if (r.State == EnemyTargetKnowledgeState.Pursuing || !(r.Moved > 1.5f))
+                    {
+                        failures.Add(id + " (sight-blocked fallback): expected the enemy to "
+                            + "INVESTIGATE (NOT Pursuing) while still displacing and closing most "
+                            + "of the " + PursuitTestDistance + "u gap; got state=" + r.State
+                            + " moved=" + r.Moved.ToString("F4") + "u hasPath=" + r.HasPath
+                            + " pathStatus=" + r.PathStatus + " remainingDistance="
+                            + r.RemainingDistance.ToString("F4") + " velocityMagnitude="
+                            + r.VelocityMag.ToString("F4") + " isStopped=" + r.IsStopped + ".");
+                    }
+                }
             }
 
             var report = new StringBuilder();
             report.AppendLine(MeasurementTag
-                + " behavioural(" + PursuitTestDistance + "u,outside-attack-range): id,measured,failureReason,"
-                + "isOnNavMeshBefore,hasPathAfter,pathStatusAfter,startPos,endPos,movedDistance,"
+                + " behavioural(" + PursuitTestDistance + "u,sight-classified): id,phase,measured,"
+                + "failureReason,state,hasPathAfter,pathStatusAfter,startPos,endPos,movedDistance,"
                 + "remainingDistance,velocityMag,isStopped,agentRadius,nearestOtherColliderDistance,"
                 + "playerDirectionUsed");
             foreach (var r in readings)
             {
                 report.AppendLine(string.Format(
-                    "{0},{1},{2},{3},{4},{5},{6},{7},{8:F4},{9:F4},{10:F4},{11},{12:F4},{13:F4},{14}",
-                    r.Id, r.Measured, r.FailureReason, r.OnMeshBefore, r.HasPath, r.PathStatus,
+                    "{0},{1},{2},{3},{4},{5},{6},{7},{8},{9:F4},{10:F4},{11:F4},{12},{13:F4},{14:F4},{15}",
+                    r.Id, r.Phase, r.Measured, r.FailureReason, r.State, r.HasPath, r.PathStatus,
                     r.StartPos, r.EndPos, r.Moved, r.RemainingDistance, r.VelocityMag, r.IsStopped,
                     r.Radius, r.NearestOther, r.DirectionUsed));
             }
             Debug.Log(report.ToString());
 
-            // THE DURABLE RELATION, asserted only after every id's reading is already on the
-            // record: a melee whose player sits well outside its attack range and its own
-            // stopping distance must close most of that gap in a few real seconds. This does not
-            // pin how far exactly - only that pathing is not merely reported but acted on. A
-            // future bake that moves these points by centimetres does not change this.
-            //
-            // Collected into a list rather than asserted inline (NOT Assert.Multiple - this
-            // project's NUnit does not have it; that was tried first and produced a compile
-            // error that wedged a Unity batchmode run holding the project lock for over two
-            // hours, because a batchmode run that fails to compile does not exit, it hangs). One
-            // id's failure must not hide the other's verdict, hence the list rather than a plain
-            // foreach of individual asserts.
-            var failures = new List<string>();
-            foreach (var r in readings)
-            {
-                if (!r.Measured)
-                {
-                    failures.Add(r.Id + ": " + (r.FailureReason ?? "not measured, no reason recorded."));
-                    continue;
-                }
-
-                if (!(r.Moved > 1.5f))
-                {
-                    failures.Add(r.Id + ": moved only " + r.Moved.ToString("F4") + "u toward a player placed "
-                        + PursuitTestDistance + "u away (well outside its 1.5u attack range and 0.6u "
-                        + "stopping distance) over " + PursuitTestWaitSeconds + "s of real time. "
-                        + "hasPath=" + r.HasPath + " pathStatus=" + r.PathStatus
-                        + " remainingDistance=" + r.RemainingDistance.ToString("F4")
-                        + " velocityMagnitude=" + r.VelocityMag.ToString("F4")
-                        + " isStopped=" + r.IsStopped
-                        + " nearestOtherColliderDistance=" + r.NearestOther.ToString("F4")
-                        + " - this is a locomotion defect, not an AC-006 sampling question.");
-                }
-            }
-
+            // THE DURABLE RELATION, asserted only after every id's and every phase's reading is
+            // already on the record (NOT Assert.Multiple - this project's NUnit does not have it;
+            // that was tried first and produced a compile error that wedged a Unity batchmode run
+            // holding the project lock for over two hours, because a batchmode run that fails to
+            // compile does not exit, it hangs).
             Assert.AreEqual(0, failures.Count, "\n" + string.Join("\n", failures));
 
             yield return UnloadRuntimeWorldSceneWithoutSaving();
         }
 
+        // Runs one measurement window: teleports the player to the given approach point, waits
+        // PursuitTestWaitSeconds of real time (real Update()/Tick() calls - EnemyPursuitMovement
+        // and EnemyTargetKnowledge drive themselves; nothing here calls Tick directly, so this is
+        // exactly what Vincent would see happen over a few seconds of play), then records the
+        // reading into outReading[0]. A single-element array carries the result out because a
+        // yielding iterator method cannot have an out or ref parameter.
+        private static IEnumerator MeasureApproach(
+            GameObject instance, NavMeshAgent agent, EnemyTargetKnowledge targetKnowledge,
+            GameObject player, Vector3 startPos, DirectionClassification approach,
+            BehaviorReading[] outReading)
+        {
+            var reading = new BehaviorReading
+            {
+                StartPos = startPos,
+                DirectionUsed = approach.Label,
+            };
+
+            TeleportPlayer(player, approach.Point);
+            Physics.SyncTransforms();
+
+            yield return new WaitForSeconds(PursuitTestWaitSeconds);
+
+            reading.EndPos = instance.transform.position;
+            reading.Moved = Vector3.Distance(startPos, reading.EndPos);
+            reading.RemainingDistance = agent.remainingDistance;
+            reading.VelocityMag = agent.velocity.magnitude;
+            reading.IsStopped = agent.isStopped;
+            reading.Radius = agent.radius;
+            reading.HasPath = agent.hasPath;
+            reading.PathStatus = agent.pathStatus;
+            reading.State = targetKnowledge.State;
+            reading.NearestOther = NearestOtherColliderDistance(instance, reading.EndPos, 3f);
+            reading.Measured = true;
+            outReading[0] = reading;
+
+            Debug.Log(MeasurementTag + " " + approach.Label + " measured (player placed "
+                + PursuitTestDistance + "u away, "
+                + (approach.SightBlocked ? "SIGHT-BLOCKED" : "SIGHT-CLEAR") + "): state="
+                + reading.State + " hasPath=" + reading.HasPath + " pathStatus=" + reading.PathStatus
+                + " startPos=" + startPos + " endPos=" + reading.EndPos
+                + " movedDistance=" + reading.Moved.ToString("F4")
+                + " remainingDistance=" + reading.RemainingDistance.ToString("F4")
+                + " velocityMagnitude=" + reading.VelocityMag.ToString("F4")
+                + " isStopped=" + reading.IsStopped
+                + " agentRadius=" + reading.Radius.ToString("F4")
+                + " nearestOtherColliderDistance=" + reading.NearestOther.ToString("F4"));
+
+            // Move the player far away again so this measurement does not contaminate whatever
+            // runs next.
+            TeleportPlayer(player, new Vector3(-1000f, 0f, -1000f));
+            Physics.SyncTransforms();
+            yield return null;
+        }
+
         private struct BehaviorReading
         {
             public string Id;
+            public string Phase;
             public bool Measured;
             public string FailureReason;
-            public bool OnMeshBefore;
+            public EnemyTargetKnowledgeState State;
             public bool HasPath;
             public NavMeshPathStatus PathStatus;
             public Vector3 StartPos;
