@@ -13,7 +13,7 @@
     {
       "criterion_id": "AC-003",
       "reference": "NSC-066 AC-005; owner revision 2026-09-15 (T1)",
-      "requirement": "DoorPrototypeGlobalSceneBuilder.BuildTitleScreen, invoked through DoorPrototypeSceneBuilder.Build, installs the title screen, its TitleScreenController, and exactly one TitleScreenChaseBackdrop idempotently in Assets/Scenes/DoorPrototype.unity. Running Build repeatedly does not duplicate the Canvas, EventSystem, title panel, Start Game Button, its onClick listener, the controller, or the backdrop component."
+      "requirement": "DoorPrototypeGlobalSceneBuilder.BuildTitleScreen, invoked through DoorPrototypeSceneBuilder.Build, installs the title screen, its TitleScreenController, and exactly one TitleScreenChaseBackdrop idempotently in the scene it builds; nothing is written to a committed scene file, because the world is built at runtime by GameBootstrap and Assets/Scenes/DoorPrototype.unity was deleted at fe4c95ad. Running Build repeatedly does not duplicate the Canvas, EventSystem, title panel, Start Game Button, its onClick listener, the controller, or the backdrop component."
     },
     {
       "criterion_id": "AC-004",
@@ -41,12 +41,12 @@
     {
       "gate_id": "VAL-003",
       "reference": "NSC-066 VAL-005; NSC-077 VAL-007 precedent",
-      "requirement": "Assets/Scenes/DoorPrototype.unity is excluded from byte-for-byte comparison across repeated builds, because Unity regenerates its local fileIDs on every DoorPrototypeGlobalSceneBuilder.Build. Content equivalence is proven by TitleScreenSceneBuilderTests and by the sibling backdrop child's Play Mode fixture, not by comparing the saved scene file's bytes."
+      "requirement": "No committed scene is compared byte-for-byte across repeated builds: Unity regenerates local fileIDs on every DoorPrototypeGlobalSceneBuilder.Build, and the world is built at runtime by GameBootstrap and Assets/Scenes/DoorPrototype.unity was deleted at fe4c95ad, so there is no committed world scene left to compare. Content equivalence is proven by TitleScreenSceneBuilderTests and by the sibling backdrop child's Play Mode fixture, not by comparing the saved scene file's bytes."
     }
   ],
   "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 2,
+  "contract_revision": 3,
   "decomposition_reason": "Covers the parent's layout criterion including the revision-7 hierarchy pin, the builder idempotence criterion, the builder half of the chase-lane criterion, the builder half of the serialized-data criterion, VAL-002, the human Play Mode review, and the scene-bytes exclusion. It depends on both siblings because it references the TitleScreenChaseBackdrop type and wires the Start Game Button to TitleScreenController.StartGame.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -58,8 +58,7 @@
   "downstream_integration_obligations": [],
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/TitleScreenSceneBuilderTests.cs",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/TitleScreenSceneBuilderTests.cs"
   ],
   "execution_reason": "One pass over BuildTitleScreen: drop the opaque fill, restack the three sayings and the chunky Start Game Button on the left while keeping the TitleScreen/TitleCard/StartGameButton hierarchy, add and configure one TitleScreenChaseBackdrop with its lane endpoints and animator references, update TitleScreenSceneBuilderTests, and materialize Assets/Scenes/DoorPrototype.unity.",
   "execution_scope": "single_agent",
@@ -91,6 +90,15 @@
         "previous_contract_revision": 1,
         "base_contract_sha256": "497079563d0512c750f003a08ba28d09bd4e4634791e70c563517c050cd9e389",
         "revised_contract_sha256": "9cf98b1468b28a7cc2c12855ef4f71ece5096e552f8f06e5508395ce02643dfb",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-27",
+        "reason": "Deletion fallout at fe4c95ad: drop the dangling owned resource and replace the clauses that still required a deleted artifact. NSC-086 AC-007's premise is spent - D5 is built at runtime by DoorSpawner, so the final door is reachable in the built world; NSC-100 AC-007's seven-assertion inventory re-swept to zero and is superseded by the relation it was standing in for.",
+        "source_head": "d27f390b0fd7a4b0012ae7e5e4e3a0f6524af374",
+        "previous_contract_revision": 2,
+        "base_contract_sha256": "c48d970f451362cbb9b77c8443a04fc8f12f1774b6df97c954653b75ef374643",
+        "revised_contract_sha256": "001f4392822e191a54288f7a0cc9b7333c9d361eee34282f8d0424a17b7c6c58",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
