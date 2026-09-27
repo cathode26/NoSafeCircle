@@ -1,0 +1,61 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "1e8b1a4216a5b543f2fb78810d9d36e6a87de85e",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/FiveRoomTraversalPlayModeTests.cs",
+      "role": "playmode_traversal_proof"
+    },
+    {
+      "blob_sha": "f62f98afc43e9f26fce97f73dbd4dd10ad889d81",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/FiveRoomTraversalPlayModeTests.cs.meta",
+      "role": "unity_identity_for_traversal_proof"
+    }
+  ],
+  "delivery": {
+    "base_commit": "fe0c7df8ecd215aaa871b0a17d06cffd38673d38",
+    "candidate_commit": "4c959d61a5013b25eb32d13f9b21a5e7aaf7c070",
+    "integrated_commit": "4c959d61a5013b25eb32d13f9b21a5e7aaf7c070",
+    "integrated_tree": "dd8d5a1827f4a1c74957274c353cd9bdc7ce0c80"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "0254a955ec937c5881b4ba6d1ebf70bc25b68c9c",
+          "path": "Pipeline/TaskGraph/evidence/NSC-110/artifacts/FiveRoomTraversalPlayMode-4c959d61a501-4c959d61a501.xml"
+        },
+        {
+          "blob_sha": "1e72551d4e669b5e5cd0e2e58978d604be44e553",
+          "path": "Pipeline/TaskGraph/evidence/NSC-110/artifacts/FiveRoomTraversalPlayMode-4c959d61a501-4c959d61a501.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Authoritative batchmode PlayMode run via Pipeline/Testing/run_unity_tests_clean.ps1, TestFilter NoSafeCircle.DoorPrototype.Tests.FiveRoomTraversalPlayModeTests, at commit 4c959d61a5013b25eb32d13f9b21a5e7aaf7c070 in checkout C:/nscrev/handoff (repository clean before and after, tree unchanged: dd8d5a1827f4a1c74957274c353cd9bdc7ce0c80). Result Passed, total=1 passed=1 failed=0 skipped=0, bound by the runner's own validation-manifest.json. This is the pass outcome of AC-001's traversal fixture (Ruined Entry spawn through D1-D5 into the Final Room, checked against each room's own RoomBounds); the gate's own text says a failing run would equally satisfy it if reported with evidence, so what is recorded here is that specific measured Passed result, not a favourable one manufactured to match.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "",
+    "decision": "not_required",
+    "notes": "NSC-110's only completion gate (VAL-001) is a Play Mode run whose reference is 'Play Mode run' and whose requirement is that the fixture's result be recorded, pass or fail; it names no Vincent or design review and is not present in authoritative_validation_policy.json's tasks key. There is no contractual human gate for this task; NSC-049 AC-003 (the spawn point this fixture starts from) and any in-engine visual review are separate tasks' obligations, not this one's.",
+    "required": false
+  },
+  "record_id": "DEL-NSC-110-4c959d61a501",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-27T21:45:38Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-110.yaml",
+    "revision": 1,
+    "sha256": "a6485abbf447b11f7b4ba88ef7687a26e30c42055c5691706bba58e56277abe5"
+  },
+  "task_id": "NSC-110",
+  "validated_state": {
+    "commit": "4c959d61a5013b25eb32d13f9b21a5e7aaf7c070",
+    "tree": "dd8d5a1827f4a1c74957274c353cd9bdc7ce0c80"
+  }
+}

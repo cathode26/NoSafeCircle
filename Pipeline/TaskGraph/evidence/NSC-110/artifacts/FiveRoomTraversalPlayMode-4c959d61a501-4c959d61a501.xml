@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="1" result="Passed" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-27 21:43:30Z" end-time="2026-09-27 21:43:45Z" duration="14.9067914">
+  <test-suite type="TestSuite" id="1548" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="468" result="Passed" start-time="2026-09-27 21:43:30Z" end-time="2026-09-27 21:43:45Z" duration="14.906791" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <test-suite type="Assembly" id="1534" name="NoSafeCircle.DoorPrototype.Tests.dll" fullname="C:/nscrev/handoff/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.dll" runstate="Runnable" testcasecount="464" result="Passed" start-time="2026-09-27 21:43:30Z" end-time="2026-09-27 21:43:45Z" duration="14.880415" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="57556" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <test-suite type="TestSuite" id="1535" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="464" result="Passed" start-time="2026-09-27 21:43:30Z" end-time="2026-09-27 21:43:45Z" duration="14.865304" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1536" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="464" result="Passed" start-time="2026-09-27 21:43:30Z" end-time="2026-09-27 21:43:45Z" duration="14.848647" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1537" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="464" result="Passed" start-time="2026-09-27 21:43:30Z" end-time="2026-09-27 21:43:45Z" duration="14.822174" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1267" name="FiveRoomTraversalPlayModeTests" fullname="NoSafeCircle.DoorPrototype.Tests.FiveRoomTraversalPlayModeTests" classname="NoSafeCircle.DoorPrototype.Tests.FiveRoomTraversalPlayModeTests" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-09-27 21:43:30Z" end-time="2026-09-27 21:43:45Z" duration="14.801064" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1268" name="PlayerTraversesRuinedEntryThroughFinalRoom_ViaProductionMovementAndDoors" fullname="NoSafeCircle.DoorPrototype.Tests.FiveRoomTraversalPlayModeTests.PlayerTraversesRuinedEntryThroughFinalRoom_ViaProductionMovementAndDoors" methodname="PlayerTraversesRuinedEntryThroughFinalRoom_ViaProductionMovementAndDoors" classname="NoSafeCircle.DoorPrototype.Tests.FiveRoomTraversalPlayModeTests" runstate="Runnable" seed="1271626163" result="Passed" start-time="2026-09-27 21:43:30Z" end-time="2026-09-27 21:43:45Z" duration="14.778693" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[FloorSpawner: spawned 5 room floor(s), 8304 cell(s), from 5 binding(s).
+[GameBootstrap] Rooms (FloorSpawner) created 5.
+WallSpawner: spawned 507 wall piece(s) and collider(s) across 5 room(s).
+[GameBootstrap] Rooms (WallSpawner) created 507.
+PropSpawner: spawned 222 prop(s) from 5 catalog(s).
+[GameBootstrap] Props (PropSpawner) created 222.
+NavigationSpawner: baked over 222 collider(s) in 21 ms, bounds Center: (0.00, 1.10, 39.00), Extents: (20.30, 1.45, 65.30).
+[GameBootstrap] Navigation (NavigationSpawner) created 1.
+DoorSpawner: spawned 5 door(s) from 'Door'.
+[GameBootstrap] Doors (DoorSpawner) created 5.
+PlayerSpawner: disabled placeholder camera 'Main Camera'. The scene owner should remove it; see SceneStubTests.AllowedRoots.
+PlayerSpawner: spawned 'Player' at (-4.00, 0.08, -22.00) and 'Main Camera' at (6.00, 10.08, -32.00).
+[GameBootstrap] Player (PlayerSpawner) created 2.
+EnemySpawner: admitted 9 of 9 enemies.
+[GameBootstrap] Enemies (EnemySpawner) created 9.
+[GameBootstrap] Hud (HudSpawner) created 1.
+[NSC-110] Player spawned at (-4.00, 0.08, -22.00).
+[NSC-110] D1 opened at (0.00, 0.00, 0.00). NavMesh diagnostic (-4.00, 0.08, -22.00) -> (0.00, 0.00, 3.25): startSampled=True ((-4.00, 0.04, -22.00)), endSampled=True ((0.00, 0.04, 3.25)), calculated=True, status=PathComplete, corners=2.
+[NSC-110] D1 leg: distance=25.56, budget=768 ticks, used=128 ticks, reached=True, finalPosition=(0.00, 0.08, 3.25), HasActiveDestination=False, HasCrossedForward=True.
+[NSC-110] D2 opened at (6.00, 0.00, 20.00). NavMesh diagnostic (0.00, 0.08, 3.25) -> (6.00, 0.00, 23.25): startSampled=True ((0.00, 0.04, 3.25)), endSampled=True ((6.00, 0.04, 23.25)), calculated=True, status=PathComplete, corners=5.
+[NSC-110] D2 leg: distance=20.88, budget=630 ticks, used=113 ticks, reached=True, finalPosition=(6.00, 0.08, 23.25), HasActiveDestination=False, HasCrossedForward=True.
+[NSC-110] D3 opened at (-8.00, 0.00, 54.00). NavMesh diagnostic (6.00, 0.08, 23.25) -> (-8.00, 0.00, 57.25): startSampled=True ((6.00, 0.04, 23.25)), endSampled=True ((-8.00, 0.04, 57.25)), calculated=True, status=PathComplete, corners=6.
+[NSC-110] D3 leg: distance=36.77, budget=1104 ticks, used=191 ticks, reached=True, finalPosition=(-8.00, 0.27, 57.25), HasActiveDestination=False, HasCrossedForward=True.
+[NSC-110] D4 opened at (4.00, 0.00, 76.00). NavMesh diagnostic (-8.00, 0.27, 57.25) -> (4.00, 0.00, 79.25): startSampled=True ((-8.00, 0.04, 57.25)), endSampled=True ((4.00, 0.04, 79.25)), calculated=True, status=PathComplete, corners=7.
+[NSC-110] D4 leg: distance=25.06, budget=756 ticks, used=135 ticks, reached=True, finalPosition=(4.00, 0.08, 79.25), HasActiveDestination=False, HasCrossedForward=True.
+[NSC-110] D5 opened at (0.00, 0.00, 104.00). NavMesh diagnostic (4.00, 0.08, 79.25) -> (0.00, 0.00, 107.25): startSampled=True ((4.00, 0.04, 79.25)), endSampled=False, calculated=False.
+[NSC-110] D5 leg: distance=28.28, budget=852 ticks, used=142 ticks, reached=True, finalPosition=(0.00, 0.00, 107.25), HasActiveDestination=False, HasCrossedForward=True.
+
+EnemyPrefabPool disposed: [MeleeEnemy] active 0, peak 5, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 5, capacityExpansion 0.
+EnemyPrefabPool disposed: [LanternWraith] active 0, peak 4, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 4, capacityExpansion 0.
+Saving results to: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-261fab73c8a64a4b8fd0ac2c5cba7b38\test-results.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>
