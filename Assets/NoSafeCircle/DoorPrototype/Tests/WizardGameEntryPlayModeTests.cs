@@ -267,12 +267,20 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 chase.EntryPursuerTransform.position.z, 0.001f);
             Assert.IsNotNull(chase.EntrySecondPursuerTransform);
             Assert.IsNotNull(chase.EntryWraithTransform);
+            Assert.IsNotNull(chase.EntrySecondWraithTransform);
+            Assert.AreEqual(3, chase.EntryCompanionCount);
+            Assert.AreEqual(6, chase.EntryMeleePursuerCount);
+            Assert.AreEqual(2, chase.EntryWraithPursuerCount);
+            Assert.AreEqual(12, chase.ActiveActorCount);
+            for (int index = 0; index < 4; index++)
+                Assert.IsNotNull(chase.EntryAdditionalMeleeTransform(index));
 
-            for (int step = 0; step < 90 && chase.FiredEntryShotCount < 3; step++)
+            for (int step = 0; step < 200 && chase.FiredEntryShotCount < 3; step++)
                 chase.Tick(0.1f);
             Assert.AreEqual(3, chase.FiredEntryShotCount);
-            Assert.AreEqual(1, chase.FiredEntryWispCount);
+            Assert.AreEqual(2, chase.FiredEntryWispCount);
             Assert.AreEqual(1, chase.DodgedEntryWispCount);
+            Assert.AreEqual(3, chase.FallenEntryCompanionCount);
             Assert.IsTrue(gate.IsOpen,
                 "The three fireballs should launch before the entrance seals.");
             Assert.Less(chase.EntryWizardTransform.position.z, EntryApproachLayout.GateZ);
@@ -290,8 +298,13 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.Less(chase.EntryPursuerTransform.position.z, EntryApproachLayout.GateZ);
             Assert.Less(chase.EntrySecondPursuerTransform.position.z, EntryApproachLayout.GateZ);
             Assert.Less(chase.EntryWraithTransform.position.z, EntryApproachLayout.GateZ);
+            Assert.Less(chase.EntrySecondWraithTransform.position.z, EntryApproachLayout.GateZ);
+            for (int index = 0; index < 4; index++)
+                Assert.Less(chase.EntryAdditionalMeleeTransform(index).position.z,
+                    EntryApproachLayout.GateZ);
             Assert.AreEqual(3, chase.FiredEntryShotCount);
             Assert.AreEqual(1, chase.EntryImpactCount);
+            Assert.AreEqual(3, chase.FallenEntryCompanionCount);
             Assert.IsFalse(door.IsOpen, "D1 must stay closed through the entire entry.");
             Assert.IsFalse(door.IsLocked, "D1 remains usable as the later gameplay exit.");
             Assert.IsFalse(door.HasCrossedForward,
@@ -308,6 +321,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
             yield return new WaitForSeconds(0.75f);
             Assert.IsTrue(entry.HasEnteredGameplay);
             Assert.AreEqual(1, entry.GameplayEntryCount);
+            Assert.IsNotNull(GameObject.Find("EntryChaseFallenWizards"),
+                "The three companion bodies should remain outside the sealed entrance.");
             Assert.IsTrue(movement.IsGameplayEnabled);
             Assert.IsTrue(interaction.IsGameplayEnabled);
             Assert.AreSame(player.transform, GetPrivateField<Transform>(follow, "target"));

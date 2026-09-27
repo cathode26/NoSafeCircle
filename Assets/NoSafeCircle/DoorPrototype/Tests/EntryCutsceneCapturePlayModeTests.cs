@@ -101,6 +101,15 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsNotNull(chase.EntryPursuerTransform);
             Assert.IsNotNull(chase.EntrySecondPursuerTransform);
             Assert.IsNotNull(chase.EntryWraithTransform);
+            Assert.AreEqual(3, chase.EntryCompanionCount);
+            Assert.AreEqual(0, chase.FallenEntryCompanionCount);
+            Assert.AreEqual(6, chase.EntryMeleePursuerCount);
+            Assert.AreEqual(2, chase.EntryWraithPursuerCount);
+            Assert.IsNotNull(chase.EntrySecondWraithTransform);
+            for (int index = 0; index < 3; index++)
+                Assert.IsNotNull(chase.EntryCompanionTransform(index));
+            for (int index = 0; index < 4; index++)
+                Assert.IsNotNull(chase.EntryAdditionalMeleeTransform(index));
 
             yield return WaitForActiveObject("TitleEntryLanternWisp", VisualWaitSeconds);
             Assert.AreEqual(1, chase.FiredEntryWispCount);
@@ -125,8 +134,32 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "The wizard did not step clear of the Wraith's aimed shot.");
             Capture(output, "03a-wizard-dodges-wisp", gameCamera, canvas, manifest,
                 entry, chase, startDoor);
+            yield return WaitForPhase(() => chase.FallenEntryCompanionCount >= 1,
+                "first companion falling", VisualWaitSeconds);
+            Assert.AreEqual(1, chase.FallenEntryCompanionCount);
+            Capture(output, "03b-first-companion-falls", gameCamera, canvas, manifest,
+                entry, chase, startDoor);
+            yield return new WaitForSeconds(0.25f);
+            Capture(output, "03c-first-companion-body", gameCamera, canvas, manifest,
+                entry, chase, startDoor);
             yield return WaitForActiveObject("TitleEntryFireball_1", VisualWaitSeconds);
             Capture(output, "04-second-fireball-miss", gameCamera, canvas, manifest,
+                entry, chase, startDoor);
+            yield return WaitForPhase(() => chase.FallenEntryCompanionCount >= 2,
+                "second companion falling", VisualWaitSeconds);
+            Assert.AreEqual(2, chase.FallenEntryCompanionCount);
+            Capture(output, "04a-second-companion-falls", gameCamera, canvas, manifest,
+                entry, chase, startDoor);
+            yield return new WaitForSeconds(0.25f);
+            Capture(output, "04a1-second-companion-body", gameCamera, canvas, manifest,
+                entry, chase, startDoor);
+            yield return WaitForPhase(() => chase.FallenEntryCompanionCount >= 3,
+                "third companion falling to the second Wraith", VisualWaitSeconds);
+            Assert.AreEqual(3, chase.FallenEntryCompanionCount);
+            Capture(output, "04b-third-companion-falls", gameCamera, canvas, manifest,
+                entry, chase, startDoor);
+            yield return new WaitForSeconds(0.25f);
+            Capture(output, "04b1-third-companion-body", gameCamera, canvas, manifest,
                 entry, chase, startDoor);
             yield return WaitForPhase(() => chase.IsEntryWizardTurningToShoot,
                 "wizard turning to shoot", VisualWaitSeconds);
@@ -214,8 +247,12 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "The wizard did not fire the two misses and final hit.");
             Assert.AreEqual(1, chase.EntryImpactCount,
                 "The final fireball did not show its hit effect.");
-            Assert.AreEqual(1, chase.FiredEntryWispCount);
+            Assert.AreEqual(2, chase.FiredEntryWispCount);
             Assert.AreEqual(1, chase.DodgedEntryWispCount);
+            Assert.AreEqual(3, chase.FallenEntryCompanionCount,
+                "The selected wizard must be the only survivor entering the first room.");
+            Assert.IsNotNull(GameObject.Find("EntryChaseFallenWizards"),
+                "The three fallen wizard visuals should remain in the approach.");
             GameObject player = GameObject.Find("Player");
             PlayerMovement movement = player?.GetComponent<PlayerMovement>();
             Assert.IsNotNull(movement);
@@ -352,6 +389,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     + ", hitsShown=" + chase.EntryImpactCount
                     + ", wispFired=" + chase.FiredEntryWispCount
                     + ", wispDodged=" + chase.DodgedEntryWispCount
+                    + ", companionsFallen=" + chase.FallenEntryCompanionCount
                     + ", cameraSize=" + gameCamera.orthographicSize.ToString("0.##")
                     + ", scene=" + SceneManager.GetActiveScene().name);
             }

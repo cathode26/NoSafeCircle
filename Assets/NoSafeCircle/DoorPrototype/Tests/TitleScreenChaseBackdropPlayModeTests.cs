@@ -101,6 +101,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
             if (backdropObject != null) UnityEngine.Object.DestroyImmediate(backdropObject);
             GameObject actors = GameObject.Find("TitleScreenChaseActors");
             if (actors != null) UnityEngine.Object.DestroyImmediate(actors);
+            GameObject fallenWizards = GameObject.Find("EntryChaseFallenWizards");
+            if (fallenWizards != null) UnityEngine.Object.DestroyImmediate(fallenWizards);
             if (registryObject != null) UnityEngine.Object.DestroyImmediate(registryObject);
             if (fireballSprite != null) UnityEngine.Object.DestroyImmediate(fireballSprite);
             if (fireballTexture != null) UnityEngine.Object.DestroyImmediate(fireballTexture);
@@ -127,7 +129,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         [TestCase(WizardPresentation.Masculine, WizardSkin.Black, "Ash")]
         [TestCase(WizardPresentation.Feminine, WizardSkin.White, "Frost")]
         [TestCase(WizardPresentation.Feminine, WizardSkin.Black, "Dusk")]
-        public void EntryChase_UsesConfirmedWizardAndThreeCosmeticPursuers(
+        public void EntryChase_UsesConfirmedWizard_ThreeCompanionsAndEightCosmeticPursuers(
             WizardPresentation presentation, WizardSkin skin, string wizardName)
         {
             backdrop.TitlePreviewLoopEnabled = false;
@@ -149,14 +151,88 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.AreSame(brute.transform, backdrop.EntryPursuerTransform);
             Assert.AreSame(secondBrute.transform, backdrop.EntrySecondPursuerTransform);
             Assert.AreSame(wraith.transform, backdrop.EntryWraithTransform);
-            Assert.AreEqual(4, backdrop.ActiveActorCount);
+            Assert.AreEqual(3, backdrop.EntryCompanionCount);
+            Assert.AreEqual(0, backdrop.FallenEntryCompanionCount);
+            Assert.AreEqual(6, backdrop.EntryMeleePursuerCount);
+            Assert.AreEqual(2, backdrop.EntryWraithPursuerCount);
+            Assert.AreEqual(12, backdrop.ActiveActorCount,
+                "The entry starts with four wizards and eight cosmetic pursuers.");
             Assert.AreEqual(presentation, wizard.GetComponent<WizardAnimationController>().Presentation);
             Assert.AreEqual(skin, wizard.GetComponent<WizardAnimationController>().Skin);
             AssertPresentationOnly(wizard);
             AssertPresentationOnly(brute);
             AssertPresentationOnly(secondBrute);
             AssertPresentationOnly(wraith);
+            Assert.IsNotNull(backdrop.EntrySecondWraithTransform);
+            AssertPresentationOnly(backdrop.EntrySecondWraithTransform.gameObject);
+            for (int index = 0; index < 4; index++)
+            {
+                Transform additionalMelee = backdrop.EntryAdditionalMeleeTransform(index);
+                Assert.IsNotNull(additionalMelee);
+                AssertPresentationOnly(additionalMelee.gameObject);
+            }
+
+            int selectedIndex = (int)presentation * 2 + (int)skin;
+            for (int index = 0; index < 4; index++)
+            {
+                if (index == selectedIndex) continue;
+                GameObject companion = GameObject.Find("TitleEntryCompanion_" + WizardNames[index]);
+                Assert.IsNotNull(companion,
+                    "The unselected wizard " + WizardNames[index] + " is missing.");
+                WizardAnimationController companionAnimation =
+                    companion.GetComponent<WizardAnimationController>();
+                Assert.IsNotNull(companionAnimation);
+                Assert.AreEqual(OrderedWizards[index].Presentation,
+                    companionAnimation.Presentation);
+                Assert.AreEqual(OrderedWizards[index].Skin, companionAnimation.Skin);
+                AssertPresentationOnly(companion);
+            }
+            for (int index = 0; index < backdrop.EntryCompanionCount; index++)
+                Assert.IsNotNull(backdrop.EntryCompanionTransform(index));
             Assert.AreEqual(0, registry.ActiveCount);
+        }
+
+        [Test]
+        public void EntryChase_ThreeUnselectedWizardsFallInOrder_BeforeSelectedWizardEnters()
+        {
+            backdrop.TitlePreviewLoopEnabled = false;
+            title.StartGame();
+            Assert.IsTrue(backdrop.BeginEntryChase(OrderedWizards[2],
+                new Vector3(0f, 0f, -30f), new Vector3(0f, 0f, -6f),
+                -8.75f, -11.5f));
+
+            GameObject selected = GameObject.Find("TitleEntryWizard_Frost");
+            Assert.IsNotNull(selected);
+            Assert.IsNull(GameObject.Find("TitleEntryCompanion_Frost"),
+                "The selected wizard must not also appear as a casualty.");
+            Assert.AreEqual(0, backdrop.FallenEntryCompanionCount);
+            for (int expectedFalls = 1; expectedFalls <= 3; expectedFalls++)
+            {
+                for (int step = 0; step < 2000 &&
+                     backdrop.FallenEntryCompanionCount < expectedFalls; step++)
+                    backdrop.Tick(0.01f);
+
+                Assert.AreEqual(expectedFalls, backdrop.FallenEntryCompanionCount,
+                    "A companion fall was skipped or repeated.");
+                Assert.IsTrue(selected.activeInHierarchy,
+                    "The selected wizard must survive each companion's fall.");
+                Assert.Less(backdrop.FiredEntryShotCount, 3,
+                    "All three companion falls should precede the selected wizard's final hit.");
+                Assert.AreEqual(0, registry.ActiveCount,
+                    "Cosmetic pursuers and fallen wizards must not enter the gameplay registry.");
+            }
+
+            backdrop.Tick(100f);
+            Assert.AreEqual(3, backdrop.FallenEntryCompanionCount);
+            Assert.IsFalse(backdrop.IsEntryChaseRunning);
+            Assert.AreEqual(0, backdrop.ActiveActorCount);
+            Assert.IsNotNull(GameObject.Find("EntryChaseFallenWizards"),
+                "Fallen wizard visuals should persist after the selected wizard enters.");
+            Assert.IsNotNull(GameObject.Find("TitleEntryCompanion_Ember"));
+            Assert.IsNotNull(GameObject.Find("TitleEntryCompanion_Ash"));
+            Assert.IsNotNull(GameObject.Find("TitleEntryCompanion_Dusk"));
+            Assert.IsNull(GameObject.Find("TitleEntryWizard_Frost"),
+                "Only the selected cutscene actor retires at gameplay handoff.");
         }
 
         [Test]
@@ -223,7 +299,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "The hit must hold the lead melee enemy for longer than half a second.");
             backdrop.Tick(0.25f);
             Assert.IsFalse(backdrop.IsEntryPursuerStunned);
-            Assert.AreEqual(1, backdrop.FiredEntryWispCount);
+            Assert.AreEqual(2, backdrop.FiredEntryWispCount);
             Assert.AreEqual(1, backdrop.DodgedEntryWispCount);
             for (int step = 0; step < 500 && doorwayCalls == 0; step++)
                 backdrop.Tick(0.02f);
@@ -439,8 +515,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
             backdrop.Tick(100f);
             Assert.AreEqual(3, backdrop.FiredEntryShotCount);
             Assert.AreEqual(1, backdrop.EntryImpactCount);
-            Assert.AreEqual(1, backdrop.FiredEntryWispCount);
+            Assert.AreEqual(2, backdrop.FiredEntryWispCount);
             Assert.AreEqual(1, backdrop.DodgedEntryWispCount);
+            Assert.AreEqual(3, backdrop.FallenEntryCompanionCount);
             Assert.AreEqual(1, doorCalls);
             Assert.AreEqual(1, endingCalls);
             Assert.AreEqual(1, completionCalls);
@@ -497,6 +574,26 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.AreEqual(0, backdrop.ActiveFireballCount);
             Assert.AreEqual(0, doorwayCalls);
             Assert.AreEqual(0, completionCalls);
+            Assert.IsNull(GameObject.Find("TitleScreenChaseActors"));
+        }
+
+        [Test]
+        public void CancelEntryChase_AfterCompanionFall_RemovesPersistentBody()
+        {
+            backdrop.TitlePreviewLoopEnabled = false;
+            title.StartGame();
+            Assert.IsTrue(backdrop.BeginEntryChase(OrderedWizards[2],
+                new Vector3(0f, 0f, -30f), new Vector3(0f, 0f, -6f),
+                -8.75f, -11.5f));
+            for (int step = 0; step < 2000 &&
+                 backdrop.FallenEntryCompanionCount == 0; step++)
+                backdrop.Tick(0.01f);
+
+            Assert.AreEqual(1, backdrop.FallenEntryCompanionCount);
+            Assert.IsNotNull(GameObject.Find("EntryChaseFallenWizards"));
+            backdrop.CancelEntryChase();
+            Assert.IsFalse(backdrop.IsEntryChaseRunning);
+            Assert.IsNull(GameObject.Find("EntryChaseFallenWizards"));
             Assert.IsNull(GameObject.Find("TitleScreenChaseActors"));
         }
 

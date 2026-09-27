@@ -7,7 +7,7 @@ using UnityEngine;
 namespace NoSafeCircle.DoorPrototype
 {
     /// <summary>
-    /// Presentation-only wizard and Brute entry chase. The scene builder supplies the art,
+    /// Presentation-only wizard escape and pursuer entry chase. The scene builder supplies the art,
     /// camera, and floor references; this component never creates gameplay actors.
     /// </summary>
     public sealed class TitleScreenChaseBackdrop : MonoBehaviour
@@ -60,6 +60,16 @@ namespace NoSafeCircle.DoorPrototype
             public float EndsAt;
         }
 
+        private sealed class EntryCompanion
+        {
+            public GameObject Actor;
+            public SpriteRenderer Renderer;
+            public WizardAnimationController Animation;
+            public Vector3 Start;
+            public float FallsAt;
+            public bool Fallen;
+        }
+
         private sealed class EntrySequence
         {
             public Vector3 Start;
@@ -99,7 +109,31 @@ namespace NoSafeCircle.DoorPrototype
             public GameObject Wraith;
             public EnemyAnimationController WraithAnimation;
             public EntryWisp Wisp;
+            public EntryWisp SecondWisp;
             public bool WispDodged;
+            public float SecondWispCastAt;
+            public float SecondWispImpactAt;
+            public readonly List<EntryCompanion> Companions = new List<EntryCompanion>();
+            public GameObject ThirdBrute;
+            public EnemyAnimationController ThirdBruteAnimation;
+            public Vector3 ThirdBruteStart;
+            public Vector3 ThirdBruteStop;
+            public GameObject FourthBrute;
+            public EnemyAnimationController FourthBruteAnimation;
+            public Vector3 FourthBruteStart;
+            public Vector3 FourthBruteStop;
+            public GameObject FifthBrute;
+            public EnemyAnimationController FifthBruteAnimation;
+            public Vector3 FifthBruteStart;
+            public Vector3 FifthBruteStop;
+            public GameObject SixthBrute;
+            public EnemyAnimationController SixthBruteAnimation;
+            public Vector3 SixthBruteStart;
+            public Vector3 SixthBruteStop;
+            public GameObject SecondWraith;
+            public EnemyAnimationController SecondWraithAnimation;
+            public Vector3 SecondWraithStart;
+            public Vector3 SecondWraithStop;
             public readonly List<EntryShot> Shots = new List<EntryShot>();
             public GameObject Impact;
             public float ImpactEndsAt;
@@ -111,13 +145,16 @@ namespace NoSafeCircle.DoorPrototype
         private const float ViewportSafeMax = 0.95f;
         private const float TimeEpsilon = 0.00001f;
         private const float EntrySpeed = 3f;
-        private const float BruteEntrySpeed = 3.5f;
+        private const float BruteEntrySpeed = 3.3f;
         private const float SecondBruteEntrySpeed = 3f;
         private const float WraithEntrySpeed = 2.75f;
+        private const float CompanionHunterSpeed = 3.5f;
+        private const float ThirdBruteEntrySpeed = 3.5f;
+        private const float FourthBruteEntrySpeed = 3.5f;
         // One floor cell along the entry lane is 0.5 world units in Z.
         private const float EntryPursuerExtraTile = 0.5f;
         private const float EntryFastPursuerRunway = 3.5f;
-        private const float EntrySecondPursuerGap = 7.5f;
+        private const float EntrySecondPursuerGap = 4f;
         private const float EntryWraithGap = 6f;
         private const float EntryDodgeDistance = 2f;
         private const float EntryDodgeSeconds = 1f;
@@ -171,6 +208,7 @@ namespace NoSafeCircle.DoorPrototype
         private Func<float, float, float> intervalSelector;
         private Func<bool> startAtFirstEndpointSelector;
         private Transform actorContainer;
+        private Transform fallenContainer;
         private bool scheduleStarted;
         private bool stopped;
         private float nextPairingIn;
@@ -188,6 +226,10 @@ namespace NoSafeCircle.DoorPrototype
         public int EntryImpactCount { get; private set; }
         public int FiredEntryWispCount { get; private set; }
         public int DodgedEntryWispCount { get; private set; }
+        public int FallenEntryCompanionCount { get; private set; }
+        public int EntryCompanionCount => entry != null ? entry.Companions.Count : 0;
+        public int EntryMeleePursuerCount => entry != null ? 6 : 0;
+        public int EntryWraithPursuerCount => entry != null ? 2 : 0;
         public bool IsEntryChaseRunning => entry != null;
         public bool IsEntryWizardDodging => entry != null &&
             entry.Elapsed >= entry.DodgeStartsAt && entry.Elapsed < entry.DodgeEndsAt;
@@ -205,6 +247,27 @@ namespace NoSafeCircle.DoorPrototype
             ? entry.Wraith.transform : null;
         public Transform EntryWispTransform => entry != null && entry.Wisp != null &&
             entry.Wisp.Visual != null ? entry.Wisp.Visual.transform : null;
+        public Transform EntrySecondWraithTransform => entry != null &&
+            entry.SecondWraith != null ? entry.SecondWraith.transform : null;
+        public Transform EntryAdditionalMeleeTransform(int index)
+        {
+            if (entry == null) return null;
+            switch (index)
+            {
+                case 0: return entry.ThirdBrute != null ? entry.ThirdBrute.transform : null;
+                case 1: return entry.FourthBrute != null ? entry.FourthBrute.transform : null;
+                case 2: return entry.FifthBrute != null ? entry.FifthBrute.transform : null;
+                case 3: return entry.SixthBrute != null ? entry.SixthBrute.transform : null;
+                default: return null;
+            }
+        }
+
+        public Transform EntryCompanionTransform(int index)
+        {
+            return entry != null && index >= 0 && index < entry.Companions.Count &&
+                   entry.Companions[index].Actor != null
+                ? entry.Companions[index].Actor.transform : null;
+        }
 
         // The older repeating-pairing seam remains useful for its deterministic regression
         // fixtures. Production leaves it false: the chosen wizard now runs once after selection.
@@ -346,7 +409,7 @@ namespace NoSafeCircle.DoorPrototype
         /// <summary>
         /// Starts one cosmetic entrance after the selected wizard has left the menus. The caller
         /// owns the real door, camera follow, and gameplay handoff; this component only animates
-        /// the chosen wizard, a Brute behind them, two misses, and one cosmetic hit.
+        /// the four wizards, eight pursuers, two misses, and one cosmetic hit.
         /// </summary>
         public bool BeginEntryChase(ConfirmedWizardSelection selection,
             Vector3 entryStart, Vector3 gameplayDestination)
@@ -388,17 +451,24 @@ namespace NoSafeCircle.DoorPrototype
                 return false;
 
             ClearActors();
+            ClearFallenCompanions();
             stopped = false;
             FiredEntryShotCount = 0;
             EntryImpactCount = 0;
             FiredEntryWispCount = 0;
             DodgedEntryWispCount = 0;
+            FallenEntryCompanionCount = 0;
             Vector3 forward = (gameplayDestination - entryStart).normalized;
             Vector3 bruteStart = entryStart - forward * entryPursuerSeparation;
             Vector3 secondBruteStart = entryStart - forward * EntrySecondPursuerGap +
                 Vector3.right * 1.5f;
             Vector3 wraithStart = entryStart - forward * EntryWraithGap +
                 Vector3.left * 2.5f;
+            Vector3 thirdBruteStart = entryStart - forward * 2.2f + Vector3.left * 2.5f;
+            Vector3 fourthBruteStart = entryStart - forward * 5.6f + Vector3.left * 1.5f;
+            Vector3 fifthBruteStart = entryStart - forward * 4f + Vector3.left * 3.2f;
+            Vector3 sixthBruteStart = entryStart - forward * 5f + Vector3.right * 2.3f;
+            Vector3 secondWraithStart = entryStart - forward * 8f + Vector3.right * 2.5f;
             float rearSign = movesNorth ? -1f : 1f;
             var sequence = new EntrySequence
             {
@@ -412,6 +482,21 @@ namespace NoSafeCircle.DoorPrototype
                 WraithStart = wraithStart,
                 WraithStop = new Vector3(wraithStart.x, entryStart.y,
                     pursuerStopZ + rearSign * 2.5f),
+                ThirdBruteStart = thirdBruteStart,
+                ThirdBruteStop = new Vector3(thirdBruteStart.x, entryStart.y,
+                    pursuerStopZ + rearSign * 1.8f),
+                FourthBruteStart = fourthBruteStart,
+                FourthBruteStop = new Vector3(fourthBruteStart.x, entryStart.y,
+                    pursuerStopZ + rearSign * 2.2f),
+                FifthBruteStart = fifthBruteStart,
+                FifthBruteStop = new Vector3(fifthBruteStart.x, entryStart.y,
+                    pursuerStopZ + rearSign * 2.7f),
+                SixthBruteStart = sixthBruteStart,
+                SixthBruteStop = new Vector3(sixthBruteStart.x, entryStart.y,
+                    pursuerStopZ + rearSign * 2.8f),
+                SecondWraithStart = secondWraithStart,
+                SecondWraithStop = new Vector3(secondWraithStart.x, entryStart.y,
+                    pursuerStopZ + rearSign * 3f),
                 DoorCloseTriggerZ = doorCloseTriggerZ,
                 MovesNorth = movesNorth,
                 Duration = Vector3.Distance(entryStart, gameplayDestination) / EntrySpeed
@@ -428,6 +513,9 @@ namespace NoSafeCircle.DoorPrototype
             sequence.WispPassesAt = sequence.WispCastAt + EntryWispFlightSeconds;
             sequence.DodgeStartsAt = sequence.WispPassesAt - EntryDodgeSeconds * 0.5f;
             sequence.DodgeEndsAt = sequence.DodgeStartsAt + EntryDodgeSeconds;
+            sequence.SecondWispImpactAt = sequence.DoorCrossingTime * 0.70f;
+            sequence.SecondWispCastAt = sequence.SecondWispImpactAt -
+                EntryWispFlightSeconds;
             sequence.TotalDuration = sequence.Duration + EntryTurnSeconds;
             sequence.Wizard = CreateActor("TitleEntryWizard_" + WizardName(choiceIndex),
                 wizardAnimatorController, entryStart, out sequence.WizardRenderer);
@@ -437,6 +525,38 @@ namespace NoSafeCircle.DoorPrototype
             sequence.WizardAnimation = sequence.Wizard.AddComponent<WizardAnimationController>();
             sequence.WizardAnimation.ApplyPresentation(selection.Presentation, selection.Skin);
 
+            // The non-selected variants flee alongside the survivor. Their staggered
+            // losses are staged entirely in the cutscene, never as gameplay damage.
+            float[] companionLanes = { -2.5f, 1.5f, -1.5f };
+            float[] fallProgress = { 0.27f, 0.49f, 0.70f };
+            int companionIndex = 0;
+            for (int index = 0; index < wizardChoices.Length; index++)
+            {
+                if (index == choiceIndex) continue;
+                WizardChoice choice = wizardChoices[index];
+                Vector3 companionStart = entryStart +
+                    Vector3.right * companionLanes[companionIndex];
+                GameObject companionActor = CreateActor(
+                    "TitleEntryCompanion_" + WizardName(index),
+                    wizardAnimatorController, companionStart, out SpriteRenderer renderer);
+                Transform companionVisual = companionActor.transform.Find("Visual");
+                companionVisual.localRotation = Quaternion.identity;
+                companionVisual.localScale = new Vector3(
+                    wizardVisualScale, wizardVisualScale, 1f);
+                WizardAnimationController animation =
+                    companionActor.AddComponent<WizardAnimationController>();
+                animation.ApplyPresentation(choice.Presentation, choice.Skin);
+                sequence.Companions.Add(new EntryCompanion
+                {
+                    Actor = companionActor,
+                    Renderer = renderer,
+                    Animation = animation,
+                    Start = companionStart,
+                    FallsAt = sequence.DoorCrossingTime * fallProgress[companionIndex]
+                });
+                companionIndex++;
+            }
+
             sequence.Brute = CreateActor("TitleEntryPursuer_DungeonBrute",
                 meleeAnimatorController, bruteStart, out sequence.BruteRenderer);
             sequence.BruteAnimation = InitializeEntryEnemy(sequence.Brute,
@@ -445,9 +565,29 @@ namespace NoSafeCircle.DoorPrototype
                 meleeAnimatorController, secondBruteStart, out _);
             sequence.SecondBruteAnimation = InitializeEntryEnemy(sequence.SecondBrute,
                 EnemyAnimationKind.MeleeEnemy, pursuerVisualScale);
+            sequence.ThirdBrute = CreateActor("TitleEntryPursuer_DungeonBrute_3",
+                meleeAnimatorController, thirdBruteStart, out _);
+            sequence.ThirdBruteAnimation = InitializeEntryEnemy(sequence.ThirdBrute,
+                EnemyAnimationKind.MeleeEnemy, pursuerVisualScale);
+            sequence.FourthBrute = CreateActor("TitleEntryPursuer_DungeonBrute_4",
+                meleeAnimatorController, fourthBruteStart, out _);
+            sequence.FourthBruteAnimation = InitializeEntryEnemy(sequence.FourthBrute,
+                EnemyAnimationKind.MeleeEnemy, pursuerVisualScale);
+            sequence.FifthBrute = CreateActor("TitleEntryPursuer_DungeonBrute_5",
+                meleeAnimatorController, fifthBruteStart, out _);
+            sequence.FifthBruteAnimation = InitializeEntryEnemy(sequence.FifthBrute,
+                EnemyAnimationKind.MeleeEnemy, pursuerVisualScale);
+            sequence.SixthBrute = CreateActor("TitleEntryPursuer_DungeonBrute_6",
+                meleeAnimatorController, sixthBruteStart, out _);
+            sequence.SixthBruteAnimation = InitializeEntryEnemy(sequence.SixthBrute,
+                EnemyAnimationKind.MeleeEnemy, pursuerVisualScale);
             sequence.Wraith = CreateActor("TitleEntryPursuer_LanternWraith",
                 wraithAnimatorController, wraithStart, out _);
             sequence.WraithAnimation = InitializeEntryEnemy(sequence.Wraith,
+                EnemyAnimationKind.LanternWraith, pursuerVisualScale);
+            sequence.SecondWraith = CreateActor("TitleEntryPursuer_LanternWraith_2",
+                wraithAnimatorController, secondWraithStart, out _);
+            sequence.SecondWraithAnimation = InitializeEntryEnemy(sequence.SecondWraith,
                 EnemyAnimationKind.LanternWraith, pursuerVisualScale);
             entry = sequence;
             return true;
@@ -469,6 +609,7 @@ namespace NoSafeCircle.DoorPrototype
         public void CancelEntryChase()
         {
             ClearActors();
+            ClearFallenCompanions();
             stopped = true;
         }
 
@@ -576,6 +717,7 @@ namespace NoSafeCircle.DoorPrototype
             random = new System.Random(randomSeed);
             stopped = titleScreen != null && titleScreen.HasRequestedWizardSelection;
             ClearActors();
+            ClearFallenCompanions();
         }
 
         private float SelectInterval(float minimum, float maximum)
@@ -777,16 +919,43 @@ namespace NoSafeCircle.DoorPrototype
                 wizardPosition.x += EntryDodgeDistance * Mathf.Sin(Mathf.PI * dodge);
             }
             sequence.Wizard.transform.position = wizardPosition;
+            AdvanceEntryCompanions(sequence, elapsed, forward);
             sequence.Brute.transform.position = Vector3.MoveTowards(
                 sequence.BruteStart, sequence.BruteStop, BruteEntrySpeed * bruteTravel);
-            sequence.SecondBrute.transform.position = Vector3.MoveTowards(
-                sequence.SecondBruteStart, sequence.SecondBruteStop,
-                SecondBruteEntrySpeed * elapsed);
+            sequence.SecondBrute.transform.position = KeepEnemyBehindWizard(
+                Vector3.MoveTowards(sequence.SecondBruteStart, sequence.SecondBruteStop,
+                    StagedPursuerTravel(elapsed, sequence.Companions[1].FallsAt,
+                        CompanionHunterSpeed, SecondBruteEntrySpeed)),
+                wizardPosition, forward);
+            sequence.ThirdBrute.transform.position = KeepEnemyBehindWizard(
+                Vector3.MoveTowards(sequence.ThirdBruteStart, sequence.ThirdBruteStop,
+                    StagedPursuerTravel(elapsed, sequence.Companions[0].FallsAt,
+                        ThirdBruteEntrySpeed, 2.7f)), wizardPosition, forward);
+            sequence.FourthBrute.transform.position = KeepEnemyBehindWizard(
+                Vector3.MoveTowards(sequence.FourthBruteStart, sequence.FourthBruteStop,
+                    StagedPursuerTravel(elapsed, sequence.Companions[2].FallsAt,
+                        FourthBruteEntrySpeed, 2.7f)), wizardPosition, forward);
+            sequence.FifthBrute.transform.position = KeepEnemyBehindWizard(
+                Vector3.MoveTowards(sequence.FifthBruteStart, sequence.FifthBruteStop,
+                    StagedPursuerTravel(elapsed, sequence.Companions[0].FallsAt,
+                        3.4f, 2.7f)), wizardPosition, forward);
+            sequence.SixthBrute.transform.position = KeepEnemyBehindWizard(
+                Vector3.MoveTowards(sequence.SixthBruteStart, sequence.SixthBruteStop,
+                    StagedPursuerTravel(elapsed, sequence.Companions[1].FallsAt,
+                        3.4f, 2.7f)), wizardPosition, forward);
             sequence.Wraith.transform.position = Vector3.MoveTowards(
                 sequence.WraithStart, sequence.WraithStop, WraithEntrySpeed * elapsed);
+            sequence.SecondWraith.transform.position = Vector3.MoveTowards(
+                sequence.SecondWraithStart, sequence.SecondWraithStop,
+                WraithEntrySpeed * elapsed);
             sequence.BruteAnimation.Tick(elapsed - previous);
             sequence.SecondBruteAnimation.Tick(elapsed - previous);
+            sequence.ThirdBruteAnimation.Tick(elapsed - previous);
+            sequence.FourthBruteAnimation.Tick(elapsed - previous);
+            sequence.FifthBruteAnimation.Tick(elapsed - previous);
+            sequence.SixthBruteAnimation.Tick(elapsed - previous);
             sequence.WraithAnimation.Tick(elapsed - previous);
+            sequence.SecondWraithAnimation.Tick(elapsed - previous);
             bool stunned = elapsed >= sequence.HitImpactAt && elapsed < sequence.StunEndsAt;
             if (stunned && previous < sequence.HitImpactAt)
                 sequence.BruteAnimation.Tick(0f);
@@ -803,6 +972,7 @@ namespace NoSafeCircle.DoorPrototype
             }
 
             AdvanceEntryWisp(sequence, elapsed);
+            AdvanceSecondEntryWisp(sequence, elapsed);
 
             while (sequence.NextShot < EntryShotProgress.Length &&
                    (sequence.NextShot == EntryShotProgress.Length - 1
@@ -864,6 +1034,58 @@ namespace NoSafeCircle.DoorPrototype
             }
         }
 
+        private static float StagedPursuerTravel(float elapsed, float catchAt,
+            float earlySpeed, float laterSpeed)
+        {
+            return earlySpeed * Mathf.Min(elapsed, catchAt) +
+                   laterSpeed * Mathf.Max(0f, elapsed - catchAt);
+        }
+
+        private static Vector3 KeepEnemyBehindWizard(Vector3 enemyPosition,
+            Vector3 wizardPosition, Vector3 forward)
+        {
+            float lead = Vector3.Dot(enemyPosition - wizardPosition, forward);
+            return lead > -1.25f
+                ? enemyPosition - forward * (lead + 1.25f) : enemyPosition;
+        }
+
+        private void AdvanceEntryCompanions(EntrySequence sequence, float elapsed,
+            Vector3 forward)
+        {
+            for (int index = 0; index < sequence.Companions.Count; index++)
+            {
+                EntryCompanion companion = sequence.Companions[index];
+                if (!companion.Fallen)
+                {
+                    companion.Actor.transform.position = companion.Start +
+                        forward * EntrySpeed * Mathf.Min(elapsed, companion.FallsAt);
+                    if (elapsed >= companion.FallsAt)
+                    {
+                        companion.Fallen = true;
+                        companion.Animation.FaceForCutscene(-forward);
+                        companion.Animation.enabled = false;
+                        companion.Actor.GetComponent<Animator>().enabled = false;
+                        companion.Renderer.color = new Color(0.78f, 0.68f, 0.68f, 1f);
+                        if (fallenContainer == null)
+                            fallenContainer = new GameObject("EntryChaseFallenWizards").transform;
+                        companion.Actor.transform.SetParent(fallenContainer, true);
+                        FallenEntryCompanionCount++;
+                    }
+                }
+
+                if (companion.Fallen)
+                {
+                    // There is no dedicated death art yet. Freeze the selected variant's
+                    // idle frame, tip it onto the grass, and leave that body in the world.
+                    float fall = Mathf.Clamp01((elapsed - companion.FallsAt) / 0.22f);
+                    Transform visual = companion.Actor.transform.Find("Visual");
+                    visual.rotation = chaseCamera.transform.rotation *
+                        Quaternion.Euler(0f, 0f, index % 2 == 0 ? -83f * fall : 83f * fall);
+                    visual.localPosition = new Vector3(0f, 0.2f * fall, 0f);
+                }
+            }
+        }
+
         private void AdvanceEntryWisp(EntrySequence sequence, float elapsed)
         {
             if (sequence.Wisp == null && elapsed >= sequence.WispCastAt &&
@@ -902,6 +1124,40 @@ namespace NoSafeCircle.DoorPrototype
                 sequence.WispDodged = true;
                 DodgedEntryWispCount++;
             }
+        }
+
+        private void AdvanceSecondEntryWisp(EntrySequence sequence, float elapsed)
+        {
+            if (sequence.SecondWisp == null && elapsed >= sequence.SecondWispCastAt &&
+                FiredEntryWispCount == 1)
+            {
+                Vector3 caster = Vector3.MoveTowards(sequence.SecondWraithStart,
+                    sequence.SecondWraithStop,
+                    WraithEntrySpeed * sequence.SecondWispCastAt);
+                EntryCompanion target = sequence.Companions[2];
+                Vector3 impact = target.Start +
+                    (sequence.Destination - sequence.Start).normalized *
+                    EntrySpeed * target.FallsAt;
+                sequence.SecondWisp = CreateEntryWisp(caster + Vector3.up * 1.15f,
+                    impact + Vector3.up * 1.15f, sequence.SecondWispCastAt,
+                    sequence.SecondWispImpactAt);
+                sequence.SecondWisp.Visual.name = "TitleEntryLanternWisp_2";
+                FiredEntryWispCount++;
+            }
+
+            if (sequence.SecondWisp == null) return;
+            EntryWisp wisp = sequence.SecondWisp;
+            if (elapsed >= wisp.EndsAt)
+            {
+                RetireVisual(wisp.Visual);
+                if (wisp.Material != null) Destroy(wisp.Material);
+                sequence.SecondWisp = null;
+                return;
+            }
+
+            float flight = Mathf.Clamp01((elapsed - wisp.LaunchedAt) /
+                (wisp.PassesAt - wisp.LaunchedAt));
+            wisp.Visual.transform.position = Vector3.Lerp(wisp.Start, wisp.Pass, flight);
         }
 
         private EntryWisp CreateEntryWisp(Vector3 start, Vector3 pass,
@@ -1083,12 +1339,23 @@ namespace NoSafeCircle.DoorPrototype
             pairings.Clear();
             if (entry != null && entry.Wisp != null && entry.Wisp.Material != null)
                 Destroy(entry.Wisp.Material);
+            if (entry != null && entry.SecondWisp != null &&
+                entry.SecondWisp.Material != null)
+                Destroy(entry.SecondWisp.Material);
             entry = null;
             ActiveActorCount = 0;
             if (actorContainer == null) return;
             actorContainer.gameObject.SetActive(false);
             Destroy(actorContainer.gameObject);
             actorContainer = null;
+        }
+
+        private void ClearFallenCompanions()
+        {
+            if (fallenContainer == null) return;
+            fallenContainer.gameObject.SetActive(false);
+            Destroy(fallenContainer.gameObject);
+            fallenContainer = null;
         }
 
         private void RetireActor(GameObject actor)

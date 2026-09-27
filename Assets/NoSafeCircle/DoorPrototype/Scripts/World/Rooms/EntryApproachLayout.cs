@@ -7,7 +7,7 @@ namespace NoSafeCircle.DoorPrototype.World.Rooms
     {
         public const float MinimumX = -9f;
         public const float MaximumX = 1f;
-        public const float MinimumZ = -88f;
+        public const float MinimumZ = -112f;
         public const float MaximumZ = RuinedEntryLayout.MinimumZ;
         public const float CenterX = -4f;
         public const float GateZ = MaximumZ;
@@ -20,8 +20,8 @@ namespace NoSafeCircle.DoorPrototype.World.Rooms
                 new Vector3(MaximumX - MinimumX, 0f, MaximumZ - MinimumZ));
 
         public static Vector3 StartDoorCenter => new Vector3(CenterX, 0f, GateZ);
-        public static Vector3 WizardEntryStart => new Vector3(CenterX, 0f, -75f);
-        public static Vector3 PursuerEntryStart => new Vector3(CenterX, 0f, -81.5f);
+        public static Vector3 WizardEntryStart => new Vector3(CenterX, 0f, -98f);
+        public static Vector3 PursuerEntryStart => new Vector3(CenterX, 0f, -104.5f);
         public static Vector3 PursuerStop => new Vector3(CenterX, 0f, -53.5f);
         public static Vector3 DoorCloseTrigger => new Vector3(CenterX, 0f, -49.75f);
         public static Vector3 FirstRoomArrival => new Vector3(CenterX, 0f, -48f);
