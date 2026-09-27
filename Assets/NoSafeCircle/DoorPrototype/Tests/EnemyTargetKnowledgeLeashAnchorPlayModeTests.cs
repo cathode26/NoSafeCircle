@@ -183,5 +183,55 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.That(targetKnowledge.State, Is.EqualTo(EnemyTargetKnowledgeState.Pursuing),
                 "maximumPursuitDistanceFromStart <= 0f must remain unlimited, regardless of drag");
         }
+
+        // startPosition's DUAL ROLE, pinned. IsBeyondPursuitLeash() has already dragged
+        // startPosition by the time the spectral-decoy give-up reads it into LastKnownPosition
+        // (EnemyTargetKnowledge.cs, the redirect branch under State == Pursuing) - that read is
+        // of the TOWED anchor, not the enemy's original spawn point. Vincent's design is a home
+        // that FOLLOWS ("the enemy post is fixed where it spawned, but it needs to be allowed to
+        // drag its leash anchor"), so the towed post IS the home for this path too; a fixed
+        // spawn post would contradict that. This asserts the RELATION - LastKnownPosition must
+        // equal PursuitAnchor read AFTER the drag, and must differ from spawn - so it fails if
+        // the give-up is ever pointed at a frozen spawn coordinate instead of the live anchor,
+        // and does not depend on any particular numeric position.
+        [Test]
+        public void UpdateTargetKnowledge_RedirectedGivesUpBeyondSlack_SearchesTowedAnchorNotSpawn()
+        {
+            var spawnPosition = enemyObject.transform.position;
+            targetKnowledge.SetMaximumPursuitDistanceFromStart(5f);
+            AcquirePursuit(new Vector3(4f, 0f, 0f));
+
+            var decoyObject = new GameObject("TestSpectralDecoy");
+            try
+            {
+                var redirected = targetKnowledge.TryRedirectToSpectralDecoy(decoyObject.transform);
+                Assert.That(redirected, Is.True, "redirect must succeed while Pursuing the wizard");
+                Assert.That(targetKnowledge.IsRedirectedToSpectralDecoy, Is.True);
+
+                // Drag the enemy past the leash while still redirected to the decoy - this is
+                // the exact call that tows startPosition and then, in the same tick, reads it
+                // back for the give-up.
+                enemyObject.transform.position = new Vector3(8f, 0f, 0f);
+                targetKnowledge.UpdateTargetKnowledge(0f);
+
+                var towedAnchor = targetKnowledge.PursuitAnchor;
+                Assert.That(towedAnchor, Is.Not.EqualTo(spawnPosition),
+                    "the anchor must have been dragged off spawn by running out of slack");
+
+                Assert.That(targetKnowledge.State, Is.EqualTo(EnemyTargetKnowledgeState.SearchingLastKnownPosition),
+                    "running out of slack while redirected must end the redirect and start a search");
+                Assert.That(targetKnowledge.IsRedirectedToSpectralDecoy, Is.False);
+                Assert.That(targetKnowledge.CurrentTarget, Is.SameAs(wizardTransform));
+
+                Assert.That(targetKnowledge.LastKnownPosition, Is.EqualTo(towedAnchor),
+                    "the redirected give-up must search the TOWED anchor (PursuitAnchor), not a fixed spawn point");
+                Assert.That(targetKnowledge.LastKnownPosition, Is.Not.EqualTo(spawnPosition),
+                    "the redirected give-up must not search the enemy's original spawn point");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(decoyObject);
+            }
+        }
     }
 }

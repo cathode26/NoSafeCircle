@@ -181,6 +181,21 @@ namespace NoSafeCircle.DoorPrototype.Enemies
                     {
                         ClearSpectralDecoyRedirectState();
                         CurrentTarget = wizardTransform;
+                        // ONE FIELD, TWO JOBS, AND THAT IS A DECISION RATHER THAN AN OVERSIGHT.
+                        // IsBeyondPursuitLeash has ALREADY dragged startPosition by the time this
+                        // line runs, so a redirected enemy searches the TOWED post rather than where
+                        // it spawned. That is deliberate: Vincent's design is a home that FOLLOWS
+                        // ("it needs to be allowed to drag its leash anchor"), so the towed post is
+                        // the home, and a separate spawnPosition would reinstate a fixed post for
+                        // this one path and contradict the design he settled.
+                        //
+                        // WHY IT IS COMMENTED RATHER THAN LEFT TO THE GATE: NSC-111 VAL-001 (3)
+                        // reads whatever this field holds, so it PASSES under either meaning and
+                        // cannot detect that what it proves has changed. AC-003 binds to "exactly as
+                        // the current leash branch does" and never says "spawn", so the criterion
+                        // follows the implementation instead of breaking - which is why this was
+                        // cheap, and also why nothing would have told us. Found by the GER Agent.
+                        // EnemyTargetKnowledgeLeashAnchorPlayModeTests pins the relation directly.
                         LastKnownPosition = startPosition;
                         State = EnemyTargetKnowledgeState.SearchingLastKnownPosition;
                         searchTimeRemaining = 0f;
