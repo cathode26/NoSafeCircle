@@ -1,9 +1,10 @@
 using System;
 using UnityEngine;
+using UnityEngine.Tilemaps;
 
 namespace NoSafeCircle.DoorPrototype
 {
-    /// <summary>Hides gameplay HUD graphics and the stationary player sprite until gameplay entry.</summary>
+    /// <summary>Hides gameplay UI, the stationary player, and the chase floor at the title.</summary>
     [DisallowMultipleComponent]
     public sealed class TitleScreenGameplayHudVisibility : MonoBehaviour
     {
@@ -15,6 +16,9 @@ namespace NoSafeCircle.DoorPrototype
         private SpriteRenderer gameplayPlayerVisual;
         private bool previousPlayerVisualEnabled;
         private bool isPlayerVisualHidden;
+        private TilemapRenderer approachVisual;
+        private bool previousApproachVisualEnabled;
+        private bool isApproachVisualHidden;
 
         public void Configure(TitleScreenController controller, CanvasGroup[] groups)
         {
@@ -29,8 +33,13 @@ namespace NoSafeCircle.DoorPrototype
 
             RestoreHud();
             RestorePlayerVisual();
+            if (titleScreen != null)
+                titleScreen.WizardSelectionRequested -= RestoreApproachVisual;
+            RestoreApproachVisual();
             titleScreen = controller;
             gameplayGroups = groups;
+            if (approachVisual != null)
+                titleScreen.WizardSelectionRequested += RestoreApproachVisual;
             ApplyTitleState();
         }
 
@@ -45,11 +54,27 @@ namespace NoSafeCircle.DoorPrototype
                 HidePlayerVisual();
         }
 
+        /// <summary>Shows the exterior chase tiles only after Start Game leaves the title.</summary>
+        public void BindApproachVisual(TilemapRenderer visual)
+        {
+            if (visual == null) throw new ArgumentNullException(nameof(visual));
+
+            if (titleScreen != null)
+                titleScreen.WizardSelectionRequested -= RestoreApproachVisual;
+            RestoreApproachVisual();
+            approachVisual = visual;
+            if (titleScreen == null) return;
+            titleScreen.WizardSelectionRequested += RestoreApproachVisual;
+            if (titleScreen.IsTitleScreenVisible)
+                HideApproachVisual();
+        }
+
         /// <summary>Reveals the HUD and player sprite when entry hands control back to gameplay.</summary>
         public void RestoreGameplayPresentation()
         {
             RestoreHud();
             RestorePlayerVisual();
+            RestoreApproachVisual();
         }
 
         private void Awake()
@@ -67,6 +92,9 @@ namespace NoSafeCircle.DoorPrototype
             // A HUD re-spawn destroys this owner before binding a replacement. Do not leave the
             // surviving gameplay player invisible if entry never reached its handoff.
             RestorePlayerVisual();
+            if (titleScreen != null)
+                titleScreen.WizardSelectionRequested -= RestoreApproachVisual;
+            RestoreApproachVisual();
         }
 
         private void ApplyTitleState()
@@ -91,6 +119,7 @@ namespace NoSafeCircle.DoorPrototype
                 isHidden = true;
             }
             HidePlayerVisual();
+            HideApproachVisual();
         }
 
         private void RestoreHud()
@@ -118,6 +147,22 @@ namespace NoSafeCircle.DoorPrototype
             if (gameplayPlayerVisual != null)
                 gameplayPlayerVisual.enabled = previousPlayerVisualEnabled;
             isPlayerVisualHidden = false;
+        }
+
+        private void HideApproachVisual()
+        {
+            if (approachVisual == null || isApproachVisualHidden) return;
+            previousApproachVisualEnabled = approachVisual.enabled;
+            approachVisual.enabled = false;
+            isApproachVisualHidden = true;
+        }
+
+        private void RestoreApproachVisual()
+        {
+            if (!isApproachVisualHidden) return;
+            if (approachVisual != null)
+                approachVisual.enabled = previousApproachVisualEnabled;
+            isApproachVisualHidden = false;
         }
 
         private readonly struct VisualState

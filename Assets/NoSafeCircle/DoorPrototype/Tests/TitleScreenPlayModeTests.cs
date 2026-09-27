@@ -5,6 +5,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using UnityEngine.Tilemaps;
 using UnityEngine.UI;
 
 namespace NoSafeCircle.DoorPrototype.Tests
@@ -242,6 +243,11 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsTrue(player.activeInHierarchy, "The title must not disable the player root.");
             Assert.IsFalse(playerVisual.enabled,
                 "The stationary gameplay player is visible behind the title chase.");
+            TilemapRenderer approachVisual = GameObject.Find("EntryApproachFloor")
+                ?.GetComponentInChildren<TilemapRenderer>();
+            Assert.IsNotNull(approachVisual, "The exterior approach floor did not spawn.");
+            Assert.IsFalse(approachVisual.enabled,
+                "The exterior cutscene floor creates a rectangular edge behind the title.");
 
             string[] gameplayNames =
             {
@@ -264,6 +270,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             Assert.AreEqual(1, requestCount);
             Assert.IsFalse(titlePanel.gameObject.activeSelf);
+            Assert.IsTrue(approachVisual.enabled,
+                "The exterior floor must reappear before the selected wizard's chase.");
             Assert.IsFalse(player.GetComponent<PlayerMovement>().IsGameplayEnabled);
             Assert.IsFalse(playerVisual.enabled,
                 "Wizard selection is still before the chase entry, so the gameplay sprite must stay hidden.");

@@ -1,5 +1,6 @@
 using System.Text;
 using UnityEngine;
+using UnityEngine.Tilemaps;
 using UnityEngine.UI;
 
 namespace NoSafeCircle.DoorPrototype.Hud
@@ -135,6 +136,12 @@ namespace NoSafeCircle.DoorPrototype.Hud
             SpriteRenderer playerVisual = movement.transform.Find("Visual")?.GetComponent<SpriteRenderer>();
             if (playerVisual != null)
                 GetComponent<TitleScreenGameplayHudVisibility>().BindPlayerVisual(playerVisual);
+
+            GameObject approachFloor = GameObject.Find("EntryApproachFloor");
+            TilemapRenderer approachRenderer =
+                approachFloor != null ? approachFloor.GetComponentInChildren<TilemapRenderer>() : null;
+            if (approachRenderer != null)
+                GetComponent<TitleScreenGameplayHudVisibility>().BindApproachVisual(approachRenderer);
 
             Camera chaseCamera = Camera.main;
             if (TitleScreenChaseLane.TryGetFloorSegment(chaseCamera, out Vector3 floorStart,
