@@ -57,6 +57,9 @@ evidence of a closed task - the same failure class as a stale contract-hash pin.
   opening is **1.00 x 1.30 world units**, and the merged wizard stands **1.64 units** tall. Either bind the door
   sprite at about **x1.54** (opening 2.0 units, arch about 3 units - plausible for a vault gate, zero generations)
   or re-author with more passage and less arch. **Vincent's call; put to him 2026-09-17.**
+  **!!! SETTLED 2026-09-27 AND THE x1.54 IS SUPERSEDED. HE TOOK THE SECOND OPTION - RE-AUTHORED, NOT
+  SCALED. THE APPROVED SCALE IS NOW x1.0. See "Flat-elevation redraw" at the end of this file; two
+  test constants read this line, so do not cite the x1.54 from here. !!!**
 
 ## Still not generated
 
@@ -125,3 +128,57 @@ not cosmetic and may need an AC-002 revision alongside it.
 (`9120473efc69113990002ab4cae8f8222fd48ca3` and `8444cc83e983cd8b025ba4105646bd9b24a73f84`,
 both re-resolved on main and current) **and are deliberately not edited here.** This file is the
 one that is not pinned, which is why the record goes in it.
+
+## Flat-elevation redraw, 2026-09-27 - THE APPROVED ART SCALE IS x1.0, NOT x1.54
+
+**This supersedes the `x1.54` in "Two decisions already taken" above.** That was a 2026-09-17 choice
+between scaling the 128x128 sprite up or re-authoring it. **Vincent effectively took the second
+option by rejecting the result of the first**, from a play render: *"The angle on that door is not
+the same as the wall"*, *"it is looking south west, but not geometrically perfect south west"*,
+*"its looking more west than south!"*
+
+**WHY SCALING WAS NEVER GOING TO WORK, and it is the part worth keeping: `x1.54` IS AN UPSCALE OF
+PIXEL ART.** The sprites import at 64 PPU, so 1.54x renders every pixel at 1.54 screen pixels
+against the masonry's 1.0 - the door read as a chunkier material than the wall it sits in. Scaling
+was chosen when the alternative was a generation request; re-authoring at the wall's own PPU costs
+the same and removes the defect instead of enlarging it.
+
+**THE APPROVED ART, all four states the prefab binds:**
+
+    door_bonestone_{sealed,locked,open,final}_SW_000.png
+    192 x 160 px at 64 PPU  =  3.000 x 2.500 world units, scale x1.0
+    spritePivot {x: 0.5, y: 0.0875}   = 14 px bottom pad / 160, the art-base pivot convention
+                                        wall_door_jamb already ships as 26/176 = 0.147727
+    GUIDs UNCHANGED - the PNGs were replaced in place, so Door.prefab needs no rewiring.
+
+**EVIDENCE - measured live off the spawned prefab by the Game Agent, not computed:**
+
+    leaf edges          -1.50000 and 1.50000
+    jamb inner edges    -1.50000 and 1.50000
+    residual gap         0.00000 per side
+    leaf bottom          0.00000  on the floor line
+    leaf top             2.50000  exactly matching WallHeight
+
+**Unity 6000.1.8f1 import check, all four:** rect 192x160, pivot (96,14) px, PPU 64, bounds
+y -0.21875..2.28125 x -1.5..1.5, Point filter, **failures=0**.
+
+**THE PREDICTION THIS REPLACED, stated before the render and confirmed by it:** the old door was
+`128/64 x 1.54 = 3.080` units against `WallHeight 2.5` and **rode 0.58 above the wall top**; the new
+one matches course for course. That was offered as falsifiable and it held.
+
+**THE TWO PREFAB FIELDS ARE A PAIR - CHANGING ONLY THE SCALE SINKS THE DOOR 0.219 INTO THE FLOOR**,
+because the new art's 14-row bottom pad arrives as a negative `bounds.min.y` that a transform offset
+cannot see:
+
+    Door.prefab  m_LocalScale     {x: 1.54, y: 1.54, z: 1.54}  ->  {x: 1, y: 1, z: 1}
+    Door.prefab  m_LocalPosition  {x: 0, y: -1.25, z: 0}       ->  {x: 0, y: -1.03125, z: 0}
+
+**`DoorArtScale` in `DoorPrototypeSceneBuilder.cs` IS NOT THIS LEVER.** That constant scales the
+builder's isolated scene, which loads the `_S_` sprites by name and still shows the old art. The
+shipped path is `Door.prefab` via `DoorSpawner.cs:134`.
+
+**WHAT THIS DOES NOT SETTLE.** Vincent has rejected the art-only remedy for the doorway as a whole -
+*"it doesnt work right, you will need to extend the wall get rid of the collide and use a mask"* and
+*"The gap is still there"* - and the continuous-wall-plus-mask work is proceeding separately. **That
+changes the WALL, not the leaf.** This record approves the leaf's geometry and material; it makes no
+claim that the doorway is finished.
