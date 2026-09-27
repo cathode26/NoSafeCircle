@@ -34,10 +34,10 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
         [Test]
         public void Layout_UsesApprovedBoundsDoorAndTouchingRubbleFootprints()
         {
-            Assert.AreEqual(new Vector3(0f, 0f, -26f), RuinedEntryLayout.RoomBounds.center);
-            Assert.AreEqual(new Vector3(28f, 0f, 52f), RuinedEntryLayout.RoomBounds.size);
+            Assert.AreEqual(new Vector3(0f, 0f, -13f), RuinedEntryLayout.RoomBounds.center);
+            Assert.AreEqual(new Vector3(28f, 0f, 26f), RuinedEntryLayout.RoomBounds.size);
             Assert.AreEqual(3f, RuinedEntryLayout.DoorOpeningWidth);
-            Assert.AreEqual(new Vector3(-4f, 0f, -48f), RuinedEntryLayout.PlayerStart);
+            Assert.AreEqual(new Vector3(-4f, 0f, -22f), RuinedEntryLayout.PlayerStart);
 
             Assert.AreEqual(new Vector3(5f, 0f, -13.5f), RuinedEntryLayout.RubbleABounds.center);
             Assert.AreEqual(new Vector3(6f, 0f, 7f), RuinedEntryLayout.RubbleABounds.size);
@@ -167,7 +167,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             Assert.AreEqual(RoomId.RuinedEntry, catalog.Rooms[0].RoomId);
             Assert.AreEqual(-14f, catalog.Rooms[0].Bounds.MinX);
             Assert.AreEqual(14f, catalog.Rooms[0].Bounds.MaxX);
-            Assert.AreEqual(-52f, catalog.Rooms[0].Bounds.MinZ);
+            Assert.AreEqual(-26f, catalog.Rooms[0].Bounds.MinZ);
             Assert.AreEqual(0f, catalog.Rooms[0].Bounds.MaxZ);
             Assert.AreEqual(Vector2.zero, catalog.Doors[0].ExpectedGroundCenter);
             Assert.AreEqual(3f, catalog.Doors[0].OpeningWidth);
@@ -491,7 +491,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             BoxCollider floor = RequiredCollider(geometry, "FloorCollision");
             Assert.That(floor.bounds.min.x, Is.EqualTo(-14f).Within(0.001f));
             Assert.That(floor.bounds.max.x, Is.EqualTo(14f).Within(0.001f));
-            Assert.That(floor.bounds.min.z, Is.EqualTo(-52f).Within(0.001f));
+            Assert.That(floor.bounds.min.z, Is.EqualTo(-26f).Within(0.001f));
             Assert.That(floor.bounds.max.z, Is.EqualTo(0f).Within(0.001f));
 
             BoxCollider west = RequiredCollider(geometry, "WestWallCollision");
@@ -596,7 +596,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
 
             HashSet<Vector2Int> Flood(bool eastBlocker, bool westBlocker)
             {
-                Vector2Int start = new Vector2Int(-16, -192); // PlayerStart (-4,-48) on the 0.25 grid.
+                Vector2Int start = new Vector2Int(-16, -88); // PlayerStart (-4,-22) on the 0.25 grid.
                 Assert.IsFalse(IsBlocked(start, eastBlocker, westBlocker));
                 var visited = new HashSet<Vector2Int> { start };
                 var queue = new Queue<Vector2Int>();

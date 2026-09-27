@@ -40,7 +40,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         // parser insists the caller declares the grid; this fixture declares it independently of
         // the spawner's own derivation from the rooms.
         private const int Columns = 20;
-        private const int Rows = 78;
+        private const int Rows = 65;
         private const float OriginX = -20f;
         private const float OriginZ = 104f;
 

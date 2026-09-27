@@ -18,8 +18,12 @@ namespace NoSafeCircle.DoorPrototype.Tests
             {
                 EntryApproachFloorSpawner spawner = root.GetComponent<EntryApproachFloorSpawner>();
                 Assert.IsNotNull(spawner);
-                Assert.AreEqual(52f, RuinedEntryLayout.RoomBounds.size.z, 0.001f);
+                Assert.AreEqual(26f, RuinedEntryLayout.RoomBounds.size.z, 0.001f);
                 Assert.AreEqual(RuinedEntryLayout.MinimumZ, EntryApproachLayout.GateZ);
+                Assert.AreEqual(60f, EntryApproachLayout.ApproachBounds.size.z, 0.001f,
+                    "Restoring the first room must retain the full outdoor chase run.");
+                Assert.AreEqual(RuinedEntryLayout.PlayerStart,
+                    EntryApproachLayout.FirstRoomArrival);
                 Assert.AreEqual(1, spawner.Spawn());
                 Assert.AreEqual(1, spawner.SpawnedCount);
                 Assert.AreEqual(1, spawner.Spawn(),
@@ -39,13 +43,19 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 Assert.AreEqual("Default", grassBase.GetComponent<TilemapRenderer>().sortingLayerName);
                 Assert.AreEqual("Default", grassDetail.GetComponent<TilemapRenderer>().sortingLayerName);
                 Vector3Int outsideDungeon = grassDetail.WorldToCell(
-                    new Vector3(RuinedEntryLayout.MaximumX + 5f, 0f, -30f));
+                    new Vector3(RuinedEntryLayout.MaximumX + 5f, 0f, -10f));
                 Tile visibleGrass = grassDetail.GetTile<Tile>(outsideDungeon);
                 Assert.IsNotNull(visibleGrass, "Grass should extend beside the Ruined Entry wall.");
                 Assert.AreEqual("grass_tiles", visibleGrass.sprite.texture.name);
                 Assert.AreEqual("grass_base",
                     grassBase.GetTile<Tile>(outsideDungeon).sprite.texture.name,
                     "Opaque grass must fill the atlas sprite's transparent corners.");
+                Vector3Int chaseStart = grassDetail.WorldToCell(
+                    EntryApproachLayout.WizardEntryStart);
+                Assert.IsNotNull(grassDetail.GetTile(chaseStart),
+                    "The outdoor run must stay grass-covered at the wizard's start.");
+                Assert.IsNotNull(grassBase.GetTile(chaseStart),
+                    "The opaque grass base must also reach the wizard's start.");
                 Vector3Int beyondFinalRoom = grassDetail.WorldToCell(
                     new Vector3(FinalRoomLayout.MaximumX + 5f, 0f, FinalRoomLayout.MaximumZ - 2f));
                 Assert.IsNotNull(grassDetail.GetTile(beyondFinalRoom),
@@ -103,9 +113,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     "The visible open arch must not block the inbound wizard.");
                 Assert.IsFalse(obstacle.enabled);
                 Assert.IsFalse(gate.CloseAfterEntryCutscene(
-                    new Vector3(-4f, 0f, -53f), EntryApproachLayout.PursuerStop));
+                    new Vector3(-4f, 0f, -27f), EntryApproachLayout.PursuerStop));
                 Assert.IsFalse(gate.CloseAfterEntryCutscene(
-                    EntryApproachLayout.DoorCloseTrigger, new Vector3(-4f, 0f, -51f)));
+                    EntryApproachLayout.DoorCloseTrigger, new Vector3(-4f, 0f, -25f)));
                 Assert.IsTrue(gate.CloseAfterEntryCutscene(
                     EntryApproachLayout.DoorCloseTrigger, EntryApproachLayout.PursuerStop));
                 Assert.IsFalse(gate.IsOpen);

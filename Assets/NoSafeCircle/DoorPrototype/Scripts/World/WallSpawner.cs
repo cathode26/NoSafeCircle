@@ -100,7 +100,7 @@ namespace NoSafeCircle.DoorPrototype.World
             // THE DECLARED GRID IS DERIVED, NOT RESTATED. AsciiRoomMap insists the caller declare
             // the grid; the rooms are what the map must cover, so their union IS the declaration:
             // origin at the west-most X and north-most Z, one column per two units across. For
-            // floor01 that is 20x78 at (-20, 104), the figures Floor01AsciiMapTests asserts.
+            // floor01 that is 20x65 at (-20, 104), the figures Floor01AsciiMapTests asserts.
             WallRoom[] rooms = WallRoom.NorthToSouth;
             float originX = float.MaxValue, originZ = float.MinValue, maxX = float.MinValue, minZ = float.MaxValue;
             foreach (WallRoom room in rooms)

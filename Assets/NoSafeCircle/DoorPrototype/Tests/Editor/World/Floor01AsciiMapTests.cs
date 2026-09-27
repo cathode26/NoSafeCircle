@@ -29,11 +29,11 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
         // AsciiRoomMap.WorldUnitsPerCell, and the first test proves that arithmetic rather than
         // trusting it.
         private const int Columns = 20;
-        private const int Rows = 78;
+        private const int Rows = 65;
 
         // World extent of the floor, from Scripts/World/Rooms/*Layout.cs on main:
         // X from LowerVaultLayout.MinimumX (-20) to MaximumX (+20);
-        // Z from RuinedEntryLayout.MinimumZ (-52) to FinalRoomLayout.MaximumZ (104).
+        // Z from RuinedEntryLayout.MinimumZ (-26) to FinalRoomLayout.MaximumZ (104).
         private const float MinimumX = -20f;
         private const float MaximumX = 20f;
         private const float MinimumZ = RuinedEntryLayout.MinimumZ;
