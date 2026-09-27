@@ -686,7 +686,7 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-131": {
-      "task_contract_sha256": "e5d5b8920c14bfebaf02ebfc8b33ce8f54c34a691bf85960983bf26e3a0f8e09",
+      "task_contract_sha256": "34ad63249e9326ef3592a06e5519491c5e757215f70357446068bd0664d73397",
       "required_test_platforms": [
         "PlayMode"
       ],
