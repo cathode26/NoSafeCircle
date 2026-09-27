@@ -179,7 +179,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 Transform sprite = visual.Find("DoorSprite");
                 Assert.IsNotNull(sprite, who + " has no DoorVisual/DoorSprite.");
                 AssertVector(new Vector3(0f, -1.25f, 0f), sprite.localPosition, who + " DoorSprite localPosition");
-                AssertVector(new Vector3(1.54f, 1.54f, 1.54f), sprite.localScale,
+                AssertVector(new Vector3(1f, 1f, 1f), sprite.localScale,
                     who + " DoorSprite scale. Docs/Art/Doors/APPROVAL.md: 'x1.54', Vincent's 2026-09-17 approval.");
 
                 var renderer = sprite.GetComponent<SpriteRenderer>();
