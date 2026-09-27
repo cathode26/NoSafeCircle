@@ -1,0 +1,45 @@
+{
+  "schema_version": "1.1",
+  "manifest_type": "unity_test_validation",
+  "status": "passed",
+  "validated_state": {
+    "commit": "887680c443f2806efe0b5f076813f96084bc09cf",
+    "tree": "3e56eb90de4d71181eab51d5f25915b424f2b97f",
+    "post_commit": "887680c443f2806efe0b5f076813f96084bc09cf",
+    "post_tree": "3e56eb90de4d71181eab51d5f25915b424f2b97f",
+    "repository_clean_before": true,
+    "repository_clean_after": true
+  },
+  "unity": {
+    "version": "6000.6.3f1",
+    "executable": "C:\\Program Files\\Unity\\Hub\\Editor\\6000.6.3f1\\Editor\\Unity.exe",
+    "exit_code": 0,
+    "test_platform": "EditMode",
+    "test_filter": "NoSafeCircle.DoorPrototype.Tests.Editor.WizardPixelLab128SourceAuditTests;NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests"
+  },
+  "test_run": {
+    "result": "Passed",
+    "total": 8,
+    "passed": 8,
+    "failed": 0,
+    "skipped": 0
+  },
+  "artifacts": {
+    "xml": {
+      "relative_path": "test-results.xml",
+      "sha256": "7ca1deacf8f722a5957addb633f845c637cc4ffdfe57c977b15799105e5fe252",
+      "size_bytes": 10384
+    },
+    "log": {
+      "relative_path": "unity.log",
+      "sha256": "22bab186fbcedf2196a8383538137d31e0d55bc08fd463e598dc17bbfc5a7a51",
+      "size_bytes": 72542
+    }
+  },
+  "runner": {
+    "path": "Pipeline/Testing/run_unity_tests_clean.ps1",
+    "sha256": "bd2a24b5ca7769b8a176d6a04ee6b5db6fd6be911ae9ce3df845bf93094e30e2",
+    "source_commit": "887680c443f2806efe0b5f076813f96084bc09cf",
+    "source_tree": "3e56eb90de4d71181eab51d5f25915b424f2b97f"
+  }
+}
