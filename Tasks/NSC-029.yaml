@@ -31,7 +31,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 7,
+  "contract_revision": 8,
   "decomposition_children": [
     "NSC-069",
     "NSC-044",
@@ -78,15 +78,9 @@
   ],
   "id": "NSC-029",
   "kind": "feature",
-  "notes": "Separate room scenes are Editor-time authoring inputs only. Deterministic build-time composition places all five rooms in Assets/Scenes/DoorPrototype.unity before runtime; the game still uses one continuous Unity scene with no room scene loads or cross-scene state transfer. No formal dependency exists on dungeon-encounter-content-authoring or vice versa; both are deferred organizational features per the GDD-hardening example prohibiting feature-to-feature dependencies. Their consumption relationship (encounter placement consumes authored room spaces) is preserved here in notes only.",
+  "notes": "Separate room scenes are Editor-time authoring inputs only. Deterministic build-time composition places all five rooms in Assets/Scenes/DoorPrototype.unity before runtime; the game still uses one continuous Unity scene with no room scene loads or cross-scene state transfer. No formal dependency exists on dungeon-encounter-content-authoring or vice versa; both are deferred organizational features per the GDD-hardening example prohibiting feature-to-feature dependencies. Their consumption relationship (encounter placement consumes authored room spaces) is preserved here in notes only. *** REVISION 8, 2026-09-27: THE VALIDATION POLICY ENTRY IS REMOVED ENTIRELY, AND THAT IS THE CORRECT ANSWER RATHER THAN A REPLACEMENT FILTER. *** The entry bound EditMode to a single class, FiveRoomCompositionTests, DELETED at fe4c95ad - so the platform could only ever discover ZERO tests. I did not substitute another class, because THIS TASK SHOULD NOT CARRY A FILTER AT ALL: it is a DECOMPOSED aggregate (kind feature, 15 children) with ZERO exclusive_resources, and NEITHER of its two gates names a Unity fixture - VAL-001 is about Bone Archive's lane widths being navigable at the enemy agent radius and VAL-002 about Chapel of Ash's pews and columns presenting real occluders, both behaviours its children carry. An aggregate that owns nothing and is never dispatched as a crew has nothing for a filter to select, and policy_entry_commit.py's own rationale is that an entry exists for a task whose gates name Unity fixtures. NO CRITERION, GATE OR RESOURCE CHANGED. A DEAD FILTER IS THE QUIETEST FAULT IN THIS PIPELINE: it lives in authoritative_validation_policy.json, is invisible from the contract text, and FAILS GREEN. Found by the Pipeline Runner's sweep of 113 filter parts across 66 entries, with two witnesses that fail differently plus a generated control token; I re-derived this task's own row before acting. The discriminator is not absent-from-main - 28 of its first-pass 34 were fixtures a not_delivered task is meant to CREATE - it is WAS-on-main-and-now-gone, per class with git log main --diff-filter=D, main only and never --all.",
   "parent": "NSC-022",
   "provenance": {
-    "bootstrap_status_observation": "open",
-    "migration_id": "task-contract-schema-v2-20260822-r2",
-    "origin": "verified_reconciliation_bootstrap",
-    "reconciliation_run_id": "20260821T193541Z-998ee7b5",
-    "source_schema_version": "1.0",
-    "verification_run_id": "20260821T195959Z-43dba5de",
     "architecture_revision": {
       "approved_at_utc_date": "2026-09-12",
       "approved_by": "Vincent",
@@ -95,17 +89,32 @@
       "proposal_title": "Independent Room Scenes and Deterministic World Composition Proposal",
       "source_commit": "eab9bad9325a3e28894a64b6bbde92ee58e75476"
     },
+    "bootstrap_status_observation": "open",
     "contract_followups": [
       {
-        "date": "2026-09-24",
-        "reason": "Rewrite the NSC-026 dependency to its four concrete decomposition children, which taskcontrol validate requires once NSC-026 becomes a decomposed aggregate: 'Active contract may not depend on decomposed aggregate NSC-026; rewrite the dependency to the concrete decomposition child or children whose capability it actually consumes.' THIS IS A FAITHFUL TRANSLATION, NOT A CAPABILITY JUDGEMENT, AND THE DISTINCTION MATTERS. Neither this contract nor NSC-026 states which part of the foundation is consumed - the dependency is bare - so choosing a subset would be me inventing information the contracts do not carry, and under-constraining is the dangerous direction because it lets a task run before a real prerequisite. depends_on NSC-026 meant 'depends on the whole of NSC-026's capability', and that capability is now delivered by exactly NSC-038, NSC-039, NSC-040 and NSC-042, so naming all four preserves the existing semantics precisely. If someone later establishes that only a subset is consumed, narrowing it is a strict improvement and safe; widening after an incorrect narrowing is not. Verified in memory before committing: validate PASSES with these rewrites alone and together with the NSC-026 repair, and NSC-029's own decomposition_requirement_sha256 is unchanged (3edf31df6583 before and after), so depends_on does not feed the aggregate hash and no replan is triggered.",
-        "source_head": "f809fd9e8384618775689edfda28025b061824b5",
-        "previous_contract_revision": 6,
         "base_contract_sha256": "129f69fcf91166464048746f176f70086bd2c16e9fa6aedabdf4cf67d44e937c",
+        "date": "2026-09-24",
+        "previous_contract_revision": 6,
+        "reason": "Rewrite the NSC-026 dependency to its four concrete decomposition children, which taskcontrol validate requires once NSC-026 becomes a decomposed aggregate: 'Active contract may not depend on decomposed aggregate NSC-026; rewrite the dependency to the concrete decomposition child or children whose capability it actually consumes.' THIS IS A FAITHFUL TRANSLATION, NOT A CAPABILITY JUDGEMENT, AND THE DISTINCTION MATTERS. Neither this contract nor NSC-026 states which part of the foundation is consumed - the dependency is bare - so choosing a subset would be me inventing information the contracts do not carry, and under-constraining is the dangerous direction because it lets a task run before a real prerequisite. depends_on NSC-026 meant 'depends on the whole of NSC-026's capability', and that capability is now delivered by exactly NSC-038, NSC-039, NSC-040 and NSC-042, so naming all four preserves the existing semantics precisely. If someone later establishes that only a subset is consumed, narrowing it is a strict improvement and safe; widening after an incorrect narrowing is not. Verified in memory before committing: validate PASSES with these rewrites alone and together with the NSC-026 repair, and NSC-029's own decomposition_requirement_sha256 is unchanged (3edf31df6583 before and after), so depends_on does not feed the aggregate hash and no replan is triggered.",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)",
         "revised_contract_sha256": "16969d710e5cd875e62e18f84afef52829432613e55aeb43f9bb53483baf25ae",
+        "source_head": "f809fd9e8384618775689edfda28025b061824b5"
+      },
+      {
+        "date": "2026-09-27",
+        "reason": "Rev 8 REMOVES the validation policy entry entirely, and that is the correct answer rather than a replacement filter. The entry bound EditMode to a single class, FiveRoomCompositionTests, DELETED at fe4c95ad, so the platform could only ever discover ZERO tests. I did not substitute another class because THIS TASK SHOULD NOT CARRY A FILTER AT ALL: it is a DECOMPOSED aggregate, kind feature with 15 children, owning ZERO exclusive_resources, and NEITHER of its two gates names a Unity fixture - VAL-001 is about Bone Archive's lane widths being navigable at the enemy agent radius and VAL-002 about Chapel of Ash's pews and columns presenting real occluders, both behaviours its children carry. An aggregate that owns nothing and is never dispatched as a crew has nothing for a filter to select, and policy_entry_commit.py's own rationale is that an entry exists for a task whose gates name Unity fixtures. No criterion, gate or resource changed. A dead filter is the quietest fault in this pipeline: it lives in authoritative_validation_policy.json, is invisible from the contract text, and FAILS GREEN. Found by the Pipeline Runner's sweep of 113 filter parts across 66 entries with two witnesses that fail differently plus a generated control token; I re-derived this task's own row before acting.",
+        "source_head": "5ba5600a70e17dbc77dc84617b73160f1fe64b90",
+        "previous_contract_revision": 7,
+        "base_contract_sha256": "a35b3258a9fcb61e52fd7d53e057b688523b2e17e5cef1b6531af36549c1600e",
+        "revised_contract_sha256": "966bbcc0404aebd9ba440ce3ddb2f938e6c6567c2f81ae0141ab2c2b828d08c3",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
-    ]
+    ],
+    "migration_id": "task-contract-schema-v2-20260822-r2",
+    "origin": "verified_reconciliation_bootstrap",
+    "reconciliation_run_id": "20260821T193541Z-998ee7b5",
+    "source_schema_version": "1.0",
+    "verification_run_id": "20260821T195959Z-43dba5de"
   },
   "reconciliation_key": "five-room-content-authoring",
   "repository_evidence_at_bootstrap": [],
