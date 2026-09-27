@@ -40,7 +40,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         // parser insists the caller declares the grid; this fixture declares it independently of
         // the spawner's own derivation from the rooms.
         private const int Columns = 20;
-        private const int Rows = 65;
+        private const int Rows = 71;
         private const float OriginX = -20f;
         private const float OriginZ = 104f;
 
@@ -90,7 +90,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             public Vector3 Center => new Vector3((XMin + XMax) * 0.5f, 0f, (ZMin + ZMax) * 0.5f);
         }
 
-        // Built from the five *Layout.cs files directly, so a layout edit moves the expectation
+        // Built from the five progression layouts plus the Entry Chamber annex layout, so a layout edit moves the expectation
         // and a WallRoom table edit does not. Northernmost first, by each room's own ZMax.
         private static List<Room> LayoutRooms()
         {
@@ -143,7 +143,19 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     ZMin = RuinedEntryLayout.MinimumZ, ZMax = RuinedEntryLayout.MaximumZ,
                     DoorWidth = RuinedEntryLayout.DoorOpeningWidth, Thickness = RuinedEntryLayout.WallThickness,
                     Height = RuinedEntryLayout.WallHeight,
-                    Doors = new[] { new Vector3(RuinedEntryLayout.DoorCenterX, 0f, RuinedEntryLayout.DoorCenterZ) }
+                    Doors = new[] {
+                        new Vector3(RuinedEntryLayout.DoorCenterX, 0f, RuinedEntryLayout.DoorCenterZ),
+                        EntryChamberLayout.RoomOpening
+                    }
+                },
+                new Room
+                {
+                    Name = "EntryChamber",
+                    XMin = EntryChamberLayout.MinimumX, XMax = EntryChamberLayout.MaximumX,
+                    ZMin = EntryChamberLayout.MinimumZ, ZMax = EntryChamberLayout.MaximumZ,
+                    DoorWidth = EntryChamberLayout.OpeningWidth,
+                    Thickness = EntryChamberLayout.WallThickness, Height = EntryChamberLayout.WallHeight,
+                    Doors = new[] { EntryChamberLayout.RoomOpening }
                 }
             };
 
@@ -693,11 +705,15 @@ namespace NoSafeCircle.DoorPrototype.Tests
             // THE REAL PROOF: a chest-height ray, triggers ignored - FireballProjectile's shape -
             // fired at an unshared wall is stopped by a spawned wall collider.
             Room entry = rooms.Single(r => r.Name == "RuinedEntry");
-            Vector3 origin = new Vector3(entry.Center.x, 1f, entry.ZMin + 6f);
+            Vector3 origin = new Vector3(6f, 1f, entry.ZMin + 6f);
             bool hit = Physics.Raycast(origin, Vector3.back, out RaycastHit info, 12f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore);
             Assert.IsTrue(hit, "A chest-height ray at the Ruined Entry's south wall hit nothing.");
             Assert.Contains(info.collider, boxes, "The ray was stopped by '" + info.collider.name + "', which is not a spawned wall.");
-            Assert.AreEqual("SouthWallCollision", info.collider.name);
+            Assert.AreEqual("SouthWallEastCollision", info.collider.name);
+            Assert.IsFalse(Physics.Raycast(
+                new Vector3(EntryChamberLayout.CenterX, 1f, entry.ZMin + 6f),
+                Vector3.back, 12f, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore),
+                "The new south opening must let the wizard run from Ruined Entry into the annex.");
         }
 
         [UnityTest]

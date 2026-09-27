@@ -29,14 +29,14 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
         // AsciiRoomMap.WorldUnitsPerCell, and the first test proves that arithmetic rather than
         // trusting it.
         private const int Columns = 20;
-        private const int Rows = 65;
+        private const int Rows = 71;
 
         // World extent of the floor, from Scripts/World/Rooms/*Layout.cs on main:
         // X from LowerVaultLayout.MinimumX (-20) to MaximumX (+20);
-        // Z from RuinedEntryLayout.MinimumZ (-26) to FinalRoomLayout.MaximumZ (104).
+        // Z from EntryChamberLayout.MinimumZ (-38) to FinalRoomLayout.MaximumZ (104).
         private const float MinimumX = -20f;
         private const float MaximumX = 20f;
-        private const float MinimumZ = -26f;
+        private const float MinimumZ = EntryChamberLayout.MinimumZ;
         private const float MaximumZ = 104f;
 
         private static string ReadMap()
@@ -144,6 +144,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
                 ("D3", -8f, 54f, false),
                 ("D4", 4f, 76f, false),
                 ("D5", 0f, 104f, true),   // the floor's northern boundary: one wall row, not two
+                ("EntryChamberJoin", EntryChamberLayout.CenterX, EntryChamberLayout.MaximumZ, false),
             };
 
             foreach ((string name, float x, float z, bool outerEdge) in doors)
@@ -233,6 +234,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
                 new object[] { "ChapelOfAsh", ChapelOfAshLayout.RoomBounds, 0f, 0f },
                 new object[] { "LowerVault", LowerVaultLayout.RoomBounds, 0f, 0f },
                 new object[] { "FinalRoom", FinalRoomLayout.RoomBounds, 1f, 1f },
+                new object[] { "EntryChamber", EntryChamberLayout.RoomBounds, 1f, 1f },
             };
 
             foreach (object[] room in rooms)

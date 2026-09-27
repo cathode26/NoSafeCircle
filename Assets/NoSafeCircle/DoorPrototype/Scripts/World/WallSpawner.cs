@@ -195,7 +195,7 @@ namespace NoSafeCircle.DoorPrototype.World
         // room scenes carry exactly those values - so a reader expecting root y 0 for overlays is
         // reading the spec's pivot sentence, not the placer. Change it here, in one place, if the
         // Art Director decides otherwise.
-        private static Vector3 AccentPosition(GameObject instance, WallPiece piece, Quaternion rotation)
+        internal static Vector3 AccentPosition(GameObject instance, WallPiece piece, Quaternion rotation)
         {
             var renderer = instance.GetComponentInChildren<SpriteRenderer>(true);
             if (renderer == null || renderer.sprite == null)
