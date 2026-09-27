@@ -55,6 +55,8 @@ namespace NoSafeCircle.DoorPrototype
             public Vector3 Destination;
             public Vector3 BruteStart;
             public Vector3 BruteStop;
+            public float DoorCloseTriggerZ;
+            public bool MovesNorth;
             public float Duration;
             public float Elapsed;
             public int NextShot;
@@ -77,7 +79,8 @@ namespace NoSafeCircle.DoorPrototype
         private const float TimeEpsilon = 0.00001f;
         private const float EntrySpeed = 3f;
         private const float BruteEntrySpeed = 2.4f;
-        private const float DoorwayInsideZ = -1.5f;
+        private const float LegacyDoorwayInsideZ = -1.5f;
+        private const float LegacyBruteStopZ = 0.75f;
         private const float EntryShotFlightSeconds = 0.28f;
         private const float EntryImpactSeconds = 0.28f;
         private static readonly float[] EntryShotTimes = { 0.25f, 0.62f, 0.98f };
@@ -137,6 +140,8 @@ namespace NoSafeCircle.DoorPrototype
         public bool IsEntryChaseRunning => entry != null;
         public Transform EntryWizardTransform => entry != null && entry.Wizard != null
             ? entry.Wizard.transform : null;
+        public Transform EntryPursuerTransform => entry != null && entry.Brute != null
+            ? entry.Brute.transform : null;
 
         // The older repeating-pairing seam remains useful for its deterministic regression
         // fixtures. Production leaves it false: the chosen wizard now runs once after selection.
@@ -283,6 +288,19 @@ namespace NoSafeCircle.DoorPrototype
         public bool BeginEntryChase(ConfirmedWizardSelection selection,
             Vector3 entryStart, Vector3 gameplayDestination)
         {
+            return BeginEntryChase(selection, entryStart, gameplayDestination,
+                LegacyDoorwayInsideZ, LegacyBruteStopZ);
+        }
+
+        /// <summary>
+        /// Starts the chase using the chamber's gate-close and pursuer-stop Z positions. The
+        /// trigger must lie between entry and arrival, and the pursuer stops behind that trigger.
+        /// </summary>
+        public bool BeginEntryChase(ConfirmedWizardSelection selection,
+            Vector3 entryStart, Vector3 gameplayDestination,
+            float doorCloseTriggerZ, float pursuerStopZ)
+        {
+            bool movesNorth = gameplayDestination.z > entryStart.z;
             if (entry != null || titleScreen == null ||
                 !titleScreen.HasRequestedWizardSelection || !HasRuntimeInputs() ||
                 entryFireballFrames == null || entryFireballFrames.Length == 0 ||
@@ -290,6 +308,12 @@ namespace NoSafeCircle.DoorPrototype
                 !IsFinite(entryStart.x) || !IsFinite(entryStart.y) || !IsFinite(entryStart.z) ||
                 !IsFinite(gameplayDestination.x) || !IsFinite(gameplayDestination.y) ||
                 !IsFinite(gameplayDestination.z) ||
+                !IsFinite(doorCloseTriggerZ) || !IsFinite(pursuerStopZ) ||
+                entryStart.z == gameplayDestination.z ||
+                !IsStrictlyBetween(doorCloseTriggerZ, entryStart.z, gameplayDestination.z) ||
+                !IsStrictlyBetween(pursuerStopZ,
+                    entryStart.z + (movesNorth ? -pursuerSeparation : pursuerSeparation),
+                    doorCloseTriggerZ) ||
                 Vector3.Distance(entryStart, gameplayDestination) < minLaneLength)
                 return false;
 
@@ -309,7 +333,9 @@ namespace NoSafeCircle.DoorPrototype
                 Start = entryStart,
                 Destination = gameplayDestination,
                 BruteStart = bruteStart,
-                BruteStop = new Vector3(entryStart.x, entryStart.y, 0.75f),
+                BruteStop = new Vector3(entryStart.x, entryStart.y, pursuerStopZ),
+                DoorCloseTriggerZ = doorCloseTriggerZ,
+                MovesNorth = movesNorth,
                 Duration = Vector3.Distance(entryStart, gameplayDestination) / EntrySpeed
             };
             sequence.Wizard = CreateActor("TitleEntryWizard_" + WizardName(choiceIndex),
@@ -664,7 +690,10 @@ namespace NoSafeCircle.DoorPrototype
                 sequence.Impact = null;
             }
 
-            if (!sequence.DoorwayNotified && sequence.Wizard.transform.position.z <= DoorwayInsideZ)
+            float wizardZ = sequence.Wizard.transform.position.z;
+            if (!sequence.DoorwayNotified &&
+                (sequence.MovesNorth ? wizardZ >= sequence.DoorCloseTriggerZ
+                    : wizardZ <= sequence.DoorCloseTriggerZ))
             {
                 sequence.DoorwayNotified = true;
                 EntryWizardCrossedDoorway?.Invoke();
@@ -792,6 +821,11 @@ namespace NoSafeCircle.DoorPrototype
         private static bool IsFinite(float value)
         {
             return !float.IsNaN(value) && !float.IsInfinity(value);
+        }
+
+        private static bool IsStrictlyBetween(float value, float first, float second)
+        {
+            return value > Mathf.Min(first, second) && value < Mathf.Max(first, second);
         }
 
         private void Subscribe()

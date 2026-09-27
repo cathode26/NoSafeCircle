@@ -134,7 +134,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
             title.StartGame();
             Assert.IsTrue(backdrop.BeginEntryChase(
                 new ConfirmedWizardSelection(presentation, skin),
-                new Vector3(0f, 0f, 2.5f), new Vector3(-4f, 0f, -22f)));
+                new Vector3(0f, 0f, 2.5f), new Vector3(-4f, 0f, -22f),
+                -1.5f, 0.75f));
 
             GameObject wizard = GameObject.Find("TitleEntryWizard_" + wizardName);
             GameObject brute = GameObject.Find("TitleEntryPursuer_DungeonBrute");
@@ -142,6 +143,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsNotNull(brute);
             Assert.IsNull(GameObject.Find("TitleChasePursuer_LanternWraith"));
             Assert.AreSame(wizard.transform, backdrop.EntryWizardTransform);
+            Assert.AreSame(brute.transform, backdrop.EntryPursuerTransform);
             Assert.AreEqual(presentation, wizard.GetComponent<WizardAnimationController>().Presentation);
             Assert.AreEqual(skin, wizard.GetComponent<WizardAnimationController>().Skin);
             AssertPresentationOnly(wizard);
@@ -166,7 +168,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
             };
             backdrop.EntryChaseCompleted += () => completionCalls++;
             Assert.IsTrue(backdrop.BeginEntryChase(OrderedWizards[0],
-                new Vector3(0f, 0f, 2.5f), new Vector3(-4f, 0f, -22f)));
+                new Vector3(0f, 0f, 2.5f), new Vector3(-4f, 0f, -22f),
+                -1.5f, 0.75f));
 
             GameObject wizard = GameObject.Find("TitleEntryWizard_Ember");
             GameObject brute = GameObject.Find("TitleEntryPursuer_DungeonBrute");
@@ -198,6 +201,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.AreEqual(1, completionCalls);
             Assert.IsFalse(backdrop.IsEntryChaseRunning);
             Assert.IsNull(backdrop.EntryWizardTransform);
+            Assert.IsNull(backdrop.EntryPursuerTransform);
             Assert.AreEqual(0, backdrop.ActiveActorCount);
             Assert.AreEqual(0, backdrop.ActiveFireballCount);
             Assert.IsNull(GameObject.Find("TitleEntryWizard_Ember"));
@@ -210,6 +214,73 @@ namespace NoSafeCircle.DoorPrototype.Tests
         }
 
         [Test]
+        public void NorthboundChamberChase_ClosesGateAfterCrossingAndCompletesAtArrival()
+        {
+            backdrop.TitlePreviewLoopEnabled = false;
+            title.StartGame();
+
+            const float entryZ = -34f;
+            const float pursuerStopZ = -33.5f;
+            const float doorCloseTriggerZ = -29.75f;
+            const float arrivalZ = -22f;
+            var gateCalls = 0;
+            var completionCalls = 0;
+            backdrop.EntryWizardCrossedDoorway += () =>
+            {
+                gateCalls++;
+                Assert.GreaterOrEqual(backdrop.EntryWizardTransform.position.z, doorCloseTriggerZ);
+                Assert.LessOrEqual(backdrop.EntryPursuerTransform.position.z, pursuerStopZ);
+            };
+            backdrop.EntryChaseCompleted += () => completionCalls++;
+
+            Assert.IsTrue(backdrop.BeginEntryChase(OrderedWizards[0],
+                new Vector3(0f, 0f, entryZ), new Vector3(0f, 0f, arrivalZ),
+                doorCloseTriggerZ, pursuerStopZ));
+            Assert.AreEqual(entryZ, backdrop.EntryWizardTransform.position.z, 0.001f);
+            Assert.Less(backdrop.EntryPursuerTransform.position.z, entryZ);
+
+            backdrop.Tick(1.4f);
+            Assert.AreEqual(3, backdrop.FiredEntryShotCount,
+                "The northbound chase keeps two miss shots followed by one hit shot.");
+            Assert.AreEqual(1, backdrop.EntryImpactCount);
+            Assert.AreEqual(0, gateCalls,
+                "The gate must stay open while the wizard is south of the chamber trigger.");
+            Assert.Less(backdrop.EntryWizardTransform.position.z, doorCloseTriggerZ);
+            Assert.AreEqual(pursuerStopZ, backdrop.EntryPursuerTransform.position.z, 0.001f);
+
+            backdrop.Tick(0.05f);
+            Assert.AreEqual(1, gateCalls);
+            Assert.AreEqual(0, completionCalls);
+            Assert.IsTrue(backdrop.IsEntryChaseRunning);
+
+            backdrop.Tick(2.45f);
+            Assert.AreEqual(0, completionCalls);
+            Assert.Less(backdrop.EntryWizardTransform.position.z, arrivalZ);
+            backdrop.Tick(0.1f);
+            Assert.AreEqual(1, completionCalls);
+            Assert.AreEqual(1, gateCalls);
+            Assert.IsFalse(backdrop.IsEntryChaseRunning);
+            Assert.IsNull(backdrop.EntryPursuerTransform);
+        }
+
+        [Test]
+        public void EntryChase_RejectsGateOrPursuerStopOutsideChamberOrder()
+        {
+            backdrop.TitlePreviewLoopEnabled = false;
+            title.StartGame();
+            Vector3 start = new Vector3(0f, 0f, -34f);
+            Vector3 arrival = new Vector3(0f, 0f, -22f);
+
+            Assert.IsFalse(backdrop.BeginEntryChase(OrderedWizards[0],
+                start, arrival, -35f, -33.5f));
+            Assert.IsFalse(backdrop.BeginEntryChase(OrderedWizards[0],
+                start, arrival, -29.75f, -28f));
+            Assert.IsNull(backdrop.EntryWizardTransform);
+            Assert.IsNull(backdrop.EntryPursuerTransform);
+            Assert.AreEqual(0, backdrop.ActiveActorCount);
+        }
+
+        [Test]
         public void CancelEntryChase_CleansVisualsWithoutCompletingOrClosingDoor()
         {
             backdrop.TitlePreviewLoopEnabled = false;
@@ -219,7 +290,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
             backdrop.EntryWizardCrossedDoorway += () => doorwayCalls++;
             backdrop.EntryChaseCompleted += () => completionCalls++;
             Assert.IsTrue(backdrop.BeginEntryChase(OrderedWizards[2],
-                new Vector3(0f, 0f, 2.5f), new Vector3(-4f, 0f, -22f)));
+                new Vector3(0f, 0f, 2.5f), new Vector3(-4f, 0f, -22f),
+                -1.5f, 0.75f));
             backdrop.Tick(0.4f);
             Assert.AreEqual(1, backdrop.ActiveFireballCount);
 
@@ -228,6 +300,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             backdrop.Tick(20f);
             Assert.IsFalse(backdrop.IsEntryChaseRunning);
             Assert.IsNull(backdrop.EntryWizardTransform);
+            Assert.IsNull(backdrop.EntryPursuerTransform);
             Assert.AreEqual(0, backdrop.ActiveActorCount);
             Assert.AreEqual(0, backdrop.ActiveFireballCount);
             Assert.AreEqual(0, doorwayCalls);
