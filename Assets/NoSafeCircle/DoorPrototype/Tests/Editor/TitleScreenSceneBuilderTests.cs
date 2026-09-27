@@ -156,7 +156,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.IsNotNull(serialized.FindProperty("wraithAnimatorController").objectReferenceValue);
             Assert.AreEqual(4, serialized.FindProperty("wizardChoices").arraySize);
             Assert.AreEqual(1f, serialized.FindProperty("wizardVisualScale").floatValue);
-            Assert.AreEqual(2f, serialized.FindProperty("pursuerVisualScale").floatValue);
+            Assert.AreEqual(1f, serialized.FindProperty("pursuerVisualScale").floatValue);
 
             Vector3 start = serialized.FindProperty("floorSegmentStart").vector3Value;
             Vector3 end = serialized.FindProperty("floorSegmentEnd").vector3Value;

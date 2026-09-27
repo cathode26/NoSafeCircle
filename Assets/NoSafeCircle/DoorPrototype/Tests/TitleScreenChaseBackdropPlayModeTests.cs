@@ -80,6 +80,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             backdrop.ConfigureMotion(3f, 10f, 20f, 1.5f, 2.5f, 0.5f, 6f);
             // The shipped title uses unit scale for 128 px wizard art at 64 PPU.
             SetPrivateField(backdrop, "wizardVisualScale", 1f);
+            SetPrivateField(backdrop, "pursuerVisualScale", 1f);
             backdropObject.SetActive(true);
             Assert.IsTrue(title.IsTitleScreenVisible);
         }
@@ -171,7 +172,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 EnemyAnimationController pursuerAnimation =
                     pursuer.GetComponent<EnemyAnimationController>();
                 Assert.IsNotNull(pursuerAnimation);
-                Assert.AreEqual(2f, pursuer.transform.Find("Visual").localScale.x, 0.001f,
+                Assert.AreEqual(1f, pursuer.transform.Find("Visual").localScale.x, 0.001f,
                     "The pursuer should be as readable as the fleeing wizard.");
                 Assert.That(pursuerAnimation.CurrentState,
                     Does.StartWith(PursuerNames[index] == "DungeonBrute"
