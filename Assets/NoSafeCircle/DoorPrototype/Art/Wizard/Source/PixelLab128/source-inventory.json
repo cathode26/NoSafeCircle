@@ -627,7 +627,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    43,
+    10,
+    84,
+    109
+   ],
    "padding_offset": [
     0,
     0
@@ -865,7 +870,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    43,
+    11,
+    85,
+    113
+   ],
    "padding_offset": [
     0,
     0
@@ -1103,7 +1113,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    45,
+    13,
+    87,
+    117
+   ],
    "padding_offset": [
     0,
     0
@@ -1341,7 +1356,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    42,
+    11,
+    87,
+    114
+   ],
    "padding_offset": [
     0,
     0
@@ -1579,7 +1599,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    43,
+    8,
+    85,
+    110
+   ],
    "padding_offset": [
     0,
     0
@@ -1817,7 +1842,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    41,
+    9,
+    85,
+    114
+   ],
    "padding_offset": [
     0,
     0
@@ -2055,7 +2085,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    40,
+    12,
+    83,
+    117
+   ],
    "padding_offset": [
     0,
     0
@@ -2293,7 +2328,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    43,
+    12,
+    84,
+    113
+   ],
    "padding_offset": [
     0,
     0
@@ -2531,7 +2571,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    46,
+    11,
+    82,
+    109
+   ],
    "padding_offset": [
     0,
     0
@@ -2769,7 +2814,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    47,
+    12,
+    82,
+    111
+   ],
    "padding_offset": [
     0,
     0
@@ -3007,7 +3057,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    45,
+    16,
+    84,
+    117
+   ],
    "padding_offset": [
     0,
     0
@@ -3245,7 +3300,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    46,
+    12,
+    84,
+    114
+   ],
    "padding_offset": [
     0,
     0
@@ -3483,7 +3543,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    45,
+    11,
+    83,
+    109
+   ],
    "padding_offset": [
     0,
     0
@@ -3721,7 +3786,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    44,
+    13,
+    82,
+    114
+   ],
    "padding_offset": [
     0,
     0
@@ -3959,7 +4029,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    44,
+    16,
+    83,
+    117
+   ],
    "padding_offset": [
     0,
     0
@@ -4197,7 +4272,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    46,
+    12,
+    81,
+    111
+   ],
    "padding_offset": [
     0,
     0
@@ -4435,7 +4515,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    40,
+    11,
+    89,
+    111
+   ],
    "padding_offset": [
     0,
     0
@@ -4673,7 +4758,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    40,
+    11,
+    88,
+    114
+   ],
    "padding_offset": [
     0,
     0
@@ -4911,7 +5001,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    36,
+    13,
+    90,
+    120
+   ],
    "padding_offset": [
     0,
     0
@@ -5149,7 +5244,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    41,
+    9,
+    89,
+    118
+   ],
    "padding_offset": [
     0,
     0
@@ -5387,7 +5487,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    40,
+    7,
+    88,
+    112
+   ],
    "padding_offset": [
     0,
     0
@@ -5625,7 +5730,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    38,
+    9,
+    89,
+    117
+   ],
    "padding_offset": [
     0,
     0
@@ -5863,7 +5973,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    39,
+    13,
+    92,
+    120
+   ],
    "padding_offset": [
     0,
     0
@@ -6101,7 +6216,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    40,
+    12,
+    88,
+    115
+   ],
    "padding_offset": [
     0,
     0
@@ -6339,7 +6459,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    43,
+    11,
+    85,
+    117
+   ],
    "padding_offset": [
     0,
     0
@@ -6577,7 +6702,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    45,
+    10,
+    84,
+    118
+   ],
    "padding_offset": [
     0,
     0
@@ -6815,7 +6945,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    40,
+    10,
+    87,
+    120
+   ],
    "padding_offset": [
     0,
     0
@@ -7053,7 +7188,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    42,
+    9,
+    87,
+    120
+   ],
    "padding_offset": [
     0,
     0
@@ -7291,7 +7431,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    40,
+    7,
+    88,
+    116
+   ],
    "padding_offset": [
     0,
     0
@@ -7529,7 +7674,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    40,
+    8,
+    87,
+    120
+   ],
    "padding_offset": [
     0,
     0
@@ -7767,7 +7917,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    42,
+    10,
+    89,
+    120
+   ],
    "padding_offset": [
     0,
     0
@@ -8005,7 +8160,12 @@
     128,
     128
    ],
-   "raw_alpha_bbox": null,
+   "raw_alpha_bbox": [
+    45,
+    10,
+    84,
+    118
+   ],
    "padding_offset": [
     0,
     0
