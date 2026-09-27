@@ -133,18 +133,21 @@ namespace NoSafeCircle.DoorPrototype.Enemies
                 // CurrentTarget and searches the start position; that is preserved exactly.
                 // NSC-091 owns this file and mentions the leash zero times, so nothing constrains
                 // the ordinary path. Both checked at source before this was written.
-                if (State == EnemyTargetKnowledgeState.Pursuing)
+                // DELIBERATE BREAK FOR TEST VERIFICATION - DO NOT LEAVE COMMITTED. Restores the
+                // pre-fc5e95b79 unconditional give-up so the new anti-pacing test can be proven
+                // to fail before this repair. Revert to the towing-without-give-up form above.
+                if (State == EnemyTargetKnowledgeState.Pursuing && IsBeyondPursuitLeash())
                 {
-                    bool ranOutOfSlack = IsBeyondPursuitLeash();
-                    if (ranOutOfSlack && isRedirectedToSpectralDecoy)
+                    if (isRedirectedToSpectralDecoy)
                     {
                         ClearSpectralDecoyRedirectState();
                         CurrentTarget = wizardTransform;
-                        LastKnownPosition = startPosition;
-                        State = EnemyTargetKnowledgeState.SearchingLastKnownPosition;
-                        searchTimeRemaining = 0f;
-                        return;
                     }
+
+                    LastKnownPosition = startPosition;
+                    State = EnemyTargetKnowledgeState.SearchingLastKnownPosition;
+                    searchTimeRemaining = 0f;
+                    return;
                 }
 
                 if (State == EnemyTargetKnowledgeState.Pursuing
