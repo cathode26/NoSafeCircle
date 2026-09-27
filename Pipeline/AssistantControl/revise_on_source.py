@@ -86,6 +86,25 @@ def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def staging_clone_name(task_id: str, operation: str) -> str:
+    """The one name a reconciliation staging clone may have.
+
+    Named so the CREATOR and the DELETER cannot disagree about what a staging clone is. The deleter
+    needs it because recovery removes a path a JOURNAL names, and a journal is data: without an
+    ownership test derived from construction, a malformed or hand-edited one aims an rmtree at
+    whatever it likes. The first thing it aimed at, in a fixture, was the task checkout.
+    """
+
+    return f".{task_id}-revise-{operation}"
+
+
+def owns_staging_clone(staging: Path, task_id: str) -> bool:
+    """Is this path one of THIS task's staging clones, by construction rather than by trust?"""
+
+    prefix = f".{task_id}-revise-"
+    return staging.name.startswith(prefix) and len(staging.name) > len(prefix)
+
+
 def _remove_staging(staging: Path, plan: dict[str, Any]) -> None:
     """Delete a finished staging clone, and SAY SO when it cannot be deleted.
 
@@ -205,6 +224,56 @@ def _resume_interrupted(
             "next_status": "prepared", "carries_no_candidate": True,
         }
 
+    if (head == expected_candidate and not dirty and archive.exists()
+            and journal.get("phase") == "merged"):
+        # THE WINDOW THAT USED TO STRAND THE RUN: the journal and archive are down and the fetch
+        # into the task checkout did not land, so the checkout is still at the rejected candidate.
+        # Recoverable now, because staging is retained across exactly this gap and the journal names
+        # it. Everything about the request has already been matched above; what is checked here is
+        # that the object still EXISTS to fetch, because a retained path that no longer holds the
+        # commit must refuse rather than half-advance a checkout.
+        staging = Path(str(journal.get("staging", "")))
+        missing = None
+        if not str(journal.get("staging", "")):
+            missing = "the journal names no staging clone"
+        elif not staging.is_dir():
+            missing = f"the retained staging clone is gone: {staging}"
+        else:
+            try:
+                # This module's own git() raises RuntimeError on any non-zero exit, which is the
+                # right shape here: "not a commit" and "not a repository" both mean the object
+                # cannot be fetched, and neither may be treated as recoverable.
+                git(staging, "cat-file", "-e", f"{merged}^{{commit}}")
+            except RuntimeError:
+                missing = f"staging {staging} no longer holds {merged}"
+        if missing is not None:
+            raise ReviseOnSourceError(
+                f"a reconciliation was interrupted before its checkout advanced and the reconciled "
+                f"commit cannot be recovered: {missing}. The rejected candidate and its changes are "
+                f"intact at {checkout}; re-run the reconciliation from the start after removing "
+                f"{journal_path} and {archive}.")
+        if not apply:
+            return {
+                "schema_version": SCHEMA_VERSION, "task_id": task_id, "applied": False,
+                "resumed": "checkout_advance", "rejected_candidate": expected_candidate,
+                "inspected_source_commit": expected_source_commit,
+                "reconciled_commit": merged, "archived_record": str(archive),
+                "staging": str(staging), "next_status": "prepared",
+                "carries_no_candidate": True,
+            }
+        git(checkout, "fetch", "--no-tags", str(staging), merged, timeout_seconds=300)
+        git(checkout, "merge", "--ff-only", "--no-edit", "FETCH_HEAD", timeout_seconds=180)
+        head = git(checkout, "rev-parse", "HEAD").decode().strip()
+        if head != merged:
+            raise ReviseOnSourceError(
+                f"the task checkout did not fast-forward to {merged} during recovery; it is at "
+                f"{head}. Nothing further was written.")
+        journal = {**journal, "phase": "checkout_advanced"}
+        write_record(journal_path, journal)
+        advanced_here = True
+    else:
+        advanced_here = False
+
     if head != merged or dirty or not archive.exists():
         raise ReviseOnSourceError(
             f"a reconciliation was interrupted and this cannot finish it from here: "
@@ -214,7 +283,11 @@ def _resume_interrupted(
 
     plan = {
         "schema_version": SCHEMA_VERSION, "task_id": task_id, "applied": False,
-        "resumed": "record_write", "rejected_candidate": expected_candidate,
+        # NAME WHAT THIS RECOVERY DID, not the step it finishes on. "record_write" says only
+        # the record was missing; when the checkout had to be re-fetched and fast-forwarded here,
+        # that is the larger thing that happened and an operator reading this needs to know it.
+        "resumed": "checkout_advance" if advanced_here else "record_write",
+        "rejected_candidate": expected_candidate,
         "inspected_source_commit": expected_source_commit,
         "reconciled_commit": merged, "archived_record": str(archive),
         "next_status": "prepared", "carries_no_candidate": True,
@@ -234,6 +307,22 @@ def _resume_interrupted(
     _publish_reconciled(record, dict(entry), merged, accept_contract_sha256)
     write_record(record_path, record)
     journal_path.unlink()
+    # CLEAN UP THE RETAINED CLONE, or this fix trades one defect for the one _remove_staging was
+    # written to stop: a full --no-local clone per run, accumulating in the checkouts root with
+    # nothing reporting it. Staging is now deliberately kept across the fetch window, so recovery is
+    # the path that ends that window and it owns the deletion. Last, after the authoritative record
+    # agrees with the journal -- deleting it earlier would remove the only copy of the reconciled
+    # commit while the operation could still fail. Found by asking what the retention test observed
+    # AFTER recovery, not by reading this function.
+    retained = Path(str(journal.get("staging", "")))
+    if str(journal.get("staging", "")) and retained.is_dir():
+        # PROVE OWNERSHIP BEFORE DELETING ANYTHING. The journal is data, and this path came out of
+        # it: a malformed or hand-edited journal would otherwise aim an rmtree wherever it liked.
+        # Measured, not hypothetical -- a fixture named the TASK CHECKOUT here and it was deleted.
+        if owns_staging_clone(retained, task_id):
+            _remove_staging(retained, plan)
+        else:
+            plan["staging_cleanup_refused"] = str(retained)
     plan["applied"] = True
     return plan
 
@@ -468,7 +557,7 @@ def revise_on_source(
             raise ReviseOnSourceError("task checkout is not clean; preserve those changes first")
 
         operation = uuid.uuid4().hex[:12]
-        staging = checkouts.root / f".{task_id}-revise-{operation}"
+        staging = checkouts.root / staging_clone_name(task_id, operation)
         archive_dir = checkouts.records / "revise-on-source"
         archive = archive_dir / f"{task_id}.{expected_candidate}.{source_head}.json"
 
@@ -614,12 +703,23 @@ def revise_on_source(
                     "inspected_source_commit": source_head,
                     "accepted_contract_sha256": accept_contract_sha256,
                     "reconciled_commit": merged, "archived_record": str(archive),
+                    # The journal must NAME the staging clone. Without it, recovery knows a
+                    # reconciled commit exists and has no repository to fetch it from, which is
+                    # half of why a fetch failure was unrecoverable.
+                    "staging": str(staging),
                     "checkout": str(checkout), "history_entry": history_entry,
                 })
                 archive.write_text(json.dumps(
                     archive_body, ensure_ascii=False, indent=2, sort_keys=True,
                 ) + "\n", encoding="utf-8")
 
+                # RETAIN STAGING UNTIL THE ADVANCEMENT IS ITSELF DURABLE. The fetch and
+                # fast-forward below are the one step that can fail after the journal and archive
+                # exist, and the `finally` used to delete this clone on the way out -- taking the
+                # only copy of the reconciled commit with it and turning a transient fetch failure
+                # into manual repair. Cleared again once the checkout_advanced journal lands, so a
+                # successful run still leaves nothing behind.
+                plan["staging_retained"] = True
                 git(checkout, "fetch", "--no-tags", str(staging), merged, timeout_seconds=300)
                 git(checkout, "merge", "--ff-only", "--no-edit", "FETCH_HEAD",
                     timeout_seconds=180)
@@ -633,8 +733,12 @@ def revise_on_source(
                     "inspected_source_commit": source_head,
                     "accepted_contract_sha256": accept_contract_sha256,
                     "reconciled_commit": merged, "archived_record": str(archive),
+                    "staging": str(staging),
                     "checkout": str(checkout), "history_entry": history_entry,
                 })
+                # The checkout now holds the commit, so staging is disposable again: from here a
+                # crash is recoverable from the checkout itself.
+                plan["staging_retained"] = False
             finally:
                 if staging.exists() and plan.get("staging_retained") is not True:
                     _remove_staging(staging, plan)
@@ -649,4 +753,5 @@ def revise_on_source(
             return plan
 
 
-__all__ = ["ReviseOnSourceError", "revise_on_source", "SCHEMA_VERSION"]
+__all__ = ["ReviseOnSourceError", "owns_staging_clone", "revise_on_source",
+           "SCHEMA_VERSION", "staging_clone_name"]
