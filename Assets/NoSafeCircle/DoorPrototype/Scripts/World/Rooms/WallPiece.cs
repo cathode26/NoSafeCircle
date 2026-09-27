@@ -29,12 +29,21 @@ namespace NoSafeCircle.DoorPrototype.World.Rooms
         public readonly Vector3 Inward;
         public readonly bool AlongX;
 
-        public WallPiece(WallPieceKind kind, Vector3 point, Vector3 inward, bool alongX)
+        /// <summary>This piece fills a DOORWAY slot and must draw behind the door leaf. The sort
+        /// is <c>y + 0.26z</c> with LOWER IN FRONT, and a base piece's Visual is inset toward the
+        /// room - so on a south edge it lands behind the door and on a north edge in front of it.
+        /// Position cannot express "always behind" here, so the spawner drops these one sorting
+        /// order instead, which outranks position, and the inset is left alone so the piece stays
+        /// aligned with its neighbours.</summary>
+        public readonly bool BehindDoor;
+
+        public WallPiece(WallPieceKind kind, Vector3 point, Vector3 inward, bool alongX, bool behindDoor = false)
         {
             Kind = kind;
             Point = point;
             Inward = inward;
             AlongX = alongX;
+            BehindDoor = behindDoor;
         }
     }
 

@@ -238,16 +238,16 @@ namespace NoSafeCircle.DoorPrototype.Tests
             public bool Far => Edge == WallEdge.North || Edge == WallEdge.West;
         }
 
-        // THE DOOR SHOULDERS. The visual opening is 4.000 units (a '++' cell pair at two units a
-        // cell) and the contract-pinned collider gap is 3.000, so the leaf covers x[-1.5..1.5]
-        // about its centre while the slot lattice cannot resume until the next integer - leaving
-        // 0.500 units of bare wall line on each side. Vincent, twice: "The sides of the door still
-        // have a gap" and "the brick around the door should be the same tiles of the wall".
+        // THE DOORWAY SLOTS. The wall runs STRAIGHT THROUGH the opening and the door draws over
+        // it - Vincent, 2026-09-27, pointing at F:/2D_IsoTilemaps-master: "Please mimic the way
+        // this project does doors", "see how the wall continues above the door properly", and
+        // "The wall should be the wall ... That is the job of the wall tile map".
         //
-        // A 1.000-unit tile centred at centre +/- (half + 0.5) covers that 0.500 exactly and
-        // overlaps the first run slot by the other 0.500. THE OVERLAP IS OUTWARD ON PURPOSE:
-        // 1.000 of tile cannot fill 0.500 of hole without going somewhere, and the alternative is
-        // inward, across the leaf - which is the fill-across-a-doorway that occluded a door once.
+        // FOUR slots per doorway, not two shoulders. The opening is two map cells at two units a
+        // cell, so the piece pass skips exactly the four one-unit slots from centre-2 to centre+2.
+        // Filling those four meets the surviving run at centre +/- 2 exactly, with NO overlap -
+        // unlike the shoulder pair this replaced, which sat at centre +/- 2.0 and double-painted
+        // 0.500u into the first run slot on each side.
         //
         // Derived here from the layouts alone - door centre, DoorWidth, and which bound the centre
         // lies on - so it shares nothing with WallPiecePass.DoorShoulders but the arithmetic it is
@@ -266,9 +266,10 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     bool alongX = AlongX(edge);
                     float line = room.Line(edge);
                     float centre = alongX ? door.x : door.z;
-                    float reach = room.DoorWidth * 0.5f + 0.5f;
-                    foreach (float along in new[] { centre - reach, centre + reach })
+                    float half = room.DoorWidth * 0.5f;
+                    for (float start = centre - half - 0.5f; start < centre + half + 0.5f; start += 1f)
                     {
+                        float along = start + 0.5f;
                         shoulders.Add(new Shoulder(room, edge,
                             alongX ? new Vector3(along, 0f, line) : new Vector3(line, 0f, along)));
                     }
@@ -520,14 +521,35 @@ namespace NoSafeCircle.DoorPrototype.Tests
             SpriteRenderer[] renderers = spawnerObject.GetComponentsInChildren<SpriteRenderer>(true);
             Assert.Greater(renderers.Length, 0, "Nothing spawned, so this passes vacuously.");
 
+            var doorwayPoints = new HashSet<(int, int)>();
+            foreach (Shoulder doorway in ExpectedShoulders(LayoutRooms()))
+            {
+                doorwayPoints.Add(Key(doorway.Point));
+            }
+            Assert.AreEqual(20, doorwayPoints.Count,
+                "Five doorways at four slots each is 20 points; got " + doorwayPoints.Count
+                + ", so the exception below is being applied to the wrong set.");
+
             foreach (SpriteRenderer renderer in renderers)
             {
                 string who = renderer.transform.parent != null ? renderer.transform.parent.name : renderer.name;
                 Assert.IsNotNull(renderer.sprite, who + " has a null sprite after Instantiate.");
                 Assert.AreEqual(WorldSpriteConvention.SortingLayerName, renderer.sortingLayerName,
                     who + " is on sorting layer '" + renderer.sortingLayerName + "'; the LAYER is compared before the order.");
-                Assert.AreEqual(WorldSpriteConvention.SortingOrder, renderer.sortingOrder,
-                    who + " carries sortingOrder " + renderer.sortingOrder + "; any other value outranks position unconditionally.");
+                // ONE DELIBERATE EXCEPTION, AND IT IS THE POINT OF THE EXCEPTION THAT IT OUTRANKS
+                // POSITION. A piece filling a DOORWAY slot must lose to the door leaf. The sort is
+                // y + 0.26z with lower in front, and a base piece's Visual is inset toward the
+                // room - so on a south edge it lands behind the leaf and on a north edge in front
+                // of it. Four of the five doors are south and D5 is north, so position alone
+                // cannot do both; these pieces take one order lower instead, and keep the inset so
+                // they stay aligned with the run they continue.
+                int wantOrder = doorwayPoints.Contains(Key(renderer.transform.parent.position))
+                    ? WorldSpriteConvention.SortingOrder - 1
+                    : WorldSpriteConvention.SortingOrder;
+                Assert.AreEqual(wantOrder, renderer.sortingOrder,
+                    who + " carries sortingOrder " + renderer.sortingOrder + "; expected " + wantOrder
+                    + ". Any value but the convention outranks position unconditionally, so the only"
+                    + " piece allowed to differ is one that must lose to a door.");
                 Assert.AreEqual(SpriteSortPoint.Pivot, renderer.spriteSortPoint,
                     who + " sorts by Center rather than Pivot, which reads the sprite's middle instead of its ground contact.");
                 // TOLERANCE, NOT EQUALITY, AND THE REASON IS THE PROPERTY BEING READ. lossyScale is

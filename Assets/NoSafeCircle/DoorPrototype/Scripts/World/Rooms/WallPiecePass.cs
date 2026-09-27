@@ -92,7 +92,7 @@ namespace NoSafeCircle.DoorPrototype.World.Rooms
                 }
             }
 
-            DoorShoulders(pieces, room, state);
+            DoorwayWall(pieces, room, state);
             return pieces;
         }
 
@@ -192,7 +192,7 @@ namespace NoSafeCircle.DoorPrototype.World.Rooms
             if (highFree) pieces.Add(new WallPiece(WallPieceKind.EndCap, OnLine(alongX, high, line), -lowInward, alongX));
         }
 
-        private static void DoorShoulders(List<WallPiece> pieces, WallRoom room, WallPassState state)
+        private static void DoorwayWall(List<WallPiece> pieces, WallRoom room, WallPassState state)
         {
             foreach (Vector3 door in room.Doors)
             {
@@ -207,42 +207,36 @@ namespace NoSafeCircle.DoorPrototype.World.Rooms
                 float centre = alongX ? door.x : door.z;
                 float half = room.DoorWidth * 0.5f;
 
-                // THE SHOULDER. WallSpawner's own note: the visual door gap is 4 units against a
-                // contract-pinned 3-unit collider gap, so 0.500u each side of the leaf sits
-                // between the door's edge and where the wall run resumes. wall_door_jamb used to
-                // cover it and is no longer placed: measured 2026-09-27, it drew a COMPLETE stone
-                // portal - two piers plus a lintel - twice, flanking a leaf that carries its own
-                // frame, and 75% of it was overlapped by the stub run anyway.
+                // THE WALL RUNS STRAIGHT THROUGH THE DOORWAY, and the door draws over it.
                 //
-                // Fill it with the WALL'S OWN TILE, which is what Vincent asked for: "the brick
-                // around the door should be the same tiles of the wall". Same tiles by identity,
-                // not by resemblance, and no new art.
+                // Vincent, 2026-09-27, pointing at F:/2D_IsoTilemaps-master: "Please mimic the
+                // way this project does doors" and "see how the wall continues above the door
+                // properly". That project never cuts its wall - its door is one sprite laid over
+                // an unbroken run - so it has no opening to fill and no head to bridge. This is
+                // the same architecture, built the way he asked for it: "The wall should be the
+                // wall ... That is the job of the wall tile map."
                 //
-                // WHICH tile is the SIDE'S, exactly as Slots decides it: far (north/west) sides
-                // are wall_straight, near (south/east) sides are the 2.797-unit wall_broken_stub.
-                // Measured 2026-09-27 from this pass: FOUR of the five doors are claimed on a
-                // SOUTH edge, so a flat Straight here would have been the wrong art AND the wrong
-                // height at 8 of the 10 shoulder points. A pilaster is never a candidate - the
-                // shoulder is off the slot lattice and the rhythm keeps a run's end slots plain.
+                // I raised that door_bonestone_open_SW_000 is 0.0% opaque across its centre band
+                // (measured; every closed state is ~97%), so the wall shows through an OPEN door.
+                // He answered "Dont worry about the problem of the wall being there in the way".
+                // Recorded because it is a known, accepted consequence rather than an oversight.
                 //
-                // BASE piece, deliberately. WallPiece's doc: a base Point is the slot CENTRE and
-                // Inward is the inset direction; an overlay Point is a run ENDPOINT and Inward
-                // runs along the run. So centre +/- (half + 0.5) centres a 1.000u wall_straight
-                // on [centre+1.5, centre+2.5] and its mirror - covering the shoulder exactly and
-                // touching the leaf without overlapping it. Emitting it with the jamb's OVERLAY
-                // arguments would have centred it ON the gap edge, painting 0.5u ACROSS the leaf:
-                // fill across a doorway is what occluded a door once already.
+                // FOUR SLOTS, NOT TWO. The opening is two map cells at two units a cell, so Slots
+                // skips exactly the four one-unit slots starting at centre-2 .. centre+1. Filling
+                // those four meets the run at centre +/- 2 exactly, with NO overlap - unlike the
+                // shoulder pair this replaces, which sat at centre +/- 2.0 and double-painted
+                // 0.500u into the first run slot on each side.
                 //
-                // Trialled in PlayMode before it was written: the 0.500u band closes and the door
-                // is not occluded. Base pieces are placed at Point directly rather than through
-                // AccentPosition, so they also carry the prefab's own 0.151 inward inset and sit
-                // on the floor - both of which wall_door_jamb lacked.
-                Vector3 inward = WallRoom.Inward(edge);
-                float shoulder = half + 0.5f;
+                // The tile is the SIDE'S own, as Slots decides it: far (north/west) sides take
+                // wall_straight, near (south/east) sides the 2.797-unit wall_broken_stub. Four of
+                // the five doors are claimed on a SOUTH edge, so most doorways are stub.
                 bool far = edge == WallEdge.North || edge == WallEdge.West;
                 WallPieceKind kind = far ? WallPieceKind.Straight : WallPieceKind.Stub;
-                pieces.Add(new WallPiece(kind, OnLine(alongX, centre - shoulder, line), inward, alongX));
-                pieces.Add(new WallPiece(kind, OnLine(alongX, centre + shoulder, line), inward, alongX));
+                Vector3 inward = WallRoom.Inward(edge);
+                for (float start = centre - half - 0.5f; start < centre + half + 0.5f; start += 1f)
+                {
+                    pieces.Add(new WallPiece(kind, OnLine(alongX, start + 0.5f, line), inward, alongX, true));
+                }
             }
         }
 
