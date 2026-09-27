@@ -465,11 +465,18 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Content
             {
                 using (cancellation.Register(() =>
                 {
+                    UnityEngine.Debug.Log("[DIAG] cancel-callback enter thread=" + System.Threading.Thread.CurrentThread.ManagedThreadId
+                        + " syncCtx=" + (System.Threading.SynchronizationContext.Current?.GetType().FullName ?? "null"));
                     releaseOnCompletion = true;
                     completion.TrySetResult(false);
+                    UnityEngine.Debug.Log("[DIAG] cancel-callback after TrySetResult, completion.Task.IsCompleted=" + completion.Task.IsCompleted);
                 }))
                 {
-                    return await completion.Task;
+                    UnityEngine.Debug.Log("[DIAG] before await completion.Task, thread=" + System.Threading.Thread.CurrentThread.ManagedThreadId
+                        + " syncCtx=" + (System.Threading.SynchronizationContext.Current?.GetType().FullName ?? "null"));
+                    bool r = await completion.Task;
+                    UnityEngine.Debug.Log("[DIAG] after await completion.Task resumed, r=" + r + " thread=" + System.Threading.Thread.CurrentThread.ManagedThreadId);
+                    return r;
                 }
             }
 
