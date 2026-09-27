@@ -686,12 +686,12 @@
       "authority": "committed_task_specific_authoritative_validation_policy"
     },
     "NSC-131": {
-      "task_contract_sha256": "d23e82da9af187c0497dc8c04f6b8954b39d47f7f987e8cab75597669c4604b9",
+      "task_contract_sha256": "e5d5b8920c14bfebaf02ebfc8b33ce8f54c34a691bf85960983bf26e3a0f8e09",
       "required_test_platforms": [
         "PlayMode"
       ],
       "test_filters": {
-        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.RuntimeWorldEnemyNavMeshPlayModeTests"
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.RuntimeWorldEnemyNavMeshPlayModeTests;NoSafeCircle.DoorPrototype.Tests.EnemySightFallbackPlayModeTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
     }
