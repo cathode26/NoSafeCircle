@@ -38,9 +38,9 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.AreEqual(1, button.onClick.GetPersistentEventCount());
             Assert.AreEqual(nameof(TitleScreenController.StartGame),
                 button.onClick.GetPersistentMethodName(0));
-            Assert.AreEqual((Color)new Color32(152, 65, 119, 255), button.targetGraphic.color);
-            Assert.AreEqual((Color)new Color32(255, 211, 225, 255), button.colors.highlightedColor);
-            Assert.AreEqual((Color)new Color32(205, 145, 178, 255), button.colors.pressedColor);
+            AssertColor((Color)new Color32(152, 65, 119, 255), button.targetGraphic.color);
+            AssertColor((Color)new Color32(255, 211, 225, 255), button.colors.highlightedColor);
+            AssertColor((Color)new Color32(205, 145, 178, 255), button.colors.pressedColor);
 
             TitleScreenChaseBackdrop[] backdrops = hud.GetComponents<TitleScreenChaseBackdrop>();
             Assert.AreEqual(1, backdrops.Length);
@@ -61,6 +61,14 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.AreEqual(expected, text.text);
             Assert.LessOrEqual(text.rectTransform.anchorMax.x, 0.5f);
             Assert.AreEqual(TextAnchor.MiddleLeft, text.alignment);
+        }
+
+        private static void AssertColor(Color expected, Color actual)
+        {
+            Assert.That(actual.r, Is.EqualTo(expected.r).Within(0.00001f));
+            Assert.That(actual.g, Is.EqualTo(expected.g).Within(0.00001f));
+            Assert.That(actual.b, Is.EqualTo(expected.b).Within(0.00001f));
+            Assert.That(actual.a, Is.EqualTo(expected.a).Within(0.00001f));
         }
     }
 }
