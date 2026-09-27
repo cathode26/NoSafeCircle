@@ -1,0 +1,82 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "8f3918dc48969c3c32e09acb8835b5490d86b11f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/north-east/frame_004.png",
+      "role": "replaced_defective_hat_frame"
+    },
+    {
+      "blob_sha": "805cb0e169a691fd8125e997bc85cf15843f48dc",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/walk/north-east/frame_005.png",
+      "role": "replaced_defective_hat_frame"
+    },
+    {
+      "blob_sha": "50bbe611fca00b8b9564a8c6f572868d7a359989",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/source-inventory.json",
+      "role": "replacement_frame_provenance_record"
+    },
+    {
+      "blob_sha": "e0405fa5e3baadcc028ea23d6debd6dc5eff0102",
+      "path": "Docs/Art/Wizard/PIXELLAB_GENERATION.md",
+      "role": "replacement_frame_provenance_record"
+    }
+  ],
+  "delivery": {
+    "base_commit": "9a3d22c56e0b77f346913b0e4f0de40d3f6b99d6",
+    "candidate_commit": "18089b06036e55c1074439a985e7d6fee50bd2ce",
+    "integrated_commit": "f3207f8627b9ba667c155870144b17e7ac5b8140",
+    "integrated_tree": "f509f4a4585d79014a9ac7011a8d2d1792af73c6"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "e8af4c20dec598b8c832447941cc9f0f99b6e9da",
+          "path": "Pipeline/TaskGraph/evidence/NSC-073/artifacts/WizardArtIntegrationTests-EditMode-f3207f8627b9.xml"
+        },
+        {
+          "blob_sha": "a1b2178067eaccc7c97b8f118fdc6a2c4c03e2be",
+          "path": "Pipeline/TaskGraph/evidence/NSC-073/artifacts/WizardArtIntegrationTests-EditMode-f3207f8627b9.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Unity EditMode filter NoSafeCircle.DoorPrototype.Tests.Editor.WizardArtIntegrationTests, 2/2 passed, 0 failed, 0 skipped, at commit f3207f86 (clean before and after). ApprovedSourceFramesHaveExactImportGeometryAndGroundPivot asserts the exact set of 224 approved source PNGs across all 4 variants x 8 directions x 7 frame positions (1 standing + 6 walk) exists, is distinct, and shares Sprite import geometry and feet/ground pivot -- this set includes the feminine-light (White Female) north-east walk frames 000-005, i.e. the six frames this task's AC-001/VAL-001 names, at their unchanged existing paths (frame_004.png and frame_005.png hold the replacement content; frames 000-003 are untouched). GeneratedWizardControllerHasExactStateClipAndSpriteMappings asserts every Animator state, including the feminine-light north-east walk state, resolves to its exact same-named clip with an ordered sprite curve referencing only that variant's and direction's own frames in position order -- proving no mixed wizard or direction reference and that all six frames remain present in order with unchanged Unity identity. The replacement frames' generation identifiers, prompt/settings and selected-file mapping are recorded in this record's own conformance_surfaces (source-inventory.json 'corrections' entries and Docs/Art/Wizard/PIXELLAB_GENERATION.md, both bound at commit f3207f86), which is the provenance half of VAL-001's requirement; the test class does not itself read PixelLab generation metadata.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "b604613c2edc50935235aeae331cebb035f799e9",
+          "path": "Pipeline/TaskGraph/evidence/NSC-073/artifacts/VincentVAL002Approval-f3207f8627b9.txt"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "Vincent Liguori, typed directly in the GER Agent session (per GER's handoff C:/nscrev/reports/handoffs/ger-20260927-delivery-records-nsc062-nsc067.md, 2026-09-27): \"NSC-070 / NSC-073 / NSC-074 / NSC-075 ... These are all done\", said in the same message as NSC-067 (\"is done too\") and NSC-068 (\"This is also done\"). This is recorded as his general approval that the task is done. It is NOT recorded as a claim that he selected the White Female wizard in Assets/Scenes/RuntimeWorld.unity, walked her northeast long enough to view the complete loop, and confirmed the hat and wizard identity remain continuous across all six frames, as VAL-002's own text describes -- he did not name that scene, that direction or that walkthrough, and this record does not attribute them to him.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "Vincent Liguori",
+    "decision": "approved",
+    "notes": "Typed directly in the GER Agent session, per GER's handoff C:/nscrev/reports/handoffs/ger-20260927-delivery-records-nsc062-nsc067.md (2026-09-27): \"NSC-070 / NSC-073 / NSC-074 / NSC-075 ... These are all done\" (same message as NSC-067 \"is done too\" and NSC-068 \"This is also done\"). A general completion declaration naming NSC-073 by ID in a short list, not a description of a specific in-engine northeast walk of the White Female wizard in RuntimeWorld.unity; this record does not claim the latter.",
+    "required": true
+  },
+  "record_id": "DEL-NSC-073-f3207f8627b9",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-27T14:17:33Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-073.yaml",
+    "revision": 2,
+    "sha256": "be485c6fb215a23c01d7582a7c955ac03e77839d1ee80848c31fec9d8e805242"
+  },
+  "task_id": "NSC-073",
+  "validated_state": {
+    "commit": "f3207f8627b9ba667c155870144b17e7ac5b8140",
+    "tree": "f509f4a4585d79014a9ac7011a8d2d1792af73c6"
+  }
+}
