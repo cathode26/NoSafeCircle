@@ -120,6 +120,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 yield return null;
             }
             Assert.IsFalse(startDoor.IsOpen, "The start door never sealed behind the wizard.");
+            Assert.GreaterOrEqual(chase.EntryWizardTransform.position.z -
+                startDoor.transform.position.z, 2f,
+                "The wizard still overlaps the entrance wall at the seal frame.");
             Transform doorVisual = startDoor.transform.Find("DoorVisual");
             Assert.IsNotNull(doorVisual);
             Assert.IsTrue(doorVisual.gameObject.activeSelf,

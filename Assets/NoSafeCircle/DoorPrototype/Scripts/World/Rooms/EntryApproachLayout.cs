@@ -23,7 +23,7 @@ namespace NoSafeCircle.DoorPrototype.World.Rooms
         public static Vector3 WizardEntryStart => new Vector3(CenterX, 0f, -60f);
         public static Vector3 PursuerEntryStart => new Vector3(CenterX, 0f, -62.5f);
         public static Vector3 PursuerStop => new Vector3(CenterX, 0f, -53.5f);
-        public static Vector3 DoorCloseTrigger => new Vector3(CenterX, 0f, -50.75f);
+        public static Vector3 DoorCloseTrigger => new Vector3(CenterX, 0f, -49.75f);
         public static Vector3 FirstRoomArrival => new Vector3(CenterX, 0f, -48f);
     }
 }

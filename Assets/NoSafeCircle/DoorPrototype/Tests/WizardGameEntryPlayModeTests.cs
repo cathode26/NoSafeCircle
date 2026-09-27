@@ -270,6 +270,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsTrue(gateLeaf.gameObject.activeSelf);
             Assert.IsTrue(gateObstacle.enabled);
             Assert.Greater(chase.EntryWizardTransform.position.z, EntryApproachLayout.GateZ);
+            Assert.GreaterOrEqual(chase.EntryWizardTransform.position.z - gate.transform.position.z,
+                2f, "The door should seal after the wizard clears its wall sprites.");
             Assert.Less(chase.EntryPursuerTransform.position.z, EntryApproachLayout.GateZ);
             Assert.AreEqual(3, chase.FiredEntryShotCount);
             Assert.AreEqual(1, chase.EntryImpactCount);
