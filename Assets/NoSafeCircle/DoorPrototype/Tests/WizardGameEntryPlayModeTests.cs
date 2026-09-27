@@ -214,6 +214,12 @@ namespace NoSafeCircle.DoorPrototype.Tests
             EntranceDoor gate = FindInScene(scene, "EntranceDoor")
                 .GetComponent<EntranceDoor>();
             Transform gateLeaf = gate.transform.Find("DoorVisual");
+            Assert.IsNotNull(gateLeaf);
+            SpriteRenderer gateRenderer = gateLeaf.GetComponentInChildren<SpriteRenderer>();
+            Assert.IsNotNull(gateRenderer);
+            BoxCollider gateBlocker = gateLeaf.GetComponent<BoxCollider>();
+            Assert.IsNotNull(gateBlocker);
+            Sprite gateSealedSprite = gateRenderer.sprite;
             UnityEngine.AI.NavMeshObstacle gateObstacle =
                 gate.GetComponent<UnityEngine.AI.NavMeshObstacle>();
             IsometricCameraFollow follow = Camera.main.GetComponent<IsometricCameraFollow>();
@@ -226,7 +232,6 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "The title chase lane must include the player's new south-wall starting view.");
             Assert.IsNotNull(passability);
             Assert.IsNotNull(gate);
-            Assert.IsNotNull(gateLeaf);
             Assert.IsNotNull(gateObstacle);
             Assert.IsNotNull(follow);
             Assert.AreEqual(EntryApproachLayout.StartDoorCenter, gate.transform.position);
@@ -245,7 +250,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsFalse(movement.IsGameplayEnabled);
             Assert.IsFalse(interaction.IsGameplayEnabled);
             Assert.IsTrue(gate.IsOpen, "The first room entrance opens for the inbound wizard.");
-            Assert.IsFalse(gateLeaf.gameObject.activeSelf);
+            Assert.IsTrue(gateLeaf.gameObject.activeSelf);
+            Assert.AreEqual("door_bonestone_open_SW_000", gateRenderer.sprite.texture.name);
+            Assert.IsFalse(gateBlocker.enabled);
             Assert.IsFalse(gateObstacle.enabled);
             Assert.IsFalse(door.IsOpen, "D1 is the later gameplay exit and must not open during entry.");
             Assert.IsTrue(blocker.enabled);
@@ -268,6 +275,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             Assert.IsFalse(gate.IsOpen, "The entrance door must close behind the wizard.");
             Assert.IsTrue(gateLeaf.gameObject.activeSelf);
+            Assert.AreSame(gateSealedSprite, gateRenderer.sprite);
+            Assert.IsTrue(gateBlocker.enabled);
             Assert.IsTrue(gateObstacle.enabled);
             Assert.Greater(chase.EntryWizardTransform.position.z, EntryApproachLayout.GateZ);
             Assert.GreaterOrEqual(chase.EntryWizardTransform.position.z - gate.transform.position.z,

@@ -66,6 +66,16 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsNotNull(chase, "RuntimeWorld has no entry chase component.");
             Assert.IsNotNull(startDoor, "RuntimeWorld did not spawn the first room entrance door.");
             Assert.IsFalse(startDoor.IsOpen, "The door should begin sealed on the title screen.");
+            Transform doorVisual = startDoor.transform.Find("DoorVisual");
+            Assert.IsNotNull(doorVisual);
+            SpriteRenderer doorLeaf = doorVisual.GetComponentInChildren<SpriteRenderer>();
+            BoxCollider doorBlocker = doorVisual.GetComponent<BoxCollider>();
+            UnityEngine.AI.NavMeshObstacle doorObstacle =
+                startDoor.GetComponent<UnityEngine.AI.NavMeshObstacle>();
+            Assert.IsNotNull(doorLeaf);
+            Assert.IsNotNull(doorBlocker);
+            Assert.IsNotNull(doorObstacle);
+            Sprite sealedDoorSprite = doorLeaf.sprite;
             float gameplayCameraSize = gameCamera.orthographicSize;
 
             var manifest = new StringBuilder();
@@ -105,6 +115,20 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Capture(output, "04-third-fireball-hit-flight", gameCamera, canvas, manifest,
                 entry, chase, startDoor);
             yield return WaitForActiveObject("TitleEntryFireballImpact", VisualWaitSeconds);
+            Assert.IsTrue(startDoor.IsOpen,
+                "The door sealed before the wizard's fireball hit was shown.");
+            Assert.IsTrue(doorVisual.gameObject.activeInHierarchy,
+                "The open entrance must remain visibly framed by its door sprite.");
+            Assert.IsTrue(doorLeaf.enabled);
+            Assert.Greater(doorLeaf.color.a, 0.9f);
+            Assert.AreEqual("door_bonestone_open_SW_000", doorLeaf.sprite.texture.name,
+                "The entrance should use the approved isometric open SW art.");
+            Assert.IsTrue(GeometryUtility.TestPlanesAABB(
+                GeometryUtility.CalculateFrustumPlanes(gameCamera), doorLeaf.bounds),
+                "The open entrance should be inside the hit frame's camera view.");
+            Assert.IsFalse(doorBlocker.enabled,
+                "The open door's visible arch must permit passage.");
+            Assert.IsFalse(doorObstacle.enabled);
             Capture(output, "05-fireball-hit-impact", gameCamera, canvas, manifest,
                 entry, chase, startDoor);
 
@@ -119,14 +143,14 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.GreaterOrEqual(chase.EntryWizardTransform.position.z -
                 startDoor.transform.position.z, 2f,
                 "The wizard still overlaps the entrance wall at the seal frame.");
-            Transform doorVisual = startDoor.transform.Find("DoorVisual");
-            Assert.IsNotNull(doorVisual);
             Assert.IsTrue(doorVisual.gameObject.activeSelf,
                 "The start door reports closed but its leaf is hidden.");
-            SpriteRenderer doorLeaf = doorVisual.GetComponentInChildren<SpriteRenderer>();
-            Assert.IsNotNull(doorLeaf);
+            Assert.AreSame(sealedDoorSprite, doorLeaf.sprite,
+                "The entrance did not restore its sealed door sprite.");
             Assert.Greater(doorLeaf.color.a, 0.9f,
                 "The entrance door leaf became translucent when it sealed.");
+            Assert.IsTrue(doorBlocker.enabled);
+            Assert.IsTrue(doorObstacle.enabled);
             Assert.IsFalse(entry.HasEnteredGameplay,
                 "The door must visibly seal before control starts.");
             Capture(output, "06-start-door-sealed", gameCamera, canvas, manifest,

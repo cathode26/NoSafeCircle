@@ -45,3 +45,4 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier:
   authoredDoorPrefab: {fileID: 187812820370042974, guid: 3a204db85973c728073d70f4f3654f27, type: 3}
+  openDoorSprite: {fileID: 21300000, guid: a8604ab3430046f1be4d3353a4c47b4d, type: 3}

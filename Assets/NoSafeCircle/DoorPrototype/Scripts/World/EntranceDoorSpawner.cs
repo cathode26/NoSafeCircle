@@ -9,6 +9,7 @@ namespace NoSafeCircle.DoorPrototype.World
     public sealed class EntranceDoorSpawner : MonoBehaviour, ISpawner
     {
         [SerializeField] private GameObject authoredDoorPrefab;
+        [SerializeField] private Sprite openDoorSprite;
 
         public SpawnPhase Phase => SpawnPhase.Doors;
         public int SpawnedCount { get; private set; } = -1;
@@ -24,9 +25,11 @@ namespace NoSafeCircle.DoorPrototype.World
 
             Transform leafSource = authoredDoorPrefab != null
                 ? authoredDoorPrefab.transform.Find("DoorVisual") : null;
-            if (leafSource == null)
+            if (leafSource == null ||
+                leafSource.GetComponentInChildren<SpriteRenderer>() == null ||
+                leafSource.GetComponent<BoxCollider>() == null || openDoorSprite == null)
             {
-                Debug.LogError("EntranceDoorSpawner: Door prefab is missing DoorVisual.");
+                Debug.LogError("EntranceDoorSpawner: DoorVisual, its sprite and blocker, and the open SW sprite are required.");
                 SpawnedCount = 0;
                 return 0;
             }
@@ -49,7 +52,7 @@ namespace NoSafeCircle.DoorPrototype.World
                 EntryApproachLayout.WallHeight, EntryApproachLayout.WallThickness);
             obstacle.carving = true;
 
-            root.AddComponent<EntranceDoor>().Configure(leaf);
+            root.AddComponent<EntranceDoor>().Configure(leaf, openDoorSprite);
             SpawnedCount = 1;
             return 1;
         }

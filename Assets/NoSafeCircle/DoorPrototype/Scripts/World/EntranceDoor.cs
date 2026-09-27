@@ -10,14 +10,22 @@ namespace NoSafeCircle.DoorPrototype.World
     public sealed class EntranceDoor : MonoBehaviour
     {
         private GameObject leaf;
+        private SpriteRenderer doorSprite;
+        private Sprite sealedSprite;
+        private Sprite openSprite;
+        private BoxCollider doorwayBlocker;
         private NavMeshObstacle obstacle;
 
         public bool IsOpen { get; private set; }
         public event Action EntryCutsceneClosed;
 
-        public void Configure(GameObject visualLeaf)
+        public void Configure(GameObject visualLeaf, Sprite openDoorSprite)
         {
             leaf = visualLeaf;
+            doorSprite = leaf.GetComponentInChildren<SpriteRenderer>();
+            sealedSprite = doorSprite.sprite;
+            openSprite = openDoorSprite;
+            doorwayBlocker = leaf.GetComponent<BoxCollider>();
             obstacle = GetComponent<NavMeshObstacle>();
             IsOpen = false;
             ApplyState();
@@ -55,7 +63,11 @@ namespace NoSafeCircle.DoorPrototype.World
 
         private void ApplyState()
         {
-            if (leaf != null) leaf.SetActive(!IsOpen);
+            // The open SW sprite shows the stone doorway. Hide only its blocker so
+            // the cutscene actors can pass through the visible arch.
+            if (leaf != null) leaf.SetActive(true);
+            if (doorSprite != null) doorSprite.sprite = IsOpen ? openSprite : sealedSprite;
+            if (doorwayBlocker != null) doorwayBlocker.enabled = !IsOpen;
             if (obstacle != null) obstacle.enabled = !IsOpen;
         }
     }

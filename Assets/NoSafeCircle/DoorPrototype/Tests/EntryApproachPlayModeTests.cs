@@ -79,8 +79,29 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 Assert.AreEqual(EntryApproachLayout.StartDoorCenter, gate.transform.position);
                 Assert.AreEqual(RuinedEntryLayout.MinimumZ, gate.transform.position.z);
                 Assert.IsFalse(gate.IsOpen);
+                Transform visual = gate.transform.Find("DoorVisual");
+                Assert.IsNotNull(visual);
+                SpriteRenderer renderer = visual.GetComponentInChildren<SpriteRenderer>();
+                BoxCollider blocker = visual.GetComponent<BoxCollider>();
+                UnityEngine.AI.NavMeshObstacle obstacle =
+                    gate.GetComponent<UnityEngine.AI.NavMeshObstacle>();
+                Assert.IsNotNull(renderer);
+                Assert.IsNotNull(blocker);
+                Assert.IsNotNull(obstacle);
+                Sprite sealedSprite = renderer.sprite;
+                Assert.IsTrue(blocker.enabled);
+                Assert.IsTrue(obstacle.enabled);
 
                 Assert.IsTrue(gate.OpenForEntryCutscene());
+                Assert.IsTrue(visual.gameObject.activeInHierarchy,
+                    "The open entrance must show the authored SW stone arch.");
+                Assert.IsTrue(renderer.enabled);
+                Assert.Greater(renderer.color.a, 0.9f);
+                Assert.AreEqual("door_bonestone_open_SW_000", renderer.sprite.texture.name);
+                Assert.AreNotSame(sealedSprite, renderer.sprite);
+                Assert.IsFalse(blocker.enabled,
+                    "The visible open arch must not block the inbound wizard.");
+                Assert.IsFalse(obstacle.enabled);
                 Assert.IsFalse(gate.CloseAfterEntryCutscene(
                     new Vector3(-4f, 0f, -53f), EntryApproachLayout.PursuerStop));
                 Assert.IsFalse(gate.CloseAfterEntryCutscene(
@@ -88,12 +109,18 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 Assert.IsTrue(gate.CloseAfterEntryCutscene(
                     EntryApproachLayout.DoorCloseTrigger, EntryApproachLayout.PursuerStop));
                 Assert.IsFalse(gate.IsOpen);
-                Assert.IsTrue(gate.transform.Find("DoorVisual").gameObject.activeSelf);
+                Assert.IsTrue(visual.gameObject.activeSelf);
+                Assert.AreSame(sealedSprite, renderer.sprite);
+                Assert.IsTrue(blocker.enabled);
+                Assert.IsTrue(obstacle.enabled);
                 Assert.IsTrue(gate.OpenForEntryCutscene());
                 gate.ResetDoor();
                 Assert.IsFalse(gate.IsOpen,
                     "Interrupted entry must restore the gate to its sealed starting state.");
-                Assert.IsTrue(gate.transform.Find("DoorVisual").gameObject.activeSelf);
+                Assert.IsTrue(visual.gameObject.activeSelf);
+                Assert.AreSame(sealedSprite, renderer.sprite);
+                Assert.IsTrue(blocker.enabled);
+                Assert.IsTrue(obstacle.enabled);
             }
             finally
             {
