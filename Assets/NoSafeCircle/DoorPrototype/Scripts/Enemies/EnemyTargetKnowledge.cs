@@ -38,6 +38,13 @@ namespace NoSafeCircle.DoorPrototype.Enemies
         public Vector3 LastKnownPosition { get; private set; }
         public float SearchTimeRemaining => searchTimeRemaining;
 
+        /// <summary>Where this enemy's pursuit leash is currently tied. Set at spawn and then
+        /// TOWED: once the enemy runs out of slack the anchor is dragged along behind it so the
+        /// rope stays exactly <see cref="maximumPursuitDistanceFromStart"/> long. Exposed so a
+        /// test can observe the rope directly instead of inferring it from the give-up branch,
+        /// which no longer fires for an ordinary chase.</summary>
+        public Vector3 PursuitAnchor => startPosition;
+
         private void Awake()
         {
             ValidateDistances(detectionDistance, loseTargetDistance);
@@ -107,20 +114,37 @@ namespace NoSafeCircle.DoorPrototype.Enemies
                     return;
                 }
 
-                // Dragged too far from its post: give up and head back rather than following
-                // the wizard onto a doorway.
-                if (State == EnemyTargetKnowledgeState.Pursuing && IsBeyondPursuitLeash())
+                // THE ANCHOR IS TOWED, NOT A WALL. Vincent, 2026-09-27: "the enemy post is fixed
+                // where it spawned, but it needs to be allowed to drag its leash anchor."
+                // IsBeyondPursuitLeash drags startPosition to stay exactly
+                // maximumPursuitDistanceFromStart behind, so for an ordinary chase the rope is
+                // never actually broken and pursuit CONTINUES. The call is made for its towing
+                // effect, so it is assigned rather than buried in a condition.
+                //
+                // WHY TOWING ALONE WAS NOT THE FIX. Dragging the anchor while still abandoning the
+                // chase produces the defect he reported: the enemy walks out to the slack limit,
+                // gives up, walks back to the anchor it just towed, re-acquires, and repeats -
+                // settling into a pace one leash-length long. "The enemy keeps pacing back and
+                // forth" is that loop. The anchor has to move AND the give-up has to go.
+                //
+                // A DECOY REDIRECT STILL ENDS HERE, and it is not a leftover. NSC-111 is
+                // conformant with a delivery record and its criterion (3) requires that moving a
+                // REDIRECTED enemy beyond the leash clears the redirect record, keeps the wizard as
+                // CurrentTarget and searches the start position; that is preserved exactly.
+                // NSC-091 owns this file and mentions the leash zero times, so nothing constrains
+                // the ordinary path. Both checked at source before this was written.
+                if (State == EnemyTargetKnowledgeState.Pursuing)
                 {
-                    if (isRedirectedToSpectralDecoy)
+                    bool ranOutOfSlack = IsBeyondPursuitLeash();
+                    if (ranOutOfSlack && isRedirectedToSpectralDecoy)
                     {
                         ClearSpectralDecoyRedirectState();
                         CurrentTarget = wizardTransform;
+                        LastKnownPosition = startPosition;
+                        State = EnemyTargetKnowledgeState.SearchingLastKnownPosition;
+                        searchTimeRemaining = 0f;
+                        return;
                     }
-
-                    LastKnownPosition = startPosition;
-                    State = EnemyTargetKnowledgeState.SearchingLastKnownPosition;
-                    searchTimeRemaining = 0f;
-                    return;
                 }
 
                 if (State == EnemyTargetKnowledgeState.Pursuing
