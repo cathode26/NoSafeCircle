@@ -35,6 +35,31 @@ POOL_LEASE_MOUNT = "/nsc-pool/decomposition-leases.json"
 _model_environment_arguments = model_environment_arguments
 
 
+def explicit_timeouts_supported(
+    *, max_calls: int, continue_from: str | None, bookkeeper_model: str | None,
+) -> bool:
+    """Which decomposition shapes may carry an explicit timeout profile.
+
+    ONE RULE, CALLED FROM BOTH SIDES. This existed as a condition inside the command builder while
+    the host separately decided when to BUILD a profile, and the designer/bookkeeper split extended
+    the host's side without the transport's: the host builds a profile for ANY bookkeeper run,
+    including the default two-call one, and the transport accepted only the three-call profile or a
+    continuation. So `decompose --bookkeeper-model <model>` raised before any provider started, for
+    every invocation, from the day the split landed.
+
+    Naming the rule is the repair. Patching the condition would have fixed today's combination and
+    left the next extension free to drift the same way -- the host's decision is now
+    `decomposition.launch_timeout_profile` and a test requires the two to agree over every
+    combination.
+    """
+
+    if continue_from is not None:
+        return True
+    if bookkeeper_model is not None:
+        return True
+    return max_calls == 3
+
+
 def build_compose_command(
     *, task_id: str, project: str, providers: str, max_calls: int,
     run_id: str, pool_assignment: Mapping[str, Any] | None = None,
@@ -121,9 +146,13 @@ def build_compose_command(
     # The host supplies verified inherited timeouts for v2 continuations.
     # Other runs retain the existing three-call timeout contract.
     if timeout_environment is not None:
-        if ((continue_from is None and max_calls != 3)
+        if (not explicit_timeouts_supported(max_calls=max_calls, continue_from=continue_from,
+                                            bookkeeper_model=bookkeeper_model)
                 or set(timeout_environment) != set(TIMEOUT_ENVIRONMENT_NAMES)):
-            raise ValueError("Explicit decomposition timeouts require the three-call profile or a continuation")
+            raise ValueError(
+                "Explicit decomposition timeouts require the three-call profile, the "
+                "designer/bookkeeper split, or a continuation"
+            )
         for name in sorted(timeout_environment):
             value = timeout_environment[name]
             if continue_from is not None:
@@ -170,4 +199,5 @@ TIMEOUT_ENVIRONMENT_NAMES = (
 )
 
 
-__all__ = ["MODEL_ENVIRONMENT_NAMES", "POOL_LEASE_MOUNT", "TIMEOUT_ENVIRONMENT_NAMES", "build_compose_command"]
+__all__ = ["MODEL_ENVIRONMENT_NAMES", "POOL_LEASE_MOUNT", "TIMEOUT_ENVIRONMENT_NAMES",
+           "build_compose_command", "explicit_timeouts_supported"]

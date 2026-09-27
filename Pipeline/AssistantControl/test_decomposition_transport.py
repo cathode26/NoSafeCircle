@@ -1,3 +1,4 @@
+import ast
 import tempfile
 import unittest
 from pathlib import Path
@@ -5,7 +6,12 @@ from pathlib import Path
 from Pipeline.AssistantControl.decomposition_transport import (
     POOL_LEASE_MOUNT,
     build_compose_command,
+    explicit_timeouts_supported,
 )
+
+TIMEOUT_NAMES = {"task_decomposer": "NSC_TASK_DECOMPOSER_TIMEOUT_SECONDS",
+                 "decomposition_reviewer": "NSC_DECOMPOSITION_REVIEWER_TIMEOUT_SECONDS"}
+ASSISTANT_CONTROL = Path(__file__).resolve().parent
 
 
 REPOSITORY = "https://example.invalid/NoSafeCircle.git"
@@ -75,7 +81,7 @@ class DecompositionTransportTests(unittest.TestCase):
                     max_calls=budget, run_id="nsc-025-run",
                 )
 
-    def test_explicit_timeouts_belong_only_to_the_three_call_profile(self):
+    def test_explicit_timeouts_belong_to_three_call_bookkeeper_or_continuation_runs(self):
         timeouts = {"NSC_TASK_DECOMPOSER_TIMEOUT_SECONDS": 1440,
                     "NSC_DECOMPOSITION_REVIEWER_TIMEOUT_SECONDS": 1200}
         command = build_compose_command(
@@ -92,6 +98,97 @@ class DecompositionTransportTests(unittest.TestCase):
                     task_id="NSC-025", project="assistant-nsc", providers="claude,codex",
                     max_calls=budget, run_id="nsc-025-run", timeout_environment=value,
                 )
+
+    def test_the_default_two_call_bookkeeper_run_carries_its_timeouts(self):
+        """F10: this exact shape raised ValueError before any provider started, every time.
+
+        `decompose --bookkeeper-model <model>` takes the CLI's default budget of TWO calls, the host
+        builds a timeout profile for any bookkeeper run, and the transport accepted a profile only
+        for three calls or a continuation. Three individually defensible decisions, and the
+        documented command could not run at all.
+        """
+        timeouts = {TIMEOUT_NAMES["task_decomposer"]: 1440,
+                    TIMEOUT_NAMES["decomposition_reviewer"]: 1200}
+        command = build_compose_command(
+            task_id="NSC-025", project="assistant-nsc", providers="claude,codex",
+            max_calls=2, run_id="nsc-025-run", timeout_environment=timeouts,
+            bookkeeper_model="claude-opus-5",
+        )
+        self.assertIn("NSC_TASK_DECOMPOSER_TIMEOUT_SECONDS=1440", command)
+        self.assertIn("NSC_DECOMPOSITION_REVIEWER_TIMEOUT_SECONDS=1200", command)
+        self.assertIn("--bookkeeper-model", command)
+        self.assertIn("claude-opus-5", command)
+        # The control: the SAME budget and timeouts without the bookkeeper is still refused, so the
+        # permission is scoped to the combination rather than opened for every two-call run.
+        with self.assertRaises(ValueError):
+            build_compose_command(
+                task_id="NSC-025", project="assistant-nsc", providers="claude,codex",
+                max_calls=2, run_id="nsc-025-run", timeout_environment=timeouts,
+            )
+
+    def test_the_host_never_builds_a_profile_the_transport_would_refuse(self):
+        """The drift pin, and the one test that would have caught F10.
+
+        The host decides when a profile EXISTS and the transport decides when one is ALLOWED. Both
+        rules were correct in isolation and disagreed for every bookkeeper invocation, because
+        neither was callable and nothing compared them. Now both are functions and this walks the
+        whole combination table.
+
+        The host module is imported here deliberately: the defect lived in the SEAM, so a test that
+        stays on one side of it cannot see the next one either.
+        """
+        from Pipeline.AssistantControl.decomposition import launch_timeout_profile
+
+        checked = 0
+        for max_calls in (2, 3):
+            for bookkeeper in (None, "claude-opus-5"):
+                for continuation in (None, "nsc-025-earlier"):
+                    with self.subTest(max_calls=max_calls, bookkeeper=bool(bookkeeper),
+                                      continuation=bool(continuation)):
+                        try:
+                            built = launch_timeout_profile(
+                                {}, providers="claude,codex", max_calls=max_calls,
+                                continue_from=continuation, bookkeeper_model=bookkeeper,
+                            ) is not None
+                        except ValueError:
+                            continue          # the host refuses this shape outright
+                        checked += 1
+                        if not built:
+                            continue
+                        self.assertTrue(
+                            explicit_timeouts_supported(
+                                max_calls=max_calls, continue_from=continuation,
+                                bookkeeper_model=bookkeeper),
+                            "the host builds a timeout profile the transport refuses: "
+                            f"max_calls={max_calls} bookkeeper={bool(bookkeeper)} "
+                            f"continuation={bool(continuation)}",
+                        )
+        self.assertEqual(8, checked, "the combination table stopped covering every shape")
+        # bookkeeper-with-continuation is unreachable through `run`, which refuses it earlier
+        # because a continuation inherits its bookkeeper configuration. It is walked here anyway:
+        # an unreachable combination that the two rules disagree about is a latent version of F10.
+
+    def test_the_cli_default_budget_is_the_one_the_bookkeeper_path_uses(self):
+        """Read the default out of the parser source, so the covered shape is the shipped one.
+
+        F10 was invisible partly because the broken combination is what you get by typing the
+        documented command with no budget flag. If that default ever moves to 3, the test above stops
+        covering the shape a user actually runs, and this fails rather than going quietly stale.
+        """
+        tree = ast.parse((ASSISTANT_CONTROL / "__main__.py").read_text(encoding="utf-8"))
+        defaults = []
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            literals = [a.value for a in node.args if isinstance(a, ast.Constant)]
+            if "--max-calls" not in literals:
+                continue
+            for keyword in node.keywords:
+                if keyword.arg == "default" and isinstance(keyword.value, ast.Constant):
+                    defaults.append(keyword.value.value)
+        self.assertEqual([2], defaults,
+                         "the decompose --max-calls default moved; the bookkeeper regression above "
+                         "no longer covers the shape a plain command produces")
 
     def test_cross_provider_command_refuses_a_pool_assignment(self):
         """Two distinct providers are independent by provider identity, so they

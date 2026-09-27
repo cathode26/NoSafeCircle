@@ -19,7 +19,10 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from Pipeline.AssistantControl.checkouts import Checkouts, write_record
-from Pipeline.AssistantControl.decomposition_transport import build_compose_command
+from Pipeline.AssistantControl.decomposition_transport import (
+    build_compose_command,
+    explicit_timeouts_supported,
+)
 from Pipeline.AssistantControl.inspect_project import changes, git
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
 from Pipeline.TaskReviewAgent.contracts import validate_task_id
@@ -780,6 +783,28 @@ def three_call_timeout_profile(
 CONTINUATION_MAX_CALLS = 4
 
 
+def launch_timeout_profile(
+    environment: Mapping[str, str], *, providers: str, max_calls: int,
+    continue_from: str | None, bookkeeper_model: str | None,
+) -> dict[str, int] | None:
+    """The explicit timeout profile a launch will carry, or ``None`` for the engine's own.
+
+    Extracted from ``run`` so it can be compared against the transport's
+    ``explicit_timeouts_supported``. It used to be four inline lines, and the pair silently
+    disagreed for every ``--bookkeeper-model`` invocation: this side built a profile, the other side
+    refused it, and no test could see the disagreement because neither rule was callable.
+    """
+
+    if max_calls == 3 and continue_from is None:
+        requested = tuple(item.strip() for item in providers.split(",") if item.strip())
+        if len(requested) != 2 or len(set(requested)) != 2:
+            raise ValueError("A three-call decomposition budget requires two distinct providers")
+        return three_call_timeout_profile(environment, bookkeeper=bookkeeper_model is not None)
+    if bookkeeper_model is not None:
+        return three_call_timeout_profile(environment, bookkeeper=True)
+    return None
+
+
 def continuation_outer_timeout(
     max_calls: int, profile: Mapping[str, int | float] | None = None, *, bookkeeper: bool = False,
 ) -> int | float:
@@ -1319,14 +1344,28 @@ def run(
         requested = tuple(item.strip() for item in providers.split(",") if item.strip())
         if len(set(requested)) != 2:
             raise ValueError("The designer/bookkeeper split requires two distinct providers")
-    timeout_profile = None
-    if max_calls == 3 and continue_from is None:
-        requested = tuple(item.strip() for item in providers.split(",") if item.strip())
-        if len(requested) != 2 or len(set(requested)) != 2:
-            raise ValueError("A three-call decomposition budget requires two distinct providers")
-        timeout_profile = three_call_timeout_profile(os.environ, bookkeeper=bookkeeper_model is not None)
-    elif bookkeeper_model is not None:
-        timeout_profile = three_call_timeout_profile(os.environ, bookkeeper=True)
+    timeout_profile = launch_timeout_profile(
+        os.environ, providers=providers, max_calls=max_calls,
+        continue_from=continue_from, bookkeeper_model=bookkeeper_model,
+    )
+    # REFUSE BEFORE THE RECORD EXISTS, and NO SINGLE TEST FAILS WHEN THIS IS REMOVED -- measured,
+    # not assumed. It can only fire if the two rules disagree, and the drift test forbids that, so
+    # its failure path is excluded BY ANOTHER TEST rather than untested. What it buys is ORDERING:
+    # without it a drifted combination fails inside the command builder, after a launch record
+    # exists that then has to be marked failed. Kept for that, and said out loud instead of left
+    # looking like covered ground.
+    # The transport would refuse an unsupported combination too,
+    # but only after this function has written a launch record that then has to be marked failed --
+    # a paid-looking failure for a command that could never run. This is also the guard against the
+    # two rules drifting again: if the decision above ever produces a profile the transport will not
+    # accept, it is named here, at the option combination, rather than deep in a command builder.
+    if timeout_profile is not None and not explicit_timeouts_supported(
+            max_calls=max_calls, continue_from=continue_from, bookkeeper_model=bookkeeper_model):
+        raise ValueError(
+            "This decomposition builds an explicit timeout profile that its transport does not "
+            "accept: max_calls=%r, bookkeeper=%s, continuation=%s"
+            % (max_calls, bookkeeper_model is not None, continue_from is not None)
+        )
     labels = dict(container_labels or {})
     for key, value in labels.items():
         if not _LABEL_KEY.fullmatch(str(key)) or not _LABEL_VALUE.fullmatch(str(value)):
