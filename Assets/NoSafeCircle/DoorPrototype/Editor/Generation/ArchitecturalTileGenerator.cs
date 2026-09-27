@@ -266,6 +266,44 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
 
                 return tile;
             }
+
+            // ------------------------------------------------------------------------------
+            // F4 audit fix (2026-09-26): a read-only twin of LoadOrCreateBoneArchiveFloorTile
+            // for BoneArchiveSceneBuilder.BuildInMemoryForTests. Reachable ONLY from a room's
+            // test-in-memory path, never from BuildAndSave/RegenerateAssetsMenu.
+            //
+            // No AssetDatabase.CreateAsset, no EditorUtility.SetDirty, no SaveAssetIfDirty, no
+            // Directory.CreateDirectory, no AssetDatabase.Refresh - not even the folder-ensure
+            // branch above, since a read never needs the folder to exist. If the committed tile
+            // is wrong (wrong sprite, or a collider that should be None), it is returned exactly
+            // as committed so the defect stays visible instead of being silently repaired and
+            // saved by a test's own setup. Only when the asset is genuinely absent does this
+            // fall back to an in-memory HideAndDontSave Tile, tracked via OwnTransientObject so
+            // CleanupTransientObjects reclaims it and never mistakes it for a real asset.
+            // ------------------------------------------------------------------------------------
+            internal static Tile LoadBoneArchiveFloorTileForTests(
+                string tileName, string tilePath, string sourceSpritePath)
+            {
+                Sprite sourceSprite = AssetDatabase.LoadAssetAtPath<Sprite>(sourceSpritePath);
+                if (sourceSprite == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Bone Archive requires the committed sprite at '{sourceSpritePath}'.");
+                }
+
+                Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(tilePath);
+                if (tile != null)
+                {
+                    return tile;
+                }
+
+                Tile transientTile = OwnTransientObject(ScriptableObject.CreateInstance<Tile>());
+                transientTile.name = tileName;
+                transientTile.colliderType = Tile.ColliderType.None;
+                transientTile.hideFlags = HideFlags.HideAndDontSave;
+                transientTile.sprite = sourceSprite;
+                return transientTile;
+            }
         }
 
         // ------------------------------------------------------------------------------------
@@ -412,6 +450,36 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
                 }
 
                 return tile;
+            }
+
+            // ------------------------------------------------------------------------------
+            // F4 audit fix (2026-09-26): read-only twin of LoadOrCreateFloorTile for
+            // FinalRoomSceneBuilder.BuildInMemoryForTests. Same contract as
+            // BoneArchive.LoadBoneArchiveFloorTileForTests above: no writes reachable, wrong
+            // committed data returned as-is, in-memory transient Tile only when absent.
+            // ------------------------------------------------------------------------------------
+            internal static Tile LoadFloorTileForTests(
+                string tileName, string tilePath, string sourceSpritePath)
+            {
+                Sprite sourceSprite = AssetDatabase.LoadAssetAtPath<Sprite>(sourceSpritePath);
+                if (sourceSprite == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Final Room requires the committed sprite at '{sourceSpritePath}'.");
+                }
+
+                Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(tilePath);
+                if (tile != null)
+                {
+                    return tile;
+                }
+
+                Tile transientTile = OwnTransientObject(ScriptableObject.CreateInstance<Tile>());
+                transientTile.name = tileName;
+                transientTile.colliderType = Tile.ColliderType.None;
+                transientTile.hideFlags = HideFlags.HideAndDontSave;
+                transientTile.sprite = sourceSprite;
+                return transientTile;
             }
         }
     }

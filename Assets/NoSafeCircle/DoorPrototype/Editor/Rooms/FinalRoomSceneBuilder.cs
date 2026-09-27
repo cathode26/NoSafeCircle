@@ -41,12 +41,22 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         [MenuItem("No Safe Circle/Rooms/Build Final Room Authoring Scene")]
         public static void BuildAndSave()
         {
-            BuildInMemoryForTests();
+            BuildRoomContents(allowAssetWrites: true);
             EditorSceneManager.SaveScene(SceneManager.GetActiveScene(), ScenePath);
             AssetDatabase.SaveAssets();
         }
 
+        // F4 audit fix: this must never create, repair or save a committed asset. See
+        // BuildRoomContents(bool) / BuildTilemapVisuals(Transform, bool) /
+        // LoadOrCreateFloorTile(string, bool) below - allowAssetWrites is false on this path
+        // all the way down to ArchitecturalTileGenerator.FinalRoom, which is what keeps a
+        // broken committed tile visible instead of silently repairing and saving it.
         public static void BuildInMemoryForTests()
+        {
+            BuildRoomContents(allowAssetWrites: false);
+        }
+
+        private static void BuildRoomContents(bool allowAssetWrites)
         {
             var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var root = new GameObject("Room_FinalRoom");
@@ -58,7 +68,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             dressingObject.transform.SetParent(visuals, false);
             Transform dressing = dressingObject.transform;
 
-            BuildTilemapVisuals(visuals);
+            BuildTilemapVisuals(visuals, allowAssetWrites);
             BuildWallAccents(visuals);
 
             CreateBox("FloorCollision", geometry,
@@ -78,9 +88,9 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             SceneManager.SetActiveScene(scene);
         }
 
-        private static void BuildTilemapVisuals(Transform parent)
+        private static void BuildTilemapVisuals(Transform parent, bool allowAssetWrites)
         {
-            Tile floorTile = LoadOrCreateFloorTile(ArchitecturalTileFolder);
+            Tile floorTile = LoadOrCreateFloorTile(ArchitecturalTileFolder, allowAssetWrites);
             Tile wallTile = AssetDatabase.LoadAssetAtPath<Tile>(WallTilePath);
             if (wallTile == null)
             {
@@ -361,8 +371,19 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         // moved to Editor/Generation/ArchitecturalTileGenerator.cs
         // (ArchitecturalTileGenerator.FinalRoom.LoadOrCreateFloorTile); this stays as the private
         // entry point BuildInMemoryForTests calls.
-        private static Tile LoadOrCreateFloorTile(string assetFolder)
+        //
+        // F4 audit fix: allowAssetWrites picks between the write-capable generator method
+        // (BuildAndSave, true) and its read-only twin (BuildInMemoryForTests, false) - the mode
+        // is decided here, by the caller, not ambiently, because both callers used to share this
+        // one method unconditionally.
+        private static Tile LoadOrCreateFloorTile(string assetFolder, bool allowAssetWrites)
         {
+            if (!allowAssetWrites)
+            {
+                return ArchitecturalTileGenerator.FinalRoom.LoadFloorTileForTests(
+                    FloorTileName, FloorTilePath, FloorSpriteSourcePath);
+            }
+
             return ArchitecturalTileGenerator.FinalRoom.LoadOrCreateFloorTile(
                 assetFolder, FloorTileName, FloorTilePath, FloorSpriteSourcePath);
         }

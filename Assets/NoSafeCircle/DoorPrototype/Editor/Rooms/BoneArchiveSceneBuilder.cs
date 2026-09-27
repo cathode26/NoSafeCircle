@@ -39,12 +39,22 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         [MenuItem("No Safe Circle/Rooms/Build Bone Archive Authoring Scene")]
         public static void BuildAndSave()
         {
-            BuildInMemoryForTests();
+            BuildRoomContents(allowAssetWrites: true);
             EditorSceneManager.SaveScene(SceneManager.GetActiveScene(), ScenePath);
             AssetDatabase.SaveAssets();
         }
 
+        // F4 audit fix: this must never create, repair or save a committed asset. See
+        // BuildRoomContents(bool) / BuildTilemapVisuals(Transform, bool) /
+        // LoadOrCreateBoneArchiveFloorTile(string, bool) below - allowAssetWrites is false on
+        // this path all the way down to ArchitecturalTileGenerator.BoneArchive, which is what
+        // keeps a broken committed tile visible instead of silently repairing and saving it.
         public static void BuildInMemoryForTests()
+        {
+            BuildRoomContents(allowAssetWrites: false);
+        }
+
+        private static void BuildRoomContents(bool allowAssetWrites)
         {
             Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             GameObject root = new GameObject("Room_BoneArchive");
@@ -64,7 +74,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             // ADDITIVE and changes neither. What it changes is what you SEE: when the shared
             // tiles load, the primitives stop rendering and the tilemaps become the visible
             // surface, which is how the other four rooms are built.
-            bool tilesAreTheVisibleSurface = BuildTilemapVisuals(visuals);
+            bool tilesAreTheVisibleSurface = BuildTilemapVisuals(visuals, allowAssetWrites);
 
             Color shelfColor = new Color(0.22f, 0.12f, 0.08f);
             CreateBlockout("Shelf A", visuals, geometry, BoneArchiveLayout.ShelfA, BoneArchiveLayout.ShelfVisualHeight, shelfColor);
@@ -108,9 +118,9 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         /// so the degraded path is unverified and is stated here as unverified rather than
         /// described as safe.
         /// </remarks>
-        private static bool BuildTilemapVisuals(Transform parent)
+        private static bool BuildTilemapVisuals(Transform parent, bool allowAssetWrites)
         {
-            Tile floorTile = LoadOrCreateBoneArchiveFloorTile(ArchitecturalTileFolder);
+            Tile floorTile = LoadOrCreateBoneArchiveFloorTile(ArchitecturalTileFolder, allowAssetWrites);
             Tile wallTile = AssetDatabase.LoadAssetAtPath<Tile>(WallTilePath);
             if (wallTile == null)
             {
@@ -427,10 +437,18 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         // Editor/Generation/ArchitecturalTileGenerator.cs
         // (ArchitecturalTileGenerator.BoneArchive.LoadOrCreateBoneArchiveFloorTile); this stays
         // as the private entry point BuildAndSave calls.
-        private static Tile LoadOrCreateBoneArchiveFloorTile(string assetFolder)
+        //
+        // F4 audit fix: allowAssetWrites picks between the write-capable generator method
+        // (BuildAndSave, true) and its read-only twin (BuildInMemoryForTests, false) - the mode
+        // is decided here, by the caller, not ambiently, because both callers used to share this
+        // one method unconditionally.
+        private static Tile LoadOrCreateBoneArchiveFloorTile(string assetFolder, bool allowAssetWrites)
         {
-            return ArchitecturalTileGenerator.BoneArchive.LoadOrCreateBoneArchiveFloorTile(
-                assetFolder, FloorTileName, FloorTilePath, FloorSpriteSourcePath);
+            return allowAssetWrites
+                ? ArchitecturalTileGenerator.BoneArchive.LoadOrCreateBoneArchiveFloorTile(
+                    assetFolder, FloorTileName, FloorTilePath, FloorSpriteSourcePath)
+                : ArchitecturalTileGenerator.BoneArchive.LoadBoneArchiveFloorTileForTests(
+                    FloorTileName, FloorTilePath, FloorSpriteSourcePath);
         }
     }
 }
