@@ -465,17 +465,21 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Content
             {
                 using (cancellation.Register(() =>
                 {
-                    UnityEngine.Debug.Log("[DIAG] cancel-callback enter thread=" + System.Threading.Thread.CurrentThread.ManagedThreadId
-                        + " syncCtx=" + (System.Threading.SynchronizationContext.Current?.GetType().FullName ?? "null"));
                     releaseOnCompletion = true;
                     completion.TrySetResult(false);
-                    UnityEngine.Debug.Log("[DIAG] cancel-callback after TrySetResult, completion.Task.IsCompleted=" + completion.Task.IsCompleted);
                 }))
                 {
-                    UnityEngine.Debug.Log("[DIAG] before await completion.Task, thread=" + System.Threading.Thread.CurrentThread.ManagedThreadId
-                        + " syncCtx=" + (System.Threading.SynchronizationContext.Current?.GetType().FullName ?? "null"));
-                    bool r = await completion.Task;
-                    UnityEngine.Debug.Log("[DIAG] after await completion.Task resumed, r=" + r + " thread=" + System.Threading.Thread.CurrentThread.ManagedThreadId);
+                    // ConfigureAwait(false) is load-bearing here, not a style choice: this fake's
+                    // whole contract is that a test can drive its completion inline and assert the
+                    // returned Task synchronously ("Completed" below refuses to block). Without it,
+                    // resuming this await is marshalled through SynchronizationContext.Current -
+                    // under the Unity Editor's UnitySynchronizationContext that marshal does not run
+                    // inline: the continuation was measured resuming only after a LATER test's body
+                    // had already executed, which is exactly the environment this fixture must run
+                    // in. Confirmed by diagnostic tracing (removed) that completion.Task itself
+                    // completed synchronously inside the cancellation callback while this awaiter's
+                    // resumption did not. Production code never depends on this seam.
+                    bool r = await completion.Task.ConfigureAwait(false);
                     return r;
                 }
             }
