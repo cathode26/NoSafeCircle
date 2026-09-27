@@ -198,7 +198,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         {
             yield return EnterWanderingState();
 
-            var originalInstanceId = enemyObject.GetInstanceID();
+            var originalInstanceId = enemyObject.GetEntityId();
 
             pursuitMovement.Tick(targetKnowledge.SearchDuration + 1f);
 
@@ -207,7 +207,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsFalse(agent.hasPath,
                 "Expected the agent's pursuit/search path to be cleared once the enemy returns to idle.");
             Assert.That(enemyObject, Is.Not.Null);
-            Assert.That(enemyObject.GetInstanceID(), Is.EqualTo(originalInstanceId));
+            Assert.That(enemyObject.GetEntityId(), Is.EqualTo(originalInstanceId));
             Assert.That(enemyObject.activeInHierarchy, Is.True);
 
             yield return null;

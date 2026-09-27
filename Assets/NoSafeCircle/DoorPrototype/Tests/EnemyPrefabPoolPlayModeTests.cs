@@ -195,7 +195,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             // Path 1: destroyed while PARKED (DemoRunFlow's Destroy after a defeat lands here).
             GameObject a = pool.Checkout("a");
-            int firstId = a.GetInstanceID();
+            EntityId firstId = a.GetEntityId();
             Assert.IsTrue(pool.Return(a));
             Object.Destroy(a);
             yield return null;
@@ -204,7 +204,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             LogAssert.Expect(LogType.Error, new Regex("'a' was destroyed by something other than this pool"));
             GameObject replacement = pool.Checkout("a");
             Assert.IsNotNull(replacement, "the slot is re-created rather than lost");
-            Assert.AreNotEqual(firstId, replacement.GetInstanceID(), "a new object, not the corpse");
+            Assert.AreNotEqual(firstId, replacement.GetEntityId(), "a new object, not the corpse");
             Assert.AreEqual(PoseA.position, replacement.transform.position, "re-created at its slot pose");
             Assert.AreEqual(1, pool.Diagnostics.DestroyedExternally);
             Assert.AreEqual(1, pool.Diagnostics.ActiveNow);
@@ -213,7 +213,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             // vacated and counted, and the next checkout re-creates it WITHOUT a second count,
             // because that destruction is the pool's own bookkeeping.
             GameObject b = pool.Checkout("b");
-            int bId = b.GetInstanceID();
+            EntityId bId = b.GetEntityId();
             Object.Destroy(b);
             yield return null;
 
@@ -224,7 +224,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             GameObject b2 = pool.Checkout("b");
             Assert.IsNotNull(b2);
-            Assert.AreNotEqual(bId, b2.GetInstanceID());
+            Assert.AreNotEqual(bId, b2.GetEntityId());
             Assert.AreEqual(2, pool.Diagnostics.DestroyedExternally, "a vacated slot is not a second fault");
             Assert.AreEqual(2, activeRoot.childCount, "still exactly one instance per slot");
         }
@@ -270,7 +270,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         {
             CreatePool(recycleOnReturn: false);
             GameObject first = pool.Checkout("a");
-            int firstId = first.GetInstanceID();
+            EntityId firstId = first.GetEntityId();
             Assert.AreEqual(1, StubOf(first).Checkouts.Count);
 
             Assert.IsTrue(pool.Return(first));
@@ -282,7 +282,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             GameObject second = pool.Checkout("a");
             Assert.IsNotNull(second);
-            Assert.AreNotEqual(firstId, second.GetInstanceID(), "re-created, so a fresh Awake ran");
+            Assert.AreNotEqual(firstId, second.GetEntityId(), "re-created, so a fresh Awake ran");
             Assert.AreEqual(PoseA.position, second.transform.position);
             Assert.AreEqual(1, StubOf(second).Checkouts.Count, "the fresh instance was checked out once");
             Assert.AreEqual(0, pool.Diagnostics.DestroyedExternally,
@@ -296,12 +296,12 @@ namespace NoSafeCircle.DoorPrototype.Tests
         {
             CreatePool(recycleOnReturn: true);
             GameObject first = pool.Checkout("a");
-            int firstId = first.GetInstanceID();
+            EntityId firstId = first.GetEntityId();
             Assert.IsTrue(pool.Return(first));
             yield return null;
 
             GameObject second = pool.Checkout("a");
-            Assert.AreEqual(firstId, second.GetInstanceID(), "recycling keeps the object");
+            Assert.AreEqual(firstId, second.GetEntityId(), "recycling keeps the object");
             Assert.AreEqual(2, StubOf(second).Checkouts.Count, "the same stub saw both checkouts");
             Assert.AreEqual(1, StubOf(second).Returns);
         }

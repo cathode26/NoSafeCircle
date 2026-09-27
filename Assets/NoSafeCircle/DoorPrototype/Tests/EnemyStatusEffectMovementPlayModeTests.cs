@@ -169,12 +169,12 @@ namespace NoSafeCircle.DoorPrototype.Tests
         [Test]
         public void RequestDisplacement_ValidDirection_WarpsToValidNavMeshPositionAndPreservesIdentity()
         {
-            var originalInstanceId = enemyObject.GetInstanceID();
+            var originalInstanceId = enemyObject.GetEntityId();
             var positionBeforeDisplacement = enemyObject.transform.position;
 
             statusEffectMovement.RequestDisplacement(Vector3.right, 3f);
 
-            Assert.That(enemyObject.GetInstanceID(), Is.EqualTo(originalInstanceId));
+            Assert.That(enemyObject.GetEntityId(), Is.EqualTo(originalInstanceId));
             Assert.That(enemyObject.activeInHierarchy, Is.True);
             Assert.IsTrue(agent.isOnNavMesh, "Expected the displaced enemy to remain on a valid NavMesh position.");
 
@@ -232,14 +232,14 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     // 32 forward first samples well past Room B (no NavMesh nearby), then lands
                     // directly inside Room B at 16 and 8, and only succeeds - within Room A - at
                     // the shortest, 4-unit fallback distance.
-                    var originalInstanceId = isolatedEnemyObject.GetInstanceID();
+                    var originalInstanceId = isolatedEnemyObject.GetEntityId();
                     var positionBeforeDisplacement = isolatedEnemyObject.transform.position;
 
                     isolatedStatusEffect.RequestDisplacement(Vector3.forward, 32f);
 
                     var positionAfterDisplacement = isolatedEnemyObject.transform.position;
 
-                    Assert.That(isolatedEnemyObject.GetInstanceID(), Is.EqualTo(originalInstanceId));
+                    Assert.That(isolatedEnemyObject.GetEntityId(), Is.EqualTo(originalInstanceId));
                     Assert.That(positionAfterDisplacement.z - roomOrigin.z, Is.LessThan(8f),
                         "Expected RequestDisplacement to reject the sampled NavMesh point on the far side " +
                         "of the wall, which is not reachable by an actual walkable path.");
@@ -309,11 +309,11 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             var positionBeforeDisplacement = enemyObject.transform.position;
             var distanceBeforeDisplacement = Vector3.Distance(positionBeforeDisplacement, wizardTransform.position);
-            var originalInstanceId = enemyObject.GetInstanceID();
+            var originalInstanceId = enemyObject.GetEntityId();
 
             statusEffectMovement.RequestDisplacement(awayFromWizard, 3f);
 
-            Assert.That(enemyObject.GetInstanceID(), Is.EqualTo(originalInstanceId));
+            Assert.That(enemyObject.GetEntityId(), Is.EqualTo(originalInstanceId));
             Assert.IsTrue(agent.isOnNavMesh, "Expected the displaced enemy to remain on a valid NavMesh position.");
             var distanceAfterDisplacement = Vector3.Distance(enemyObject.transform.position, wizardTransform.position);
             Assert.That(distanceAfterDisplacement, Is.GreaterThan(distanceBeforeDisplacement),

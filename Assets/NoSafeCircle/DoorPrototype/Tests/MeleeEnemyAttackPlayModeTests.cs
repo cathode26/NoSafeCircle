@@ -266,7 +266,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Object.DestroyImmediate(health);
             health = null;
             wizardTransform.position = WizardInRangePoint;
-            int originalInstanceId = wizardObject.GetInstanceID();
+            EntityId originalInstanceId = wizardObject.GetEntityId();
 
             Assert.DoesNotThrow(() => Step(0f));
             Assert.That(attack.Phase, Is.EqualTo(MeleeAttackPhase.WindingUp));
@@ -274,7 +274,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.That(attack.Phase, Is.EqualTo(MeleeAttackPhase.Cooldown));
 
             Assert.That(wizardObject, Is.Not.Null);
-            Assert.That(wizardObject.GetInstanceID(), Is.EqualTo(originalInstanceId));
+            Assert.That(wizardObject.GetEntityId(), Is.EqualTo(originalInstanceId));
             Assert.That(wizardObject.activeInHierarchy, Is.True);
             Assert.That(targetKnowledge.CurrentTarget, Is.SameAs(wizardTransform));
         }

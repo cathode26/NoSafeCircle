@@ -244,7 +244,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             spawner.Spawn();
             yield return null;
 
-            var firstIds = table.Entries.ToDictionary(e => e.Id, e => InstanceOf(e).GetInstanceID());
+            var firstIds = table.Entries.ToDictionary(e => e.Id, e => InstanceOf(e).GetEntityId());
             EnemySpawnEntry melee = table.Entries.First(e => e.Kind == EnemyKind.Melee);
             EnemySpawnEntry wraith = table.Entries.First(e => e.Kind == EnemyKind.LanternWraith);
             Defeat(InstanceOf(melee));
@@ -264,7 +264,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             foreach (EnemySpawnEntry entry in table.Entries)
             {
-                int nowId = InstanceOf(entry).GetInstanceID();
+                EntityId nowId = InstanceOf(entry).GetEntityId();
                 if (entry.Kind == EnemyKind.Melee)
                 {
                     Assert.AreEqual(firstIds[entry.Id], nowId, entry.Id + " was re-created; a melee recycles");
