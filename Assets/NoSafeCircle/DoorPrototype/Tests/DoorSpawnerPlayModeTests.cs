@@ -239,6 +239,74 @@ namespace NoSafeCircle.DoorPrototype.Tests
             }
         }
 
+        // In-memory component regression for the 2026-09-27 doorway-mask request. The existing
+        // test below checks a chest-height ray and a NavMesh path across D1's slot; neither test
+        // drives a CharacterController through the opening. This one isolates mask lifetime.
+        [UnityTest]
+        public IEnumerator DoorwayMaskSurvivesVisualActivationAndDoorStateChanges()
+        {
+            SpawnDoors();
+            yield return null;
+
+            var player = new GameObject("MaskLifetimeCrossingPlayer");
+            player.transform.SetParent(root.transform, false);
+            player.transform.position = new Vector3(1000f, 0f, 1000f);
+            player.AddComponent<PlayerHealth>();
+            player.AddComponent<PlayerInteractionController>();
+            var playerCollider = player.AddComponent<BoxCollider>();
+            // Same callback seam as DoorLockDurabilityPlayModeTests: simulate the crossing
+            // notification without claiming this test moves a CharacterController through it.
+            MethodInfo crossing = typeof(DoorInteractable).GetMethod("HandleForwardCrossingTriggerEnter",
+                BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.IsNotNull(crossing);
+
+            foreach (DoorInteractable door in SpawnedDoors())
+            {
+                SpriteMask[] masks = door.GetComponentsInChildren<SpriteMask>(true);
+                Assert.AreEqual(1, masks.Length, door.name + " doorway mask count");
+                SpriteMask mask = masks[0];
+                Sprite silhouette = mask.sprite;
+                Assert.IsNotNull(silhouette);
+                Transform visual = door.transform.Find("DoorVisual");
+                var blocker = visual.GetComponent<BoxCollider>();
+                var renderer = visual.Find("DoorSprite").GetComponent<SpriteRenderer>();
+                Assert.AreEqual(door.transform, mask.transform.parent);
+                AssertVector(renderer.transform.position, mask.transform.position, door.name + " mask position");
+                Assert.IsTrue(blocker.enabled && blocker.gameObject.activeInHierarchy,
+                    door.name + " starts with its physical doorway blocked.");
+                Assert.IsTrue(mask.enabled && mask.gameObject.activeInHierarchy);
+
+                visual.gameObject.SetActive(false);
+                Assert.IsTrue(mask.enabled && mask.gameObject.activeInHierarchy,
+                    "Hiding DoorVisual must not restore the backing wall.");
+                visual.gameObject.SetActive(true);
+
+                door.StartInteraction();
+                door.Tick(door.Duration + 0.1f);
+                Assert.IsTrue(door.IsOpen);
+                Assert.IsFalse(blocker.enabled, "The open door must retain its collider gap.");
+                Assert.IsTrue(mask.enabled && mask.gameObject.activeInHierarchy);
+                Assert.AreEqual(silhouette, mask.sprite, "Opening must not replace the solid mask with open art.");
+                Assert.AreEqual(SpriteMaskInteraction.None, renderer.maskInteraction);
+
+                crossing.Invoke(door, new object[] { playerCollider });
+                Assert.IsTrue(door.IsLocked);
+                Assert.IsTrue(blocker.enabled, "Crossing still restores the existing one-way player blocker.");
+                Assert.IsTrue(mask.enabled && mask.gameObject.activeInHierarchy);
+                door.TakeDamage(door.MaxDurability);
+                Assert.IsTrue(door.IsBroken);
+                Assert.IsTrue(blocker.enabled, "Breaking retains the existing backward-travel restriction.");
+                Assert.IsTrue(mask.enabled && mask.gameObject.activeInHierarchy);
+                Assert.AreEqual(silhouette, mask.sprite);
+
+                door.ResetDoor();
+                Assert.IsFalse(door.IsOpen);
+                Assert.IsTrue(blocker.enabled);
+                Assert.IsTrue(mask.enabled && mask.gameObject.activeInHierarchy);
+                Assert.AreEqual(silhouette, mask.sprite);
+            }
+        }
+
         [UnityTest]
         public IEnumerator SealedDoorsCarveTheNavMeshAndBlockRays_OpenedDoorsDoNeither()
         {

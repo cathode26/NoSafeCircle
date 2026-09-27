@@ -184,19 +184,19 @@ namespace NoSafeCircle.DoorPrototype.World
                 float sign = piece.AlongX ? piece.Inward.z : piece.Inward.x;
                 visual.localPosition = new Vector3(local.x, local.y, Mathf.Abs(local.z) * sign);
 
-                // A DOORWAY PIECE MUST LOSE TO THE DOOR, AND POSITION CANNOT SAY SO. The sort is
-                // y + 0.26z with lower in front; the inset above puts this Visual at line+0.151
-                // on a south edge (behind the door, correct) and line-0.151 on a north edge,
-                // where it would draw IN FRONT and hide the leaf. Four of the five doors are
-                // south and D5 is north, so the same code has to do both. Sorting order outranks
-                // position, so one step down is unconditional - and the inset is left alone, so
-                // the piece still lines up with the run it continues.
+                // The door's silhouette mask removes backing wall beneath its leaf and frame.
+                // Keep the prefab's shared world sorting order: the former -1 override also put
+                // the solid edges of these tiles behind the player at every depth, exposing the
+                // player in vertical strips beside the doorway. The mask handles the overlap;
+                // the camera's positional sorting must still decide which solid wall is in front.
                 if (piece.BehindDoor)
                 {
                     var renderer = visual.GetComponent<SpriteRenderer>();
                     if (renderer != null)
                     {
-                        renderer.sortingOrder = WorldSpriteConvention.SortingOrder - 1;
+                        // Door.prefab's persistent silhouette mask cuts these backing tiles so
+                        // the open leaf shows the room beyond. Other wall pieces remain unmasked.
+                        renderer.maskInteraction = SpriteMaskInteraction.VisibleOutsideMask;
                     }
                 }
             }

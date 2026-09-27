@@ -536,20 +536,16 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 Assert.IsNotNull(renderer.sprite, who + " has a null sprite after Instantiate.");
                 Assert.AreEqual(WorldSpriteConvention.SortingLayerName, renderer.sortingLayerName,
                     who + " is on sorting layer '" + renderer.sortingLayerName + "'; the LAYER is compared before the order.");
-                // ONE DELIBERATE EXCEPTION, AND IT IS THE POINT OF THE EXCEPTION THAT IT OUTRANKS
-                // POSITION. A piece filling a DOORWAY slot must lose to the door leaf. The sort is
-                // y + 0.26z with lower in front, and a base piece's Visual is inset toward the
-                // room - so on a south edge it lands behind the leaf and on a north edge in front
-                // of it. Four of the five doors are south and D5 is north, so position alone
-                // cannot do both; these pieces take one order lower instead, and keep the inset so
-                // they stay aligned with the run they continue.
-                int wantOrder = doorwayPoints.Contains(Key(renderer.transform.parent.position))
-                    ? WorldSpriteConvention.SortingOrder - 1
-                    : WorldSpriteConvention.SortingOrder;
-                Assert.AreEqual(wantOrder, renderer.sortingOrder,
-                    who + " carries sortingOrder " + renderer.sortingOrder + "; expected " + wantOrder
-                    + ". Any value but the convention outranks position unconditionally, so the only"
-                    + " piece allowed to differ is one that must lose to a door.");
+                // Regression for the player showing through solid strips beside doors: the old
+                // -1 doorway exception let the player win at every depth. Every wall now keeps
+                // the shared order; the door mask alone removes the leaf/frame overlap.
+                bool doorwayFill = doorwayPoints.Contains(Key(renderer.transform.parent.position));
+                Assert.AreEqual(WorldSpriteConvention.SortingOrder, renderer.sortingOrder,
+                    who + " must share the player's sorting order so solid wall occlusion follows position.");
+                // Regression for the 2026-09-27 request to see through an open doorway. The
+                // committed wall prefabs stay unmasked; only these twenty backing tiles opt in.
+                Assert.AreEqual(doorwayFill ? SpriteMaskInteraction.VisibleOutsideMask : SpriteMaskInteraction.None,
+                    renderer.maskInteraction, who + ": only doorway fill tiles may respond to a door mask.");
                 Assert.AreEqual(SpriteSortPoint.Pivot, renderer.spriteSortPoint,
                     who + " sorts by Center rather than Pivot, which reads the sprite's middle instead of its ground contact.");
                 // TOLERANCE, NOT EQUALITY, AND THE REASON IS THE PROPERTY BEING READ. lossyScale is

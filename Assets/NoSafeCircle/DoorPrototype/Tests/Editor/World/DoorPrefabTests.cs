@@ -204,6 +204,47 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
             }
         }
 
+        // Read-only prefab conformance; regression for Vincent's 2026-09-27 doorway-mask
+        // request. This checks serialization and scope, not the rendered aperture's appearance.
+        [Test]
+        public void DoorPrefab_PersistentMaskMatchesTheSealedSpriteAndOnlyTheDoorwaySortingRange()
+        {
+            GameObject prefab = LoadDoorPrefab();
+            SpriteMask[] masks = prefab.GetComponentsInChildren<SpriteMask>(true);
+            Assert.AreEqual(1, masks.Length, "Each door needs exactly one persistent doorway mask.");
+            SpriteMask mask = masks[0];
+            Assert.AreEqual("DoorwayMask", mask.name);
+            Assert.AreEqual(prefab.transform, mask.transform.parent,
+                "The mask must be a root child, independent of DoorVisual activation.");
+            Assert.IsTrue(mask.enabled);
+            Assert.IsTrue(mask.gameObject.activeSelf);
+            Assert.AreEqual(0, mask.GetComponentsInChildren<Collider>(true).Length,
+                "A visual cutout must not add another physical doorway blocker.");
+
+            Transform visual = prefab.transform.Find("DoorVisual");
+            Transform sprite = visual.Find("DoorSprite");
+            var renderer = sprite.GetComponent<SpriteRenderer>();
+            Assert.AreEqual(SpriteMaskInteraction.None, renderer.maskInteraction,
+                "The doorway mask cuts the wall behind the door, never the door artwork itself.");
+            Sprite sealedSprite = AssetDatabase.LoadAssetAtPath<Sprite>(
+                DoorArtSourceFolder + "door_bonestone_sealed_" + ApprovedFacing + "_000.png");
+            Assert.IsNotNull(sealedSprite);
+            Assert.AreEqual(sealedSprite, mask.sprite,
+                "Use the sealed silhouette, including its leaf, so the open leaf cannot reveal backing wall.");
+            AssertVector(sprite.position, mask.transform.position, "Mask and DoorSprite position");
+            Assert.Less(Quaternion.Angle(sprite.rotation, mask.transform.rotation), 0.001f,
+                "Mask and DoorSprite must occupy the same plane.");
+            AssertVector(sprite.lossyScale, mask.transform.lossyScale, "Mask and DoorSprite scale");
+            Assert.AreEqual(0.1f, mask.alphaCutoff, 0.0001f);
+            Assert.IsTrue(mask.isCustomRangeActive);
+            int layer = SortingLayer.NameToID(WorldSpriteConvention.SortingLayerName);
+            Assert.AreEqual(layer, mask.backSortingLayerID);
+            Assert.AreEqual(layer, mask.frontSortingLayerID);
+            // Bracket the shared world order without changing wall/player depth sorting.
+            Assert.AreEqual(WorldSpriteConvention.SortingOrder - 1, mask.backSortingOrder);
+            Assert.AreEqual(WorldSpriteConvention.SortingOrder + 1, mask.frontSortingOrder);
+        }
+
         // Asserts a RELATION between the art folder and the code rather than any facing literal,
         // so it survives a re-export under new guids and it is what makes the facing swap safe:
         // the three states with no SW art on disk are exactly the three the binder cannot reach.
