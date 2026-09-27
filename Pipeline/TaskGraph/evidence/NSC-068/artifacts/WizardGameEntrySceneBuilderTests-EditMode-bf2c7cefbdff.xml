@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="1" result="Passed" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-27 13:47:47Z" end-time="2026-09-27 13:47:48Z" duration="1.0251491">
+  <test-suite type="TestSuite" id="1000" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="326" result="Passed" start-time="2026-09-27 13:47:47Z" end-time="2026-09-27 13:47:48Z" duration="1.025149" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1379" name="NoSafeCircle.DoorPrototype.Tests.Editor.dll" fullname="C:/nscrev/doormeta/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.Editor.dll" runstate="Runnable" testcasecount="325" result="Passed" start-time="2026-09-27 13:47:47Z" end-time="2026-09-27 13:47:48Z" duration="0.965615" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="68340" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1380" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="325" result="Passed" start-time="2026-09-27 13:47:47Z" end-time="2026-09-27 13:47:48Z" duration="0.938160" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1381" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="325" result="Passed" start-time="2026-09-27 13:47:47Z" end-time="2026-09-27 13:47:48Z" duration="0.906474" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1382" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="325" result="Passed" start-time="2026-09-27 13:47:47Z" end-time="2026-09-27 13:47:48Z" duration="0.880999" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestSuite" id="1383" name="Editor" fullname="NoSafeCircle.DoorPrototype.Tests.Editor" runstate="Runnable" testcasecount="325" result="Passed" start-time="2026-09-27 13:47:47Z" end-time="2026-09-27 13:47:48Z" duration="0.849745" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="TestFixture" id="1147" name="WizardGameEntrySceneBuilderTests" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardGameEntrySceneBuilderTests" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardGameEntrySceneBuilderTests" runstate="Runnable" testcasecount="1" result="Passed" start-time="2026-09-27 13:47:47Z" end-time="2026-09-27 13:47:48Z" duration="0.819367" total="1" passed="1" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1148" name="Build_RunTwice_WiresOneEntryCoordinatorToExistingPlayerAndSpawn" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardGameEntrySceneBuilderTests.Build_RunTwice_WiresOneEntryCoordinatorToExistingPlayerAndSpawn" methodname="Build_RunTwice_WiresOneEntryCoordinatorToExistingPlayerAndSpawn" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardGameEntrySceneBuilderTests" runstate="Runnable" seed="697813896" result="Passed" start-time="2026-09-27 13:47:47Z" end-time="2026-09-27 13:47:48Z" duration="0.781276" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                  <output><![CDATA[Saving results to: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-398a5d9af6ed4173834cc2ca99a1f3af\test-results.xml
+]]></output>
+                </test-case>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>

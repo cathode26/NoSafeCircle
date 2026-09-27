@@ -1,0 +1,23 @@
+NSC-068 Selected Wizard World Placement and Gameplay Entry — VAL-005 human approval provenance
+
+Vincent Liguori, typed directly in the GER Agent session, 2026-09-27 (date per GER's handoff
+file C:/nscrev/reports/handoffs/ger-20260927-delivery-records-nsc062-nsc067.md, which quotes him
+verbatim; exact host-clock timestamp not captured by GER):
+
+    "NSC-068 Selected Wizard World Placement and Gameplay Entry / This is also done"
+
+This was said in a list alongside NSC-067, NSC-070, NSC-073, NSC-074 and NSC-075 ("These are all
+done"), not as a standalone review of NSC-068 specifically.
+
+What this is: a general completion declaration by Vincent that this task is done, naming the task
+by its exact title.
+
+What this is NOT: a description of Vincent entering Play Mode with each wizard choice, confirming
+the correct animated wizard appears at the intended world spawn, remains readable beside the wall
+and door, sorts correctly while moving, and enters gameplay without a duplicate or placeholder
+Player, as VAL-005's own text asks for. He did not name any of those specific actions in this
+statement, and this record does not claim he did.
+
+This artifact is filed as VAL-005's evidence because it is the only human input on record for this
+task, it names the task, and it states it is done. The gate is recorded as satisfied by this
+general approval, not by a claim of a specific in-engine walkthrough.

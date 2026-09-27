@@ -1,0 +1,127 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "a1290b5988167586ea644eaf161793b89c861b9a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/WizardGameEntryController.cs",
+      "role": "world_entry_coordinator"
+    },
+    {
+      "blob_sha": "69ebdc3f822350382a5bfc5b48cf1e1d4a1daf17",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "role": "idempotent_builder_integration_seam"
+    },
+    {
+      "blob_sha": "d2c82055d3f74e19476349238f942633bb7e3230",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/WizardGameEntryPlayModeTests.cs",
+      "role": "playmode_world_entry_flow_and_preservation_proof"
+    },
+    {
+      "blob_sha": "9656ea6b0f86bfc7b512d2b199917ddb0a2bc113",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardGameEntrySceneBuilderTests.cs",
+      "role": "editmode_builder_rebuild_regression_proof"
+    }
+  ],
+  "delivery": {
+    "base_commit": "78c485c377796cb305ea876fdb357c1d04c694d3",
+    "candidate_commit": "bf2c7cefbdff40f25e76d5e3d9cb0dc03a892a88",
+    "integrated_commit": "bf2c7cefbdff40f25e76d5e3d9cb0dc03a892a88",
+    "integrated_tree": "1803bf7dbf89c1f05fdb351c1c76d40f4adc083e"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "4595fd3d5e60829437dfc875777c2394e2b9ef1b",
+          "path": "Pipeline/TaskGraph/evidence/NSC-068/artifacts/WizardGameEntryPlayModeTests-PlayMode-bf2c7cefbdff.xml"
+        },
+        {
+          "blob_sha": "78222c633f0f34ed1dc7de65bd615ddde11f7353",
+          "path": "Pipeline/TaskGraph/evidence/NSC-068/artifacts/WizardGameEntryPlayModeTests-PlayMode-bf2c7cefbdff.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Unity PlayMode filter NoSafeCircle.DoorPrototype.Tests.WizardGameEntryPlayModeTests, 3/3 passed, 0 failed, 0 skipped, at commit bf2c7cefb (clean before and after). EachConfirmedOption_EntersWithExactPresentationOnSamePlayer (comment cites AC-001/AC-002/AC-003/AC-005 and VAL-001/VAL-003) loops all four confirmed NSC-067 options and, for each, asserts the matching NSC-062 presentation/skin is applied to the one existing Player at the same computed canonical spawn (RuinedEntryLayout.PlayerStart plus CharacterController.skinWidth) with the confirmed option's exact integrated idle Sprite shown immediately.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "4595fd3d5e60829437dfc875777c2394e2b9ef1b",
+          "path": "Pipeline/TaskGraph/evidence/NSC-068/artifacts/WizardGameEntryPlayModeTests-PlayMode-bf2c7cefbdff.xml"
+        },
+        {
+          "blob_sha": "78222c633f0f34ed1dc7de65bd615ddde11f7353",
+          "path": "Pipeline/TaskGraph/evidence/NSC-068/artifacts/WizardGameEntryPlayModeTests-PlayMode-bf2c7cefbdff.log"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "Same PlayMode run. StartWithoutSelection_LeavesGameplaySuspendedAndPlayerUnchanged (comment cites AC-004 and VAL-002) asserts that pressing Start and Confirm with no option chosen leaves ConfirmedSelection unset, HasEnteredGameplay false, GameplayEntryCount 0, PlayerMovement/PlayerInteractionController gameplay input still disabled, and exactly one Player in the scene. EachConfirmedOption_EntersWithExactPresentationOnSamePlayer additionally re-invokes entry.EnterWorld and selection.ConfirmSelection after a successful entry and asserts GameplayEntryCount stays 1 and neither movement nor interaction gameplay input is re-enabled by the duplicate callback, and the Player count stays 1 -- covering VAL-002's duplicate-entry half as well as its no-selection half.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "4595fd3d5e60829437dfc875777c2394e2b9ef1b",
+          "path": "Pipeline/TaskGraph/evidence/NSC-068/artifacts/WizardGameEntryPlayModeTests-PlayMode-bf2c7cefbdff.xml"
+        },
+        {
+          "blob_sha": "78222c633f0f34ed1dc7de65bd615ddde11f7353",
+          "path": "Pipeline/TaskGraph/evidence/NSC-068/artifacts/WizardGameEntryPlayModeTests-PlayMode-bf2c7cefbdff.log"
+        }
+      ],
+      "gate_id": "VAL-003",
+      "notes": "Same PlayMode run, same test (EachConfirmedOption_EntersWithExactPresentationOnSamePlayer, comment cites AC-001/AC-002/AC-003/AC-005 and VAL-001/VAL-003). For every one of the four options it snapshots the Player's original Components, Colliders, local scale, visual local position, sorting layer, sorting order and SpriteSortPoint before confirmation and asserts all are unchanged afterward; it then drives PlayerMovement.RequestDestination and Tick and asserts the animation state name is prefixed Wizard_{Presentation}_{Skin}_walk_ for the confirmed option, i.e. movement drives the correct directional animation for the selected visual, with the same single Player object throughout.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "77fe939d0c367897a902133ec5c2f2b52249b3db",
+          "path": "Pipeline/TaskGraph/evidence/NSC-068/artifacts/WizardGameEntrySceneBuilderTests-EditMode-bf2c7cefbdff.xml"
+        },
+        {
+          "blob_sha": "22d8cd0467f731277c88533331b393337383caca",
+          "path": "Pipeline/TaskGraph/evidence/NSC-068/artifacts/WizardGameEntrySceneBuilderTests-EditMode-bf2c7cefbdff.log"
+        }
+      ],
+      "gate_id": "VAL-004",
+      "notes": "Unity EditMode filter NoSafeCircle.DoorPrototype.Tests.Editor.WizardGameEntrySceneBuilderTests, 1/1 passed, 0 failed, 0 skipped, at commit bf2c7cefb (clean before and after) -- run separately from the PlayMode filter above because NSC-068's committed validation policy binds PlayMode only and this EditMode class is not part of that required platform set; it is bound here as additional evidence, which the tooling accepts (required_test_platforms is a floor: generate_delivery_spec.py takes --validation-manifest repeatably per platform and does not restrict manifests to the policy's required set, and both manifests here name the identical commit bf2c7cefb and tree 1803bf7d). Build_RunTwice_WiresOneEntryCoordinatorToExistingPlayerAndSpawn (the test's own comment cites NSC-068 AC-002/AC-006 and VAL-004) calls DoorPrototypeSceneBuilder.BuildInMemoryForTests() twice and asserts exactly one Player, one PlayerSpawn, and one WizardGameEntryController (found via Resources.FindObjectsOfTypeAll and filtered to the active scene) after the second build, with the Player positioned and oriented exactly at PlayerSpawn and its selection/animation/movement/interaction components still present -- proving the repeated-build path does not duplicate the world-entry coordinator, the Player, or the spawn marker. The PlayMode fixture above gives no evidence toward this gate: it loads the runtime-built RuntimeWorld scene via GameBootstrap, which never calls DoorPrototypeSceneBuilder.Build (confirmed by grep across Scripts/World/GameBootstrap.cs); DoorPrototypeSceneBuilder.Build is an Editor-only function invoked from asset-regeneration menu items and the WebGL prebuild step, not from any runtime path.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "6242366429b2934404ae476226218b8ef650e72d",
+          "path": "Pipeline/TaskGraph/evidence/NSC-068/artifacts/VincentVAL005Approval-bf2c7cefbdff.txt"
+        }
+      ],
+      "gate_id": "VAL-005",
+      "notes": "Vincent Liguori, typed directly in the GER Agent session (per GER's handoff C:/nscrev/reports/handoffs/ger-20260927-delivery-records-nsc062-nsc067.md, 2026-09-27): \"NSC-068 Selected Wizard World Placement and Gameplay Entry / This is also done\", said in a list with NSC-067/070/073/074/075 (\"These are all done\"). This is recorded as his general approval that the task is done. It is NOT recorded as a claim that he entered Play Mode with each wizard choice and confirmed the animated wizard's placement, readability beside the wall and door, sorting while moving, and clean gameplay entry without a duplicate or placeholder Player, as VAL-005's own text describes -- he did not name those specific actions and this record does not attribute them to him.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "Vincent Liguori",
+    "decision": "approved",
+    "notes": "Typed directly in the GER Agent session, per GER's handoff C:/nscrev/reports/handoffs/ger-20260927-delivery-records-nsc062-nsc067.md (2026-09-27): \"NSC-068 Selected Wizard World Placement and Gameplay Entry / This is also done\" (in a list with NSC-067/070/073/074/075, \"These are all done\"). A general completion declaration naming this task, not a description of a specific in-engine Play Mode walkthrough of the four wizard choices; this record does not claim the latter.",
+    "required": true
+  },
+  "record_id": "DEL-NSC-068-bf2c7cefbdff",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-27T13:51:07Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-068.yaml",
+    "revision": 2,
+    "sha256": "572c78eb7431301b39914b112dbef93794d5f306adbb7a86c7d4b74c33211560"
+  },
+  "task_id": "NSC-068",
+  "validated_state": {
+    "commit": "bf2c7cefbdff40f25e76d5e3d9cb0dc03a892a88",
+    "tree": "1803bf7dbf89c1f05fdb351c1c76d40f4adc083e"
+  }
+}
