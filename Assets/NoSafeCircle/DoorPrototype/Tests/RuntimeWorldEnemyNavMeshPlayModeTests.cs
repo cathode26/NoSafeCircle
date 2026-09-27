@@ -348,22 +348,36 @@ namespace NoSafeCircle.DoorPrototype.Tests
         // enemy instead of one arbitrary one:
         //   sight-clear-control    the enemy must ACQUIRE (Pursuing) and close the gap - the
         //                          control that proves pursuit itself still works.
-        //   sight-blocked-fallback the enemy must NOT be Pursuing while the view is obstructed,
-        //                          AND still displace and close the straight-line gap - GER's
-        //                          2026-09-27 sight-fallback ruling: investigate without locking
-        //                          on (EnemyTargetKnowledge.cs:123-156). The component-level
-        //                          state-machine half of this (outcomes 2 and 3) is already
-        //                          covered by EnemySightFallbackPlayModeTests; this method is the
-        //                          one place outcome 1 - the root actually moving, on the real
-        //                          baked room - is proved.
+        //   sight-blocked-fallback the enemy must NOT be Pursuing on the very first tick after
+        //                          the player becomes visible to it - i.e. WHILE the view is
+        //                          still obstructed - AND still displace and close the
+        //                          straight-line gap by the end of the window. GER's 2026-09-27
+        //                          sight-fallback ruling only constrains behaviour WHILE
+        //                          obstructed (EnemyTargetKnowledge.cs:123-156); it does not
+        //                          forbid the ordinary acquisition path firing later if the view
+        //                          genuinely clears as the enemy closes the distance - that is
+        //                          the same transition EnemySightFallbackPlayModeTests asserts as
+        //                          ViewClears_AcquiresByTheOrdinaryPath, and this method measured
+        //                          it happen for real: see the per-id note below. So the final
+        //                          State is logged but NOT asserted; only the state at first
+        //                          contact is. The component-level state-machine half of this
+        //                          (outcomes 2 and 3) is already covered by
+        //                          EnemySightFallbackPlayModeTests; this method is the one place
+        //                          outcome 1 - the root actually moving, on the real baked room -
+        //                          is proved.
         //
-        // ON THIS BRANCH THE FALLBACK MEASUREMENT FOR ba-melee-1 CANNOT RUN, AND THAT IS THE
-        // CORRECT, EXPECTED RESULT, NOT A GAP IN THIS TEST: a merged prop-collider reshape dropped
-        // colliders reaching the y=1.0 eye line in the Bone Archive from 35/41 to 7/41 (tallest
-        // collider top 3.590 -> 1.573), so ZERO of ba-melee-1's walkable approach directions are
-        // currently sight-blocked. That is a live cover regression the Game Agent already caused
-        // and reported. Rather than skip, pass vacuously, or quietly drop the fallback assertion,
-        // the absence of a sight-blocked candidate is itself recorded as a named failure below.
+        // WHAT WAS MEASURED ON THIS BRANCH, 2026-09-27, CONTRADICTING THE ORIGINAL BRIEF FOR THIS
+        // REPAIR: the brief for NSC-131 INT-001 stated ba-melee-1's room (Bone Archive) currently
+        // has ZERO sight-blocked walkable directions, following a merged prop-collider reshape
+        // that dropped colliders reaching the y=1.0 eye line from 35/41 to 7/41. A live run of
+        // THIS classification found the opposite for ba-melee-1: 2 of 8 walkable directions
+        // (+X+Z, +X-Z) are still sight-blocked from its spawn point - some cover survives there.
+        // fr-melee-1 is the one that measured zero of 8 sight-blocked (full 360 degrees of open
+        // sightline at 4u) - a genuine absent-cover defect, just on the other room than the brief
+        // named. Both counts are logged per id below rather than pinned as an expectation, exactly
+        // like every other measurement in this file, because a future bake or prop edit can move
+        // them - the assertions read the counts THIS run actually produced, and name whichever id
+        // (if any) has none.
         //
         // Gated with an env-var Assert.Ignore, NOT [Explicit] - measured in this project,
         // [Explicit] does NOT prevent execution under the broad -TestFilter (CaptureRuntimeWorld
@@ -371,20 +385,23 @@ namespace NoSafeCircle.DoorPrototype.Tests
         [UnityTest]
         public IEnumerator RuntimeWorld_BaMeleeAndFrMelee_ClosesTheGapFromSightClearAndInvestigatesFromSightBlocked()
         {
-            // GATED, NOT HIDDEN. Set NSC_RUN_KNOWN_DEFECTS to run it. It reproduces ba-melee-1's
-            // absent-cover defect and FAILS ON PURPOSE: zero of its walkable approach directions
-            // are sight-blocked, so the room currently provides no cover for this enemy at all.
-            // Delete this gate once the collider reshape that caused it is fixed and the room has
-            // a sight-blocked walkable approach again.
+            // GATED, NOT HIDDEN. Set NSC_RUN_KNOWN_DEFECTS to run it. As of 2026-09-27 it FAILS ON
+            // PURPOSE: fr-melee-1 has zero of 8 walkable approach directions that are
+            // sight-blocked, so its room currently provides no cover for it at all (a live
+            // regression from a merged prop-collider reshape - see the comment above this method
+            // for what this run measured and how it differs from NSC-131 INT-001's original
+            // brief). Delete this gate once every measured id has at least one sight-blocked
+            // walkable approach again.
             if (string.IsNullOrWhiteSpace(
                     System.Environment.GetEnvironmentVariable("NSC_RUN_KNOWN_DEFECTS")))
             {
-                Assert.Ignore("ba-melee-1's room (Bone Archive) currently has ZERO walkable "
-                    + "approach directions that are sight-blocked - a merged prop-collider "
-                    + "reshape dropped colliders reaching the y=1.0 eye line from 35/41 to 7/41 "
-                    + "(tallest collider top 3.590 -> 1.573), so this room no longer provides "
-                    + "cover for this enemy and the sight-blocked-fallback measurement below "
-                    + "cannot run. Set NSC_RUN_KNOWN_DEFECTS to reproduce it.");
+                Assert.Ignore("At least one melee enemy in RuntimeWorld currently has ZERO "
+                    + "walkable approach directions that are sight-blocked - i.e. its room "
+                    + "provides no cover-capable approach for it - so the sight-blocked-fallback "
+                    + "measurement below cannot run for that id. This is a live room-cover "
+                    + "regression, not a defect in this test; see the comment above this method "
+                    + "and the per-id failure text this produces for exact counts. Set "
+                    + "NSC_RUN_KNOWN_DEFECTS to reproduce it.");
             }
 
             yield return SceneManager.LoadSceneAsync("RuntimeWorld", LoadSceneMode.Single);
@@ -513,21 +530,29 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 }
 
                 // THE FALLBACK - the thing NSC-131 INT-001 actually asked this test to measure.
-                // On this branch it is EXPECTED to find zero sight-blocked walkable directions for
-                // ba-melee-1, and that absence IS the assertion: see the comment above this
-                // method.
+                // If this id has zero sight-blocked walkable directions, its room currently
+                // provides it no cover at all, and that absence IS the assertion (see the comment
+                // above this method for what a live run actually found per id, and why that
+                // differs from the original brief's ba-melee-1-specific prediction). The exact
+                // "35/41 to 7/41" collider figures are the Bone Archive's own measurement from
+                // that brief and are only quoted for ba-melee-1, so a different room's absence is
+                // not mis-attributed to a regression nobody has measured there.
                 if (blockedPick == null)
                 {
+                    string extra = id == "ba-melee-1"
+                        ? " - a live regression from a merged prop-collider reshape in the Bone "
+                          + "Archive (tallest collider top dropped from 3.590u to 1.573u, "
+                          + "colliders reaching the y=1.0 eye line dropped from 35/41 to 7/41), "
+                          + "already reported by the Game Agent."
+                        : " - this id's room has not been individually measured for a collider "
+                          + "regression; it may be the same class of defect as ba-melee-1's Bone "
+                          + "Archive, or a separate absence.";
                     failures.Add(id + ": zero of " + walkableCount + " walkable approach "
                         + "directions are sight-blocked (0 sight-blocked / " + sightClearCount
                         + " sight-clear / " + walkableCount + " walkable / 8 candidates total). "
                         + "This room currently provides NO cover-capable approach to " + id
-                        + " - a live regression from a merged prop-collider reshape (tallest "
-                        + "collider top dropped from 3.590u to 1.573u, colliders reaching the "
-                        + "y=1.0 eye line dropped from 35/41 to 7/41), already reported by the "
-                        + "Game Agent. This is not a sampling or classification defect in the "
-                        + "test - it is the room failing to provide the cover this measurement "
-                        + "needs.");
+                        + extra + " This is not a sampling or classification defect in the test - "
+                        + "it is the room failing to provide the cover this measurement needs.");
                 }
                 else
                 {
@@ -547,15 +572,28 @@ namespace NoSafeCircle.DoorPrototype.Tests
                         failures.Add(id + " (sight-blocked fallback): "
                             + (r.FailureReason ?? "not measured, no reason recorded."));
                     }
-                    else if (r.State == EnemyTargetKnowledgeState.Pursuing || !(r.Moved > 1.5f))
+                    // Asserted against the state on the FIRST tick after the player became
+                    // visible - i.e. WHILE the view was still obstructed - not the state at the
+                    // end of the window. GER's ruling only constrains behaviour while obstructed;
+                    // it does not forbid the ordinary acquisition path firing later once the
+                    // enemy's approach genuinely clears the view (ViewClears_AcquiresByTheOrdinaryPath
+                    // in EnemySightFallbackPlayModeTests already covers that transition). A first
+                    // run of this method asserted the END state instead and produced a false
+                    // failure for ba-melee-1, which re-acquired mid-approach once its path closed
+                    // the diagonal sightline - see the comment above this method.
+                    else if (r.StateImmediatelyAfterContact == EnemyTargetKnowledgeState.Pursuing
+                        || !(r.Moved > 1.5f))
                     {
                         failures.Add(id + " (sight-blocked fallback): expected the enemy to "
-                            + "INVESTIGATE (NOT Pursuing) while still displacing and closing most "
-                            + "of the " + PursuitTestDistance + "u gap; got state=" + r.State
-                            + " moved=" + r.Moved.ToString("F4") + "u hasPath=" + r.HasPath
-                            + " pathStatus=" + r.PathStatus + " remainingDistance="
-                            + r.RemainingDistance.ToString("F4") + " velocityMagnitude="
-                            + r.VelocityMag.ToString("F4") + " isStopped=" + r.IsStopped + ".");
+                            + "INVESTIGATE (NOT Pursuing) on first contact while the view is still "
+                            + "obstructed, and to still displace and close most of the "
+                            + PursuitTestDistance + "u gap by the end of the window; got "
+                            + "stateOnFirstContact=" + r.StateImmediatelyAfterContact
+                            + " stateAtEnd=" + r.State + " moved=" + r.Moved.ToString("F4")
+                            + "u hasPath=" + r.HasPath + " pathStatus=" + r.PathStatus
+                            + " remainingDistance=" + r.RemainingDistance.ToString("F4")
+                            + " velocityMagnitude=" + r.VelocityMag.ToString("F4")
+                            + " isStopped=" + r.IsStopped + ".");
                     }
                 }
             }
@@ -563,16 +601,17 @@ namespace NoSafeCircle.DoorPrototype.Tests
             var report = new StringBuilder();
             report.AppendLine(MeasurementTag
                 + " behavioural(" + PursuitTestDistance + "u,sight-classified): id,phase,measured,"
-                + "failureReason,state,hasPathAfter,pathStatusAfter,startPos,endPos,movedDistance,"
-                + "remainingDistance,velocityMag,isStopped,agentRadius,nearestOtherColliderDistance,"
-                + "playerDirectionUsed");
+                + "failureReason,stateOnFirstContact,stateAtEnd,hasPathAfter,pathStatusAfter,"
+                + "startPos,endPos,movedDistance,remainingDistance,velocityMag,isStopped,"
+                + "agentRadius,nearestOtherColliderDistance,playerDirectionUsed");
             foreach (var r in readings)
             {
                 report.AppendLine(string.Format(
-                    "{0},{1},{2},{3},{4},{5},{6},{7},{8},{9:F4},{10:F4},{11:F4},{12},{13:F4},{14:F4},{15}",
-                    r.Id, r.Phase, r.Measured, r.FailureReason, r.State, r.HasPath, r.PathStatus,
-                    r.StartPos, r.EndPos, r.Moved, r.RemainingDistance, r.VelocityMag, r.IsStopped,
-                    r.Radius, r.NearestOther, r.DirectionUsed));
+                    "{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10:F4},{11:F4},{12:F4},{13},{14:F4},{15:F4},{16}",
+                    r.Id, r.Phase, r.Measured, r.FailureReason, r.StateImmediatelyAfterContact,
+                    r.State, r.HasPath, r.PathStatus, r.StartPos, r.EndPos, r.Moved,
+                    r.RemainingDistance, r.VelocityMag, r.IsStopped, r.Radius, r.NearestOther,
+                    r.DirectionUsed));
             }
             Debug.Log(report.ToString());
 
@@ -586,12 +625,17 @@ namespace NoSafeCircle.DoorPrototype.Tests
             yield return UnloadRuntimeWorldSceneWithoutSaving();
         }
 
-        // Runs one measurement window: teleports the player to the given approach point, waits
-        // PursuitTestWaitSeconds of real time (real Update()/Tick() calls - EnemyPursuitMovement
-        // and EnemyTargetKnowledge drive themselves; nothing here calls Tick directly, so this is
-        // exactly what Vincent would see happen over a few seconds of play), then records the
-        // reading into outReading[0]. A single-element array carries the result out because a
-        // yielding iterator method cannot have an out or ref parameter.
+        // Runs one measurement window: teleports the player to the given approach point, lets
+        // exactly ONE Update()/Tick() run (EnemyPursuitMovement.Update calls Tick(Time.deltaTime)
+        // every frame on its own - nothing here calls Tick directly) and records the resulting
+        // State as StateImmediatelyAfterContact - this is the "while the view is obstructed"
+        // reading the sight-blocked-fallback assertion needs, since the FSM's ordinary
+        // acquisition check runs for every non-Pursuing state (EnemyTargetKnowledge.cs:114-121),
+        // so a later tick can legitimately re-acquire once the enemy's own approach clears the
+        // sightline - that must not be read as a fallback failure. Then waits out the rest of
+        // PursuitTestWaitSeconds of real time and records the final reading. A single-element
+        // array carries the result out because a yielding iterator method cannot have an out or
+        // ref parameter.
         private static IEnumerator MeasureApproach(
             GameObject instance, NavMeshAgent agent, EnemyTargetKnowledge targetKnowledge,
             GameObject player, Vector3 startPos, DirectionClassification approach,
@@ -605,6 +649,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             TeleportPlayer(player, approach.Point);
             Physics.SyncTransforms();
+
+            yield return null;
+            reading.StateImmediatelyAfterContact = targetKnowledge.State;
 
             yield return new WaitForSeconds(PursuitTestWaitSeconds);
 
@@ -623,8 +670,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             Debug.Log(MeasurementTag + " " + approach.Label + " measured (player placed "
                 + PursuitTestDistance + "u away, "
-                + (approach.SightBlocked ? "SIGHT-BLOCKED" : "SIGHT-CLEAR") + "): state="
-                + reading.State + " hasPath=" + reading.HasPath + " pathStatus=" + reading.PathStatus
+                + (approach.SightBlocked ? "SIGHT-BLOCKED" : "SIGHT-CLEAR") + "): stateOnFirstContact="
+                + reading.StateImmediatelyAfterContact + " stateAtEnd=" + reading.State
+                + " hasPath=" + reading.HasPath + " pathStatus=" + reading.PathStatus
                 + " startPos=" + startPos + " endPos=" + reading.EndPos
                 + " movedDistance=" + reading.Moved.ToString("F4")
                 + " remainingDistance=" + reading.RemainingDistance.ToString("F4")
@@ -646,6 +694,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             public string Phase;
             public bool Measured;
             public string FailureReason;
+            public EnemyTargetKnowledgeState StateImmediatelyAfterContact;
             public EnemyTargetKnowledgeState State;
             public bool HasPath;
             public NavMeshPathStatus PathStatus;
