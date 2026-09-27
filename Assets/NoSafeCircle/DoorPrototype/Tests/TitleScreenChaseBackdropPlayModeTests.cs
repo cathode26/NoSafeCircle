@@ -315,8 +315,34 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.That(viewport.x, Is.InRange(0.549f, 0.901f));
             Assert.That(viewport.y, Is.InRange(0.05f, 0.95f));
             Assert.Greater(viewport.z, 0f);
-            Assert.Greater(viewport.x, 0.45f,
-                "The actor may not overlap the left-side sayings or Start Game button.");
+            AssertSpriteRectClearOfTitle(actor);
+        }
+
+        private void AssertSpriteRectClearOfTitle(GameObject actor)
+        {
+            SpriteRenderer renderer = actor.GetComponentInChildren<SpriteRenderer>();
+            Assert.IsNotNull(renderer);
+            Assert.IsNotNull(renderer.sprite,
+                actor.name + " must have visible sprite art while crossing the title.");
+            Bounds bounds = renderer.bounds;
+            float leftmostViewportX = float.PositiveInfinity;
+            for (int x = 0; x < 2; x++)
+            for (int y = 0; y < 2; y++)
+            for (int z = 0; z < 2; z++)
+            {
+                Vector3 corner = new Vector3(
+                    x == 0 ? bounds.min.x : bounds.max.x,
+                    y == 0 ? bounds.min.y : bounds.max.y,
+                    z == 0 ? bounds.min.z : bounds.max.z);
+                Vector3 projected = chaseCamera.WorldToViewportPoint(corner);
+                leftmostViewportX = Mathf.Min(leftmostViewportX, projected.x);
+            }
+
+            // All three sayings and Start Game occupy the left viewport column [0, 0.45].
+            // Check the rendered sprite rectangle, not just its root position: a large
+            // close-up scale may otherwise put the actor over the words.
+            Assert.Greater(leftmostViewportX, 0.45f,
+                actor.name + " overlaps the left-side sayings or Start Game button.");
         }
 
         private void AssertViewportMargin(GameObject actor)
