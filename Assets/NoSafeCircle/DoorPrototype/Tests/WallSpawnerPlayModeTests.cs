@@ -554,8 +554,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
             }
 
             // Jambs: one pair per distinct door, each anchored at the collider gap edge
-            // (centre +/- 1.5) and extending into its run: (centre -/+ (1.5 + halfWidth), 0, z).
-            // Root y 0, not -min.y: that lifted the jamb 0.40625 and let the stubs sort over it.
+            // (centre +/- 1.5) and extending into its run: (centre -/+ (1.5 + halfWidth), -min.y, z).
+            // The jamb alone keeps the -min.y lift until it stops being placed (see WallSpawner).
             var expectedDoors = new HashSet<(int, int)>();
             var expectedJambPositions = new List<Vector3>();
             foreach (Room room in rooms)
@@ -565,8 +565,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     if (!expectedDoors.Add((Mathf.RoundToInt(door.x * 2f), Mathf.RoundToInt(door.z * 2f)))) continue;
                     Assert.IsTrue(AlongX(room.EdgeOf(door)), "floor01's doors all cut north/south lines; extend this oracle if that changes.");
                     float reach = room.DoorWidth * 0.5f + jamb.extents.x;
-                    expectedJambPositions.Add(new Vector3(door.x - reach, 0f, door.z));
-                    expectedJambPositions.Add(new Vector3(door.x + reach, 0f, door.z));
+                    expectedJambPositions.Add(new Vector3(door.x - reach, -jamb.min.y, door.z));
+                    expectedJambPositions.Add(new Vector3(door.x + reach, -jamb.min.y, door.z));
                 }
             }
 
@@ -595,7 +595,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         }
 
         [UnityTest]
-        public IEnumerator EveryOverlayPiecesDrawnBaseRestsOnTheFloor()
+        public IEnumerator EveryCornerAndEndCapDrawnBaseRestsOnTheFloor()
         {
             WallSpawner spawner = CreateSpawner();
             spawner.Spawn();
@@ -606,8 +606,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
             // subtracting it is exactly the defect this guards. A tight mesh hugs the alpha with a
             // dilation of at most 2px (1/32 at 64 PPU), so its lowest vertex is the drawn base.
             const float MeshDilation = 2f / 64f + 0.001f;
-            var overlays = RenderersWithSprite(CornerSprite).Concat(RenderersWithSprite(JambSprite))
-                .Concat(RenderersWithSprite(EndCapSprite)).ToList();
+            // Jambs are excluded on purpose: they keep the lift until they stop being placed.
+            var overlays = RenderersWithSprite(CornerSprite).Concat(RenderersWithSprite(EndCapSprite)).ToList();
             Assert.Greater(overlays.Count, 0, "No overlay pieces were spawned, so this test would pass on nothing.");
 
             var floating = new List<string>();

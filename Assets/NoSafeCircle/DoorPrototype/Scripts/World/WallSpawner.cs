@@ -197,6 +197,11 @@ namespace NoSafeCircle.DoorPrototype.World
         // floated 0.25 and jambs 0.40625. The editor twin was corrected the same way
         // (ArchitecturalWallAccentPlacement.ComputeGroundContactAnchorY returns floorY); this is
         // the path that ships.
+        //
+        // THE JAMB DELIBERATELY KEEPS THE OLD LIFT. Grounded, it wins the sort and shows a full
+        // portal over the dressing beside each door; the Art Director has decided to stop placing
+        // it, and the Game Agent owns that removal and the 0.500 shoulder it leaves. Delete this
+        // exception with the jamb, not before.
         private static Vector3 AccentPosition(GameObject instance, WallPiece piece, Quaternion rotation)
         {
             var renderer = instance.GetComponentInChildren<SpriteRenderer>(true);
@@ -212,7 +217,8 @@ namespace NoSafeCircle.DoorPrototype.World
             bool minEdgeIsInner =
                 Vector3.Dot(worldOffsetAtLocalMinX, piece.Inward) > Vector3.Dot(worldOffsetAtLocalMaxX, piece.Inward);
             Vector3 anchoredWorldOffset = minEdgeIsInner ? worldOffsetAtLocalMaxX : worldOffsetAtLocalMinX;
-            return new Vector3(piece.Point.x, FloorY, piece.Point.z) - anchoredWorldOffset;
+            float anchorY = piece.Kind == WallPieceKind.Jamb ? FloorY - localBounds.min.y : FloorY;
+            return new Vector3(piece.Point.x, anchorY, piece.Point.z) - anchoredWorldOffset;
         }
 
         // In WallPieceKind order, which the enum declares as the order of these six slots.
