@@ -56,7 +56,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 3,
+  "contract_revision": 4,
   "decomposition_reason": "This child owns the parent’s shared integration surface: FloorRunRestartController, DoorPrototypeSceneBuilder.cs, and DoorPrototype.unity. It must sequence all delivered owner reset APIs, materialize the canonical scene, and validate restart and victory behavior together; separating those resources would create competing writers and leave the required scene wiring incomplete.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -93,7 +93,6 @@
   "exclusive_resources": [
     "logical:floor-run-restart-orchestrator",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FloorRunRestartClosurePlayModeTests.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/FloorRunRestartClosurePlayModeTests.cs.meta"
   ],
@@ -135,6 +134,15 @@
         "previous_contract_revision": 2,
         "base_contract_sha256": "d65071cf869746a80511a8b46119feb6f0abf00ec9a9de089f50718e00d77bb8",
         "revised_contract_sha256": "66feb1f7d0d222bc49458ec7766aa19023a133752b7c569063f0040c9edd4b3a",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-27",
+        "reason": "Deletion fallout: drop the owned unity-scene resource for Assets/Scenes/DoorPrototype.unity, deleted at fe4c95ad. The gate text already names the registered runtime scene; the only remaining mention is the provenance clause recording that repoint, which is history and is left standing.",
+        "source_head": "a1286e4df0075b812106a8253700204a9ddb3f03",
+        "previous_contract_revision": 3,
+        "base_contract_sha256": "f6d40085b4946d98ac30e8cfedbc540dd653be734aa3b4d817b3b9f2e297e2bc",
+        "revised_contract_sha256": "c7bfd90bb5ecaeaf6b8ebaeacf17b37969e08e2683079aed546344102233ca0c",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
