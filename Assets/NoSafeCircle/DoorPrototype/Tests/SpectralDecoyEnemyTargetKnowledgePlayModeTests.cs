@@ -291,7 +291,15 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 wizardTransform.position = new Vector3(4f, 0f, 0f);
                 targetKnowledge.UpdateTargetKnowledge(0f);
 
-                Assert.That(targetKnowledge.State, Is.EqualTo(EnemyTargetKnowledgeState.Idle));
+                // Blocked sight must not ACQUIRE: no pursuit and no locked target. It used to also
+                // require Idle; since GER's 2026-09-27 ruling a sight-blocked contact inside
+                // detectionDistance is INVESTIGATED (SearchingLastKnownPosition, CurrentTarget
+                // deliberately unset - see EnemyTargetKnowledge.UpdateTargetKnowledge), so Idle
+                // was asserting the freeze Vincent reported as a defect.
+                Assert.That(targetKnowledge.State, Is.Not.EqualTo(EnemyTargetKnowledgeState.Pursuing),
+                    "The enemy acquired the wizard through the occluder.");
+                Assert.That(targetKnowledge.CurrentTarget, Is.Null,
+                    "A sight-blocked contact locked on to a target; investigation must stay unlocked.");
             }
             finally
             {
