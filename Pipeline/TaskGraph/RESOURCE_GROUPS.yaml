@@ -180,8 +180,7 @@
         "independent-room-scene-composition",
         "wizard-eight-direction-locomotion-integration",
         "stationary-enemy-sprite-integration",
-        "navmesh-agent-configuration-foundation",
-        "spectral-decoy-cast-phantom-cooldown-ui"
+        "navmesh-agent-configuration-foundation"
       ],
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
       "work_ids": [
@@ -201,8 +200,7 @@
         "NSC-069",
         "NSC-075",
         "NSC-077",
-        "NSC-089",
-        "NSC-112"
+        "NSC-089"
       ]
     },
     {
