@@ -211,3 +211,15 @@ and then a verifier clause should hold them together.
 | prop *art* and its `.meta` import settings | Art Director |
 | the NavMesh bake and spawn phases | Game Agent |
 | giving the player a path | needs a task; Game Agent once scoped |
+
+## What would falsify this document
+
+- **The carving refutation**: re-run `NavMesh.SamplePosition` on a prop footprint in the
+  assembled world. If it returns a hit, props have stopped carving and section 2 is wrong -
+  most likely because the spawn phase order changed or a prop lost its collider.
+- **The collider census**: re-count `m_Size.x == m_Size.z` across `Resources/Props/*.prefab`. If
+  it is no longer 41 of 41, the square-prism finding has been partly fixed and the numbers here
+  are stale.
+- **The layer mismatch**: re-count props on layer 8 with a collider taller than
+  `SightOcclusionLayers.EyeOffset`. If it is no longer 25, either the prefabs or the policy moved.
+- **The player half**: if `PlayerMovement.cs` ever contains `NavMesh`, section 3 is obsolete.

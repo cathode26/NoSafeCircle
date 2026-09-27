@@ -149,3 +149,14 @@ when the question is what a player sees.
   fixed an observed inversion; no one has derived it from the 30-degree pitch or tested the margin.
 - **Whether the door leaf's ~0.4 overshoot above the wall top sorts correctly** against the wall
   tilemap it pokes through.
+
+## What would falsify this document
+
+- **The layer indices**: re-read `m_SortingLayers` in `ProjectSettings/TagManager.asset`. A third
+  layer inserted before `WorldSprites` changes its index and every claim that depends on it.
+- **The single shared order**: if any world sprite carries a `sortingOrder` other than
+  `WorldSpriteConvention.SortingOrder`, position no longer decides depth for it.
+- **Where the sort comes from**: if `IsometricCameraFollow.OnEnable` stops setting `CustomAxis`,
+  the inert `GraphicsSettings` values become live and section 2 is wrong.
+- **The axis itself**: `(0, 1, 0.26)` was tuned against a 30-degree pitch. Change the camera
+  pitch and the coefficient needs re-deriving; nobody has measured its margin.

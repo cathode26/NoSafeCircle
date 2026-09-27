@@ -15,42 +15,72 @@ begins pursuit.
 
 ---
 
-## !!! 1. THE DESIGN INTENT IS RECORDED TWICE, ONE DAY APART, AND THE TWO RECORDS CONTRADICT EACH OTHER. READ THIS FIRST. !!!
+## 1. SETTLED 2026-09-27 BY VINCENT: THE ANCHOR IS TOWED. And the record had said so all along.
 
-Both are Vincent's own words. Both are in the repository or its task graph. They cannot both be
-implemented.
+**His words, the ones that decided it:**
 
-**2026-09-26 — a TOWED anchor.** Quoted in `Tasks/NSC-125.yaml`, criterion prose:
+> *"The problem is that the enemy post is fixed where it spawned, but it needs to be allowed to
+> drag its leash anchor."*
 
-> *"the issue is that leash has a owner and the owner doesnt move"*
-> *"the owner must move with enemy"*
-> *"the enemy must drag the owner when it runs out of slack"*
+So `maximumPursuitDistanceFromStart` is a **slack radius**, not a cage. Within slack the anchor
+holds still; once the enemy runs out of slack it **drags the anchor** along behind it so the rope
+stays exactly taut. There is still a home to return to - it simply follows.
 
-The contract's own reading of it, and it is a careful one: *"HE DID NOT ASK FOR THE LEASH TO GO; HE
-RESPECIFIED ITS ANCHOR. His spec keeps a home to return to — within slack the anchor does not
-move."*
+**This confirms the older of two conflicting records and refutes my reading of the newer one.**
+`Tasks/NSC-125.yaml` had quoted him on 2026-09-26: *"the issue is that leash has a owner and the
+owner doesnt move"*, *"the owner must move with enemy"*, *"the enemy must drag the owner when it
+runs out of slack"*. That was right. On 2026-09-27 he also said *"the leash is only so many units
+and the starting point of the leash will not move, it cant be pulled by the enemy"* and **I read
+that as design intent when it was a description of the BUG** - he was telling me what the code
+does wrong, and I wrote it down as what it should do.
 
-**2026-09-27 — a FIXED anchor.** Said directly in a Game Agent session:
+- **THE LESSON, and it is the expensive one: a bug report and a design statement can be the same
+  sentence.** *"X does not move"* is either a complaint or a specification and nothing in the
+  words tells you which. When a statement describes current behaviour, ask which of the two it is
+  before recording it, because recording it as intent makes the defect permanent and looks like
+  diligence. His *"I am sure we spoke about this before and I guess it wasnt written down"* was
+  the clue: it HAD been written down, correctly, and the disagreement was with my note, not his
+  memory. See the memory `search-for-an-existing-decision-before-recording-a-new-one`.
 
-> *"I mean it is on a leash"*
-> *"the leash is only so many units and the starting point of the leash will not move, it cant be
-> pulled by the enemy"*
-> *"I am sure we spoke about this before and I guess it wasnt written down."*
+### And towing alone did NOT fix it. That is the part worth keeping.
 
-**The difference is the whole mechanism.** A towed anchor lets an enemy cross the floor a step at a
-time, dragging its post behind it once slack runs out. A fixed anchor holds it to a circle of
-`maximumPursuitDistanceFromStart` around its spawn point, for ever.
+An implementation of the tow already existed, unmerged, at `ac1f9691f`: it drags the anchor to stay
+exactly one leash-length behind **and still abandons the chase**. Trace it:
 
-**Nothing in this repository can settle this. It is Vincent's, and it is one question.** Until he
-answers it, do not "fix" the leash in either direction — a change either way will be wrong for one
-of his two statements. The last line of the 09-27 quote is worth noticing: he believed it had never
-been written down, and it had been, saying the opposite. That is the cost of design intent living in
-conversation.
+    enemy leaves anchor A, pursues            displacement from A grows
+    displacement > 5                          anchor towed to A1 = pos - dir * 5, gives up
+    walks back to A1                          5 units backwards
+    re-acquires, pursues                      reaches pos again, displacement from A1 = 5
+    displacement > 5                          tows to A2 ~= A1, gives up again
 
-**What is implemented today is the FIXED anchor** (§2). So the 09-27 statement describes the current
-code and the 09-26 statement describes a change nobody has made.
+**The anchor moves once and then stops, and the enemy paces a 5-unit segment for ever.** That is
+exactly the defect, relocated five units. **Dragging exists so the enemy does not have to stop, so
+the give-up had to go as well** - the anchor moving and the chase continuing are two separate
+changes and only the pair is a fix.
 
----
+### Why the give-up could be removed without un-delivering anything
+
+Both contracts declaring `EnemyTargetKnowledge.cs` are **conformant with delivery records**, so a
+criterion change would have un-delivered a delivered task. Read at source first:
+
+| contract | state | what it says about the leash |
+|---|---|---|
+| NSC-111 | conformant, `DEL-NSC-111-d8683f6afdc5` | criterion (3) requires that a **redirected** enemy taken beyond the leash clears the redirect, keeps the wizard as `CurrentTarget` and searches the start position |
+| NSC-091 | conformant, `DEL-NSC-091-2559514826e9` | owns the file and mentions the leash **zero times** |
+
+So the give-up now serves **only** the decoy-redirect path, which is preserved exactly, and the
+ordinary path is unconstrained. **Had NSC-091 held a leash criterion this would have been a GER
+revision request instead of a change.** The ordinary-pursuit branch also gained a public
+`PursuitAnchor`, because with the give-up gone the anchor was no longer observable and the next
+test would otherwise have reached for reflection on a private field.
+
+### What would falsify this section
+
+A later statement from Vincent about the anchor, or a leash criterion appearing in **any**
+contract's `exclusive_resources` owner (re-read NSC-091 and NSC-111, and grep `Tasks/` for
+`leash`). Also: if an enemy is now seen following the wizard onto a doorway and camping the
+threshold, the old comment's stated purpose has been lost and the bound needs to return in some
+other form - that was the leash's original job and nothing replaces it.
 
 ## 2. What the code implements
 

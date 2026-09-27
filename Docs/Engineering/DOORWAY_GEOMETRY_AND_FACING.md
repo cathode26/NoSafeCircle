@@ -200,3 +200,14 @@ rotation. Fixing the facing by rotating the door would be the wrong fix and woul
 | jamb art filling the 0.46 per side | Art Director |
 | changing the leaf scale, the blocker or the collider gap | Game Agent, and NSC-048's pin must be respected |
 | the ascii map cell size and the 4-unit opening | Game Agent |
+
+## What would falsify this document
+
+- **The 4.000 opening**: re-measure the `+` runs in `Content/Levels/floor01.txt` against
+  `AsciiRoomMap.WorldUnitsPerCell`. Any run that is not two glyphs, or a cell size that is not
+  `2f`, changes every width here.
+- **The facing**: if `Door.prefab` stops resolving to `_SW_` sprites, the fix has been reverted -
+  the likeliest cause is a crew running NSC-097, whose resource list names only the `_S_` files.
+- **The gap arithmetic**: it is derived from alpha bounding boxes that include a threshold puddle,
+  not from the door slab. A render, or a measurement of the slab alone, can overturn the
+  per-side figures without changing the opening or the collider.
