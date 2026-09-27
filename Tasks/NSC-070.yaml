@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-070",
-  "contract_revision": 3,
+  "contract_revision": 4,
   "contract_disposition": "active",
   "title": "Four-Wizard Directional Animation State Repair",
   "reconciliation_key": "wizard-animation-audit-repair",
@@ -20,8 +20,7 @@
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardAnimationController.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardArtIntegrationTests.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/WizardAnimationPlayModeTests.cs",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/WizardAnimationPlayModeTests.cs"
   ],
   "acceptance_criteria": [
     {
@@ -134,6 +133,15 @@
         "previous_contract_revision": 2,
         "base_contract_sha256": "5a1acac207b893a89d9df3f2af73dc4314c7e6ba84a19d03b47246a587e9cd13",
         "revised_contract_sha256": "63cabe2099e188cabef8c907959938867aa9f8e65ce8d4b77614d7a9bee5fe89",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-27",
+        "reason": "Deletion fallout: drop the owned unity-scene resource for Assets/Scenes/DoorPrototype.unity, deleted at fe4c95ad. The gate text already names the registered runtime scene; the only remaining mention is the provenance clause recording that repoint, which is history and is left standing.",
+        "source_head": "7de4c20808fc9e76571f9faf3b7506d6197d9bb8",
+        "previous_contract_revision": 3,
+        "base_contract_sha256": "02a7a9c8d27b9140c2391ea8ad1eeb4f15e28b7abba37e0848af0c78a0fefc17",
+        "revised_contract_sha256": "8da1b14905e8792fc5e6d50c3bd02bdb1e4a08d2ae776926a7ead21ebc0f8e87",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
