@@ -166,12 +166,29 @@ y -0.21875..2.28125 x -1.5..1.5, Point filter, **failures=0**.
 `128/64 x 1.54 = 3.080` units against `WallHeight 2.5` and **rode 0.58 above the wall top**; the new
 one matches course for course. That was offered as falsifiable and it held.
 
-**THE TWO PREFAB FIELDS ARE A PAIR - CHANGING ONLY THE SCALE SINKS THE DOOR 0.219 INTO THE FLOOR**,
-because the new art's 14-row bottom pad arrives as a negative `bounds.min.y` that a transform offset
-cannot see:
+**ONE FIELD CHANGES, NOT TWO. `m_LocalPosition.y` STAYS AT -1.25:**
 
     Door.prefab  m_LocalScale     {x: 1.54, y: 1.54, z: 1.54}  ->  {x: 1, y: 1, z: 1}
-    Door.prefab  m_LocalPosition  {x: 0, y: -1.25, z: 0}       ->  {x: 0, y: -1.03125, z: 0}
+    Door.prefab  m_LocalPosition  {x: 0, y: -1.25, z: 0}       ->  UNCHANGED
+
+**!!! THIS SECTION FIRST SAID THE FIELDS WERE A PAIR AND GAVE `-1.03125`. THAT WAS WRONG, IT WAS
+MINE, AND IT WAS CORRECTED THE SAME DAY BEFORE ANY MERGE. !!!** The reasoning was that the art's
+14-row bottom pad arrives as a negative `bounds.min.y` the transform cannot see. **`bounds.min.y` is
+the RECT bottom and is NOT the art base.** The pivot is the transform origin, and this art's pivot
+sits exactly on the drawn art's base (14 px pad, pivot 14.0 px), **so the art base lands at the
+transform's world Y whatever the padding is.**
+
+**AND THE -1.25 WAS LOAD-BEARING FOR A SECOND REASON NOBODY HAD WRITTEN DOWN: it CANCELS
+`DoorVisual.localPosition.y = +1.25`**, landing the door's sort-relevant pivot at ground Y = 0, the
+same Y every wall piece sits at (`IsometricSortingRenderPlayModeTests.cs:171-174` says so in its own
+comment). The transparency sort axis is `(0, 1, 0.26).normalized`, so **Y dominates depth** and any
+lift makes the door read as further away and draw BEHIND the wall:
+
+    DoorVisual +1.25  +  DoorSprite -1.25      =  net  0.00000   art base at ground, sorts at ground
+    DoorVisual +1.25  +  DoorSprite -1.03125   =  net +0.21875   floats AND sorts behind the wall
+
+**Confirmed at runtime: pivot Y 0.21875 against neighbouring wall pieces at 0.0, door occluded.**
+**A constant that looks tuned usually is - ask what it CANCELS before changing it.**
 
 **`DoorArtScale` in `DoorPrototypeSceneBuilder.cs` IS NOT THIS LEVER.** That constant scales the
 builder's isolated scene, which loads the `_S_` sprites by name and still shows the old art. The
