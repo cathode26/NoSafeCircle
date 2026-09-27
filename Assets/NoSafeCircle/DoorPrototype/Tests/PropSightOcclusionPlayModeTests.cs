@@ -240,6 +240,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         {
             public BoxCollider Box;
             public Vector3 Center;
+            public Vector3 GroundCenter;
             public Vector3 LocalAlongWorld;
             public Vector3 LocalAcrossWorld;
             public float HalfAlong;
@@ -270,6 +271,18 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 {
                     Box = box,
                     Center = centerWorld,
+                    // GROUND LEVEL (y=0), NOT the collider's own center Y. HasUnobstructedView
+                    // mirrors production exactly: it adds SightOcclusionLayers.EyeOffset to
+                    // whatever origin it is given, exactly as EnemyTargetKnowledge does to a
+                    // ground-anchored enemy's transform.position. The FIRST version of this
+                    // fixture passed the collider's own (already chest-height) center as that
+                    // origin, so EyeOffset was applied on top of it a second time - every ray
+                    // sailed clean over the top of every prop and reported CLEAR everywhere,
+                    // including two false OBSTRUCTED hits on room walls instead of any prop. Ray
+                    // endpoints must be built from a GROUND point, exactly like a real actor
+                    // standing on the floor, so the single EyeOffset in HasUnobstructedView lands
+                    // at the true eye height.
+                    GroundCenter = new Vector3(centerWorld.x, 0f, centerWorld.z),
                     LocalAlongWorld = t.right.normalized,
                     LocalAcrossWorld = t.forward.normalized,
                     HalfAlong = halfSizeLocal.x,
@@ -357,8 +370,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 // at dead center (so it stays within the box's local-X span throughout). This
                 // construction passes through the box's interior regardless of its proportions -
                 // it is a geometric guarantee, not a measurement of whether it occludes.
-                Vector3 broadsideEye = c.Center - c.LocalAcrossWorld * (c.HalfAcross + CrossingMargin);
-                Vector3 broadsideTargetPos = c.Center + c.LocalAcrossWorld * (c.HalfAcross + CrossingMargin);
+                Vector3 broadsideEye = c.GroundCenter - c.LocalAcrossWorld * (c.HalfAcross + CrossingMargin);
+                Vector3 broadsideTargetPos = c.GroundCenter + c.LocalAcrossWorld * (c.HalfAcross + CrossingMargin);
                 sightTarget.transform.position = broadsideTargetPos;
                 Physics.SyncTransforms();
                 bool broadsideClear = HasUnobstructedView(
@@ -371,9 +384,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 // result above is not a query that can only ever return one answer.
                 Vector3 sidestep = c.LocalAcrossWorld * (c.HalfAcross + ClearSidestepMargin);
                 Vector3 alongEye =
-                    c.Center - c.LocalAlongWorld * (c.HalfAlong + CrossingMargin) + sidestep;
+                    c.GroundCenter - c.LocalAlongWorld * (c.HalfAlong + CrossingMargin) + sidestep;
                 Vector3 alongTargetPos =
-                    c.Center + c.LocalAlongWorld * (c.HalfAlong + CrossingMargin) + sidestep;
+                    c.GroundCenter + c.LocalAlongWorld * (c.HalfAlong + CrossingMargin) + sidestep;
                 sightTarget.transform.position = alongTargetPos;
                 Physics.SyncTransforms();
                 bool alongClear = HasUnobstructedView(
