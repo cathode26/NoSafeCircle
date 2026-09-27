@@ -506,6 +506,10 @@ class ExecutionCrewBridge:
         self.state_root = self.checkout.parent / ".task-review-agent"
         self.state_path = self.state_root / f"{self.scope.task_id}.execution.json"
         self._receipt: ExecutionCrewReceipt | None = None
+        # WHY the persisted receipt was not adopted. `_load_current` declines
+        # through eight separate paths and every one of them used to surface as
+        # one sentence about the caller's run_id argument.
+        self._receipt_decline: str | None = None
         self._load_current()
 
     @property
@@ -1226,8 +1230,21 @@ class ExecutionCrewBridge:
                 )
 
     def require(self, run_id: str) -> ExecutionCrewReceipt:
-        if self._receipt is None or self._receipt.run_id != run_id:
-            raise ExecutionBridgeError("candidate integration requires the current run_id")
+        # TWO FAULTS, TWO MESSAGES. These were one sentence naming the caller's
+        # run_id, so a bridge that had simply declined the persisted receipt read
+        # as a bad argument. NSC-082's crew result sat unharvested from
+        # 2026-09-23 partly on the strength of that wording.
+        if self._receipt is None:
+            raise ExecutionBridgeError(
+                "no authenticated ExecutionCrew receipt is loaded for %s: %s"
+                % (self.scope.task_id, self._receipt_decline
+                   or "no reason was recorded, which is itself a defect")
+            )
+        if self._receipt.run_id != run_id:
+            raise ExecutionBridgeError(
+                "the loaded ExecutionCrew receipt is for run %s, not the requested %s"
+                % (self._receipt.run_id, run_id)
+            )
         result_path = Path(self._receipt.result_path)
         if not result_path.is_file():
             raise ExecutionBridgeError("persisted ExecutionCrew result disappeared")
@@ -1257,6 +1274,10 @@ class ExecutionCrewBridge:
 
     def _load_current(self) -> None:
         if not self.state_path.is_file():
+            self._receipt_decline = (
+                "no ExecutionCrew receipt has ever been persisted for this checkout at %s"
+                % self.state_path
+            )
             return
         try:
             raw = json.loads(self.state_path.read_text(encoding="utf-8"))
@@ -1265,8 +1286,18 @@ class ExecutionCrewBridge:
             if identity.get("authority") == "local_rehearsal_only":
                 if (self.local_rehearsal_context is None
                         or identity.get("local_run_id") != self.local_rehearsal_context.run_id):
+                    self._receipt_decline = (
+                        "the persisted receipt is a LOCAL REHEARSAL for run %r and this bridge"
+                        " is %s" % (identity.get("local_run_id"),
+                                     "not a rehearsal" if self.local_rehearsal_context is None
+                                     else "rehearsing run %r" % self.local_rehearsal_context.run_id)
+                    )
                     return
             elif self.local_rehearsal_context is not None:
+                self._receipt_decline = (
+                    "this bridge is a local rehearsal and the persisted receipt is a REAL run,"
+                    " which a rehearsal may never adopt"
+                )
                 return
             has_crew_profile = "crew_profile" in identity
             has_validation_profile = "validation_profile" in identity
@@ -1303,34 +1334,58 @@ class ExecutionCrewBridge:
                 returncode=identity["returncode"],
                 rejection_reasons=tuple(identity["rejection_reasons"]),
             )
-        except (OSError, UnicodeError, json.JSONDecodeError, KeyError, TypeError, ValueError):
+        except (OSError, UnicodeError, json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
+            self._receipt_decline = (
+                "the persisted receipt at %s could not be read: %s: %s"
+                % (self.state_path, type(exc).__name__, " ".join(str(exc).split())[:200])
+            )
             return
         if receipt_hash != semantic_sha256(identity):
+            self._receipt_decline = (
+                "the persisted receipt's own receipt_sha256 does not match its contents, so it"
+                " was altered after it was written"
+            )
             return
         accepted = self.scope.accepted
         if accepted is None:
+            self._receipt_decline = (
+                "this bridge has no ACCEPTED scope, so a persisted receipt cannot be matched to"
+                " it -- the scope plan must be accepted before a crew result can be harvested"
+            )
             return
-        if (
-            receipt.task_id != accepted.task_id
-            or receipt.lease_id != accepted.lease_id
-            or receipt.plan_id != accepted.plan_id
-            or receipt.source_head != accepted.source_head
-            or receipt.task_contract_sha256 != accepted.task_contract_sha256
-            or receipt.crew_profile != self.crew_profile
-            or receipt.validation_profile != self.validation_profile
-            or (
-                self.execution_model is not None
-                and receipt.execution_model != self.execution_model
+        # NAME EVERY FIELD THAT DIFFERS. A later session harvesting a finished crew
+        # rebuilds this bridge from the crew's own configuration, and one wrong
+        # profile or model silently produced "requires the current run_id" -- which
+        # sent the reader to check an argument that was correct.
+        compared = [
+            ("task_id", receipt.task_id, accepted.task_id),
+            ("lease_id", receipt.lease_id, accepted.lease_id),
+            ("plan_id", receipt.plan_id, accepted.plan_id),
+            ("source_head", receipt.source_head, accepted.source_head),
+            ("task_contract_sha256", receipt.task_contract_sha256,
+             accepted.task_contract_sha256),
+            ("crew_profile", receipt.crew_profile, self.crew_profile),
+            ("validation_profile", receipt.validation_profile, self.validation_profile),
+        ]
+        if self.execution_model is not None:
+            compared.append(("execution_model", receipt.execution_model, self.execution_model))
+        if self.execution_reasoning_effort is not None:
+            compared.append(("execution_reasoning_effort", receipt.execution_reasoning_effort,
+                             self.execution_reasoning_effort))
+        differing = [item for item in compared if item[1] != item[2]]
+        if differing:
+            self._receipt_decline = (
+                "the persisted receipt for run %s does not belong to this bridge: %s"
+                % (receipt.run_id, "; ".join(
+                    "%s is %r on the receipt and %r here" % item for item in differing))
             )
-            or (
-                self.execution_reasoning_effort is not None
-                and receipt.execution_reasoning_effort
-                != self.execution_reasoning_effort
-            )
-        ):
             return
         try:
             self._receipt = receipt
             self.require(receipt.run_id)
-        except ExecutionBridgeError:
+        except ExecutionBridgeError as exc:
             self._receipt = None
+            self._receipt_decline = (
+                "the persisted receipt for run %s failed its own verification: %s"
+                % (receipt.run_id, exc)
+            )
