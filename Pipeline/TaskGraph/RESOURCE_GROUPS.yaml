@@ -178,7 +178,6 @@
         "door-lock-break-state",
         "door-passability-publication",
         "independent-room-scene-composition",
-        "wizard-eight-direction-locomotion-integration",
         "stationary-enemy-sprite-integration",
         "navmesh-agent-configuration-foundation"
       ],
@@ -198,7 +197,6 @@
         "NSC-050",
         "NSC-051",
         "NSC-069",
-        "NSC-075",
         "NSC-077",
         "NSC-089"
       ]

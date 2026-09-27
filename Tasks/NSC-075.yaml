@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-075",
-  "contract_revision": 8,
+  "contract_revision": 9,
   "contract_disposition": "active",
   "title": "Unity Eight-Direction Wizard Locomotion Integration",
   "reconciliation_key": "wizard-eight-direction-locomotion-integration",
@@ -30,8 +30,7 @@
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardCardinalSourceAuditTests.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardCardinalSourceAuditTests.cs.meta",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated"
   ],
   "acceptance_criteria": [
     {
@@ -57,7 +56,7 @@
     {
       "criterion_id": "AC-005",
       "reference": "Deterministic Unity builder ownership",
-      "requirement": "DoorPrototypeSceneBuilder.Build remains the public materialization command and delegates wizard Animator construction to DoorPrototypeGlobalSceneBuilder. The global builder owns changed Animator controller and clip references and is idempotent across two runs: the second run changes no generated controller, clip, placeholder asset or .meta import setting. Assets/Scenes/DoorPrototype.unity is excluded from byte comparison because Unity regenerates its local fileIDs on every save; the scene content this task owns is proven by the saved-scene assertions of VAL-001 and VAL-006. The worker edits source and focused tests only; generated Animator assets and scene serialization are produced by the repository's Unity builder and are never hand-edited."
+      "requirement": "DoorPrototypeSceneBuilder.Build remains the public materialization command and delegates wizard Animator construction to DoorPrototypeGlobalSceneBuilder. The global builder owns changed Animator controller and clip references and is idempotent across two runs: the second run changes no generated controller, clip, placeholder asset or .meta import setting. No committed scene is compared byte-for-byte: Unity regenerates local fileIDs on every save, and the world is built at runtime by GameBootstrap and Assets/Scenes/DoorPrototype.unity was deleted at fe4c95ad, so there is no committed world scene left to except. The world content this task owns is proven by the VAL-001 and VAL-006 assertions against the built world. The worker edits source and focused tests only; generated Animator assets and scene serialization are produced by the repository's Unity builder and are never hand-edited."
     },
     {
       "criterion_id": "AC-006",
@@ -66,8 +65,8 @@
     },
     {
       "criterion_id": "AC-007",
-      "reference": "GER Agent design decision W3, 2026-09-17 (Vincent, 2026-09-17: \"The door wizard sorting order is wrong\"; his screenshot shows the D1 door sprite drawn over the wizard's upper body). GER Agent diagnosis, 2026-09-17: IsometricCameraFollow.OnEnable reapplies transparencySortAxis (0, 1, -0.26) on every scene load, overriding DoorPrototypeGlobalSceneBuilder.BuildCamera's (0, 1, 0.26), whose own comment records that a negative Z coefficient renders a door in front of a wizard standing south of it; the Game Agent fixes the camera as maintenance. The existing DoorPrototypeSceneBuilderTests.Build_PlayerAndDoorDepthKeysCrossAtTheDoorGroundPlane passes with either sign, so sort keys alone do not prove the draw order.",
-      "requirement": "In the production-built Assets/Scenes/DoorPrototype.unity under its gameplay camera, after IsometricCameraFollow has enabled, the wizard's Visual draws over D1's DoorRoot/DoorVisual/DoorSprite whenever the wizard's floor-contact point is on the camera side of that sprite's pivot (the Ruined Entry side, smaller world Z), with D1 closed or open, and DoorSprite draws over the wizard when the wizard is on the far side with D1 open. The camera's sort axis is the Game Agent's maintenance fix, not this task's: that fix is merged on local main at 79a1d3527, where IsometricTransparencySortAxis lives once in IsometricCameraFollow at (0, 1, 0.26) normalized and BuildCamera reads it, so authored and reapplied values cannot drift; the candidate's base must include it. That commit also adds the render guard IsometricSortingRenderTests, which proves a closed D1 door never draws over a wizard standing south of it. This task neither edits nor claims that fixture; VAL-007 covers the placements it does not. Keep the NSC-039 sorting band unchanged: the shared world-sprite sorting layer (DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName) and sortingOrder 0 (WorldSpriteSortingOrder), SpriteRenderer.spriteSortPoint Pivot, and TransparencySortMode.CustomAxis with axis (0, 1, 0.26). Fix any remaining wizard-side defect only in WizardAnimationController.cs and the wizard-owned code in DoorPrototypeGlobalSceneBuilder.cs. If VAL-007 fails for a reason outside those files, including a base without the camera fix, stop and escalate to the GER Agent with the test and its measurements instead of editing DoorPrototypeSceneBuilder.cs, IsometricCameraFollow.cs, the door's visuals or another file this task does not claim. Wall sorting is outside this task."
+      "reference": "GER Agent design decision W3, 2026-09-17 (Vincent, 2026-09-17: \"The door wizard sorting order is wrong\"; his screenshot shows the D1 door sprite drawn over the wizard's upper body). GER Agent diagnosis, 2026-09-17: IsometricCameraFollow.OnEnable reapplies transparencySortAxis (0, 1, -0.26) on every scene load, overriding DoorPrototypeGlobalSceneBuilder.BuildCamera's (0, 1, 0.26), whose own comment records that a negative Z coefficient renders a door in front of a wizard standing south of it; the Game Agent fixes the camera as maintenance. DoorPrototypeSceneBuilderTests.Build_PlayerAndDoorDepthKeysCrossAtTheDoorGroundPlane passed with either sign, so sort keys alone do not prove the draw order. THAT FIXTURE WAS DELETED AT fe4c95ad and is cited here as the REASON a sort-key assertion is insufficient, never as a test to run - the reason outlives the fixture.",
+      "requirement": "In the world the runtime builder produces, under its gameplay camera, after IsometricCameraFollow has enabled, the wizard's Visual draws over D1's DoorRoot/DoorVisual/DoorSprite whenever the wizard's floor-contact point is on the camera side of that sprite's pivot (the Ruined Entry side, smaller world Z), with D1 closed or open, and DoorSprite draws over the wizard when the wizard is on the far side with D1 open. The camera's sort axis is the Game Agent's maintenance fix, not this task's: that fix is merged on local main at 79a1d3527, where IsometricTransparencySortAxis lives once in IsometricCameraFollow at (0, 1, 0.26) normalized and BuildCamera reads it, so authored and reapplied values cannot drift; the candidate's base must include it. That commit also adds the render guard IsometricSortingRenderTests, which proves a closed D1 door never draws over a wizard standing south of it. This task neither edits nor claims that fixture; VAL-007 covers the placements it does not. Keep the NSC-039 sorting band unchanged: the shared world-sprite sorting layer (DoorPrototypeSceneBuilder.WorldSpriteSortingLayerName) and sortingOrder 0 (WorldSpriteSortingOrder), SpriteRenderer.spriteSortPoint Pivot, and TransparencySortMode.CustomAxis with axis (0, 1, 0.26). Fix any remaining wizard-side defect only in WizardAnimationController.cs and the wizard-owned code in DoorPrototypeGlobalSceneBuilder.cs. If VAL-007 fails for a reason outside those files, including a base without the camera fix, stop and escalate to the GER Agent with the test and its measurements instead of editing DoorPrototypeSceneBuilder.cs, IsometricCameraFollow.cs, the door's visuals or another file this task does not claim. Wall sorting is outside this task."
     },
     {
       "criterion_id": "AC-008",
@@ -94,7 +93,7 @@
     {
       "gate_id": "VAL-004",
       "reference": "Builder materialization and exact candidate validation",
-      "requirement": "On the exact candidate, preserve and pass WizardCardinalSourceAuditTests before integration, run DoorPrototypeSceneBuilder.Build twice and require that the second run changes no file's bytes except Assets/Scenes/DoorPrototype.unity (excluded because Unity re-saves it with regenerated local fileIDs), require a clean compile, pass the focused WizardArtIntegrationTests and WizardCardinalSourceAuditTests Edit Mode fixtures and the WizardAnimationPlayModeTests Play Mode fixture, and commit only builder-materialized outputs registered by this task."
+      "requirement": "On the exact candidate, preserve and pass WizardCardinalSourceAuditTests before integration, run DoorPrototypeSceneBuilder.Build twice and require that the second run changes no file's bytes at all - there is no committed world scene left to except, because the world is built at runtime by GameBootstrap and Assets/Scenes/DoorPrototype.unity was deleted at fe4c95ad, require a clean compile, pass the focused WizardArtIntegrationTests and WizardCardinalSourceAuditTests Edit Mode fixtures and the WizardAnimationPlayModeTests Play Mode fixture, and commit only builder-materialized outputs registered by this task."
     },
     {
       "gate_id": "VAL-005",
@@ -109,7 +108,7 @@
     {
       "gate_id": "VAL-007",
       "reference": "Door sorting regression with a rendered draw-order check (W3; the 2026-09-17 diagnosis and the 79a1d3527 maintenance fix)",
-      "requirement": "WizardAnimationPlayModeTests loads the built Assets/Scenes/DoorPrototype.unity, asserts that Camera.main uses TransparencySortMode.CustomAxis with transparencySortAxis equal to (0, 1, 0.26) normalized after IsometricCameraFollow has enabled, and moves the wizard with its CharacterController, not by writing transform.position, to: (a) the closest reachable point to closed D1 on the camera side; (b) the doorway center line 0.5 world units on the camera side of DoorSprite's pivot with D1 open; and (c) 0.5 and 1.0 world units past DoorSprite's pivot on the far side with D1 open. At each point it asserts that the wizard Visual and DoorSprite share sortingLayerID and sortingOrder and use spriteSortPoint Pivot, and that the wizard Visual pivot's dot product with Camera.main.transparencySortAxis is smaller than DoorSprite's at (a) and (b) and larger at (c). At (a) and at 1.0 units past the pivot it also renders the gameplay camera into a RenderTexture three times (DoorSprite only, the wizard Visual only, both) and asserts that pixels opaque in both single renders match the wizard-only render at (a) and the door-only render past the pivot. Each capture disables every other renderer, including the floor and wall Tilemaps, and clears the camera to transparent black - clearFlags SolidColor with background (0, 0, 0, 0) - so an opaque pixel means sprite coverage. A capture that keeps the scene's opaque clear or leaves the environment drawing makes every pixel contested and proves nothing, as the Game Agent's guard for 79a1d3527 found. The delivery evidence records the overlapping pixel counts."
+      "requirement": "WizardAnimationPlayModeTests loads the scene registered in EditorBuildSettings and lets GameBootstrap build the world, asserts that Camera.main uses TransparencySortMode.CustomAxis with transparencySortAxis equal to (0, 1, 0.26) normalized after IsometricCameraFollow has enabled, and moves the wizard with its CharacterController, not by writing transform.position, to: (a) the closest reachable point to closed D1 on the camera side; (b) the doorway center line 0.5 world units on the camera side of DoorSprite's pivot with D1 open; and (c) 0.5 and 1.0 world units past DoorSprite's pivot on the far side with D1 open. At each point it asserts that the wizard Visual and DoorSprite share sortingLayerID and sortingOrder and use spriteSortPoint Pivot, and that the wizard Visual pivot's dot product with Camera.main.transparencySortAxis is smaller than DoorSprite's at (a) and (b) and larger at (c). At (a) and at 1.0 units past the pivot it also renders the gameplay camera into a RenderTexture three times (DoorSprite only, the wizard Visual only, both) and asserts that pixels opaque in both single renders match the wizard-only render at (a) and the door-only render past the pivot. Each capture disables every other renderer, including the floor and wall Tilemaps, and clears the camera to transparent black - clearFlags SolidColor with background (0, 0, 0, 0) - so an opaque pixel means sprite coverage. A capture that keeps the scene's opaque clear or leaves the environment drawing makes every pixel contested and proves nothing, as the Game Agent's guard for 79a1d3527 found. The delivery evidence records the overlapping pixel counts."
     }
   ],
   "downstream_integration_obligations": [
@@ -203,6 +202,15 @@
         "previous_contract_revision": 7,
         "base_contract_sha256": "4f0e4d00148cb082e209c1a3342bebc88bc1fbfcb5075e9810fc2fbf7aca5392",
         "revised_contract_sha256": "5b2d1824e674c0eac7c28f328e01640764680110f0f31c259e65ff77043c45f3",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-27",
+        "reason": "Deletion fallout at fe4c95ad: drop the dangling owned unity-scene resource and repoint the clauses that still required the deleted scene. AC-007 keeps its citation of the deleted DoorPrototypeSceneBuilderTests method as the REASON a sort-key assertion is insufficient, which outlives the fixture, rather than as a test to run.",
+        "source_head": "cf04c52af595ddd01aef7366d9b3608e8b542a5a",
+        "previous_contract_revision": 8,
+        "base_contract_sha256": "03b11939317aa8f9e83b2864a8ddfb06bafdd4f28eef8349faaa42de4381c4bb",
+        "revised_contract_sha256": "70a4d1cc966f3d496bd0467af10201d4b753a5dedd14427165033ce3317dbf0e",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
