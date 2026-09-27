@@ -28,35 +28,67 @@ width.
 
     visible gap  =  4.000 (art opening)  -  3.080 (door leaf CANVAS)  =  0.920 total, 0.460 each side
 
-**!!! THAT 3.080 IS THE CANVAS, NOT THE DOOR, AND THE CANVAS IS PADDED. CORRECTED BELOW. !!!**
+**!!! THIS NUMBER HAS BEEN WRONG THREE TIMES, IN BOTH DIRECTIONS. THE GAP IS 0.714. !!!**
 
-The sprite is 128x128 but the drawn door does not fill it. Measured from the alpha channel:
+Three agents measured three different SPANS and all three arithmetics were correct. That is the
+whole lesson: the error was never the multiplication, it was which landmark the gap was measured to.
 
-| facing | drawn px | drawn units | x1.54 |
+| measured from the door art to | total | how it goes wrong |
+|---|---|---|
+| the art opening, using the CANVAS width | 0.920 | `128 / 64 x 1.54 = 3.080` is the padded canvas, not the drawn door |
+| the art opening, using the DRAWN width | 1.714 | correct arithmetic, wrong landmark - counts stone the jamb already covers |
+| **the jamb inner edge, using the DRAWN width** | **0.714** | **0.321 left + 0.393 right. This is what is visible.** |
+
+The drawn door, from the alpha channel rather than the canvas:
+
+| facing | drawn px | drawn units | span at x1.54, pivot 0.492188 |
 |---|---|---|---|
-| `_S_` (was wired) | 116 x 117 | 1.812 x 1.828 | **2.791** wide |
-| `_SW_` (wired now) | 95 x 124 | 1.484 x 1.938 | **2.286** wide |
+| `_S_` | 116 x 117 | 1.812 x 1.828 | - |
+| `_SW_` (wired) | 95 x 124 | 1.484 x 1.938 | **-1.179 .. +1.107** |
 
-**So no uniform scale fits this art to the opening.** The opening is 4.000 x 2.500, aspect 1.600;
-the drawn SW figure is aspect 0.766. Filling the width would need scale 2.695, making the leaf
-5.224 tall against a 2.500 wall. **The width shortfall is an art request, not a number anyone can
-tune**, which is why the x1.54 scale was left alone when the facing was fixed. `x1.54` is also
-Vincent's own approved value (`Docs/Art/Doors/APPROVAL.md`), so changing it is his call twice over.
+**And what actually stands in the opening, which is the part everyone missed:**
+`wall_door_jamb.png` is 112 px drawn = **1.750 u**, and `WallPiecePass.Jambs` anchors it at the
+collider gap edge `centre +/- 1.500` **extending AWAY from the door**. So jamb art spans
+`+/-1.500 .. +/-3.250` and already covers the entire `+/-1.500 .. +/-2.000` stretch of the opening.
+That is `WallColliderRuns`' documented *"half a unit of jamb art overhangs the collider on each
+side"*, seen from the other end. **Measuring the gap to `+/-2.000` counts that coverage twice.**
 
-**AND DO NOT COMPARE THOSE TWO ROWS AS IF THEY MEASURED THE SAME THING.** The Art Director's note
-warns why, and it is the sharper half of this entry: *"that door is front-facing, so its threshold
-pool spreads toward the camera, and a 3/4 facing foreshortens the same puddle into far fewer
-pixels. Coherence transfers between facings; a raw count does not."* The `_SW_` bbox is narrower
-partly because of a foreshortened puddle and moss, not necessarily because the door SLAB is
-narrower - and the slab is what reads as a gap. **The slab's own width is still unmeasured.** The
-registration was built so the slab lands where the `_S_` slab landed: one union box `(16,8,115,133)`,
-bottom-aligned, `spritePivot {x: 0.492188, y: 0}`.
+    opening edge  -2.000   jamb covers  -3.250 .. -1.500   door art  -1.179 .. +1.107
+    UNCOVERED     -1.500 .. -1.179 = 0.321        +1.107 .. +1.500 = 0.393
 
-**This is my own memory `measure-the-drawn-figure-not-the-canvas` firing against me in the session
-that cited it.** I published 0.460 per side from `128 / 64 x 1.54`, which is the padded canvas. Then
-I measured the alpha box and nearly published a second wrong number by comparing two facings' boxes
-directly. **The question "how wide is the gap" is still open and it wants a render, not arithmetic.**
+**No uniform scale closes it, and that part was right all along.** The opening is 4.000 x 2.500,
+aspect 1.600; the drawn SW figure is aspect 0.766. Filling the width needs scale 2.695, giving a
+leaf 5.224 tall against a 2.500 wall. `x1.54` is also Vincent's own approved value
+(`Docs/Art/Doors/APPROVAL.md`), so changing it is his call twice over.
 
+**The aspect comparison IS valid, and an earlier version of this document hedged it wrongly.** I
+cited the Art Director's warning that *"coherence transfers between facings; a raw count does not"*
+as a reason to doubt my own numbers. It has since withdrawn that as inapplicable here: the sprite
+quad and the opening are both in the world XY plane and project identically, so 0.766 against 1.600
+is apples to apples. **Its warning is still true of comparing one facing's pixel COUNT to
+another's** - which is a different claim, and not one this section makes.
+
+### THE FIX NEEDS NO NEW ART
+
+`wall_straight.png` is 64 x 160 px at PPU 64, fully opaque, pivot (0.5, 0) = **1.000 x 2.500 u**,
+its height exactly `WallHeight = 2.5f` by design. One piece per side, **anchored at `+/-1.500`
+pointing INWARD** - mirroring the jamb's own anchor with the opposite `Inward` - spans
+`+/-1.500 .. +/-0.500`, covers the whole gap, and tucks its surplus behind the door leaf (overlap
+0.679 left, 0.607 right) with **zero overlap on the jamb**. Anchoring at `+/-2.000` inward instead
+would also close the gap but would lay 0.500 per side of wall face over the jamb, which risks
+reading as a second frame. The overlay mechanism already exists: `WallSpawner.AccentPosition`
+anchors a sprite's OUTER local-x edge at a run endpoint so the art extends into the run, ported
+literally from `ArchitecturalWallAccentPlacement.CreateAccent`.
+
+**Not yet proven for this fix: that the pieces draw BEHIND the door.** Everything on `WorldSprites`
+shares `sortingOrder` 0 and depth falls to the camera's transparency axis by position, and wall
+pieces are inset toward the room by 0.151 while the door sits on the wall line - so the naive
+placement would put the shoulder IN FRONT. That has to be measured, not assumed.
+
+**The habit this cost: I published a width from the padded CANVAS while citing my own memory
+`measure-the-drawn-figure-not-the-canvas` in the same session.** Then I over-corrected to a figure
+that measured to the wrong landmark. **Two of the three wrong answers came from not asking what was
+already standing in the gap.**
 **That is the gap he can see.** At orthographic size 8 it is tens of screen pixels of open floor
 either side of the door leaf, in a 4-unit hole the wall art has already committed to.
 

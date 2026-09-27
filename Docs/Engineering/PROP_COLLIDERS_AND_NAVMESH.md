@@ -51,20 +51,57 @@ consequences you can see in play:
   `shared_stone_column` is `1.31 x 3.02 x 1.31`; `ba_shelf_bank_z_start` is `1.69 x 2.86 x 1.69`.
   This matters for more than movement — see §4.
 
-### Vincent's own model is already recorded, and it is a *pair* of colliders
+### THE SPEC, MEASURED FROM VINCENT'S OWN SHIPPED GAME
 
-`PropPrefabVerifier.cs` records it in prose:
+`PropPrefabVerifier.cs` records the model second-hand: *"his own `chest.prefab` pairs a solid base
+collider with a walk-through trigger over the whole sprite."* **That is directionally right and it
+omits the part that matters.** `chest.prefab` is not in this repository - it is in
+`F:/Petnip/MoveProblems/client`, the isometric Unity 2D game Vincent shipped, which `CLAUDE.md`
+names as an approved free reference and says to read **before** deriving behaviour from first
+principles. Measured there:
 
-> *Vincent's rule is "props should block you", and his own `chest.prefab` pairs a solid base
-> collider with a walk-through trigger over the whole sprite, so "you can walk through it" is
-> already part of his model.*
+| prefab | collider | x span | y span |
+|---|---|---|---|
+| `chest` | trigger | -0.59 .. 0.61 | 0.04 .. **1.00** |
+| `chest` | solid | -0.59 .. 0.61 | 0.03 .. **0.60** |
+| `shrub_harvested_2` | solid | -0.60 .. 0.61 | 0.01 .. **0.52** |
+| `Wilds` (x7, one per bush) | solid | ~full width | 0.01 .. **0.39-0.69** |
+| `berry_doober`, `chest_doober` | trigger only | -0.18 .. 0.18 | ~0.0 .. 0.32 |
 
-**Today there are 41 single boxes and zero triggers.** So the shape he described — a solid base
-plus a walk-through volume over the art — is implemented nowhere. That is the most likely referent
-of *"we talked about how they should be redone"*, and it is a design call, not a repair. It is
-**not** yet settled what the trigger is for (occlusion fade, interaction proximity, something
-else); nothing in this repository says.
+**THE RULE, and all three parts are things this project gets wrong:**
 
+1. **The solid is a POLYGON, not a box.** Every one is a hand-traced 5-12 point
+   `PolygonCollider2D` following the isometric diamond of the object's base. An axis-aligned
+   rectangle cannot express that shape.
+2. **!!! IT COVERS THE BOTTOM HALF OF THE SPRITE, NOT ALL OF IT. !!!** Full width, but y stops
+   between 0.39 and 0.69 of sprite height in every single case. **This project's 41 boxes run to
+   100% of sprite height**, which is why props block sight lines and cannot be walked behind. This
+   is the single biggest difference and it is measurable in one line per prefab.
+3. **One collider per visual ELEMENT, not per prefab.** `Wilds` carries seven solids because it
+   draws seven bushes. This project has exactly one box per prop however many objects the sprite
+   shows.
+
+**The full-height trigger is the EXCEPTION, not the pattern.** Only `chest` (an interactable) and
+the two `*_doober` pickups carry one; the pickups have a trigger and no solid at all, because you
+walk into them. So *"a solid base plus a walk-through trigger"* describes ONE prefab, and the
+universal rule is the base-height solid polygon. A sweep claiming the pair is the pattern would be
+over-reading a single file - which is what the second-hand note in `PropPrefabVerifier` invites.
+
+**WHAT DOES NOT TRANSFER, stated so nobody lifts the wrong thing.** Petnip is **2D physics** -
+`PolygonCollider2D`, 6 of its 55 prefabs, zero in its scenes. No Safe Circle is **3D**:
+`BoxCollider`, a `CharacterController` player and a 3D NavMesh. So the TYPE cannot be copied and
+the editor is six majors older (`2019.4.16f1` against `6000.1.8f1`). **The SHAPE RULE transfers
+exactly**, and in 3D it means a collider sized to the real footprint depth and only as tall as the
+base - not `sprite_width x sprite_height x sprite_width`.
+
+**And the process lesson is mine.** `CLAUDE.md` says to read this project before reasoning from
+first principles, and records that four agents reasoned about one sorting problem from first
+principles and a render refuted three of them. I measured 41 prefabs, wrote an intent file, and
+filed *"what does different mean"* as a question only Vincent could answer - while the answer sat
+in a folder he had already granted us and I had already been told to read. He had to say *"You have
+forgotten how to do the colliders"* and then hand me the path. **When a spec feels unknowable, check
+whether it is already implemented somewhere you have been given.** Credit any lifted code as
+`Vincent's code, from his isometric game (~2022), adapted.`
 ---
 
 ## 2. The NavMesh bake, and the hypothesis that turned out to be wrong
