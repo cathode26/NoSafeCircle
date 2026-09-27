@@ -78,6 +78,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 new Vector3(-14f, 0f, -3f),
                 new Vector3(14f, 0f, -3f));
             backdrop.ConfigureMotion(3f, 10f, 20f, 1.5f, 2.5f, 0.5f, 6f);
+            // The shipped title uses unit scale for 128 px wizard art at 64 PPU.
+            SetPrivateField(backdrop, "wizardVisualScale", 1f);
             backdropObject.SetActive(true);
             Assert.IsTrue(title.IsTitleScreenVisible);
         }
