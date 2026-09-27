@@ -44,6 +44,8 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 .Where(controller => controller.gameObject.scene == scene)
                 .ToArray();
             Assert.AreEqual(1, controllers.Length);
+            Assert.AreEqual(1, Resources.FindObjectsOfTypeAll<TitleScreenChaseBackdrop>()
+                .Count(backdrop => backdrop.gameObject.scene == scene));
 
             Transform canvas = roots.Single(root => root.name == "Canvas").transform;
             Transform[] titlePanels = canvas.Cast<Transform>()
@@ -62,10 +64,9 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 startButtons[0].onClick.GetPersistentMethodName(0));
         }
 
-        // NSC-066 AC-001/AC-004: verify the generated UI is an opaque entry screen at the
-        // canonical resolution with a readable title, obvious button, and Input System pointer path.
+        // The title remains interactive while the live world and chase remain visible behind it.
         [Test]
-        public void Build_TitleScreen_IsOpaqueReadableAndPointerReady()
+        public void Build_TitleScreen_IsTransparentAndLeftStacked()
         {
             DoorPrototypeSceneBuilder.BuildInMemoryForTests();
 
@@ -85,12 +86,29 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
 
             Image panelImage = titlePanel.GetComponent<Image>();
             Assert.IsNotNull(panelImage);
-            Assert.AreEqual(1f, panelImage.color.a, 0.001f);
+            Assert.AreEqual(0f, panelImage.color.a, 0.001f);
             Assert.IsTrue(panelImage.raycastTarget);
 
-            Text title = titlePanel.Find("TitleCard/Title")?.GetComponent<Text>();
+            Transform card = titlePanel.Find("TitleCard");
+            Assert.IsNotNull(card);
+            Assert.LessOrEqual(card.GetComponent<RectTransform>().anchorMax.x, 0.5f);
+            Assert.IsNull(card.GetComponent<Image>());
+            Assert.IsNull(card.GetComponent<Outline>());
+
+            Text eyebrow = card.Find("Eyebrow")?.GetComponent<Text>();
+            Text title = card.Find("Title")?.GetComponent<Text>();
+            Text tagline = card.Find("Tagline")?.GetComponent<Text>();
+            Assert.IsNotNull(eyebrow);
             Assert.IsNotNull(title);
+            Assert.IsNotNull(tagline);
+            Assert.AreEqual("WELCOME, TINY WIZARD", eyebrow.text);
             Assert.AreEqual("NO SAFE CIRCLE", title.text);
+            Assert.AreEqual("Cute wizards. Terrible odds.", tagline.text);
+            foreach (Text saying in new[] { eyebrow, title, tagline })
+            {
+                Assert.LessOrEqual(saying.rectTransform.anchorMax.x, 0.5f);
+                Assert.AreEqual(TextAnchor.MiddleLeft, saying.alignment);
+            }
 
             Button button = titlePanel.Find("TitleCard/StartGameButton")?.GetComponent<Button>();
             Text buttonText = titlePanel.Find("TitleCard/StartGameButton/Text")?.GetComponent<Text>();
@@ -98,6 +116,10 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.IsNotNull(buttonText);
             Assert.AreEqual("START GAME", buttonText.text);
             Assert.GreaterOrEqual(button.GetComponent<RectTransform>().rect.width, 300f);
+            Assert.LessOrEqual(button.GetComponent<RectTransform>().anchorMax.x, 0.5f);
+            Assert.AreEqual((Color)new Color32(152, 65, 119, 255), button.targetGraphic.color);
+            Assert.AreEqual((Color)new Color32(255, 211, 225, 255), button.colors.highlightedColor);
+            Assert.AreEqual((Color)new Color32(205, 145, 178, 255), button.colors.pressedColor);
 
             EventSystem eventSystem = Object.FindFirstObjectByType<EventSystem>();
             Assert.IsNotNull(eventSystem);
@@ -111,6 +133,39 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 GameObject.Find("Player").GetComponent<PlayerInteractionController>(),
                 controller.FindProperty("playerInteractionController").objectReferenceValue);
             Assert.AreEqual(2, controller.FindProperty("gameplayInputBehaviours").arraySize);
+        }
+
+        [Test]
+        public void Build_ChaseHasAssetsAndFloorLineThroughViewCentre()
+        {
+            DoorPrototypeSceneBuilder.BuildInMemoryForTests();
+
+            Camera camera = GameObject.Find("Main Camera").GetComponent<Camera>();
+            GameObject canvas = GameObject.Find("Canvas");
+            TitleScreenChaseBackdrop backdrop = canvas.GetComponent<TitleScreenChaseBackdrop>();
+            Assert.IsNotNull(backdrop);
+
+            SerializedObject serialized = new SerializedObject(backdrop);
+            Assert.AreSame(canvas.GetComponent<TitleScreenController>(),
+                serialized.FindProperty("titleScreen").objectReferenceValue);
+            Assert.AreSame(camera, serialized.FindProperty("chaseCamera").objectReferenceValue);
+            Assert.IsNotNull(serialized.FindProperty("wizardAnimatorController").objectReferenceValue);
+            Assert.IsNotNull(serialized.FindProperty("meleeAnimatorController").objectReferenceValue);
+            Assert.IsNotNull(serialized.FindProperty("wraithAnimatorController").objectReferenceValue);
+            Assert.AreEqual(4, serialized.FindProperty("wizardChoices").arraySize);
+
+            Vector3 start = serialized.FindProperty("floorSegmentStart").vector3Value;
+            Vector3 end = serialized.FindProperty("floorSegmentEnd").vector3Value;
+            foreach (Vector3 endpoint in new[] { start, end })
+            {
+                Assert.That(endpoint.x, Is.InRange(-12.5f, 12.5f));
+                Assert.That(endpoint.z, Is.InRange(-24.5f, -1.5f));
+                Assert.AreEqual(0f, endpoint.y, 0.001f);
+                Assert.AreEqual(0.5f, camera.WorldToViewportPoint(endpoint).y, 0.001f);
+            }
+            Assert.Greater(Vector3.Distance(start, end), 6f);
+            Assert.That(Vector3.Dot((end - start).normalized, new Vector3(1f, 0f, 1f).normalized),
+                Is.EqualTo(1f).Within(0.001f));
         }
 
         // NSC-039 regression-only: adding the Canvas title flow must leave the established

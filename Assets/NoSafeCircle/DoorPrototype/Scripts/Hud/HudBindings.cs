@@ -38,6 +38,10 @@ namespace NoSafeCircle.DoorPrototype.Hud
         [SerializeField] private Button damageButton;
         [SerializeField] private Button manaButton;
         [SerializeField] private TitleScreenController titleScreen;
+        [SerializeField] private TitleScreenChaseBackdrop titleChase;
+        [SerializeField] private RuntimeAnimatorController wizardChaseAnimator;
+        [SerializeField] private RuntimeAnimatorController meleeChaseAnimator;
+        [SerializeField] private RuntimeAnimatorController wraithChaseAnimator;
         [SerializeField] private WizardGameEntryController entry;
         [SerializeField] private Transform worldSpawn;
 
@@ -126,6 +130,32 @@ namespace NoSafeCircle.DoorPrototype.Hud
                 debugMana.enabled = false;
             }
 
+            Camera chaseCamera = Camera.main;
+            if (TitleScreenChaseLane.TryGetFloorSegment(chaseCamera, out Vector3 floorStart,
+                    out Vector3 floorEnd))
+            {
+                titleChase.Configure(
+                    titleScreen,
+                    chaseCamera,
+                    wizardChaseAnimator,
+                    meleeChaseAnimator,
+                    wraithChaseAnimator,
+                    new[]
+                    {
+                        new ConfirmedWizardSelection(WizardPresentation.Masculine, WizardSkin.White),
+                        new ConfirmedWizardSelection(WizardPresentation.Masculine, WizardSkin.Black),
+                        new ConfirmedWizardSelection(WizardPresentation.Feminine, WizardSkin.White),
+                        new ConfirmedWizardSelection(WizardPresentation.Feminine, WizardSkin.Black)
+                    },
+                    floorStart,
+                    floorEnd);
+                titleChase.ConfigureMotion(2.5f, 10f, 20f, 1.5f, 2.5f, 0.5f, 6f);
+            }
+            else
+            {
+                titleChase.enabled = false;
+            }
+
             IsBound = true;
             BoundPlayer = movement;
             return true;
@@ -138,7 +168,11 @@ namespace NoSafeCircle.DoorPrototype.Hud
                 (healthUi, nameof(healthUi)), (healthFill, nameof(healthFill)),
                 (manaUi, nameof(manaUi)), (manaFill, nameof(manaFill)),
                 (damageButton, nameof(damageButton)), (manaButton, nameof(manaButton)),
-                (titleScreen, nameof(titleScreen)), (entry, nameof(entry)),
+                (titleScreen, nameof(titleScreen)), (titleChase, nameof(titleChase)),
+                (wizardChaseAnimator, nameof(wizardChaseAnimator)),
+                (meleeChaseAnimator, nameof(meleeChaseAnimator)),
+                (wraithChaseAnimator, nameof(wraithChaseAnimator)),
+                (entry, nameof(entry)),
                 (worldSpawn, nameof(worldSpawn)),
             };
 
