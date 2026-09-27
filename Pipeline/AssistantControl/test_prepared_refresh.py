@@ -209,6 +209,35 @@ class PreparedRefreshTests(unittest.TestCase):
         self.assertTrue(journal_path.exists())
 
 
+    def test_a_checkout_that_moves_during_the_fetch_is_refused(self):
+        """The post-fetch time-of-use check itself, which nothing guarded.
+
+        Measured with a mutation: deleting that whole comparison left every other
+        test in this file green, so the line was unguarded and a later tidy-up
+        would have removed it silently. The window it protects is open only
+        during the fetch, so this advances the checkout from inside that call.
+        """
+
+        checkout = self.manager.root / "NSC-042"
+        moved = self._advance()
+        real_git = prepared_refresh.git
+
+        def sneak(path, *args, **kwargs):
+            result = real_git(path, *args, **kwargs)
+            if Path(path) == checkout and args and args[0] == "fetch":
+                real_git(checkout, "merge", "--ff-only", "FETCH_HEAD")
+            return result
+
+        with patch.object(prepared_refresh, "git", side_effect=sneak):
+            with self.assertRaisesRegex(PreparedRefreshError, "changed after fetch"):
+                refresh_prepared(self.manager, "NSC-042", moved)
+
+        # It refused rather than finishing, and said so: the record still names the
+        # old baseline even though the checkout was dragged forward underneath it.
+        self.assertEqual(moved, prepared_refresh._head(checkout))
+        self.assertNotEqual(moved, json.loads(self.record_path.read_text())["source_commit"])
+
+
 
 class RefreshAcceptsFinishedHistoryTests(unittest.TestCase):
     """A refresh refuses live work; finished history must not block it forever.
