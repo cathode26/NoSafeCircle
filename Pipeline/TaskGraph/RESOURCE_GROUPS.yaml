@@ -177,7 +177,6 @@
         "door-visual-affordance-feedback",
         "door-lock-break-state",
         "door-passability-publication",
-        "door-breach-feedback",
         "independent-room-scene-composition",
         "wizard-eight-direction-locomotion-integration",
         "stationary-enemy-sprite-integration",
@@ -199,7 +198,6 @@
         "NSC-041",
         "NSC-050",
         "NSC-051",
-        "NSC-052",
         "NSC-069",
         "NSC-075",
         "NSC-077",
@@ -998,7 +996,6 @@
       "reconciliation_keys": [
         "isometric-tilemap-visual-layer",
         "world-sprite-prefab-sorting",
-        "door-breach-feedback",
         "doorway-opening-seal-and-door-art-binding",
         "apply-authored-architectural-tilesets-to-room-builders"
       ],
@@ -1006,7 +1003,6 @@
       "work_ids": [
         "NSC-038",
         "NSC-039",
-        "NSC-052",
         "NSC-097",
         "NSC-109"
       ]

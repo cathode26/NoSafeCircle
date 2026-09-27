@@ -18,7 +18,7 @@
     {
       "criterion_id": "AC-004",
       "reference": "Generated-scene ownership; Docs/AI-Pipeline/GAME_TASK_LESSONS_LEARNED.md, Code completion and Unity asset generation are separate steps",
-      "requirement": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs creates and binds DoorBreachFeedback, DoorRoot/DoorVisual/DoorSprite as the presentation-only shake target with the crack GameObjects as its descendants and no Collider on it or any descendant, without renaming or reparenting DoorSprite, the world-space durability Image hierarchy, and the non-play-on-awake AudioSource. Assets/NoSafeCircle/DoorPrototype/Tests/DoorBreachFeedbackPlayModeTests.cs owns the focused production-scene runtime and human-review scenarios, and Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs owns separately named in-memory builder and committed-scene conformance tests. After the implementation crew changes source-of-truth code and tests, the Windows controller or Vincent runs No Safe Circle/Build Door Prototype Scene to materialize Assets/Scenes/DoorPrototype.unity. The binary scene must not be hand-edited, reconstructed, or emitted by the implementation crew."
+      "requirement": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs creates and binds DoorBreachFeedback, DoorRoot/DoorVisual/DoorSprite as the presentation-only shake target with the crack GameObjects as its descendants and no Collider on it or any descendant, without renaming or reparenting DoorSprite, the world-space durability Image hierarchy, and the non-play-on-awake AudioSource. Assets/NoSafeCircle/DoorPrototype/Tests/DoorBreachFeedbackPlayModeTests.cs owns the focused production-scene runtime and human-review scenarios, The in-memory builder and conformance coverage that Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs used to own has had no owner since that fixture was deleted at fe4c95ad; whoever implements this task names its replacement fixture in the same commit rather than inheriting a dead one. After the implementation crew changes source-of-truth code and tests, the Windows controller or Vincent runs No Safe Circle/Build Door Prototype Scene; nothing is materialized into a committed scene file, because the world is built at runtime by GameBootstrap and Assets/Scenes/DoorPrototype.unity was deleted at fe4c95ad. The binary scene must not be hand-edited, reconstructed, or emitted by the implementation crew."
     },
     {
       "criterion_id": "AC-005",
@@ -31,7 +31,7 @@
     {
       "gate_id": "VAL-001",
       "reference": "AC-001; NSC-021 VAL-003; Unity Testing Policy - Play Mode behavior test",
-      "requirement": "In Play Mode, DoorBreachFeedbackPlayModeTests loads Assets/Scenes/DoorPrototype.unity without saving it and executes this sequence for D1 and at least one committed D2-D5 clone. With the door sealed, assert that the durability-indicator GameObject is inactive and that rejected TakeDamage calls produce no feedback or durability change. Call public StartInteraction(), then Tick(Duration) to open the door; assert the indicator remains inactive and an open-door TakeDamage call is rejected. Move the scene Player collider carrying PlayerInteractionController into that door's runtime ForwardCrossingTrigger, synchronize transforms, and yield a physics step; do not invoke private methods or set private state. After IsLocked becomes true, call public TakeDamage(float) with positive damage that leaves CurrentDurability above zero. Across bounded rendered frames, assert that the wired AudioSource plays, the shake target localPosition differs from its authored position on at least one frame, at least one crack GameObject is active, the indicator is active, and Image fill decreases. Assert that the DoorInteractable changes only by durability and that the bounds and enabled state of every door Collider remain unchanged during shake. A non-positive locked-door call is also rejected without starting a new response."
+      "requirement": "In Play Mode, DoorBreachFeedbackPlayModeTests loads the scene registered in EditorBuildSettings without saving it and executes this sequence for D1 and at least one committed D2-D5 clone. With the door sealed, assert that the durability-indicator GameObject is inactive and that rejected TakeDamage calls produce no feedback or durability change. Call public StartInteraction(), then Tick(Duration) to open the door; assert the indicator remains inactive and an open-door TakeDamage call is rejected. Move the scene Player collider carrying PlayerInteractionController into that door's runtime ForwardCrossingTrigger, synchronize transforms, and yield a physics step; do not invoke private methods or set private state. After IsLocked becomes true, call public TakeDamage(float) with positive damage that leaves CurrentDurability above zero. Across bounded rendered frames, assert that the wired AudioSource plays, the shake target localPosition differs from its authored position on at least one frame, at least one crack GameObject is active, the indicator is active, and Image fill decreases. Assert that the DoorInteractable changes only by durability and that the bounds and enabled state of every door Collider remain unchanged during shake. A non-positive locked-door call is also rejected without starting a new response."
     },
     {
       "gate_id": "VAL-002",
@@ -41,7 +41,7 @@
     {
       "gate_id": "VAL-003",
       "reference": "AC-004; Unity Testing Policy - in-memory scene-builder test and committed-scene conformance test",
-      "requirement": "In Edit Mode, the separately named test Build_DoorBreachFeedback_HasCollisionFreeShakeHierarchyAndStateVisibility uses DoorPrototypeSceneBuilder.BuildInMemoryForTests() and verifies the D1 feedback references, a presentation-only shake target that is DoorRoot/DoorVisual/DoorSprite, carries the door SpriteRenderer, and has every crack GameObject as a descendant, no Collider on that target or any descendant, a non-play-on-awake AudioSource, an inactive sealed-door indicator, and an indicator that remains inactive after public StartInteraction() and Tick(Duration) open the in-memory door. The separately named test CommittedScene_AllDoorsHaveConformingBreachFeedback records the bytes of Assets/Scenes/DoorPrototype.unity, opens that exact scene, scopes lookup to its roots, verifies all five existing DoorInteractable instances including D2-D5 clones each have one correctly wired DoorBreachFeedback, Image hierarchy, crack set, collision-free shake hierarchy, and non-play-on-awake AudioSource with an inactive initial indicator, closes the scene without saving, and confirms the scene bytes are unchanged. The validation runner, not either test, verifies that the Git working tree remains clean."
+      "requirement": "In Edit Mode, the separately named test Build_DoorBreachFeedback_HasCollisionFreeShakeHierarchyAndStateVisibility uses DoorPrototypeSceneBuilder.BuildInMemoryForTests() and verifies the D1 feedback references, a presentation-only shake target that is DoorRoot/DoorVisual/DoorSprite, carries the door SpriteRenderer, and has every crack GameObject as a descendant, no Collider on that target or any descendant, a non-play-on-awake AudioSource, an inactive sealed-door indicator, and an indicator that remains inactive after public StartInteraction() and Tick(Duration) open the in-memory door. The separately named test CommittedScene_AllDoorsHaveConformingBreachFeedback records the bytes of the scene registered in EditorBuildSettings, opens that exact scene, scopes lookup to its roots, verifies all five existing DoorInteractable instances including D2-D5 clones each have one correctly wired DoorBreachFeedback, Image hierarchy, crack set, collision-free shake hierarchy, and non-play-on-awake AudioSource with an inactive initial indicator, closes the scene without saving, and confirms the scene bytes are unchanged. The validation runner, not either test, verifies that the Git working tree remains clean."
     },
     {
       "gate_id": "VAL-004",
@@ -56,7 +56,7 @@
   ],
   "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 4,
+  "contract_revision": 5,
   "decomposition_reason": "This remains one bounded feedback responsibility: one DoorBreachFeedback component, existing DoorInteractable events and public methods, deterministic builder wiring, focused runtime and conformance tests, controller-owned scene materialization, and one controlled human readability/audio gate. Real enemy-pressure readability is preserved as one downstream integration obligation rather than being implemented here.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -73,9 +73,7 @@
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DoorInteractable.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DoorBreachFeedback.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/DoorBreachFeedbackPlayModeTests.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/DoorPrototypeSceneBuilderTests.cs",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/DoorBreachFeedbackPlayModeTests.cs"
   ],
   "execution_reason": "One implementation crew can correct DoorBreachFeedback and its builder/test source, including collision-free shake, state-gated indicator visibility, and an assertable break result. The Windows controller or Vincent then runs the existing scene builder, executes focused tests on the materialized exact candidate, and prepares the human review scenario. The crew does not hand-edit the binary scene or implement enemy attacks.",
   "execution_scope": "single_agent",
@@ -119,6 +117,15 @@
         "previous_contract_revision": 3,
         "base_contract_sha256": "d0a36e01a54cfa38cd7d34eae4e6e6c5335bf76873e8473c365cc9cf73202e03",
         "revised_contract_sha256": "74f4dd5738384fa2c7174bade47ae1226600975e27eab71156eada3a476f746a",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-27",
+        "reason": "Deletion fallout at fe4c95ad: drop the dangling owned resources and repoint the clauses that still required the deleted scene or the deleted DoorPrototypeSceneBuilderTests fixture at the scene registered in EditorBuildSettings and the runtime-built world.",
+        "source_head": "602c17ccda608a48c3757c72d5c13d591aeadfbd",
+        "previous_contract_revision": 4,
+        "base_contract_sha256": "12bdc6c3db5ffb21f3b5160f80a5646d1774b9394aec5c1e6e488ea3b47bff40",
+        "revised_contract_sha256": "6f7d5fe77bd2c16c24d80330e1a7afc30bf8283aaec4166da823973385d0086e",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ],
