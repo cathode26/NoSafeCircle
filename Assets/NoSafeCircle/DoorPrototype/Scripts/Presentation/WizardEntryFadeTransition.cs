@@ -11,12 +11,15 @@ namespace NoSafeCircle.DoorPrototype
     {
         private const float BlackoutSeconds = 0.25f;
         private const float RevealSeconds = 0.35f;
+        private const float ChaseOrthographicSize = 6.5f;
 
         private TitleScreenChaseBackdrop chase;
         private WizardGameEntryController entry;
         private GameObject overlay;
         private HierarchyFader fader;
         private EntryChamberCutsceneOcclusion chamberOcclusion;
+        private Camera cutsceneCamera;
+        private float originalOrthographicSize;
         private bool blackoutStarted;
         private bool blackoutReached;
         private bool entryReady;
@@ -55,6 +58,13 @@ namespace NoSafeCircle.DoorPrototype
             if (chamberOcclusion == null)
                 chamberOcclusion = gameObject.AddComponent<EntryChamberCutsceneOcclusion>();
             chamberOcclusion.Begin();
+            cutsceneCamera = Camera.main;
+            if (cutsceneCamera != null && cutsceneCamera.orthographic)
+            {
+                originalOrthographicSize = cutsceneCamera.orthographicSize;
+                cutsceneCamera.orthographicSize = Mathf.Min(
+                    originalOrthographicSize, ChaseOrthographicSize);
+            }
             chase.EntryChaseEnding += OnChaseEnding;
             entry.EntryCutsceneReadyForGameplay += OnEntryReady;
         }
@@ -64,6 +74,7 @@ namespace NoSafeCircle.DoorPrototype
             if (chase != null) chase.EntryChaseEnding -= OnChaseEnding;
             if (entry != null) entry.EntryCutsceneReadyForGameplay -= OnEntryReady;
             if (chamberOcclusion != null) chamberOcclusion.Restore();
+            RestoreCameraFraming();
             chase = null;
             entry = null;
             chamberOcclusion = null;
@@ -110,10 +121,18 @@ namespace NoSafeCircle.DoorPrototype
 
         private void OnBlackoutReached()
         {
-            // Restore the authored wall art while the overlay is fully opaque.
+            // Restore gameplay wall art and framing while the overlay is fully opaque.
             if (chamberOcclusion != null) chamberOcclusion.Restore();
+            RestoreCameraFraming();
             blackoutReached = true;
             if (entryReady) BeginReveal();
+        }
+
+        private void RestoreCameraFraming()
+        {
+            if (cutsceneCamera != null && cutsceneCamera.orthographic)
+                cutsceneCamera.orthographicSize = originalOrthographicSize;
+            cutsceneCamera = null;
         }
 
         private void BeginReveal()

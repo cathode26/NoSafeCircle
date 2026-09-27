@@ -66,6 +66,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsNotNull(chase, "RuntimeWorld has no entry chase component.");
             Assert.IsNotNull(startDoor, "RuntimeWorld did not spawn the separate entry gate.");
             Assert.IsFalse(startDoor.IsOpen, "The gate should begin sealed on the title screen.");
+            float gameplayCameraSize = gameCamera.orthographicSize;
 
             var manifest = new StringBuilder();
             manifest.AppendLine("Unity " + Application.unityVersion);
@@ -101,6 +102,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsNotNull(gateFlank);
             Assert.Less(gateFlank.color.a, 0.5f,
                 "The gate flank still hides the wizard during fireball shots.");
+            Assert.Less(gameCamera.orthographicSize, gameplayCameraSize - 1f,
+                "The entry chase camera did not frame the actors closely.");
             Capture(output, "02-first-fireball-miss", gameCamera, canvas, manifest,
                 entry, chase, startDoor);
             yield return WaitForActiveObject("TitleEntryFireball_1", VisualWaitSeconds);
@@ -138,6 +141,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "The chamber wall art was not restored during the dark handoff.");
             Assert.Greater(gateFlank.color.a, 0.9f,
                 "The gate flank stayed translucent after gameplay began.");
+            Assert.AreEqual(gameplayCameraSize, gameCamera.orthographicSize, 0.01f,
+                "The gameplay camera kept the cutscene zoom after the reveal.");
             Assert.AreEqual(3, chase.FiredEntryShotCount,
                 "The wizard did not fire the two misses and final hit.");
             Assert.AreEqual(1, chase.EntryImpactCount,
@@ -250,6 +255,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     + ", startDoorOpen=" + startDoor.IsOpen
                     + ", shotsFired=" + chase.FiredEntryShotCount
                     + ", hitsShown=" + chase.EntryImpactCount
+                    + ", cameraSize=" + gameCamera.orthographicSize.ToString("0.##")
                     + ", scene=" + SceneManager.GetActiveScene().name);
             }
             finally
