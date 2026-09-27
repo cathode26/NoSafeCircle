@@ -1001,7 +1001,6 @@
         "isometric-tilemap-visual-layer",
         "world-sprite-prefab-sorting",
         "door-breach-feedback",
-        "world-sprite-sorting-layer-adoption",
         "doorway-opening-seal-and-door-art-binding",
         "apply-authored-architectural-tilesets-to-room-builders"
       ],
@@ -1010,7 +1009,6 @@
         "NSC-038",
         "NSC-039",
         "NSC-052",
-        "NSC-100",
         "NSC-097",
         "NSC-109"
       ]
