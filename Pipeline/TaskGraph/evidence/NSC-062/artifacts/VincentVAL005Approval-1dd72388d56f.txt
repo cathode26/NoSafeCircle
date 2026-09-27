@@ -1,0 +1,73 @@
+# Vincent's NSC-062 VAL-005 approval — given as-is, 2026-09-27T12:4xZ
+
+**HOST CLOCK AT THE APPROVAL: 2026-09-27T12:45:26Z. Game main at that moment: `a0edcf1e`.
+NSC-062 `contract_revision` = 2. Given in the PRODUCER AGENT session, typed by Vincent directly.**
+
+## His words, verbatim and complete
+
+> **"VAL-005 approval as-is"**
+
+**And immediately before it, unprompted, the statement that motivated the whole exchange:**
+
+> **"The 4 wizards are there the animations work. I think we just need a commit for evidence."**
+
+## What he was answering — this is what makes the approval recordable
+
+**He was NOT asked "does it look good". He was asked a two-option question that quoted the gate's
+own requirements back to him**, and he picked the first option. The question put to him named, in
+his own reading order: all four presentation/skin combinations, appearance, idle and walking loops
+**in every direction**, gameplay-scale readability, **ground contact**, and **sorting beside the
+walls and doors the runtime builder produces** — and said explicitly that sorting was the one I
+would least like to assume after the previous night's basement incident.
+
+**The alternative offered was: "do you want a Play Mode pass on the four combinations first?" He
+declined it and approved as-is.** So this is an informed waiver of a further pass, not a vague
+sign-off, and it is not an approval given in ignorance of what the gate asks.
+
+## The gate text he approved against, verbatim from `main:Tasks/NSC-062.yaml` at `a0edcf1e`
+
+> Vincent enters Play Mode in the scene registered in EditorBuildSettings - named as a RELATION,
+> not a path, because the scene this clause used to name (Assets/Scenes/DoorPrototype.unity) was
+> deleted at fe4c95ad and a literal would only die again at the next rename, and checks all four
+> presentation/skin combinations, and approves their appearance, idle and walking loops in every
+> direction, gameplay-scale readability, respectful treatment, ground contact, and sorting beside
+> the walls and door the runtime builder produces. The world does not exist until GameBootstrap
+> has run, so this is a check on the BUILT world and never on the scene as committed;
+> GameBootstrap.HasBuilt is the fixture-level readiness evidence for that and is named here as
+> evidence the hook exists, not as a requirement to keep it.
+
+## WHAT THIS DOES AND DOES NOT AUTHORISE — read this before writing the record
+
+- **IT SATISFIES VAL-005 AND NOTHING ELSE.** VAL-001 through VAL-004 are automated and unaffected.
+  **VAL-004 still needs a real Unity run** — import, compile, tests pass, builder completes.
+  **Nobody has run it as of this stamp.**
+- **IT IS NOT A CLAIM THAT HE STEPPED THROUGH ALL FOUR COMBINATIONS IN PLAY MODE.** He said the four
+  wizards are there and the animations work, and he approved the gate as-is having been shown what
+  it asks. **Write the record as an approval given, with this file as its provenance. Do NOT write
+  it as "Vincent verified sorting and ground contact in Play Mode" — he did not say that, and
+  `CLAUDE.md` is explicit that a record overstating what a human reviewed is a lie with a
+  timestamp.**
+- **IT IS NOT AN APPROVAL OF ANYTHING ELSE IN SPRINT 2.** NSC-067, 068, 070, 073, 074, 075, 077,
+  095, 096, 107 and 108 are untouched by it.
+- **IT IS NOT A PUSH AUTHORISATION** and it is not his word on any other gate in any other task.
+
+## Why it matters, measured
+
+**NSC-062 blocks 19 open tasks — more than any node in the 130-contract graph** (transitive closure
+over `depends_on`, counting only `not_delivered` downstream). **Sprint 2 sits behind it in a serial
+chain with a queue depth of ONE:** eleven of its twelve open tasks cannot be started by anyone, at
+any staffing level, until it lands. **So this one gate is the highest-leverage human input
+available in the project right now.**
+
+## Owner
+
+**The delivery record is the GAME AGENT's** — it owns delivery evidence and holds Unity. Routed to
+it with the measurement attached; this file is the provenance its record should cite. **The
+Producer does not write delivery records and did not write this one.**
+
+## What would falsify the approval's applicability
+
+**A contract revision that changes VAL-005's text.** This approval is against
+`contract_revision` 2 as quoted above. If GER revises that gate, re-ask him rather than carrying
+this forward — `CLAUDE.md`'s rule that a peer's (or a human's) decision state ages, and that quoting
+it back carries their authority while being your assertion.

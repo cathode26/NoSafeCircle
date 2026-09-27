@@ -1,0 +1,140 @@
+{
+  "canon": {
+    "path": "Docs/GDD/No_Safe_Circle_GDD.md",
+    "sha256": "2d5c8a1dc5d4bba469fb158b27967717309e5b7ad6f8ab4a38fbbd05ad583c9f"
+  },
+  "conformance_surfaces": [
+    {
+      "blob_sha": "c67309feb2ec39c94f18faa15bdd71c2e365d89a",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Scripts/WizardAnimationController.cs",
+      "role": "player_owned_presentation_and_direction_driver"
+    },
+    {
+      "blob_sha": "69ebdc3f822350382a5bfc5b48cf1e1d4a1daf17",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
+      "role": "idempotent_builder_integration_seam"
+    },
+    {
+      "blob_sha": "0a8b317f889b0f3d2d6732a889a3da2b1e6cc83f",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated/WizardAnimator.controller",
+      "role": "shared_four_combination_animator_controller"
+    },
+    {
+      "blob_sha": "471f007ce8208e28eb4e9f3eaeed8523c965b6c9",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/Editor/WizardArtIntegrationTests.cs",
+      "role": "editmode_import_and_animator_mapping_proof"
+    },
+    {
+      "blob_sha": "02123901aee518f0dbf632912cb6bff654f0ce8c",
+      "path": "Assets/NoSafeCircle/DoorPrototype/Tests/WizardAnimationPlayModeTests.cs",
+      "role": "playmode_animation_and_driver_regression_proof"
+    }
+  ],
+  "delivery": {
+    "base_commit": "97e558fe5dc78ce05e2d5977724cb35bf6b4d3ff",
+    "candidate_commit": "1dd72388d56ff08005b126b83f7e18a32ce7c663",
+    "integrated_commit": "1dd72388d56ff08005b126b83f7e18a32ce7c663",
+    "integrated_tree": "63eb3ad1b0912dd9e1dffd573c3d55cb551bef9f"
+  },
+  "gate_results": [
+    {
+      "evidence": [
+        {
+          "blob_sha": "c7d811d087157a35d638fb9fa097508993242274",
+          "path": "Pipeline/TaskGraph/evidence/NSC-062/artifacts/WizardArtIntegrationTests-EditMode-1dd72388d56f.xml"
+        },
+        {
+          "blob_sha": "00507661243f51ab45b3761ff9b95509ba68b9c3",
+          "path": "Pipeline/TaskGraph/evidence/NSC-062/artifacts/WizardArtIntegrationTests-EditMode-1dd72388d56f.log"
+        }
+      ],
+      "gate_id": "VAL-001",
+      "notes": "Unity EditMode filter NoSafeCircle.DoorPrototype.Tests.Editor.WizardArtIntegrationTests, 2/2 passed, 0 failed, 0 skipped, at commit 1dd72388 (clean before and after). ApprovedSourceFramesHaveExactImportGeometryAndGroundPivot asserts all 224 approved source PNGs (4 presentation/skin combinations x 8 directions x standing+walk frames) exist, are distinct, and share import geometry and feet/ground pivot. GeneratedWizardControllerHasExactStateClipAndSpriteMappings asserts every state of the single shared WizardAnimator.controller resolves to its exact same-named clip and expected sprite curve.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "f756bcf4d907554c6f6327a562ade19ef99060e8",
+          "path": "Pipeline/TaskGraph/evidence/NSC-062/artifacts/WizardAnimationPlayModeTests-PlayMode-1dd72388d56f.xml"
+        },
+        {
+          "blob_sha": "7a4985c5c123e57cde2f40394756f45e686fd32d",
+          "path": "Pipeline/TaskGraph/evidence/NSC-062/artifacts/WizardAnimationPlayModeTests-PlayMode-1dd72388d56f.log"
+        }
+      ],
+      "gate_id": "VAL-002",
+      "notes": "Unity PlayMode filter NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests, 15/15 passed, 0 failed, 0 skipped, at commit 1dd72388. PlayerVisualHasOneWizardAnimationDriverAndRetainsGroundContact asserts Player/Visual carries exactly one wizard animation driver and preserves ground contact with no duplicate hierarchy. ApplyPresentation_RefreshesSelectedIdleWithoutChangingPlayerGameplayState and ApplyPresentation_InvalidChoiceIsRejectedAtomically assert presentation/skin switches preserve the existing player gameplay components (CharacterController, colliders, interaction) and reject invalid choices atomically, within the same suite run.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "f756bcf4d907554c6f6327a562ade19ef99060e8",
+          "path": "Pipeline/TaskGraph/evidence/NSC-062/artifacts/WizardAnimationPlayModeTests-PlayMode-1dd72388d56f.xml"
+        },
+        {
+          "blob_sha": "7a4985c5c123e57cde2f40394756f45e686fd32d",
+          "path": "Pipeline/TaskGraph/evidence/NSC-062/artifacts/WizardAnimationPlayModeTests-PlayMode-1dd72388d56f.log"
+        }
+      ],
+      "gate_id": "VAL-003",
+      "notes": "Same PlayMode run, 15/15 passed. DirectionFor_ResolvesEveryExactSectorBoundaryDeterministically and DirectionFor_RetainsPriorDirectionAtEverySectorBoundary assert deterministic directional resolution and idle-facing retention at every sector boundary. HeldBoundaryMovementDoesNotRestartAndIdleRetainsFacing asserts near-zero/held movement at a boundary does not restart or flicker the animation. EachConfirmedWizard_LobbyEntrySupportsStableEightDirectionAnimationAndMouseInput exercises all four confirmed wizard combinations walking and idling through GameBootstrap's built runtime world.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "c7d811d087157a35d638fb9fa097508993242274",
+          "path": "Pipeline/TaskGraph/evidence/NSC-062/artifacts/WizardArtIntegrationTests-EditMode-1dd72388d56f.xml"
+        },
+        {
+          "blob_sha": "00507661243f51ab45b3761ff9b95509ba68b9c3",
+          "path": "Pipeline/TaskGraph/evidence/NSC-062/artifacts/WizardArtIntegrationTests-EditMode-1dd72388d56f.log"
+        },
+        {
+          "blob_sha": "f756bcf4d907554c6f6327a562ade19ef99060e8",
+          "path": "Pipeline/TaskGraph/evidence/NSC-062/artifacts/WizardAnimationPlayModeTests-PlayMode-1dd72388d56f.xml"
+        },
+        {
+          "blob_sha": "7a4985c5c123e57cde2f40394756f45e686fd32d",
+          "path": "Pipeline/TaskGraph/evidence/NSC-062/artifacts/WizardAnimationPlayModeTests-PlayMode-1dd72388d56f.log"
+        }
+      ],
+      "gate_id": "VAL-004",
+      "notes": "Both authoritative runs (EditMode WizardArtIntegrationTests 2/2, PlayMode WizardAnimationPlayModeTests 15/15) imported and compiled with Unity exit_code 0, repository_clean_before and repository_clean_after both true, at commit 1dd72388/tree 63eb3ad1. The PlayMode run's own GameBootstrap-had-not-built guard (WizardAnimationPlayModeTests.cs line ~85-92) proves the runtime world, built by DoorPrototypeSceneBuilder's generation seam via GameBootstrap, completed before any assertion ran; a direct standalone invocation of DoorPrototypeSceneBuilder.Build() outside GameBootstrap was not separately exercised by these two filters. Note: the contract's VAL-004 text names Unity 6000.1.8f1; both manifests record Unity 6000.6.3f1 as the actual editor used. This is not reconciled here and is flagged for the record.",
+      "result": "pass"
+    },
+    {
+      "evidence": [
+        {
+          "blob_sha": "65f2706d66c7b49cd6edbecac7b8b3a613e917cf",
+          "path": "Pipeline/TaskGraph/evidence/NSC-062/artifacts/VincentVAL005Approval-1dd72388d56f.txt"
+        }
+      ],
+      "gate_id": "VAL-005",
+      "notes": "Vincent approved VAL-005 as-is on 2026-09-27T12:45:26Z (host clock), typed directly in the Producer Agent session: \"VAL-005 approval as-is\", after stating unprompted \"The 4 wizards are there the animations work. I think we just need a commit for evidence.\" He was offered a further in-engine Play Mode pass on the four combinations first and declined it, choosing the as-is approval instead. This is an informed waiver of a further pass against the gate's own text (all four combinations, appearance, idle/walk loops in every direction, readability, ground contact, sorting), not a claim that he stepped through all four combinations in Play Mode at this exact commit. See C:/NSC/agent-state/vincent-decision-nsc062-val005-approval.md for full provenance, including the Producer's explicit note not to overstate this as an in-Play-Mode verification of sorting or ground contact.",
+      "result": "pass"
+    }
+  ],
+  "human_approval": {
+    "approved_by": "Vincent Liguori",
+    "decision": "approved",
+    "notes": "2026-09-27T12:45:26Z, typed directly in the Producer Agent session: \"VAL-005 approval as-is\", preceded unprompted by \"The 4 wizards are there the animations work. I think we just need a commit for evidence.\" Offered a fresh in-engine Play Mode pass on the four combinations first; he declined it and approved as-is. Provenance: C:/NSC/agent-state/vincent-decision-nsc062-val005-approval.md (Producer Agent, commit eef8efc).",
+    "required": true
+  },
+  "record_id": "DEL-NSC-062-1dd72388d56f",
+  "record_type": "delivery",
+  "recorded_at": "2026-09-27T13:14:16Z",
+  "schema_version": "1.0",
+  "task_contract": {
+    "path": "Tasks/NSC-062.yaml",
+    "revision": 2,
+    "sha256": "f09289016655a18ec480295efacc6794f7e20c94ebaec04b2844e800cca30590"
+  },
+  "task_id": "NSC-062",
+  "validated_state": {
+    "commit": "1dd72388d56ff08005b126b83f7e18a32ce7c663",
+    "tree": "63eb3ad1b0912dd9e1dffd573c3d55cb551bef9f"
+  }
+}

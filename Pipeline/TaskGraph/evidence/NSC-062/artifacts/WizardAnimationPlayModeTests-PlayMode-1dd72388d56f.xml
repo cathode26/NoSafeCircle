@@ -1,0 +1,463 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="15" result="Passed" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-27 12:59:54Z" end-time="2026-09-27 12:59:59Z" duration="4.8426324">
+  <test-suite type="TestSuite" id="1536" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="458" result="Passed" start-time="2026-09-27 12:59:54Z" end-time="2026-09-27 12:59:59Z" duration="4.842632" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="PlayMode" />
+    </properties>
+    <test-suite type="Assembly" id="1522" name="NoSafeCircle.DoorPrototype.Tests.dll" fullname="C:/nscrev/doormeta/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.dll" runstate="Runnable" testcasecount="454" result="Passed" start-time="2026-09-27 12:59:54Z" end-time="2026-09-27 12:59:59Z" duration="4.786298" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="29112" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="PlayMode" />
+        <property name="EditorOnly" value="False" />
+      </properties>
+      <test-suite type="TestSuite" id="1523" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="454" result="Passed" start-time="2026-09-27 12:59:54Z" end-time="2026-09-27 12:59:59Z" duration="4.756690" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1524" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="454" result="Passed" start-time="2026-09-27 12:59:54Z" end-time="2026-09-27 12:59:59Z" duration="4.735800" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1525" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="454" result="Passed" start-time="2026-09-27 12:59:54Z" end-time="2026-09-27 12:59:59Z" duration="4.713601" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestFixture" id="1479" name="WizardAnimationPlayModeTests" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" testcasecount="15" result="Passed" start-time="2026-09-27 12:59:54Z" end-time="2026-09-27 12:59:59Z" duration="4.691667" total="15" passed="15" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-case id="1482" name="ApplyPresentation_InvalidChoiceIsRejectedAtomically" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.ApplyPresentation_InvalidChoiceIsRejectedAtomically" methodname="ApplyPresentation_InvalidChoiceIsRejectedAtomically" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="1832179695" result="Passed" start-time="2026-09-27 12:59:54Z" end-time="2026-09-27 12:59:55Z" duration="0.638284" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[FloorSpawner: spawned 5 room floor(s), 8304 cell(s), from 5 binding(s).
+[GameBootstrap] Rooms (FloorSpawner) created 5.
+WallSpawner: spawned 497 wall piece(s) and collider(s) across 5 room(s).
+[GameBootstrap] Rooms (WallSpawner) created 497.
+PropSpawner: spawned 222 prop(s) from 5 catalog(s).
+[GameBootstrap] Props (PropSpawner) created 222.
+NavigationSpawner: baked over 222 collider(s) in 20 ms, bounds Center: (0.00, 1.10, 39.00), Extents: (20.30, 1.45, 65.30).
+[GameBootstrap] Navigation (NavigationSpawner) created 1.
+DoorSpawner: spawned 5 door(s) from 'Door'.
+[GameBootstrap] Doors (DoorSpawner) created 5.
+PlayerSpawner: disabled placeholder camera 'Main Camera'. The scene owner should remove it; see SceneStubTests.AllowedRoots.
+PlayerSpawner: spawned 'Player' at (-4.00, 0.08, -22.00) and 'Main Camera' at (6.00, 10.08, -32.00).
+[GameBootstrap] Player (PlayerSpawner) created 2.
+EnemySpawner: admitted 9 of 9 enemies.
+[GameBootstrap] Enemies (EnemySpawner) created 9.
+[GameBootstrap] Hud (HudSpawner) created 1.
+EnemyPrefabPool disposed: [MeleeEnemy] active 0, peak 5, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 5, capacityExpansion 0.
+EnemyPrefabPool disposed: [LanternWraith] active 0, peak 4, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 4, capacityExpansion 0.
+]]></output>
+              </test-case>
+              <test-case id="1481" name="ApplyPresentation_RefreshesSelectedIdleWithoutChangingPlayerGameplayState" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.ApplyPresentation_RefreshesSelectedIdleWithoutChangingPlayerGameplayState" methodname="ApplyPresentation_RefreshesSelectedIdleWithoutChangingPlayerGameplayState" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="1245393752" result="Passed" start-time="2026-09-27 12:59:55Z" end-time="2026-09-27 12:59:55Z" duration="0.153121" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[FloorSpawner: spawned 5 room floor(s), 8304 cell(s), from 5 binding(s).
+[GameBootstrap] Rooms (FloorSpawner) created 5.
+WallSpawner: spawned 497 wall piece(s) and collider(s) across 5 room(s).
+[GameBootstrap] Rooms (WallSpawner) created 497.
+PropSpawner: spawned 222 prop(s) from 5 catalog(s).
+[GameBootstrap] Props (PropSpawner) created 222.
+NavigationSpawner: baked over 222 collider(s) in 7 ms, bounds Center: (0.00, 1.10, 39.00), Extents: (20.30, 1.45, 65.30).
+[GameBootstrap] Navigation (NavigationSpawner) created 1.
+DoorSpawner: spawned 5 door(s) from 'Door'.
+[GameBootstrap] Doors (DoorSpawner) created 5.
+PlayerSpawner: disabled placeholder camera 'Main Camera'. The scene owner should remove it; see SceneStubTests.AllowedRoots.
+PlayerSpawner: spawned 'Player' at (-4.00, 0.08, -22.00) and 'Main Camera' at (6.00, 10.08, -32.00).
+[GameBootstrap] Player (PlayerSpawner) created 2.
+EnemySpawner: admitted 9 of 9 enemies.
+[GameBootstrap] Enemies (EnemySpawner) created 9.
+[GameBootstrap] Hud (HudSpawner) created 1.
+EnemyPrefabPool disposed: [MeleeEnemy] active 0, peak 5, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 5, capacityExpansion 0.
+EnemyPrefabPool disposed: [LanternWraith] active 0, peak 4, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 4, capacityExpansion 0.
+]]></output>
+              </test-case>
+              <test-suite type="ParameterizedMethod" id="1491" name="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" testcasecount="8" result="Passed" start-time="2026-09-27 12:59:55Z" end-time="2026-09-27 12:59:56Z" duration="1.478531" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1483" name="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(1.0f,0.0f,&quot;south-east&quot;)" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(1.0f,0.0f,&quot;south-east&quot;)" methodname="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="1429834304" result="Passed" start-time="2026-09-27 12:59:55Z" end-time="2026-09-27 12:59:55Z" duration="0.204170" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                  <output><![CDATA[FloorSpawner: spawned 5 room floor(s), 8304 cell(s), from 5 binding(s).
+[GameBootstrap] Rooms (FloorSpawner) created 5.
+WallSpawner: spawned 497 wall piece(s) and collider(s) across 5 room(s).
+[GameBootstrap] Rooms (WallSpawner) created 497.
+PropSpawner: spawned 222 prop(s) from 5 catalog(s).
+[GameBootstrap] Props (PropSpawner) created 222.
+NavigationSpawner: baked over 222 collider(s) in 11 ms, bounds Center: (0.00, 1.10, 39.00), Extents: (20.30, 1.45, 65.30).
+[GameBootstrap] Navigation (NavigationSpawner) created 1.
+DoorSpawner: spawned 5 door(s) from 'Door'.
+[GameBootstrap] Doors (DoorSpawner) created 5.
+PlayerSpawner: disabled placeholder camera 'Main Camera'. The scene owner should remove it; see SceneStubTests.AllowedRoots.
+PlayerSpawner: spawned 'Player' at (-4.00, 0.08, -22.00) and 'Main Camera' at (6.00, 10.08, -32.00).
+[GameBootstrap] Player (PlayerSpawner) created 2.
+EnemySpawner: admitted 9 of 9 enemies.
+[GameBootstrap] Enemies (EnemySpawner) created 9.
+[GameBootstrap] Hud (HudSpawner) created 1.
+EnemyPrefabPool disposed: [MeleeEnemy] active 0, peak 5, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 5, capacityExpansion 0.
+EnemyPrefabPool disposed: [LanternWraith] active 0, peak 4, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 4, capacityExpansion 0.
+]]></output>
+                </test-case>
+                <test-case id="1484" name="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(0.0f,1.0f,&quot;north-east&quot;)" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(0.0f,1.0f,&quot;north-east&quot;)" methodname="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="609326132" result="Passed" start-time="2026-09-27 12:59:55Z" end-time="2026-09-27 12:59:55Z" duration="0.169854" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                  <output><![CDATA[FloorSpawner: spawned 5 room floor(s), 8304 cell(s), from 5 binding(s).
+[GameBootstrap] Rooms (FloorSpawner) created 5.
+WallSpawner: spawned 497 wall piece(s) and collider(s) across 5 room(s).
+[GameBootstrap] Rooms (WallSpawner) created 497.
+PropSpawner: spawned 222 prop(s) from 5 catalog(s).
+[GameBootstrap] Props (PropSpawner) created 222.
+NavigationSpawner: baked over 222 collider(s) in 11 ms, bounds Center: (0.00, 1.10, 39.00), Extents: (20.30, 1.45, 65.30).
+[GameBootstrap] Navigation (NavigationSpawner) created 1.
+DoorSpawner: spawned 5 door(s) from 'Door'.
+[GameBootstrap] Doors (DoorSpawner) created 5.
+PlayerSpawner: disabled placeholder camera 'Main Camera'. The scene owner should remove it; see SceneStubTests.AllowedRoots.
+PlayerSpawner: spawned 'Player' at (-4.00, 0.08, -22.00) and 'Main Camera' at (6.00, 10.08, -32.00).
+[GameBootstrap] Player (PlayerSpawner) created 2.
+EnemySpawner: admitted 9 of 9 enemies.
+[GameBootstrap] Enemies (EnemySpawner) created 9.
+[GameBootstrap] Hud (HudSpawner) created 1.
+EnemyPrefabPool disposed: [MeleeEnemy] active 0, peak 5, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 5, capacityExpansion 0.
+EnemyPrefabPool disposed: [LanternWraith] active 0, peak 4, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 4, capacityExpansion 0.
+]]></output>
+                </test-case>
+                <test-case id="1485" name="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(-1.0f,0.0f,&quot;north-west&quot;)" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(-1.0f,0.0f,&quot;north-west&quot;)" methodname="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="68959341" result="Passed" start-time="2026-09-27 12:59:55Z" end-time="2026-09-27 12:59:55Z" duration="0.166893" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                  <output><![CDATA[FloorSpawner: spawned 5 room floor(s), 8304 cell(s), from 5 binding(s).
+[GameBootstrap] Rooms (FloorSpawner) created 5.
+WallSpawner: spawned 497 wall piece(s) and collider(s) across 5 room(s).
+[GameBootstrap] Rooms (WallSpawner) created 497.
+PropSpawner: spawned 222 prop(s) from 5 catalog(s).
+[GameBootstrap] Props (PropSpawner) created 222.
+NavigationSpawner: baked over 222 collider(s) in 9 ms, bounds Center: (0.00, 1.10, 39.00), Extents: (20.30, 1.45, 65.30).
+[GameBootstrap] Navigation (NavigationSpawner) created 1.
+DoorSpawner: spawned 5 door(s) from 'Door'.
+[GameBootstrap] Doors (DoorSpawner) created 5.
+PlayerSpawner: disabled placeholder camera 'Main Camera'. The scene owner should remove it; see SceneStubTests.AllowedRoots.
+PlayerSpawner: spawned 'Player' at (-4.00, 0.08, -22.00) and 'Main Camera' at (6.00, 10.08, -32.00).
+[GameBootstrap] Player (PlayerSpawner) created 2.
+EnemySpawner: admitted 9 of 9 enemies.
+[GameBootstrap] Enemies (EnemySpawner) created 9.
+[GameBootstrap] Hud (HudSpawner) created 1.
+EnemyPrefabPool disposed: [MeleeEnemy] active 0, peak 5, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 5, capacityExpansion 0.
+EnemyPrefabPool disposed: [LanternWraith] active 0, peak 4, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 4, capacityExpansion 0.
+]]></output>
+                </test-case>
+                <test-case id="1486" name="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(0.0f,-1.0f,&quot;south-west&quot;)" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(0.0f,-1.0f,&quot;south-west&quot;)" methodname="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="1499054499" result="Passed" start-time="2026-09-27 12:59:55Z" end-time="2026-09-27 12:59:55Z" duration="0.185207" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                  <output><![CDATA[FloorSpawner: spawned 5 room floor(s), 8304 cell(s), from 5 binding(s).
+[GameBootstrap] Rooms (FloorSpawner) created 5.
+WallSpawner: spawned 497 wall piece(s) and collider(s) across 5 room(s).
+[GameBootstrap] Rooms (WallSpawner) created 497.
+PropSpawner: spawned 222 prop(s) from 5 catalog(s).
+[GameBootstrap] Props (PropSpawner) created 222.
+NavigationSpawner: baked over 222 collider(s) in 8 ms, bounds Center: (0.00, 1.10, 39.00), Extents: (20.30, 1.45, 65.30).
+[GameBootstrap] Navigation (NavigationSpawner) created 1.
+DoorSpawner: spawned 5 door(s) from 'Door'.
+[GameBootstrap] Doors (DoorSpawner) created 5.
+PlayerSpawner: disabled placeholder camera 'Main Camera'. The scene owner should remove it; see SceneStubTests.AllowedRoots.
+PlayerSpawner: spawned 'Player' at (-4.00, 0.08, -22.00) and 'Main Camera' at (6.00, 10.08, -32.00).
+[GameBootstrap] Player (PlayerSpawner) created 2.
+EnemySpawner: admitted 9 of 9 enemies.
+[GameBootstrap] Enemies (EnemySpawner) created 9.
+[GameBootstrap] Hud (HudSpawner) created 1.
+EnemyPrefabPool disposed: [MeleeEnemy] active 0, peak 5, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 5, capacityExpansion 0.
+EnemyPrefabPool disposed: [LanternWraith] active 0, peak 4, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 4, capacityExpansion 0.
+]]></output>
+                </test-case>
+                <test-case id="1487" name="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(1.0f,1.0f,&quot;east&quot;)" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(1.0f,1.0f,&quot;east&quot;)" methodname="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="518684831" result="Passed" start-time="2026-09-27 12:59:55Z" end-time="2026-09-27 12:59:56Z" duration="0.196029" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                  <output><![CDATA[FloorSpawner: spawned 5 room floor(s), 8304 cell(s), from 5 binding(s).
+[GameBootstrap] Rooms (FloorSpawner) created 5.
+WallSpawner: spawned 497 wall piece(s) and collider(s) across 5 room(s).
+[GameBootstrap] Rooms (WallSpawner) created 497.
+PropSpawner: spawned 222 prop(s) from 5 catalog(s).
+[GameBootstrap] Props (PropSpawner) created 222.
+NavigationSpawner: baked over 222 collider(s) in 10 ms, bounds Center: (0.00, 1.10, 39.00), Extents: (20.30, 1.45, 65.30).
+[GameBootstrap] Navigation (NavigationSpawner) created 1.
+DoorSpawner: spawned 5 door(s) from 'Door'.
+[GameBootstrap] Doors (DoorSpawner) created 5.
+PlayerSpawner: disabled placeholder camera 'Main Camera'. The scene owner should remove it; see SceneStubTests.AllowedRoots.
+PlayerSpawner: spawned 'Player' at (-4.00, 0.08, -22.00) and 'Main Camera' at (6.00, 10.08, -32.00).
+[GameBootstrap] Player (PlayerSpawner) created 2.
+EnemySpawner: admitted 9 of 9 enemies.
+[GameBootstrap] Enemies (EnemySpawner) created 9.
+[GameBootstrap] Hud (HudSpawner) created 1.
+EnemyPrefabPool disposed: [MeleeEnemy] active 0, peak 5, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 5, capacityExpansion 0.
+EnemyPrefabPool disposed: [LanternWraith] active 0, peak 4, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 4, capacityExpansion 0.
+]]></output>
+                </test-case>
+                <test-case id="1488" name="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(1.0f,-1.0f,&quot;south&quot;)" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(1.0f,-1.0f,&quot;south&quot;)" methodname="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="1327070424" result="Passed" start-time="2026-09-27 12:59:56Z" end-time="2026-09-27 12:59:56Z" duration="0.177245" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                  <output><![CDATA[FloorSpawner: spawned 5 room floor(s), 8304 cell(s), from 5 binding(s).
+[GameBootstrap] Rooms (FloorSpawner) created 5.
+WallSpawner: spawned 497 wall piece(s) and collider(s) across 5 room(s).
+[GameBootstrap] Rooms (WallSpawner) created 497.
+PropSpawner: spawned 222 prop(s) from 5 catalog(s).
+[GameBootstrap] Props (PropSpawner) created 222.
+NavigationSpawner: baked over 222 collider(s) in 10 ms, bounds Center: (0.00, 1.10, 39.00), Extents: (20.30, 1.45, 65.30).
+[GameBootstrap] Navigation (NavigationSpawner) created 1.
+DoorSpawner: spawned 5 door(s) from 'Door'.
+[GameBootstrap] Doors (DoorSpawner) created 5.
+PlayerSpawner: disabled placeholder camera 'Main Camera'. The scene owner should remove it; see SceneStubTests.AllowedRoots.
+PlayerSpawner: spawned 'Player' at (-4.00, 0.08, -22.00) and 'Main Camera' at (6.00, 10.08, -32.00).
+[GameBootstrap] Player (PlayerSpawner) created 2.
+EnemySpawner: admitted 9 of 9 enemies.
+[GameBootstrap] Enemies (EnemySpawner) created 9.
+[GameBootstrap] Hud (HudSpawner) created 1.
+EnemyPrefabPool disposed: [MeleeEnemy] active 0, peak 5, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 5, capacityExpansion 0.
+EnemyPrefabPool disposed: [LanternWraith] active 0, peak 4, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 4, capacityExpansion 0.
+]]></output>
+                </test-case>
+                <test-case id="1489" name="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(-1.0f,1.0f,&quot;north&quot;)" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(-1.0f,1.0f,&quot;north&quot;)" methodname="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="1209785304" result="Passed" start-time="2026-09-27 12:59:56Z" end-time="2026-09-27 12:59:56Z" duration="0.180287" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                  <output><![CDATA[FloorSpawner: spawned 5 room floor(s), 8304 cell(s), from 5 binding(s).
+[GameBootstrap] Rooms (FloorSpawner) created 5.
+WallSpawner: spawned 497 wall piece(s) and collider(s) across 5 room(s).
+[GameBootstrap] Rooms (WallSpawner) created 497.
+PropSpawner: spawned 222 prop(s) from 5 catalog(s).
+[GameBootstrap] Props (PropSpawner) created 222.
+NavigationSpawner: baked over 222 collider(s) in 11 ms, bounds Center: (0.00, 1.10, 39.00), Extents: (20.30, 1.45, 65.30).
+[GameBootstrap] Navigation (NavigationSpawner) created 1.
+DoorSpawner: spawned 5 door(s) from 'Door'.
+[GameBootstrap] Doors (DoorSpawner) created 5.
+PlayerSpawner: disabled placeholder camera 'Main Camera'. The scene owner should remove it; see SceneStubTests.AllowedRoots.
+PlayerSpawner: spawned 'Player' at (-4.00, 0.08, -22.00) and 'Main Camera' at (6.00, 10.08, -32.00).
+[GameBootstrap] Player (PlayerSpawner) created 2.
+EnemySpawner: admitted 9 of 9 enemies.
+[GameBootstrap] Enemies (EnemySpawner) created 9.
+[GameBootstrap] Hud (HudSpawner) created 1.
+EnemyPrefabPool disposed: [MeleeEnemy] active 0, peak 5, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 5, capacityExpansion 0.
+EnemyPrefabPool disposed: [LanternWraith] active 0, peak 4, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 4, capacityExpansion 0.
+]]></output>
+                </test-case>
+                <test-case id="1490" name="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(-1.0f,-1.0f,&quot;west&quot;)" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections(-1.0f,-1.0f,&quot;west&quot;)" methodname="DirectionFor_MapsWorldAxesAndDiagonalsToScreenDirections" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="296995160" result="Passed" start-time="2026-09-27 12:59:56Z" end-time="2026-09-27 12:59:56Z" duration="0.183757" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                  <output><![CDATA[FloorSpawner: spawned 5 room floor(s), 8304 cell(s), from 5 binding(s).
+[GameBootstrap] Rooms (FloorSpawner) created 5.
+WallSpawner: spawned 497 wall piece(s) and collider(s) across 5 room(s).
+[GameBootstrap] Rooms (WallSpawner) created 497.
+PropSpawner: spawned 222 prop(s) from 5 catalog(s).
+[GameBootstrap] Props (PropSpawner) created 222.
+NavigationSpawner: baked over 222 collider(s) in 8 ms, bounds Center: (0.00, 1.10, 39.00), Extents: (20.30, 1.45, 65.30).
+[GameBootstrap] Navigation (NavigationSpawner) created 1.
+DoorSpawner: spawned 5 door(s) from 'Door'.
+[GameBootstrap] Doors (DoorSpawner) created 5.
+PlayerSpawner: disabled placeholder camera 'Main Camera'. The scene owner should remove it; see SceneStubTests.AllowedRoots.
+PlayerSpawner: spawned 'Player' at (-4.00, 0.08, -22.00) and 'Main Camera' at (6.00, 10.08, -32.00).
+[GameBootstrap] Player (PlayerSpawner) created 2.
+EnemySpawner: admitted 9 of 9 enemies.
+[GameBootstrap] Enemies (EnemySpawner) created 9.
+[GameBootstrap] Hud (HudSpawner) created 1.
+EnemyPrefabPool disposed: [MeleeEnemy] active 0, peak 5, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 5, capacityExpansion 0.
+EnemyPrefabPool disposed: [LanternWraith] active 0, peak 4, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 4, capacityExpansion 0.
+]]></output>
+                </test-case>
+              </test-suite>
+              <test-case id="1492" name="DirectionFor_ResolvesEveryExactSectorBoundaryDeterministically" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.DirectionFor_ResolvesEveryExactSectorBoundaryDeterministically" methodname="DirectionFor_ResolvesEveryExactSectorBoundaryDeterministically" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="1304851795" result="Passed" start-time="2026-09-27 12:59:56Z" end-time="2026-09-27 12:59:56Z" duration="0.179379" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[FloorSpawner: spawned 5 room floor(s), 8304 cell(s), from 5 binding(s).
+[GameBootstrap] Rooms (FloorSpawner) created 5.
+WallSpawner: spawned 497 wall piece(s) and collider(s) across 5 room(s).
+[GameBootstrap] Rooms (WallSpawner) created 497.
+PropSpawner: spawned 222 prop(s) from 5 catalog(s).
+[GameBootstrap] Props (PropSpawner) created 222.
+NavigationSpawner: baked over 222 collider(s) in 7 ms, bounds Center: (0.00, 1.10, 39.00), Extents: (20.30, 1.45, 65.30).
+[GameBootstrap] Navigation (NavigationSpawner) created 1.
+DoorSpawner: spawned 5 door(s) from 'Door'.
+[GameBootstrap] Doors (DoorSpawner) created 5.
+PlayerSpawner: disabled placeholder camera 'Main Camera'. The scene owner should remove it; see SceneStubTests.AllowedRoots.
+PlayerSpawner: spawned 'Player' at (-4.00, 0.08, -22.00) and 'Main Camera' at (6.00, 10.08, -32.00).
+[GameBootstrap] Player (PlayerSpawner) created 2.
+EnemySpawner: admitted 9 of 9 enemies.
+[GameBootstrap] Enemies (EnemySpawner) created 9.
+[GameBootstrap] Hud (HudSpawner) created 1.
+EnemyPrefabPool disposed: [MeleeEnemy] active 0, peak 5, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 5, capacityExpansion 0.
+EnemyPrefabPool disposed: [LanternWraith] active 0, peak 4, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 4, capacityExpansion 0.
+]]></output>
+              </test-case>
+              <test-case id="1494" name="DirectionFor_RetainsPriorDirectionAtEverySectorBoundary" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.DirectionFor_RetainsPriorDirectionAtEverySectorBoundary" methodname="DirectionFor_RetainsPriorDirectionAtEverySectorBoundary" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="555371923" result="Passed" start-time="2026-09-27 12:59:56Z" end-time="2026-09-27 12:59:57Z" duration="0.174150" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[FloorSpawner: spawned 5 room floor(s), 8304 cell(s), from 5 binding(s).
+[GameBootstrap] Rooms (FloorSpawner) created 5.
+WallSpawner: spawned 497 wall piece(s) and collider(s) across 5 room(s).
+[GameBootstrap] Rooms (WallSpawner) created 497.
+PropSpawner: spawned 222 prop(s) from 5 catalog(s).
+[GameBootstrap] Props (PropSpawner) created 222.
+NavigationSpawner: baked over 222 collider(s) in 7 ms, bounds Center: (0.00, 1.10, 39.00), Extents: (20.30, 1.45, 65.30).
+[GameBootstrap] Navigation (NavigationSpawner) created 1.
+DoorSpawner: spawned 5 door(s) from 'Door'.
+[GameBootstrap] Doors (DoorSpawner) created 5.
+PlayerSpawner: disabled placeholder camera 'Main Camera'. The scene owner should remove it; see SceneStubTests.AllowedRoots.
+PlayerSpawner: spawned 'Player' at (-4.00, 0.08, -22.00) and 'Main Camera' at (6.00, 10.08, -32.00).
+[GameBootstrap] Player (PlayerSpawner) created 2.
+EnemySpawner: admitted 9 of 9 enemies.
+[GameBootstrap] Enemies (EnemySpawner) created 9.
+[GameBootstrap] Hud (HudSpawner) created 1.
+EnemyPrefabPool disposed: [MeleeEnemy] active 0, peak 5, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 5, capacityExpansion 0.
+EnemyPrefabPool disposed: [LanternWraith] active 0, peak 4, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 4, capacityExpansion 0.
+]]></output>
+              </test-case>
+              <test-case id="1493" name="EachConfirmedWizard_LobbyEntrySupportsStableEightDirectionAnimationAndMouseInput" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.EachConfirmedWizard_LobbyEntrySupportsStableEightDirectionAnimationAndMouseInput" methodname="EachConfirmedWizard_LobbyEntrySupportsStableEightDirectionAnimationAndMouseInput" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="433950123" result="Passed" start-time="2026-09-27 12:59:57Z" end-time="2026-09-27 12:59:58Z" duration="1.763722" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[FloorSpawner: spawned 5 room floor(s), 8304 cell(s), from 5 binding(s).
+[GameBootstrap] Rooms (FloorSpawner) created 5.
+WallSpawner: spawned 497 wall piece(s) and collider(s) across 5 room(s).
+[GameBootstrap] Rooms (WallSpawner) created 497.
+PropSpawner: spawned 222 prop(s) from 5 catalog(s).
+[GameBootstrap] Props (PropSpawner) created 222.
+NavigationSpawner: baked over 222 collider(s) in 9 ms, bounds Center: (0.00, 1.10, 39.00), Extents: (20.30, 1.45, 65.30).
+[GameBootstrap] Navigation (NavigationSpawner) created 1.
+DoorSpawner: spawned 5 door(s) from 'Door'.
+[GameBootstrap] Doors (DoorSpawner) created 5.
+PlayerSpawner: disabled placeholder camera 'Main Camera'. The scene owner should remove it; see SceneStubTests.AllowedRoots.
+PlayerSpawner: spawned 'Player' at (-4.00, 0.08, -22.00) and 'Main Camera' at (6.00, 10.08, -32.00).
+[GameBootstrap] Player (PlayerSpawner) created 2.
+EnemySpawner: admitted 9 of 9 enemies.
+[GameBootstrap] Enemies (EnemySpawner) created 9.
+[GameBootstrap] Hud (HudSpawner) created 1.
+EnemyPrefabPool disposed: [MeleeEnemy] active 0, peak 5, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 5, capacityExpansion 0.
+EnemyPrefabPool disposed: [LanternWraith] active 0, peak 4, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 4, capacityExpansion 0.
+FloorSpawner: spawned 5 room floor(s), 8304 cell(s), from 5 binding(s).
+[GameBootstrap] Rooms (FloorSpawner) created 5.
+WallSpawner: spawned 497 wall piece(s) and collider(s) across 5 room(s).
+[GameBootstrap] Rooms (WallSpawner) created 497.
+PropSpawner: spawned 222 prop(s) from 5 catalog(s).
+[GameBootstrap] Props (PropSpawner) created 222.
+NavigationSpawner: baked over 222 collider(s) in 8 ms, bounds Center: (0.00, 1.10, 39.00), Extents: (20.30, 1.45, 65.30).
+[GameBootstrap] Navigation (NavigationSpawner) created 1.
+DoorSpawner: spawned 5 door(s) from 'Door'.
+[GameBootstrap] Doors (DoorSpawner) created 5.
+PlayerSpawner: disabled placeholder camera 'Main Camera'. The scene owner should remove it; see SceneStubTests.AllowedRoots.
+PlayerSpawner: spawned 'Player' at (-4.00, 0.08, -22.00) and 'Main Camera' at (6.00, 10.08, -32.00).
+[GameBootstrap] Player (PlayerSpawner) created 2.
+EnemySpawner: admitted 9 of 9 enemies.
+[GameBootstrap] Enemies (EnemySpawner) created 9.
+[GameBootstrap] Hud (HudSpawner) created 1.
+EnemyPrefabPool disposed: [MeleeEnemy] active 0, peak 5, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 5, capacityExpansion 0.
+EnemyPrefabPool disposed: [LanternWraith] active 0, peak 4, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 4, capacityExpansion 0.
+FloorSpawner: spawned 5 room floor(s), 8304 cell(s), from 5 binding(s).
+[GameBootstrap] Rooms (FloorSpawner) created 5.
+WallSpawner: spawned 497 wall piece(s) and collider(s) across 5 room(s).
+[GameBootstrap] Rooms (WallSpawner) created 497.
+PropSpawner: spawned 222 prop(s) from 5 catalog(s).
+[GameBootstrap] Props (PropSpawner) created 222.
+NavigationSpawner: baked over 222 collider(s) in 9 ms, bounds Center: (0.00, 1.10, 39.00), Extents: (20.30, 1.45, 65.30).
+[GameBootstrap] Navigation (NavigationSpawner) created 1.
+DoorSpawner: spawned 5 door(s) from 'Door'.
+[GameBootstrap] Doors (DoorSpawner) created 5.
+PlayerSpawner: disabled placeholder camera 'Main Camera'. The scene owner should remove it; see SceneStubTests.AllowedRoots.
+PlayerSpawner: spawned 'Player' at (-4.00, 0.08, -22.00) and 'Main Camera' at (6.00, 10.08, -32.00).
+[GameBootstrap] Player (PlayerSpawner) created 2.
+EnemySpawner: admitted 9 of 9 enemies.
+[GameBootstrap] Enemies (EnemySpawner) created 9.
+[GameBootstrap] Hud (HudSpawner) created 1.
+EnemyPrefabPool disposed: [MeleeEnemy] active 0, peak 5, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 5, capacityExpansion 0.
+EnemyPrefabPool disposed: [LanternWraith] active 0, peak 4, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 4, capacityExpansion 0.
+FloorSpawner: spawned 5 room floor(s), 8304 cell(s), from 5 binding(s).
+[GameBootstrap] Rooms (FloorSpawner) created 5.
+WallSpawner: spawned 497 wall piece(s) and collider(s) across 5 room(s).
+[GameBootstrap] Rooms (WallSpawner) created 497.
+PropSpawner: spawned 222 prop(s) from 5 catalog(s).
+[GameBootstrap] Props (PropSpawner) created 222.
+NavigationSpawner: baked over 222 collider(s) in 7 ms, bounds Center: (0.00, 1.10, 39.00), Extents: (20.30, 1.45, 65.30).
+[GameBootstrap] Navigation (NavigationSpawner) created 1.
+DoorSpawner: spawned 5 door(s) from 'Door'.
+[GameBootstrap] Doors (DoorSpawner) created 5.
+PlayerSpawner: disabled placeholder camera 'Main Camera'. The scene owner should remove it; see SceneStubTests.AllowedRoots.
+PlayerSpawner: spawned 'Player' at (-4.00, 0.08, -22.00) and 'Main Camera' at (6.00, 10.08, -32.00).
+[GameBootstrap] Player (PlayerSpawner) created 2.
+EnemySpawner: admitted 9 of 9 enemies.
+[GameBootstrap] Enemies (EnemySpawner) created 9.
+[GameBootstrap] Hud (HudSpawner) created 1.
+EnemyPrefabPool disposed: [MeleeEnemy] active 0, peak 5, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 5, capacityExpansion 0.
+EnemyPrefabPool disposed: [LanternWraith] active 0, peak 4, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 4, capacityExpansion 0.
+]]></output>
+              </test-case>
+              <test-case id="1495" name="HeldBoundaryMovementDoesNotRestartAndIdleRetainsFacing" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.HeldBoundaryMovementDoesNotRestartAndIdleRetainsFacing" methodname="HeldBoundaryMovementDoesNotRestartAndIdleRetainsFacing" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="915840569" result="Passed" start-time="2026-09-27 12:59:58Z" end-time="2026-09-27 12:59:58Z" duration="0.148033" asserts="0">
+                <properties>
+                  <property name="_JOINTYPE" value="UnityCombinatorial" />
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[FloorSpawner: spawned 5 room floor(s), 8304 cell(s), from 5 binding(s).
+[GameBootstrap] Rooms (FloorSpawner) created 5.
+WallSpawner: spawned 497 wall piece(s) and collider(s) across 5 room(s).
+[GameBootstrap] Rooms (WallSpawner) created 497.
+PropSpawner: spawned 222 prop(s) from 5 catalog(s).
+[GameBootstrap] Props (PropSpawner) created 222.
+NavigationSpawner: baked over 222 collider(s) in 9 ms, bounds Center: (0.00, 1.10, 39.00), Extents: (20.30, 1.45, 65.30).
+[GameBootstrap] Navigation (NavigationSpawner) created 1.
+DoorSpawner: spawned 5 door(s) from 'Door'.
+[GameBootstrap] Doors (DoorSpawner) created 5.
+PlayerSpawner: disabled placeholder camera 'Main Camera'. The scene owner should remove it; see SceneStubTests.AllowedRoots.
+PlayerSpawner: spawned 'Player' at (-4.00, 0.08, -22.00) and 'Main Camera' at (6.00, 10.08, -32.00).
+[GameBootstrap] Player (PlayerSpawner) created 2.
+EnemySpawner: admitted 9 of 9 enemies.
+[GameBootstrap] Enemies (EnemySpawner) created 9.
+[GameBootstrap] Hud (HudSpawner) created 1.
+EnemyPrefabPool disposed: [MeleeEnemy] active 0, peak 5, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 5, capacityExpansion 0.
+EnemyPrefabPool disposed: [LanternWraith] active 0, peak 4, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 4, capacityExpansion 0.
+]]></output>
+              </test-case>
+              <test-case id="1480" name="PlayerVisualHasOneWizardAnimationDriverAndRetainsGroundContact" fullname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests.PlayerVisualHasOneWizardAnimationDriverAndRetainsGroundContact" methodname="PlayerVisualHasOneWizardAnimationDriverAndRetainsGroundContact" classname="NoSafeCircle.DoorPrototype.Tests.WizardAnimationPlayModeTests" runstate="Runnable" seed="1238386744" result="Passed" start-time="2026-09-27 12:59:58Z" end-time="2026-09-27 12:59:59Z" duration="0.133871" asserts="0">
+                <properties>
+                  <property name="retryIteration" value="0" />
+                  <property name="repeatIteration" value="0" />
+                </properties>
+                <output><![CDATA[FloorSpawner: spawned 5 room floor(s), 8304 cell(s), from 5 binding(s).
+[GameBootstrap] Rooms (FloorSpawner) created 5.
+WallSpawner: spawned 497 wall piece(s) and collider(s) across 5 room(s).
+[GameBootstrap] Rooms (WallSpawner) created 497.
+PropSpawner: spawned 222 prop(s) from 5 catalog(s).
+[GameBootstrap] Props (PropSpawner) created 222.
+NavigationSpawner: baked over 222 collider(s) in 7 ms, bounds Center: (0.00, 1.10, 39.00), Extents: (20.30, 1.45, 65.30).
+[GameBootstrap] Navigation (NavigationSpawner) created 1.
+DoorSpawner: spawned 5 door(s) from 'Door'.
+[GameBootstrap] Doors (DoorSpawner) created 5.
+PlayerSpawner: disabled placeholder camera 'Main Camera'. The scene owner should remove it; see SceneStubTests.AllowedRoots.
+PlayerSpawner: spawned 'Player' at (-4.00, 0.08, -22.00) and 'Main Camera' at (6.00, 10.08, -32.00).
+[GameBootstrap] Player (PlayerSpawner) created 2.
+EnemySpawner: admitted 9 of 9 enemies.
+[GameBootstrap] Enemies (EnemySpawner) created 9.
+[GameBootstrap] Hud (HudSpawner) created 1.
+EnemyPrefabPool disposed: [MeleeEnemy] active 0, peak 5, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 5, capacityExpansion 0.
+EnemyPrefabPool disposed: [LanternWraith] active 0, peak 4, doubleReturn 0, foreignReturn 0, doubleCheckout 0, rejected 0, destroyedExternally 0, activeAtDisposal 4, capacityExpansion 0.
+Saving results to: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-0f76a93cf76e44f29d2f23ab11602fe4\test-results.xml
+]]></output>
+              </test-case>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>
