@@ -38,6 +38,7 @@ from Pipeline.TaskReviewAgent.door_prototype_materialization import (
     UnityCommandRunner,
     declares_dressing_entry_point,
     default_unity_command_runner,
+    describe_dressing_entry_point_absence,
     is_door_prototype_builder_output,
     is_unity_serialized,
     resolve_dressing_builder,
@@ -328,9 +329,13 @@ def _require_dressing_sources(
             f"builder_source_not_regular: {builder.builder_source_path} at {commit}"
         ) from exc
     if not declares_dressing_entry_point(source, builder):
+        # The verb stays for every caller that greps it; the REASON is appended,
+        # because "missing" covered four states including "declared with a
+        # signature the pipeline cannot call" -- which is what NSC-082 was.
         raise MaterializationError(
             f"builder_entry_point_missing: {builder.build_method} in "
-            f"{builder.builder_source_path} at {commit}"
+            f"{builder.builder_source_path} at {commit}: "
+            + describe_dressing_entry_point_absence(source, builder)
         )
     try:
         json.loads(git(checkout, "cat-file", "blob", catalog_blob).decode("utf-8"))

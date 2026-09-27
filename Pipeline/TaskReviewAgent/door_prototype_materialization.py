@@ -423,6 +423,70 @@ def declares_dressing_entry_point(
     return False
 
 
+def describe_dressing_entry_point_absence(
+    source: str, builder: "DressingPrefabBuilder",
+) -> str:
+    """Why the witness refused, so "missing" stops meaning four different things.
+
+    `declares_dressing_entry_point` returns a bool and its caller renders that as
+    ``builder_entry_point_missing``, which reads as ABSENCE. NSC-082's crew
+    authored ``public static GameObject Build(string, string, string)`` -- right
+    name, right type, right namespace, and uncallable by a pipeline that can
+    supply no arguments. "not there" and "there but not callable" send a reader to
+    different places, and the Pipeline Runner lost a round to the first.
+
+    A DIAGNOSIS, NOT A SECOND GATE. It never decides anything: the witness has
+    already refused by the time this is called, and nothing here can make a
+    candidate pass. Unity remains the authority on whether the method compiles.
+
+    Offsets survive `_blank_csharp_comments_and_literals`, so a declaration quoted
+    here is sliced from the REAL source rather than from the blanked copy -- a
+    reader gets the text that is actually in the file.
+    """
+
+    blanked = _blank_csharp_comments_and_literals(source)
+    namespace = re.escape(builder.namespace)
+    if re.search(rf"(?:^|[;{{}}\s])namespace\s+{namespace}\s*(?:\{{|;)", blanked) is None:
+        return f"namespace {builder.namespace} is not declared in this file"
+    class_name = re.escape(builder.class_name)
+    class_match = re.search(
+        rf"(?:^|[;{{}}\s\]])((?:{_CSHARP_TYPE_MODIFIERS}\s+)+)class\s+{class_name}\b"
+        rf"(?!\s*<)[^{{;]*\{{",
+        blanked,
+    )
+    if class_match is None:
+        return (
+            f"no public static class {builder.class_name} is declared in"
+            f" namespace {builder.namespace}"
+        )
+    opening = class_match.end() - 1
+    closing = _matching_brace(blanked, opening)
+    if closing < 0:
+        return f"class {builder.class_name} has no closing brace"
+    body = blanked[opening + 1:closing]
+    method = re.escape(DRESSING_BUILD_METHOD_NAME)
+    declared = re.search(
+        rf"(?:^|[;{{}}\s\]])((?:{_CSHARP_MEMBER_MODIFIERS}\s+)*)"
+        rf"([\w\.<>\[\]]+)\s+{method}\s*\(([^);]*)\)",
+        body,
+    )
+    if declared is None:
+        return (
+            f"class {builder.class_name} declares no member named"
+            f" {DRESSING_BUILD_METHOD_NAME} at all"
+        )
+    # Slice the ORIGINAL source at the same offsets; blanking preserved them.
+    start = opening + 1 + declared.start(1)
+    stop = opening + 1 + declared.end(3)
+    actual = " ".join(source[start:stop].split())
+    return (
+        "IT IS DECLARED AND NOT CALLABLE, which is not the same as absent:"
+        f" class {builder.class_name} declares `{actual})` where the registered"
+        f" entry point must be `public static void {DRESSING_BUILD_METHOD_NAME}()`"
+        " -- a parameterless void the pipeline can invoke with no arguments"
+    )
+
+
 UNITY_SERIALIZED_SUFFIXES = (
     ".asset", ".unity", ".prefab", ".mat", ".meta", ".anim", ".controller",
     ".overrideController", ".physicsMaterial2D", ".spriteatlas", ".preset",
