@@ -213,6 +213,48 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
 
                 return tile;
             }
+
+            // ------------------------------------------------------------------------------
+            // F4 audit fix (2026-09-26): read-only twin of LoadOrCreateSpriteTile for
+            // RuinedEntrySceneBuilder.BuildInMemoryForTests. Same contract as
+            // BoneArchive.LoadBoneArchiveFloorTileForTests above: no writes reachable (not even
+            // EnsureFolder), wrong committed data returned as-is, in-memory transient Tile only
+            // when absent.
+            //
+            // RuinedEntrySceneBuilder.BuildInMemoryForTests already never reached the write path
+            // above - it had its own local AssetDatabase.LoadAssetAtPath + CreateTransientTile
+            // duplicate that was already read-only. This replaces that duplicate with the same
+            // centralized, audited read-only method BoneArchive/FinalRoom use, so all five rooms'
+            // test paths share one reviewed implementation instead of three independent copies.
+            // ------------------------------------------------------------------------------------
+            internal static Tile LoadSpriteTileForTests(string assetFolder, string tileName, string sourceSpritePath)
+            {
+                if (string.IsNullOrWhiteSpace(assetFolder) || !assetFolder.StartsWith("Assets/", StringComparison.Ordinal))
+                {
+                    throw new ArgumentException("The Tile asset folder must be under Assets.", nameof(assetFolder));
+                }
+
+                Sprite sourceSprite = AssetDatabase.LoadAssetAtPath<Sprite>(sourceSpritePath);
+                if (sourceSprite == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Ruined Entry requires the committed sprite at '{sourceSpritePath}'.");
+                }
+
+                string assetPath = assetFolder + "/" + tileName + ".asset";
+                Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(assetPath);
+                if (tile != null)
+                {
+                    return tile;
+                }
+
+                Tile transientTile = OwnTransientObject(ScriptableObject.CreateInstance<Tile>());
+                transientTile.name = tileName;
+                transientTile.colliderType = Tile.ColliderType.None;
+                transientTile.hideFlags = HideFlags.HideAndDontSave;
+                transientTile.sprite = sourceSprite;
+                return transientTile;
+            }
         }
 
         // ------------------------------------------------------------------------------------
@@ -353,6 +395,38 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
 
                 return tile;
             }
+
+            // F4 audit fix (2026-09-26): read-only twin of LoadOrCreateSpriteTile for
+            // ChapelOfAshSceneBuilder.BuildInMemoryForTests. Same contract as
+            // RuinedEntry.LoadSpriteTileForTests above.
+            internal static Tile LoadSpriteTileForTests(string assetFolder, string tileName, string sourceSpritePath)
+            {
+                if (string.IsNullOrWhiteSpace(assetFolder) || !assetFolder.StartsWith("Assets/", StringComparison.Ordinal))
+                {
+                    throw new ArgumentException("The Tile asset folder must be under Assets.", nameof(assetFolder));
+                }
+
+                Sprite sourceSprite = AssetDatabase.LoadAssetAtPath<Sprite>(sourceSpritePath);
+                if (sourceSprite == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Chapel of Ash requires the committed sprite at '{sourceSpritePath}'.");
+                }
+
+                string assetPath = assetFolder + "/" + tileName + ".asset";
+                Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(assetPath);
+                if (tile != null)
+                {
+                    return tile;
+                }
+
+                Tile transientTile = OwnTransientObject(ScriptableObject.CreateInstance<Tile>());
+                transientTile.name = tileName;
+                transientTile.colliderType = Tile.ColliderType.None;
+                transientTile.hideFlags = HideFlags.HideAndDontSave;
+                transientTile.sprite = sourceSprite;
+                return transientTile;
+            }
         }
 
         // ------------------------------------------------------------------------------------
@@ -400,6 +474,42 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
                 }
 
                 return tile;
+            }
+
+            // F4 audit fix (2026-09-26): read-only twin of LoadOrCreateSpriteTile for
+            // LowerVaultSceneBuilder.BuildInMemoryForTests. Same contract as
+            // RuinedEntry.LoadSpriteTileForTests above. NOTE: LowerVault's blockout proxy
+            // Sprite (LoadOrCreateBlockoutProxySprite) is NOT part of this generator and is out
+            // of scope here - it already has its own separate read-only path
+            // (LowerVaultSceneBuilder.LoadPersistedBlockoutProxySprite /
+            // CreateTransientBlockoutProxySprite) that never writes.
+            internal static Tile LoadSpriteTileForTests(string assetFolder, string tileName, string sourceSpritePath)
+            {
+                if (string.IsNullOrWhiteSpace(assetFolder) || !assetFolder.StartsWith("Assets/", StringComparison.Ordinal))
+                {
+                    throw new ArgumentException("The Tile asset folder must be under Assets.", nameof(assetFolder));
+                }
+
+                Sprite sourceSprite = AssetDatabase.LoadAssetAtPath<Sprite>(sourceSpritePath);
+                if (sourceSprite == null)
+                {
+                    throw new InvalidOperationException(
+                        $"Lower Vault requires the committed sprite at '{sourceSpritePath}'.");
+                }
+
+                string assetPath = assetFolder + "/" + tileName + ".asset";
+                Tile tile = AssetDatabase.LoadAssetAtPath<Tile>(assetPath);
+                if (tile != null)
+                {
+                    return tile;
+                }
+
+                Tile transientTile = OwnTransientObject(ScriptableObject.CreateInstance<Tile>());
+                transientTile.name = tileName;
+                transientTile.colliderType = Tile.ColliderType.None;
+                transientTile.hideFlags = HideFlags.HideAndDontSave;
+                transientTile.sprite = sourceSprite;
+                return transientTile;
             }
         }
 

@@ -75,21 +75,23 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             AssetDatabase.Refresh();
         }
 
+        // F4 audit fix (2026-09-26): the two Tile loads below already never reached
+        // ArchitecturalTileGenerator's write-capable LoadOrCreateSpriteTile (only BuildAndSave
+        // below does) - they had their own local read-only duplicate (CreateTransientTile).
+        // Routed through the generator's centralized read-only twin instead, matching
+        // RuinedEntry/ChapelOfAsh/BoneArchive/FinalRoom. The blockout proxy Sprite is unrelated
+        // to this generator (see LoadSpriteTileForTests's remark on LowerVault above) and is
+        // untouched - LoadPersistedBlockoutProxySprite/CreateTransientBlockoutProxySprite already
+        // never write. No behaviour change.
         public static void BuildInMemoryForTests()
         {
+            ArchitecturalTileGenerator.CleanupTransientObjects();
             CleanupTransientArchitecturalObjects();
 
-            Tile floorTile = AssetDatabase.LoadAssetAtPath<Tile>(FloorTilePath);
-            if (floorTile == null)
-            {
-                floorTile = CreateTransientTile(FloorTileName, FloorSpriteSourcePath);
-            }
-
-            Tile nearWallStubTile = AssetDatabase.LoadAssetAtPath<Tile>(NearWallStubTilePath);
-            if (nearWallStubTile == null)
-            {
-                nearWallStubTile = CreateTransientTile(NearWallStubTileName, NearWallStubSpriteSourcePath);
-            }
+            Tile floorTile = ArchitecturalTileGenerator.LowerVault.LoadSpriteTileForTests(
+                ArchitecturalTileFolder, FloorTileName, FloorSpriteSourcePath);
+            Tile nearWallStubTile = ArchitecturalTileGenerator.LowerVault.LoadSpriteTileForTests(
+                ArchitecturalTileFolder, NearWallStubTileName, NearWallStubSpriteSourcePath);
 
             Sprite blockoutProxySprite = LoadPersistedBlockoutProxySprite();
             if (blockoutProxySprite == null)
@@ -495,23 +497,6 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
                 assetFolder, NearWallStubTileName, NearWallStubSpriteSourcePath);
         }
 
-        private static Tile CreateTransientTile(string tileName, string sourceSpritePath)
-        {
-            Sprite sourceSprite = AssetDatabase.LoadAssetAtPath<Sprite>(sourceSpritePath);
-            if (sourceSprite == null)
-            {
-                throw new InvalidOperationException(
-                    $"Lower Vault requires the committed sprite at '{sourceSpritePath}'.");
-            }
-
-            Tile tile = ScriptableObject.CreateInstance<Tile>();
-            tile.name = tileName;
-            tile.colliderType = Tile.ColliderType.None;
-            tile.hideFlags = HideFlags.HideAndDontSave;
-            tile.sprite = sourceSprite;
-            TransientArchitecturalObjects.Add(tile);
-            return tile;
-        }
 
         // ------------------------------------------------------------------
         // LowerVaultBlockoutProxySprite.asset: shared original proxy Sprite

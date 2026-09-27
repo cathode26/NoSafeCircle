@@ -63,7 +63,6 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         private static readonly Vector3 PreviewCameraEulerAngles = new Vector3(30f, -45f, 0f);
         private const float PreviewOrthographicSize = 8f;
 
-        private static readonly List<Object> TransientTileObjects = new List<Object>();
 
         [MenuItem("No Safe Circle/Rooms/Build Chapel of Ash Authoring Scene")]
         public static void BuildAndSave()
@@ -89,28 +88,20 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
             Debug.Log($"Chapel of Ash scene built at {ScenePath}");
         }
 
+        // F4 audit fix (2026-09-26): this already never reached ArchitecturalTileGenerator's
+        // write-capable LoadOrCreateSpriteTile (only BuildAndSave below does) - it had its own
+        // local read-only duplicate (CreateTransientTile/CleanupTransientTiles). Routed through
+        // the generator's centralized read-only twin instead, matching RuinedEntry/BoneArchive/
+        // LowerVault/FinalRoom. No behaviour change.
         public static void BuildInMemoryForTests()
         {
-            CleanupTransientTiles();
-            Tile floorTile = AssetDatabase.LoadAssetAtPath<Tile>(FloorTilePath);
-            if (floorTile == null)
-            {
-                floorTile = CreateTransientTile(FloorTileName, FloorSpriteSourcePath);
-            }
-
-            Tile farWallTile = AssetDatabase.LoadAssetAtPath<Tile>(
-                ArchitecturalTileFolder + "/" + FarWallTileName + ".asset");
-            if (farWallTile == null)
-            {
-                farWallTile = CreateTransientTile(FarWallTileName, FarWallSpriteSourcePath);
-            }
-
-            Tile cutawayWallTile = AssetDatabase.LoadAssetAtPath<Tile>(
-                ArchitecturalTileFolder + "/" + CutawayWallTileName + ".asset");
-            if (cutawayWallTile == null)
-            {
-                cutawayWallTile = CreateTransientTile(CutawayWallTileName, CutawayWallSpriteSourcePath);
-            }
+            ArchitecturalTileGenerator.CleanupTransientObjects();
+            Tile floorTile = ArchitecturalTileGenerator.ChapelOfAsh.LoadSpriteTileForTests(
+                ArchitecturalTileFolder, FloorTileName, FloorSpriteSourcePath);
+            Tile farWallTile = ArchitecturalTileGenerator.ChapelOfAsh.LoadSpriteTileForTests(
+                ArchitecturalTileFolder, FarWallTileName, FarWallSpriteSourcePath);
+            Tile cutawayWallTile = ArchitecturalTileGenerator.ChapelOfAsh.LoadSpriteTileForTests(
+                ArchitecturalTileFolder, CutawayWallTileName, CutawayWallSpriteSourcePath);
 
             RebuildSceneContents(SceneManager.GetActiveScene(), floorTile, farWallTile, cutawayWallTile);
         }
@@ -521,36 +512,6 @@ namespace NoSafeCircle.DoorPrototype.Editor.Rooms
         {
             return ArchitecturalTileGenerator.ChapelOfAsh.LoadOrCreateSpriteTile(
                 assetFolder, CutawayWallTileName, CutawayWallSpriteSourcePath);
-        }
-
-        private static Tile CreateTransientTile(string tileName, string sourceSpritePath)
-        {
-            Sprite sourceSprite = AssetDatabase.LoadAssetAtPath<Sprite>(sourceSpritePath);
-            if (sourceSprite == null)
-            {
-                throw new InvalidOperationException(
-                    $"Chapel of Ash requires the committed sprite at '{sourceSpritePath}'.");
-            }
-
-            Tile tile = ScriptableObject.CreateInstance<Tile>();
-            tile.name = tileName;
-            tile.colliderType = Tile.ColliderType.None;
-            tile.hideFlags = HideFlags.HideAndDontSave;
-            tile.sprite = sourceSprite;
-            TransientTileObjects.Add(tile);
-            return tile;
-        }
-
-        private static void CleanupTransientTiles()
-        {
-            for (int index = TransientTileObjects.Count - 1; index >= 0; index--)
-            {
-                if (TransientTileObjects[index] != null)
-                {
-                    Object.DestroyImmediate(TransientTileObjects[index]);
-                }
-            }
-            TransientTileObjects.Clear();
         }
 
         // internal (was private): ArchitecturalTileGenerator.ChapelOfAsh.LoadOrCreateSpriteTile
