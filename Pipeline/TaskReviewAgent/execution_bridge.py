@@ -1232,8 +1232,12 @@ class ExecutionCrewBridge:
     def require(self, run_id: str) -> ExecutionCrewReceipt:
         # TWO FAULTS, TWO MESSAGES. These were one sentence naming the caller's
         # run_id, so a bridge that had simply declined the persisted receipt read
-        # as a bad argument. NSC-082's crew result sat unharvested from
-        # 2026-09-23 partly on the strength of that wording.
+        # as a bad argument -- eight conditions sharing one wording.
+        #
+        # The run_id branch prints BOTH ids on purpose. The report that prompted
+        # this had passed an ASSISTANT run id where the crew's belonged, so the old
+        # sentence was arguably telling it the truth; it just could not show which
+        # two values disagreed. Naming them is the whole repair for that case.
         if self._receipt is None:
             raise ExecutionBridgeError(
                 "no authenticated ExecutionCrew receipt is loaded for %s: %s"

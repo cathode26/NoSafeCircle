@@ -298,9 +298,17 @@ class ReceiptDeclineDiagnosisTests(unittest.TestCase):
 
     "candidate integration requires the current run_id" named the caller's
     argument for every decline in `_load_current`, including the ones where the
-    argument was perfectly correct. Two crew results sat unharvested from
-    2026-09-23 behind that wording -- NSC-082's candidate.patch is 56,073 bytes of
-    paid output, and `CLAUDE.md` cites that very run by name.
+    argument was perfectly correct -- eight distinct conditions, one sentence.
+
+    THE CASE THAT MOTIVATED THIS WAS WITHDRAWN BY ITS REPORTER, AND THE FIX STANDS
+    ANYWAY. The report said two crew results were stranded paid work; NSC-082's
+    deliverables were already on main and its patch duplicated them. Worse for the
+    original framing, that report's own call had passed the ASSISTANT run id rather
+    than the crew's, so the sentence may have been literally correct in the only
+    case anyone raised. What survives is measured independently and is why these
+    tests exist: eight silent declines cannot share one message. And the run_id
+    branch now prints BOTH ids, which is exactly what would have ended that
+    investigation in one line instead of an hour.
 
     These drive the bridge directly with a SimpleNamespace scope, the shape
     `quota_failover_smoke_test.py` already uses, because `_load_current` and
