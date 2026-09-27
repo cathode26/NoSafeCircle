@@ -61,7 +61,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 4,
+  "contract_revision": 5,
   "decomposition_reason": "The four options, source-art owner, preceding title transition, selection behavior, and confirmed-selection handoff are fully specified.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -80,8 +80,7 @@
     "logical:wizard-presentation-selection",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/WizardSelectionController.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/WizardSelectionPlayModeTests.cs",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/WizardSelectionPlayModeTests.cs"
   ],
   "execution_reason": "Displaying four approved wizard options and recording one confirmed selection form one bounded UI task. Applying that selection to the world Player and enabling gameplay are separated into NSC-068.",
   "execution_scope": "single_agent",
@@ -116,6 +115,15 @@
         "previous_contract_revision": 3,
         "base_contract_sha256": "81d0de71bb41570e9549a85ea330014086b35c04fb701dda2e67b7c3d191d405",
         "revised_contract_sha256": "268db099b82d6c0b18d13add703b0f79ee41aecb0c56b7c0f81ca90215fff244",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-27",
+        "reason": "Deletion fallout: drop the owned unity-scene resource for Assets/Scenes/DoorPrototype.unity, deleted at fe4c95ad. The gate text already names the registered runtime scene; the only remaining mention is the provenance clause recording that repoint, which is history and is left standing.",
+        "source_head": "d469aaf3bfa3164a5e8001bfd558c40d1ab65cd0",
+        "previous_contract_revision": 4,
+        "base_contract_sha256": "838123799c3272701796f58ca7575f9d33f26719a70f7e8994d183dd3e92df63",
+        "revised_contract_sha256": "f542c6b85c6764efd0f38a967327dd48fa0f5d3e3a565448ab66be6513ec26e1",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
