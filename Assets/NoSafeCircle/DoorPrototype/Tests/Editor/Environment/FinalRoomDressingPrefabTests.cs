@@ -155,12 +155,12 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.RoomDressing
                 "Write capture output OUTSIDE the repository so a run cannot dirty it.");
             Directory.CreateDirectory(outputFull);
 
-            // The room is opened and dressed IN MEMORY and never saved. Assets/Scenes/Rooms and
-            // Assets/Scenes/DoorPrototype.unity both belong to other tasks; this fixture must leave
-            // the repository exactly as it found it.
-            Scene scene = EditorSceneManager.OpenScene(
-                "Assets/Scenes/Rooms/FinalRoom.unity", OpenSceneMode.Single);
-            Assert.IsTrue(scene.IsValid(), "Could not open Final Room.");
+            // The dressing is built and rendered IN MEMORY against a fresh empty scene and never
+            // saved. Assets/Scenes/Rooms/FinalRoom.unity is one of the dying scenes this fixture
+            // must no longer depend on; the dressing root is built standalone by the builder below,
+            // so no room content needs to be loaded to render it.
+            Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            Assert.IsTrue(scene.IsValid(), "Could not create an empty scene to render Final Room dressing in.");
 
             GameObject dressing = FinalRoomDressingPrefabBuilder.BuildDressingRoot();
             GameObject cameraObject = null;
