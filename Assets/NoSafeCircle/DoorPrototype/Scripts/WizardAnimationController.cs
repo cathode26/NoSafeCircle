@@ -23,6 +23,7 @@ namespace NoSafeCircle.DoorPrototype
         private const float DirectionThreshold = 0.01f;
         private const float DirectionSwitchMargin = 0.001f;
         private const float DirectionTieEpsilon = 0.0001f;
+        private static readonly Quaternion CameraFacingRotation = Quaternion.Euler(30f, -45f, 0f);
         internal const string CanonicalInitialDirection = "south-east";
 
         private static readonly string[] screenDirections =
@@ -63,6 +64,20 @@ namespace NoSafeCircle.DoorPrototype
             if (animator == null) animator = GetComponent<Animator>();
             spriteRenderer = GetComponentInChildren<SpriteRenderer>();
             previousPosition = transform.position;
+            RestoreCameraFacingVisual();
+        }
+
+        private void LateUpdate()
+        {
+            // Player movement can rotate the root. Keep the sprite parallel to the fixed
+            // isometric camera after its final movement pose, as the enemy visuals do.
+            RestoreCameraFacingVisual();
+        }
+
+        private void RestoreCameraFacingVisual()
+        {
+            if (spriteRenderer != null)
+                spriteRenderer.transform.rotation = CameraFacingRotation;
         }
 
         private void Update()
