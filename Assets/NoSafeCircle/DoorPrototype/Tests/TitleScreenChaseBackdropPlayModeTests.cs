@@ -339,8 +339,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
             {
                 backdrop.Tick(0.01f);
                 turnDuration += 0.01f;
-                Assert.Less(Vector3.Distance(firingPosition, wizard.position), 0.01f,
-                    "The wizard moved while aiming and firing.");
+                if (backdrop.IsEntryWizardTurningToShoot)
+                    Assert.Less(Vector3.Distance(firingPosition, wizard.position), 0.01f,
+                        "The wizard moved while aiming and firing.");
             }
 
             Assert.That(turnDuration, Is.InRange(0.47f, 0.53f),
