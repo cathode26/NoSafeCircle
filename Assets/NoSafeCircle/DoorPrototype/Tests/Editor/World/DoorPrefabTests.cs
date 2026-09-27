@@ -36,7 +36,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.World
 
         // Docs/Art/Doors/APPROVAL.md: sprites are 128x128 at PPU 64, bound at x1.54 (Vincent, 2026-09-17).
         private const float ApprovedPixelsPerUnit = 64f;
-        private const float ApprovedArtScale = 1.54f;
+        private const float ApprovedArtScale = 1f;
 
         // THE FACING. Vincent, 2026-09-27, playing the game: "Door is not facing south west".
         // The _SW_ sprites for all four reachable states were already committed beside the _S_
