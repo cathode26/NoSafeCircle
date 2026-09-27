@@ -44,6 +44,15 @@ namespace NoSafeCircle.DoorPrototype.World
             return true;
         }
 
+        /// <summary>Seals an interrupted entrance before gameplay input can resume.</summary>
+        public void ResetDoor()
+        {
+            bool wasOpen = IsOpen;
+            IsOpen = false;
+            ApplyState();
+            if (wasOpen) EntryCutsceneClosed?.Invoke();
+        }
+
         private void ApplyState()
         {
             if (leaf != null) leaf.SetActive(!IsOpen);

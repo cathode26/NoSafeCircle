@@ -187,7 +187,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         }
 
         [UnityTest]
-        public IEnumerator SelectedWizardCrossesRealD1_ThenDoorSealsBeforeControl()
+        public IEnumerator SelectedWizardCrossesEntryChamberGate_WhileD1StaysSealed()
         {
             yield return LoadRuntimeWorldScene();
 
@@ -205,12 +205,21 @@ namespace NoSafeCircle.DoorPrototype.Tests
             DoorStateSpriteBinder doorSprite = door.GetComponent<DoorStateSpriteBinder>();
             SpriteRenderer doorRenderer = GetPrivateField<SpriteRenderer>(doorSprite, "spriteRenderer");
             Sprite sealedSprite = GetPrivateField<Sprite>(doorSprite, "sealedSprite");
-            Sprite openSprite = GetPrivateField<Sprite>(doorSprite, "openSprite");
+            EntryChamberStartDoor gate = FindInScene(scene, "EntryChamberStartDoor")
+                .GetComponent<EntryChamberStartDoor>();
+            Transform gateLeaf = gate.transform.Find("DoorVisual");
+            UnityEngine.AI.NavMeshObstacle gateObstacle =
+                gate.GetComponent<UnityEngine.AI.NavMeshObstacle>();
             IsometricCameraFollow follow = Camera.main.GetComponent<IsometricCameraFollow>();
 
             Assert.IsNotNull(chase);
             Assert.IsNotNull(passability);
+            Assert.IsNotNull(gate);
+            Assert.IsNotNull(gateLeaf);
+            Assert.IsNotNull(gateObstacle);
             Assert.IsNotNull(follow);
+            Assert.AreEqual(EntryChamberLayout.StartDoorCenter, gate.transform.position);
+            Assert.IsFalse(gate.IsOpen);
             chase.AutomaticTick = false;
             BeginSelection(canvas);
             selection.GetOption(2).Button.onClick.Invoke();
@@ -220,17 +229,29 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsFalse(entry.HasEnteredGameplay);
             Assert.IsFalse(movement.IsGameplayEnabled);
             Assert.IsFalse(interaction.IsGameplayEnabled);
-            Assert.IsTrue(door.IsOpen, "The real D1 leaf opens for the inbound wizard.");
-            Assert.IsFalse(blocker.enabled);
-            Assert.AreEqual(DoorPassabilityState.Open, passability.CurrentState);
-            Assert.AreSame(openSprite, doorRenderer.sprite);
+            Assert.IsTrue(gate.IsOpen, "The Entry Chamber gate opens for the inbound wizard.");
+            Assert.IsFalse(gateLeaf.gameObject.activeSelf);
+            Assert.IsFalse(gateObstacle.enabled);
+            Assert.IsFalse(door.IsOpen, "D1 is the later gameplay exit and must not open during entry.");
+            Assert.IsTrue(blocker.enabled);
+            Assert.AreEqual(DoorPassabilityState.Sealed, passability.CurrentState);
+            Assert.AreSame(sealedSprite, doorRenderer.sprite);
             Assert.IsFalse(door.IsLocked);
             Assert.AreSame(chase.EntryWizardTransform, GetPrivateField<Transform>(follow, "target"));
-            Assert.Greater(chase.EntryWizardTransform.position.z, RuinedEntryLayout.DoorCenterZ);
+            Assert.AreEqual(EntryChamberLayout.WizardEntryStart,
+                chase.EntryWizardTransform.position);
+            Assert.Less(chase.EntryPursuerTransform.position.z, EntryChamberLayout.GateZ);
 
-            for (int step = 0; step < 300 && door.IsOpen; step++) chase.Tick(0.1f);
+            for (int step = 0; step < 300 && gate.IsOpen; step++) chase.Tick(0.1f);
 
-            Assert.IsFalse(door.IsOpen, "D1 must close behind the wizard before chase completion.");
+            Assert.IsFalse(gate.IsOpen, "The Entry Chamber gate must close behind the wizard.");
+            Assert.IsTrue(gateLeaf.gameObject.activeSelf);
+            Assert.IsTrue(gateObstacle.enabled);
+            Assert.Greater(chase.EntryWizardTransform.position.z, EntryChamberLayout.GateZ);
+            Assert.Less(chase.EntryPursuerTransform.position.z, EntryChamberLayout.GateZ);
+            Assert.AreEqual(3, chase.FiredEntryShotCount);
+            Assert.AreEqual(1, chase.EntryImpactCount);
+            Assert.IsFalse(door.IsOpen, "D1 must stay closed through the entire entry.");
             Assert.IsFalse(door.IsLocked, "D1 remains usable as the later gameplay exit.");
             Assert.IsFalse(door.HasCrossedForward,
                 "Cosmetic actors must not trigger the Player's outbound crossing state.");
@@ -254,6 +275,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsFalse(door.IsOpen);
             Assert.IsFalse(door.IsLocked);
             Assert.IsTrue(blocker.enabled);
+            Assert.IsFalse(gate.IsOpen);
+            Assert.IsTrue(gateLeaf.gameObject.activeSelf);
         }
 
         // NSC-068 AC-004 and VAL-002: Start Game alone cannot bypass the required selection.

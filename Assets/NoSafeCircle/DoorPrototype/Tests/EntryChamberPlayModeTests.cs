@@ -73,6 +73,11 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     EntryChamberLayout.DoorCloseTrigger, EntryChamberLayout.PursuerStop));
                 Assert.IsFalse(gate.IsOpen);
                 Assert.IsTrue(gate.transform.Find("DoorVisual").gameObject.activeSelf);
+                Assert.IsTrue(gate.OpenForEntryCutscene());
+                gate.ResetDoor();
+                Assert.IsFalse(gate.IsOpen,
+                    "Interrupted entry must restore the gate to its sealed starting state.");
+                Assert.IsTrue(gate.transform.Find("DoorVisual").gameObject.activeSelf);
             }
             finally
             {

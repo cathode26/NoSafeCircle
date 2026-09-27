@@ -14,12 +14,11 @@ namespace NoSafeCircle.DoorPrototype
             GetComponent<WizardEntryFadeTransition>()?.Cancel();
             isEntryCutsceneRunning = false;
             isWaitingForGameplayReveal = false;
+            entryGateFailed = false;
             UnsubscribeFromEntryChase();
             if (entryChase != null) entryChase.CancelEntryChase();
 
-            if (entryDoor != null && !entryDoor.CloseAfterEntryCutscene() &&
-                (entryDoor.IsOpen || entryDoor.IsLocked || entryDoor.IsBroken))
-                entryDoor.ResetDoor();
+            if (entryDoor != null) entryDoor.ResetDoor();
 
             if (cameraFollow != null && player != null)
             {

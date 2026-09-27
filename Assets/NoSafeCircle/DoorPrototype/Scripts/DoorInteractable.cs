@@ -5,7 +5,7 @@ using UnityEngine;
 namespace NoSafeCircle.DoorPrototype
 {
     [DisallowMultipleComponent]
-    public partial class DoorInteractable : MonoBehaviour
+    public sealed class DoorInteractable : MonoBehaviour
     {
         [SerializeField] private float duration = 5f;
         [SerializeField] private World.DoorId doorId = World.DoorId.D1;
@@ -232,7 +232,6 @@ namespace NoSafeCircle.DoorPrototype
         /// (HasCrossedForward) remains the single such field; this reset does not add a second one.
         public void ResetDoor()
         {
-            isEntryCutsceneOpen = false;
             IsInteracting = false;
             IsOpen = false;
             Progress = 0f;

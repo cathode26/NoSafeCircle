@@ -20,11 +20,12 @@ namespace NoSafeCircle.DoorPrototype
 
         private bool isSubscribed;
         private bool isEntryCutsceneRunning;
+        private bool entryGateFailed;
         private bool isWaitingForGameplayReveal;
         private bool hasRevealedGameplayPresentation;
         private TitleScreenChaseBackdrop entryChase;
         private TitleScreenGameplayHudVisibility presentationVisibility;
-        private DoorInteractable entryDoor;
+        private EntryChamberStartDoor entryDoor;
         private IsometricCameraFollow cameraFollow;
         private Vector3 cameraOffset;
 
@@ -72,11 +73,12 @@ namespace NoSafeCircle.DoorPrototype
 
         /// <summary>
         /// Applies the confirmed appearance to the existing Player, then plays one inbound chase.
-        /// Gameplay input remains suspended until D1 has closed and the chase has completed.
+        /// Gameplay input remains suspended until the chamber gate has closed and the chase has completed.
         /// </summary>
         public void EnterWorld(ConfirmedWizardSelection selection)
         {
             if (HasEnteredGameplay || isEntryCutsceneRunning || isWaitingForGameplayReveal) return;
+            entryGateFailed = false;
             if (!HasValidReferences())
             {
                 Debug.LogError(
@@ -109,7 +111,7 @@ namespace NoSafeCircle.DoorPrototype
                 cameraFollow == null)
             {
                 Debug.LogError("Wizard entry needs the title chase, presentation visibility, " +
-                    "the real D1 door, and the gameplay camera follow.", this);
+                    "the Entry Chamber gate, and the gameplay camera follow.", this);
                 RecoverWithoutCutscene();
                 return;
             }
@@ -117,16 +119,18 @@ namespace NoSafeCircle.DoorPrototype
             cameraOffset = cameraFollow.transform.position - player.position;
             if (!entryDoor.OpenForEntryCutscene())
             {
-                Debug.LogError("The real D1 door could not open for wizard entry.", this);
+                Debug.LogError("The Entry Chamber gate could not open for wizard entry.", this);
                 RecoverWithoutCutscene();
                 return;
             }
 
             entryChase.EntryWizardCrossedDoorway += OnEntryWizardCrossedDoorway;
             entryChase.EntryChaseCompleted += OnEntryChaseCompleted;
-            Vector3 entryStart = new Vector3(RuinedEntryLayout.DoorCenterX, 0f,
-                RuinedEntryLayout.DoorCenterZ + 2.5f);
-            if (!entryChase.BeginEntryChase(selection, entryStart, worldSpawn.position))
+            if (!entryChase.BeginEntryChase(selection,
+                    EntryChamberLayout.WizardEntryStart,
+                    EntryChamberLayout.FirstRoomArrival,
+                    EntryChamberLayout.DoorCloseTrigger.z,
+                    EntryChamberLayout.PursuerStop.z))
             {
                 Debug.LogError("The selected wizard chase could not start.", this);
                 RecoverWithoutCutscene();
@@ -148,8 +152,16 @@ namespace NoSafeCircle.DoorPrototype
         private void OnEntryWizardCrossedDoorway()
         {
             if (!isEntryCutsceneRunning || entryDoor == null) return;
-            if (!entryDoor.CloseAfterEntryCutscene())
-                Debug.LogError("D1 failed to close behind the entering wizard.", this);
+            Transform wizard = entryChase != null ? entryChase.EntryWizardTransform : null;
+            Transform pursuer = entryChase != null ? entryChase.EntryPursuerTransform : null;
+            if (wizard == null || pursuer == null ||
+                !entryDoor.CloseAfterEntryCutscene(wizard.position, pursuer.position))
+            {
+                Debug.LogError("The Entry Chamber gate failed to close with the wizard north " +
+                    "and the pursuer south; restoring playable state.", this);
+                entryGateFailed = true;
+                entryDoor.ResetDoor();
+            }
         }
 
         private void OnEntryChaseCompleted()
@@ -157,12 +169,15 @@ namespace NoSafeCircle.DoorPrototype
             if (!isEntryCutsceneRunning) return;
             isEntryCutsceneRunning = false;
             UnsubscribeFromEntryChase();
-            if (entryDoor != null && entryDoor.IsOpen)
-                entryDoor.CloseAfterEntryCutscene();
-            if (entryDoor == null || entryDoor.IsOpen || entryDoor.IsLocked)
+            if (entryGateFailed)
             {
-                Debug.LogError("D1 was not sealed at wizard entry completion; restoring its " +
-                    "floor-initial state before enabling control.", this);
+                RecoverWithoutCutscene();
+                return;
+            }
+            if (entryDoor == null || entryDoor.IsOpen)
+            {
+                Debug.LogError("The Entry Chamber gate was not sealed at wizard entry " +
+                    "completion; restoring it before enabling control.", this);
                 RecoverWithoutCutscene();
                 return;
             }
@@ -202,11 +217,9 @@ namespace NoSafeCircle.DoorPrototype
             entryChase.EntryChaseCompleted -= OnEntryChaseCompleted;
         }
 
-        private static DoorInteractable FindEntryDoor()
+        private static EntryChamberStartDoor FindEntryDoor()
         {
-            foreach (DoorInteractable door in DoorInteractable.ActiveDoors)
-                if (door != null && door.DoorId == DoorId.D1) return door;
-            return null;
+            return UnityEngine.Object.FindFirstObjectByType<EntryChamberStartDoor>();
         }
 
         private bool HasValidReferences()
