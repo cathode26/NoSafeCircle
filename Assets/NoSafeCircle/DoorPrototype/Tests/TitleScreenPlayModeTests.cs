@@ -243,11 +243,15 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsTrue(player.activeInHierarchy, "The title must not disable the player root.");
             Assert.IsFalse(playerVisual.enabled,
                 "The stationary gameplay player is visible behind the title chase.");
-            TilemapRenderer approachVisual = GameObject.Find("EntryApproachFloor")
-                ?.GetComponentInChildren<TilemapRenderer>();
-            Assert.IsNotNull(approachVisual, "The exterior approach floor did not spawn.");
-            Assert.IsFalse(approachVisual.enabled,
-                "The exterior cutscene floor creates a rectangular edge behind the title.");
+            Transform approachFloor = GameObject.Find("EntryApproachFloor")?.transform;
+            Assert.IsNotNull(approachFloor, "The exterior grass did not spawn.");
+            TilemapRenderer grassBase = approachFloor.Find("FloorTilemap")?.GetComponent<TilemapRenderer>();
+            TilemapRenderer grassDetail = approachFloor.Find("GrassTilemap")?.GetComponent<TilemapRenderer>();
+            Assert.IsNotNull(grassBase, "The opaque grass underlay did not spawn.");
+            Assert.IsNotNull(grassDetail, "The grass detail tilemap did not spawn.");
+            Assert.IsTrue(grassBase.enabled,
+                "The title hid the opaque underlay and exposed gaps between grass diamonds.");
+            Assert.IsTrue(grassDetail.enabled, "The title hid the grass detail tiles.");
 
             string[] gameplayNames =
             {
@@ -270,8 +274,10 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             Assert.AreEqual(1, requestCount);
             Assert.IsFalse(titlePanel.gameObject.activeSelf);
-            Assert.IsTrue(approachVisual.enabled,
-                "The exterior floor must reappear before the selected wizard's chase.");
+            Assert.IsTrue(grassBase.enabled,
+                "The opaque grass underlay must remain visible during wizard selection.");
+            Assert.IsTrue(grassDetail.enabled,
+                "The grass detail tiles must remain visible during wizard selection.");
             Assert.IsFalse(player.GetComponent<PlayerMovement>().IsGameplayEnabled);
             Assert.IsFalse(playerVisual.enabled,
                 "Wizard selection is still before the chase entry, so the gameplay sprite must stay hidden.");
