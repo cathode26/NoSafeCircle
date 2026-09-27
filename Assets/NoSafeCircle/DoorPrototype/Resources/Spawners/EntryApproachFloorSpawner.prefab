@@ -45,4 +45,8 @@ MonoBehaviour:
   m_Name:
   m_EditorClassIdentifier:
   roomFloorPrefab: {fileID: 3100000000000000001, guid: 9bbe1fe908705bf703a79b71b0ed86d1, type: 3}
-  ruinedEntryFloorTile: {fileID: 11400000, guid: 15278209768061e4194aed452f7d1d22, type: 2}
+  grassBaseTile: {fileID: 11400000, guid: 8d2c388070a6415093fb9e924803d231, type: 2}
+  grassTile: {fileID: 11400000, guid: e2cfbaf0c604464ab35710e9c579b2cf, type: 2}
+  grassVariantATile: {fileID: 11400000, guid: abc9165ba1684df7801bbf9d31c85fef, type: 2}
+  grassVariantBTile: {fileID: 11400000, guid: 6365e65cac6a42089697cecc0dc9ffff, type: 2}
+  grassFlowerTile: {fileID: 11400000, guid: 77fab84ac65345d5b1dbced3fe0ff3b5, type: 2}

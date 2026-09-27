@@ -17,7 +17,6 @@ namespace NoSafeCircle.DoorPrototype
         private WizardGameEntryController entry;
         private GameObject overlay;
         private HierarchyFader fader;
-        private WizardEntryWallOcclusion entranceWallOcclusion;
         private Camera cutsceneCamera;
         private float originalOrthographicSize;
         private bool blackoutStarted;
@@ -54,10 +53,6 @@ namespace NoSafeCircle.DoorPrototype
 
             fader = overlay.GetComponent<HierarchyFader>();
             fader.FadeTo(0f, 0f);
-            entranceWallOcclusion = GetComponent<WizardEntryWallOcclusion>();
-            if (entranceWallOcclusion == null)
-                entranceWallOcclusion = gameObject.AddComponent<WizardEntryWallOcclusion>();
-            entranceWallOcclusion.Begin();
             cutsceneCamera = Camera.main;
             if (cutsceneCamera != null && cutsceneCamera.orthographic)
             {
@@ -73,11 +68,9 @@ namespace NoSafeCircle.DoorPrototype
         {
             if (chase != null) chase.EntryChaseEnding -= OnChaseEnding;
             if (entry != null) entry.EntryCutsceneReadyForGameplay -= OnEntryReady;
-            if (entranceWallOcclusion != null) entranceWallOcclusion.Restore();
             RestoreCameraFraming();
             chase = null;
             entry = null;
-            entranceWallOcclusion = null;
             if (overlay != null)
             {
                 overlay.SetActive(false);
@@ -121,8 +114,7 @@ namespace NoSafeCircle.DoorPrototype
 
         private void OnBlackoutReached()
         {
-            // Restore gameplay wall art and framing while the overlay is fully opaque.
-            if (entranceWallOcclusion != null) entranceWallOcclusion.Restore();
+            // Restore gameplay framing while the overlay is fully opaque.
             RestoreCameraFraming();
             blackoutReached = true;
             if (entryReady) BeginReveal();

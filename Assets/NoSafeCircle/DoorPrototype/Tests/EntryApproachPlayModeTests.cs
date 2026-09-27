@@ -32,7 +32,24 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
                 Transform floor = root.transform.Find("EntryApproachFloor");
                 Assert.IsNotNull(floor);
-                Assert.Greater(floor.GetComponentInChildren<Tilemap>().GetUsedTilesCount(), 0);
+                Tilemap grassBase = floor.GetComponentInChildren<Tilemap>();
+                Tilemap grassDetail = floor.Find("GrassTilemap").GetComponent<Tilemap>();
+                Assert.Greater(grassBase.GetUsedTilesCount(), 0);
+                Assert.Greater(grassDetail.GetUsedTilesCount(), 0);
+                Assert.AreEqual("Default", grassBase.GetComponent<TilemapRenderer>().sortingLayerName);
+                Assert.AreEqual("Default", grassDetail.GetComponent<TilemapRenderer>().sortingLayerName);
+                Vector3Int outsideDungeon = grassDetail.WorldToCell(
+                    new Vector3(RuinedEntryLayout.MaximumX + 5f, 0f, -30f));
+                Tile visibleGrass = grassDetail.GetTile<Tile>(outsideDungeon);
+                Assert.IsNotNull(visibleGrass, "Grass should extend beside the Ruined Entry wall.");
+                Assert.AreEqual("grass_tiles", visibleGrass.sprite.texture.name);
+                Assert.AreEqual("grass_base",
+                    grassBase.GetTile<Tile>(outsideDungeon).sprite.texture.name,
+                    "Opaque grass must fill the atlas sprite's transparent corners.");
+                Vector3Int beyondFinalRoom = grassDetail.WorldToCell(
+                    new Vector3(FinalRoomLayout.MaximumX + 5f, 0f, FinalRoomLayout.MaximumZ - 2f));
+                Assert.IsNotNull(grassDetail.GetTile(beyondFinalRoom),
+                    "Grass should extend beside the last dungeon room as well.");
                 BoxCollider floorCollision = floor.Find(FloorSpawner.FloorCollisionName).GetComponent<BoxCollider>();
                 Assert.AreEqual(EntryApproachLayout.ApproachBounds.size.x, floorCollision.size.x, 0.001f);
                 Assert.AreEqual(EntryApproachLayout.ApproachBounds.size.z, floorCollision.size.z, 0.001f);

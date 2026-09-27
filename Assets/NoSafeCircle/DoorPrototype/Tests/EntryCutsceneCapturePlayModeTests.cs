@@ -90,16 +90,10 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsTrue(startDoor.IsOpen, "The entrance door did not open for the wizard.");
 
             yield return WaitForActiveObject("TitleEntryFireball_0", VisualWaitSeconds);
-            WizardEntryWallOcclusion occlusion =
-                entry.GetComponent<WizardEntryWallOcclusion>();
-            Assert.IsNotNull(occlusion);
-            Assert.IsTrue(occlusion.IsActive,
-                "The foreground wall art did not soften for the chase.");
-            Assert.Greater(occlusion.DoorWallTargetCount, 0);
             SpriteRenderer doorWall = FindEntranceWallSprite();
             Assert.IsNotNull(doorWall);
-            Assert.Less(doorWall.color.a, 0.5f,
-                "The south entrance wall still hides the wizard during fireball shots.");
+            Assert.Greater(doorWall.color.a, 0.9f,
+                "The south entrance wall became translucent during the chase.");
             Assert.Less(gameCamera.orthographicSize, gameplayCameraSize - 1f,
                 "The entry chase camera did not frame the actors closely.");
             Capture(output, "02-first-fireball-miss", gameCamera, canvas, manifest,
@@ -120,6 +114,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 yield return null;
             }
             Assert.IsFalse(startDoor.IsOpen, "The start door never sealed behind the wizard.");
+            Assert.Greater(doorWall.color.a, 0.9f,
+                "The entrance wall became translucent as the door sealed.");
             Assert.GreaterOrEqual(chase.EntryWizardTransform.position.z -
                 startDoor.transform.position.z, 2f,
                 "The wizard still overlaps the entrance wall at the seal frame.");
@@ -127,6 +123,10 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsNotNull(doorVisual);
             Assert.IsTrue(doorVisual.gameObject.activeSelf,
                 "The start door reports closed but its leaf is hidden.");
+            SpriteRenderer doorLeaf = doorVisual.GetComponentInChildren<SpriteRenderer>();
+            Assert.IsNotNull(doorLeaf);
+            Assert.Greater(doorLeaf.color.a, 0.9f,
+                "The entrance door leaf became translucent when it sealed.");
             Assert.IsFalse(entry.HasEnteredGameplay,
                 "The door must visibly seal before control starts.");
             Capture(output, "06-start-door-sealed", gameCamera, canvas, manifest,
@@ -138,10 +138,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsTrue(entry.HasEnteredGameplay,
                 "Entry did not hand control to the player within " + MaximumEntrySeconds + " seconds.");
             Assert.IsFalse(startDoor.IsOpen, "The start door reopened before gameplay began.");
-            Assert.IsFalse(occlusion.IsActive,
-                "The entrance wall art was not restored during the dark handoff.");
             Assert.Greater(doorWall.color.a, 0.9f,
-                "The entrance wall stayed translucent after gameplay began.");
+                "The entrance wall is translucent after gameplay began.");
             Assert.AreEqual(gameplayCameraSize, gameCamera.orthographicSize, 0.01f,
                 "The gameplay camera kept the cutscene zoom after the reveal.");
             Assert.AreEqual(3, chase.FiredEntryShotCount,

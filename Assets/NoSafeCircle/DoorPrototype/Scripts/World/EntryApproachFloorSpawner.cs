@@ -1,15 +1,20 @@
+using System.Collections.Generic;
 using NoSafeCircle.DoorPrototype.World.Rooms;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
 namespace NoSafeCircle.DoorPrototype.World
 {
-    /// <summary>Paints the open cutscene approach outside Ruined Entry's south wall.</summary>
+    /// <summary>Paints the open approach and grass beneath the dungeon rooms.</summary>
     [DisallowMultipleComponent]
     public sealed class EntryApproachFloorSpawner : MonoBehaviour, ISpawner
     {
         [SerializeField] private GameObject roomFloorPrefab;
-        [SerializeField] private Tile ruinedEntryFloorTile;
+        [SerializeField] private Tile grassBaseTile;
+        [SerializeField] private Tile grassTile;
+        [SerializeField] private Tile grassVariantATile;
+        [SerializeField] private Tile grassVariantBTile;
+        [SerializeField] private Tile grassFlowerTile;
 
         public SpawnPhase Phase => SpawnPhase.Rooms;
         public int SpawnedCount { get; private set; } = -1;
@@ -23,9 +28,10 @@ namespace NoSafeCircle.DoorPrototype.World
                 Destroy(previous);
             }
 
-            if (roomFloorPrefab == null || ruinedEntryFloorTile == null)
+            if (roomFloorPrefab == null || grassBaseTile == null || grassTile == null ||
+                grassVariantATile == null || grassVariantBTile == null || grassFlowerTile == null)
             {
-                Debug.LogError("EntryApproachFloorSpawner: missing floor prefab or floor tile.");
+                Debug.LogError("EntryApproachFloorSpawner: missing floor prefab or grass tile.");
                 SpawnedCount = 0;
                 return 0;
             }
@@ -44,18 +50,28 @@ namespace NoSafeCircle.DoorPrototype.World
                 SpawnedCount = 0;
                 return 0;
             }
-            // The actors use only the narrow physical approach. Extend its tile art beyond
-            // the chase camera so the cutscene does not reveal a rectangular floor edge.
-            // The BoxCollider below still uses the authored approach bounds.
-            Bounds route = EntryApproachLayout.ApproachBounds;
-            const float visualWidth = RuinedEntryLayout.MaximumX - RuinedEntryLayout.MinimumX;
-            const float visualSouthPadding = 8f;
-            float visualMinimumZ = route.min.z - visualSouthPadding;
-            var visualBounds = new Bounds(
-                new Vector3((RuinedEntryLayout.MinimumX + RuinedEntryLayout.MaximumX) * 0.5f,
-                    0f, (visualMinimumZ + route.max.z) * 0.5f),
-                new Vector3(visualWidth, 0f, route.max.z - visualMinimumZ));
-            FloorSpawner.PaintRoom(tilemap, visualBounds, ruinedEntryFloorTile);
+            // The grass is a visual underlay for every room, not a larger walkable floor.
+            // Default sorts below the stone room Tilemaps on WorldSprites.
+            Bounds visualBounds = RuinedEntryLayout.RoomBounds;
+            visualBounds.Encapsulate(EntryApproachLayout.ApproachBounds);
+            visualBounds.Encapsulate(BoneArchiveLayout.RoomBounds);
+            visualBounds.Encapsulate(ChapelOfAshLayout.RoomBounds);
+            visualBounds.Encapsulate(LowerVaultLayout.RoomBounds);
+            visualBounds.Encapsulate(FinalRoomLayout.RoomBounds);
+            visualBounds.Expand(new Vector3(24f, 0f, 24f));
+
+            TilemapRenderer baseRenderer = tilemap.GetComponent<TilemapRenderer>();
+            baseRenderer.sortingLayerName = "Default";
+            baseRenderer.sortingOrder = short.MinValue;
+            Tilemap grass = Instantiate(tilemap, tilemap.transform.parent);
+            grass.name = "GrassTilemap";
+            TilemapRenderer grassRenderer = grass.GetComponent<TilemapRenderer>();
+            grassRenderer.sortingLayerName = "Default";
+            grassRenderer.sortingOrder = short.MinValue + 1;
+            FloorSpawner.PaintRoom(tilemap, visualBounds, grassBaseTile);
+            FloorSpawner.PaintRoom(grass, visualBounds, grassTile);
+            PaintGrassVariants(grass);
+
             collision.center = EntryApproachLayout.ApproachBounds.center +
                                Vector3.down * (FloorSpawner.FloorCollisionThickness * 0.5f);
             collision.size = new Vector3(EntryApproachLayout.ApproachBounds.size.x,
@@ -65,6 +81,26 @@ namespace NoSafeCircle.DoorPrototype.World
             // south wall and entry leaf are spawned by their existing owners.
             SpawnedCount = 1;
             return SpawnedCount;
+        }
+
+        private void PaintGrassVariants(Tilemap grass)
+        {
+            var positions = new List<Vector3Int>();
+            var tiles = new List<TileBase>();
+            foreach (Vector3Int cell in grass.cellBounds.allPositionsWithin)
+            {
+                if (!grass.HasTile(cell)) continue;
+                uint pattern = unchecked((uint)(cell.x * 73856093 ^ cell.y * 19349663)) % 32u;
+                Tile variant = pattern == 0u ? grassFlowerTile
+                    : pattern < 7u ? grassVariantATile
+                    : pattern < 13u ? grassVariantBTile
+                    : null;
+                if (variant == null) continue;
+                positions.Add(cell);
+                tiles.Add(variant);
+            }
+
+            grass.SetTiles(positions.ToArray(), tiles.ToArray());
         }
     }
 }
