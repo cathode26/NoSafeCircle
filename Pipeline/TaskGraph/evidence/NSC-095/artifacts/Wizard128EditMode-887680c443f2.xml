@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<test-run id="2" testcasecount="8" result="Passed" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0" engine-version="3.5.0.0" clr-version="4.0.30319.42000" start-time="2026-09-27 13:48:46Z" end-time="2026-09-27 13:49:13Z" duration="26.4661593">
+  <test-suite type="TestSuite" id="1000" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="329" result="Passed" start-time="2026-09-27 13:48:46Z" end-time="2026-09-27 13:49:13Z" duration="26.466159" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+    <properties>
+      <property name="platform" value="EditMode" />
+    </properties>
+    <test-suite type="Assembly" id="1383" name="NoSafeCircle.DoorPrototype.Tests.Editor.dll" fullname="C:/nscrev/work/game-sprint2/nsc068-accept-20260927T132659Z/Library/ScriptAssemblies/NoSafeCircle.DoorPrototype.Tests.Editor.dll" runstate="Runnable" testcasecount="328" result="Passed" start-time="2026-09-27 13:48:46Z" end-time="2026-09-27 13:49:13Z" duration="26.417457" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+      <properties>
+        <property name="_PID" value="78556" />
+        <property name="_APPDOMAIN" value="Unity Child Domain" />
+        <property name="platform" value="EditMode" />
+        <property name="EditorOnly" value="True" />
+      </properties>
+      <test-suite type="TestSuite" id="1384" name="NoSafeCircle" fullname="NoSafeCircle" runstate="Runnable" testcasecount="328" result="Passed" start-time="2026-09-27 13:48:46Z" end-time="2026-09-27 13:49:13Z" duration="26.396092" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+        <properties />
+        <test-suite type="TestSuite" id="1385" name="DoorPrototype" fullname="NoSafeCircle.DoorPrototype" runstate="Runnable" testcasecount="328" result="Passed" start-time="2026-09-27 13:48:46Z" end-time="2026-09-27 13:49:13Z" duration="26.374220" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+          <properties />
+          <test-suite type="TestSuite" id="1386" name="Tests" fullname="NoSafeCircle.DoorPrototype.Tests" runstate="Runnable" testcasecount="328" result="Passed" start-time="2026-09-27 13:48:46Z" end-time="2026-09-27 13:49:13Z" duration="26.336863" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+            <properties />
+            <test-suite type="TestSuite" id="1387" name="Editor" fullname="NoSafeCircle.DoorPrototype.Tests.Editor" runstate="Runnable" testcasecount="328" result="Passed" start-time="2026-09-27 13:48:46Z" end-time="2026-09-27 13:49:13Z" duration="26.316018" total="8" passed="8" failed="0" inconclusive="0" skipped="0" asserts="0">
+              <properties />
+              <test-suite type="TestFixture" id="1141" name="WizardCardinalSourceAuditTests" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests" runstate="Runnable" testcasecount="5" result="Passed" start-time="2026-09-27 13:48:47Z" end-time="2026-09-27 13:48:48Z" duration="1.794170" total="5" passed="5" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1142" name="CardinalWalkFoldersContainExactlySixOrderedFramesEach" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests.CardinalWalkFoldersContainExactlySixOrderedFramesEach" methodname="CardinalWalkFoldersContainExactlySixOrderedFramesEach" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests" runstate="Runnable" seed="1992939371" result="Passed" start-time="2026-09-27 13:48:47Z" end-time="2026-09-27 13:48:47Z" duration="0.067415" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1144" name="CardinalWalkMetaFilesUseInventoryGuidsAndSpriteImport" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests.CardinalWalkMetaFilesUseInventoryGuidsAndSpriteImport" methodname="CardinalWalkMetaFilesUseInventoryGuidsAndSpriteImport" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests" runstate="Runnable" seed="2095491770" result="Passed" start-time="2026-09-27 13:48:47Z" end-time="2026-09-27 13:48:47Z" duration="0.511040" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1143" name="CardinalWalkPngsAreTransparent180By180Images" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests.CardinalWalkPngsAreTransparent180By180Images" methodname="CardinalWalkPngsAreTransparent180By180Images" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests" runstate="Runnable" seed="1879779064" result="Passed" start-time="2026-09-27 13:48:47Z" end-time="2026-09-27 13:48:48Z" duration="0.642583" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1145" name="InventoryRecordsExactlyTheCardinalFilesOnDisk" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests.InventoryRecordsExactlyTheCardinalFilesOnDisk" methodname="InventoryRecordsExactlyTheCardinalFilesOnDisk" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests" runstate="Runnable" seed="220967201" result="Passed" start-time="2026-09-27 13:48:48Z" end-time="2026-09-27 13:48:48Z" duration="0.155499" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1146" name="PreExistingStandingAndDiagonalArtIsPreservedAndUnclaimed" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests.PreExistingStandingAndDiagonalArtIsPreservedAndUnclaimed" methodname="PreExistingStandingAndDiagonalArtIsPreservedAndUnclaimed" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardCardinalSourceAuditTests" runstate="Runnable" seed="782717148" result="Passed" start-time="2026-09-27 13:48:48Z" end-time="2026-09-27 13:48:48Z" duration="0.337319" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+              </test-suite>
+              <test-suite type="TestFixture" id="1149" name="WizardPixelLab128SourceAuditTests" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardPixelLab128SourceAuditTests" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardPixelLab128SourceAuditTests" runstate="Runnable" testcasecount="3" result="Passed" start-time="2026-09-27 13:48:48Z" end-time="2026-09-27 13:49:13Z" duration="24.429445" total="3" passed="3" failed="0" inconclusive="0" skipped="0" asserts="0">
+                <properties />
+                <test-case id="1152" name="EachDirectionRecordsItsMedianGroundRowAndZeroFootDip" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardPixelLab128SourceAuditTests.EachDirectionRecordsItsMedianGroundRowAndZeroFootDip" methodname="EachDirectionRecordsItsMedianGroundRowAndZeroFootDip" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardPixelLab128SourceAuditTests" runstate="Runnable" seed="789201189" result="Passed" start-time="2026-09-27 13:48:48Z" end-time="2026-09-27 13:48:50Z" duration="1.383599" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1150" name="SelectedFilesAndInventoryContainExactlyFourCompleteEightDirectionWizards" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardPixelLab128SourceAuditTests.SelectedFilesAndInventoryContainExactlyFourCompleteEightDirectionWizards" methodname="SelectedFilesAndInventoryContainExactlyFourCompleteEightDirectionWizards" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardPixelLab128SourceAuditTests" runstate="Runnable" seed="113015341" result="Passed" start-time="2026-09-27 13:48:50Z" end-time="2026-09-27 13:48:50Z" duration="0.377488" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                </test-case>
+                <test-case id="1151" name="SelectedFramesAreLosslessGroundAligned128PixelRgbaImages" fullname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardPixelLab128SourceAuditTests.SelectedFramesAreLosslessGroundAligned128PixelRgbaImages" methodname="SelectedFramesAreLosslessGroundAligned128PixelRgbaImages" classname="NoSafeCircle.DoorPrototype.Tests.Editor.WizardPixelLab128SourceAuditTests" runstate="Runnable" seed="1927696394" result="Passed" start-time="2026-09-27 13:48:50Z" end-time="2026-09-27 13:49:13Z" duration="22.662570" asserts="0">
+                  <properties>
+                    <property name="retryIteration" value="0" />
+                    <property name="repeatIteration" value="0" />
+                  </properties>
+                  <output><![CDATA[Saving results to: C:\Users\VincentLiguori\AppData\Local\Temp\NoSafeCircle-UnityTests-42247341ded14ba3b965cbf7cf0c9d24\test-results.xml
+]]></output>
+                </test-case>
+              </test-suite>
+            </test-suite>
+          </test-suite>
+        </test-suite>
+      </test-suite>
+    </test-suite>
+  </test-suite>
+</test-run>
