@@ -1,7 +1,9 @@
 """Focused regressions for authenticated AssistantControl D1C application."""
 from __future__ import annotations
 
+from contextlib import redirect_stderr
 from copy import deepcopy
+import io
 import json
 import os
 import shutil
@@ -17,6 +19,13 @@ from Pipeline.AssistantControl.decomposition import _blocking_findings, _verify_
 from Pipeline.TaskDecomposition.round_robin_decomposition import candidate_sha256
 from Pipeline.TaskDecomposition.tests.test_support import create_repository, decomposed_result
 from Pipeline.TaskReviewAgent.committed_tasks import load_committed_task
+from Pipeline.TaskReviewAgent.decomposition_policy_audit import (
+    POLICY_CHILD_UNPINNED,
+    POLICY_PIN_STALE,
+    POLICY_UNREADABLE,
+    VALIDATION_POLICY_RELATIVE,
+    applied_policy_findings,
+)
 from TaskDecomposition.policy import validate_decomposition_result
 from apply_graph_delta import inspect_graph_delta_replay
 from graph_delta import plan_graph_delta
@@ -448,6 +457,197 @@ class RetainedReviewConcurrencyTests(unittest.TestCase):
         )
         self.assertEqual("", _git(receiver, "status", "--porcelain"))
         self.assertEqual("", _git(clone, "status", "--porcelain"))
+
+
+class AppliedValidationPolicyFindingsTests(unittest.TestCase):
+    """What the real apply reports about the validation policy it invalidated.
+
+    `applied_policy_findings` is unit-tested in
+    `Pipeline/TaskReviewAgent/tests/decomposition_policy_audit_smoke_test.py`
+    against a HAND-SIMULATED apply, whose commits that test writes itself. The
+    only thing naming this side was an `ast` walk in the same file, which proves
+    the call appears in `_apply_locked`'s source text and is blind to the
+    arguments it is given, to the render being unreachable, and to the record
+    field going unwritten. These drive the real `apply()` over commits
+    `apply_graph_delta` actually made, and compare the recorded findings against
+    an independent call on commits resolved here from git.
+
+    WHAT THESE DELIBERATELY DO NOT PROVE, because no defect can violate it:
+    that `before_commit` is the applied Source commit rather than the reviewed
+    one. Both of that parameter's uses read only `Tasks/` --
+    `_rewritten_contract_ids` diffs `-- Tasks`, and `pinned_matches` loads a
+    committed contract -- while `_source_advancement_proof` refuses any apply
+    whose `Tasks/` differs between the two commits. So the two candidate
+    arguments return identical findings on every apply the pipeline permits, and
+    a test claiming to discriminate them would assert something that cannot
+    fail.
+    """
+
+    # Called, not copied: a second copy of a 140-line fixture drifts from this
+    # one silently. Referencing the methods keeps one definition and inherits
+    # none of that class's tests.
+    reviewed_fixture = RetainedReviewConcurrencyTests.reviewed_fixture
+    temporary_root = RetainedReviewConcurrencyTests.temporary_root
+
+    def _source(self) -> tuple[Path, Path]:
+        root = self.temporary_root()
+        source = root / "source"
+        source.mkdir()
+        create_repository(source)
+        return root, source
+
+    @staticmethod
+    def _pinned(sha256: str) -> dict[str, object]:
+        return {
+            "task_contract_sha256": sha256,
+            "required_test_platforms": ["EditMode"],
+            "test_filters": {"EditMode": "NoSafeCircle.Fixture.Tests.Editor.PinnedTests"},
+            "authority": "committed_task_specific_authoritative_validation_policy",
+        }
+
+    def _commit_policy(self, source: Path, entries: dict[str, object]) -> None:
+        """Commit the policy BEFORE the review is taken.
+
+        It has to be before. `_source_advancement_proof` diffs this exact path
+        between the reviewed and the current commit and the apply refuses when
+        it moved, so a policy committed after the review cannot be applied over.
+        """
+
+        path = source / VALIDATION_POLICY_RELATIVE
+        path.parent.mkdir(parents=True, exist_ok=True)
+        _write_json(path, {
+            "schema_version": "1.0",
+            "tasks": entries,
+            "decomposition_child_templates": {},
+        })
+        _git(source, "add", "--", VALIDATION_POLICY_RELATIVE)
+        _git(source, "commit", "-m", "fixture: authoritative validation policy")
+
+    def _apply_capturing_stderr(self, fixture) -> tuple[dict, str, str, str]:
+        """Drive the real apply. Returns the record, its stderr, and both commits."""
+
+        source = fixture.manager.source
+        before = _git(source, "rev-parse", "HEAD")
+        stream = io.StringIO()
+        with patch.dict(os.environ, {
+            "NSC_AGENT_GIT_NAME": "No Safe Circle TaskReviewAgent",
+            "NSC_AGENT_GIT_EMAIL": "task-review-agent@nosafecircle.invalid",
+        }), redirect_stderr(stream):
+            applied = apply(
+                fixture.manager,
+                fixture.task_id,
+                run_id=fixture.run_id,
+                expected_source_commit=before,
+                target_branch=fixture.branch,
+            )
+        after = _git(source, "rev-parse", "HEAD")
+        # The apply really moved Source, so `after` is a commit the apply made
+        # rather than the one the findings were already measured against.
+        self.assertNotEqual(before, after)
+        self.assertEqual("applied", applied["status"])
+        return applied, stream.getvalue(), before, after
+
+    def _recorded_on_disk(self, fixture) -> dict:
+        path = fixture.manager.records / f"{fixture.task_id}.decomposition.json"
+        return json.loads(path.read_text(encoding="utf-8"))
+
+    def test_the_apply_names_the_pin_it_invalidated_and_the_children_it_left_unpinned(self):
+        root, source = self._source()
+        fixture_parent = "NSC-004"
+        # A pin that cannot match any contract, so the parent's entry is stale at
+        # the applied commit however the apply serialized it.
+        self._commit_policy(source, {fixture_parent: self._pinned("0" * 64)})
+        fixture = self.reviewed_fixture(root, source)
+        self.assertEqual(fixture_parent, fixture.task_id)
+
+        applied, printed, before, after = self._apply_capturing_stderr(fixture)
+        children = tuple(applied["child_ids"])
+        self.assertTrue(children, "the fixture decomposition produced no children")
+        recorded = applied["validation_policy_findings"]
+
+        # THE COMPARISON THAT WAS MISSING. The audit's own answer, computed over
+        # commits this test read out of git rather than back out of the record,
+        # against what the apply recorded. An `ast` walk cannot reach this.
+        self.assertEqual(
+            list(applied_policy_findings(
+                source,
+                before_commit=before,
+                after_commit=after,
+                parent_task_id=fixture_parent,
+                child_task_ids=list(children),
+            )),
+            recorded,
+        )
+
+        self.assertEqual(
+            [fixture_parent],
+            [item["task_id"] for item in recorded
+             if item["condition"] == POLICY_PIN_STALE],
+        )
+        self.assertEqual(
+            sorted(children),
+            sorted(item["task_id"] for item in recorded
+                   if item["condition"] == POLICY_CHILD_UNPINNED),
+        )
+
+        # RENDERED, not only recorded. A field nobody reads is the state this
+        # replaces, and the render is a separate statement from the write.
+        self.assertIn(POLICY_PIN_STALE, printed)
+        self.assertIn(POLICY_CHILD_UNPINNED, printed)
+        self.assertIn(fixture_parent, printed)
+        for child_id in children:
+            self.assertIn(child_id, printed)
+
+        # And on DISK. The returned mapping is not the artifact anyone reads.
+        self.assertEqual(recorded, self._recorded_on_disk(fixture)["validation_policy_findings"])
+
+    def test_an_apply_that_invalidates_nothing_records_an_empty_list(self):
+        """The control, and it fails differently from the test above.
+
+        Without it, a finding on every apply would be indistinguishable from
+        wiring that reports something whatever the policy says. Here the policy
+        is readable, pins a task this apply does not rewrite, and pins it
+        correctly -- so the empty list is a measured absence.
+        """
+
+        root, source = self._source()
+        bystander = "NSC-003"
+        pinned = load_committed_task(
+            source, bystander, commit=_git(source, "rev-parse", "HEAD"),
+        )["task_contract_sha256"]
+        self._commit_policy(source, {bystander: self._pinned(pinned)})
+        fixture = self.reviewed_fixture(root, source)
+
+        applied, printed, _before, after = self._apply_capturing_stderr(fixture)
+
+        self.assertEqual([], applied["validation_policy_findings"])
+        self.assertEqual([], self._recorded_on_disk(fixture)["validation_policy_findings"])
+        self.assertNotIn("validation policy findings", printed)
+        # The bystander really did keep the contract its entry pins, so the
+        # empty list is an absence this test measured rather than one it assumed.
+        self.assertEqual(
+            pinned,
+            load_committed_task(source, bystander, commit=after)["task_contract_sha256"],
+        )
+
+    def test_a_source_with_no_validation_policy_records_the_unreadable_condition(self):
+        """What both existing apply tests have been producing in silence.
+
+        `create_repository` writes no policy document, so every apply in
+        `RetainedReviewConcurrencyTests` has recorded this finding and asserted
+        nothing about it. Pinned here so the default is a stated outcome.
+        """
+
+        root, source = self._source()
+        fixture = self.reviewed_fixture(root, source)
+
+        applied, printed, _before, _after = self._apply_capturing_stderr(fixture)
+
+        self.assertEqual(
+            [POLICY_UNREADABLE],
+            [item["condition"] for item in applied["validation_policy_findings"]],
+        )
+        self.assertIn(POLICY_UNREADABLE, printed)
 
 
 class ChecklistDeliveryTests(unittest.TestCase):
