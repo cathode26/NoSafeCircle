@@ -22,8 +22,8 @@ namespace NoSafeCircle.DoorPrototype.Tests
     // STATE MACHINE - outcomes 2 and 3, plus the entry condition outcome 1 depends on. They
     // cannot prove a root moves, because nothing here owns a NavMeshAgent. Outcome 1 is
     // delivered by EnemyPursuitMovement.HandleSearching, which already paths to
-    // LastKnownPosition under its own AC-002 coverage, and is proved end to end on the real
-    // room by RuntimeWorld_BaMeleeAndFrMelee_CloseADistantGapToThePlayer.
+    // LastKnownPosition under its own AC-002 coverage, and is exercised on the real room by
+    // RuntimeWorld_BaMeleeAndFrMelee_ClosesTheGapFromSightClearAndInvestigatesFromSightBlocked.
     //
     // Every assertion below is a RELATION rather than a coordinate, so the fixture cannot pass
     // on the frozen pre-fix behaviour and will not falsely fail when an unrelated change nudges
