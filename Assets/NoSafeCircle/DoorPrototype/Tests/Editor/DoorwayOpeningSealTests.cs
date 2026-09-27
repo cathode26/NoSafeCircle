@@ -30,21 +30,28 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
     public sealed class DoorwayOpeningSealTests
     {
         private const string DoorArtSourceFolder = "Assets/NoSafeCircle/DoorPrototype/Art/Doors/Source";
-        // THE FACING. Docs/Art/Doors/APPROVAL.md, "South-west facing, 2026-09-26": the _SW_ set is
-        // a new generation the Art Director made for Vincent's "Door is pointing south and it should
-        // point south west", registered on one union box so the slab lands where the _S_ slab landed.
-        // The art shipped on 2026-09-26 and nothing pointed at it until 2026-09-27, which is why he
-        // reported the same defect twice. Named rather than inlined so the decision is visible.
-        private const string ApprovedFacing = "SW";
-
-        private const string SealedSpriteAssetPath =
-            DoorArtSourceFolder + "/door_bonestone_sealed_" + ApprovedFacing + "_000.png";
-        private const string LockedSpriteAssetPath =
-            DoorArtSourceFolder + "/door_bonestone_locked_" + ApprovedFacing + "_000.png";
-        private const string OpenSpriteAssetPath =
-            DoorArtSourceFolder + "/door_bonestone_open_" + ApprovedFacing + "_000.png";
-        private const string FinalSpriteAssetPath =
-            DoorArtSourceFolder + "/door_bonestone_final_" + ApprovedFacing + "_000.png";
+        // THIS FIXTURE'S SUBJECT IS THE OLD IN-MEMORY BUILDER, NOT THE SHIPPED DOOR, AND THAT IS
+        // WHY THESE STAY ON THE SOUTH FACING. The shipped door is Resources/Doors/Door.prefab, which
+        // DoorSpawner instantiates at Play; it was re-pointed at the approved _SW_ art on 2026-09-27
+        // for Vincent's "Door is not facing south west", and that is asserted on the asset by
+        // DoorPrefabTests and at Play by DoorSpawnerPlayModeTests. The tests below instead call
+        // DoorPrototypeSceneBuilder.BuildInMemoryForTests(), whose four sprite names are consts at
+        // Editor/DoorPrototypeSceneBuilder.cs:1004-1007.
+        //
+        // Those consts were deliberately NOT changed. That file is declared in the
+        // exclusive_resources of TWENTY-NINE contracts - the most contended file in the project - and
+        // every non-test reference to the builder is a comment, one of which calls it "a
+        // scene-builder file scheduled to die". Editing it would buy a facing change on a path that
+        // ships nothing. Measured, not assumed: this was changed to _SW_ first and the run failed
+        // with "must reference the approved art asset at ..._SW_000.png ... But was: ..._S_000.png",
+        // which is what identified the builder as the real source of these names.
+        //
+        // So the door has ONE shipped facing (SW) and this fixture measures the dead authoring path
+        // it was written for. If that path is ever retired, retire these four with it.
+        private const string SealedSpriteAssetPath = DoorArtSourceFolder + "/door_bonestone_sealed_S_000.png";
+        private const string LockedSpriteAssetPath = DoorArtSourceFolder + "/door_bonestone_locked_S_000.png";
+        private const string OpenSpriteAssetPath = DoorArtSourceFolder + "/door_bonestone_open_S_000.png";
+        private const string FinalSpriteAssetPath = DoorArtSourceFolder + "/door_bonestone_final_S_000.png";
 
         // VAL-001: fractions of the blocker's own current half-width. 0.95 sits well outside the
         // former hard-coded blocker's half-width (1.0) whenever the authored opening is wider
