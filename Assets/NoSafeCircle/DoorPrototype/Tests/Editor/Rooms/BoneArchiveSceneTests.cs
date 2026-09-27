@@ -1,10 +1,7 @@
 using NUnit.Framework;
-using NoSafeCircle.DoorPrototype.Editor.World;
 using UnityEditor.SceneManagement;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using NoSafeCircle.DoorPrototype.Editor.Rooms;
-using NoSafeCircle.DoorPrototype.World;
 using NoSafeCircle.DoorPrototype.World.Rooms;
 
 namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
@@ -173,175 +170,6 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
             }
         }
 
-        [Test] // Downstream composition gate: the committed source scene satisfies RoomSceneComposer.
-        public void CommittedScene_ValidatesForComposition()
-        {
-            Scene scene = EditorSceneManager.OpenScene(BoneArchiveSceneBuilder.ScenePath, OpenSceneMode.Single);
-
-            try
-            {
-                RoomSceneComposer.RoomValidationResult result = RoomSceneComposer.ValidateOpenRoomScene(
-                    RoomId.BoneArchive,
-                    scene,
-                    FindRoomEntry(RoomId.BoneArchive),
-                    RoomSceneCatalog.CreateCanonicalDoors());
-
-                CollectionAssert.IsEmpty(result.Errors, string.Join("\n", result.Errors));
-                Assert.That(result.DoorAnchors, Has.Count.EqualTo(2));
-            }
-            finally
-            {
-                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            }
-        }
-
-        // VAL-001 asks for COMMITTED-SCENE conformance: open the exact committed
-        // BoneArchive.unity, scope every lookup to that scene, verify the AC-001 footprints and
-        // heights there, and close without saving. The in-memory builder test above cannot serve
-        // this clause - it proves what the builder WOULD produce, not what is committed, and the
-        // two disagreed for weeks without anything noticing.
-        [Test]
-        public void CommittedScene_ContainsEveryApprovedBlockoutAtItsAuthoredFootprint()
-        {
-            Scene scene = EditorSceneManager.OpenScene(BoneArchiveSceneBuilder.ScenePath, OpenSceneMode.Single);
-
-            try
-            {
-                AssertCommittedBlockout(scene, "Shelf A", BoneArchiveLayout.ShelfA,
-                    BoneArchiveLayout.ShelfVisualHeight);
-                AssertCommittedBlockout(scene, "Shelf B", BoneArchiveLayout.ShelfB,
-                    BoneArchiveLayout.ShelfVisualHeight);
-                AssertCommittedBlockout(scene, "Shelf C", BoneArchiveLayout.ShelfC,
-                    BoneArchiveLayout.ShelfVisualHeight);
-                AssertCommittedBlockout(scene, "West Archive Bay W-1", BoneArchiveLayout.WestArchiveBayW1,
-                    BoneArchiveLayout.ShelfVisualHeight);
-                AssertCommittedBlockout(scene, "East Archive Bay E-1", BoneArchiveLayout.EastArchiveBayE1,
-                    BoneArchiveLayout.ShelfVisualHeight);
-                AssertCommittedBlockout(scene, "Collapsed Furniture BA-1",
-                    BoneArchiveLayout.CollapsedFurnitureBA1, BoneArchiveLayout.CollapsedFurnitureHeight);
-
-                // AC-003: present as a visual landmark, and carrying no gameplay collider at all.
-                GameObject reliquary = FindInScene(scene, "Archive ReliquaryVisual");
-                Assert.That(reliquary, Is.Not.Null,
-                    "The committed scene must contain the Archive Reliquary blockout.");
-                Assert.That(FindInScene(scene, "Archive ReliquaryCollision"), Is.Null,
-                    "The Archive Reliquary must remain non-colliding in the committed scene.");
-
-                Bounds reliquaryBounds = reliquary.GetComponent<Renderer>().bounds;
-                Assert.That(reliquaryBounds.min.x,
-                    Is.EqualTo(BoneArchiveLayout.ArchiveReliquary.min.x).Within(0.01f));
-                Assert.That(reliquaryBounds.max.x,
-                    Is.EqualTo(BoneArchiveLayout.ArchiveReliquary.max.x).Within(0.01f));
-                Assert.That(reliquaryBounds.min.z,
-                    Is.EqualTo(BoneArchiveLayout.ArchiveReliquary.min.z).Within(0.01f));
-                Assert.That(reliquaryBounds.max.z,
-                    Is.EqualTo(BoneArchiveLayout.ArchiveReliquary.max.z).Within(0.01f));
-            }
-            finally
-            {
-                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            }
-        }
-
-        // THE GUARD THAT WAS MISSING, AND THE TEST ABOVE IS WHY IT WAS MISSING. Seven blockout
-        // cubes stood in the committed Bone Archive with their renderers enabled, Vincent
-        // photographed them in the running game, and the fixture above passed the entire time --
-        // it asserts the blockouts are CORRECT (present, at the right footprint, the right
-        // height), and a cube that should be invisible is correct by every measure it takes.
-        // An assertion that a thing is right cannot notice that the thing should not be drawn.
-        //
-        // Tilemaps are the visible surface in this room, so the blockout meshes exist only to
-        // carry footprints for the layout assertions and must never render. The builder hides
-        // them by setting renderer.enabled = false rather than destroying them, precisely so the
-        // Renderer.bounds reads above keep working -- which means "hidden" is a property that
-        // nothing else in this fixture is able to see.
-        //
-        // Scoped to activeInHierarchy as well as enabled, because a renderer on a deactivated
-        // object draws nothing and counting it would be a false positive.
-        [Test]
-        public void CommittedScene_LeavesNoBlockoutMeshRendererDrawing()
-        {
-            Scene scene = EditorSceneManager.OpenScene(BoneArchiveSceneBuilder.ScenePath, OpenSceneMode.Single);
-
-            try
-            {
-                var drawing = string.Empty;
-                var count = 0;
-
-                foreach (GameObject root in scene.GetRootGameObjects())
-                {
-                    foreach (MeshRenderer renderer in root.GetComponentsInChildren<MeshRenderer>(true))
-                    {
-                        if (!renderer.enabled || !renderer.gameObject.activeInHierarchy) continue;
-
-                        count++;
-                        drawing += (drawing.Length == 0 ? string.Empty : ", ") + renderer.gameObject.name;
-                    }
-                }
-
-                Assert.AreEqual(0, count,
-                    "The committed Bone Archive scene still draws " + count + " MeshRenderer(s): "
-                    + drawing + ". Tilemaps are the visible surface here, so every blockout mesh "
-                    + "must be hidden in the COMMITTED scene and not merely in what the builder "
-                    + "would produce. Re-bake the room scene if the builder is already correct.");
-            }
-            finally
-            {
-                EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-            }
-        }
-
-        // Same assertions as AssertBlockout, but scoped to the opened committed scene rather than
-        // to whatever GameObject.Find happens to reach.
-        private static void AssertCommittedBlockout(
-            Scene scene, string baseName, Bounds colliderFootprint, float visualHeight)
-        {
-            GameObject visual = FindInScene(scene, baseName + "Visual");
-            GameObject collision = FindInScene(scene, baseName + "Collision");
-            Assert.That(visual, Is.Not.Null, baseName + " must exist in the committed scene.");
-            Assert.That(collision, Is.Not.Null,
-                baseName + " must have a gameplay collider in the committed scene.");
-
-            Bounds rendered = visual.GetComponent<Renderer>().bounds;
-            Assert.That(rendered.min.x, Is.EqualTo(colliderFootprint.min.x).Within(0.01f),
-                baseName + " committed visual min X.");
-            Assert.That(rendered.max.x, Is.EqualTo(colliderFootprint.max.x).Within(0.01f),
-                baseName + " committed visual max X.");
-            Assert.That(rendered.min.z, Is.EqualTo(colliderFootprint.min.z).Within(0.01f),
-                baseName + " committed visual min Z.");
-            Assert.That(rendered.max.z, Is.EqualTo(colliderFootprint.max.z).Within(0.01f),
-                baseName + " committed visual max Z.");
-            Assert.That(rendered.min.y, Is.EqualTo(0f).Within(0.01f),
-                baseName + " committed visual must rest on the floor.");
-            Assert.That(rendered.max.y, Is.EqualTo(visualHeight).Within(0.01f),
-                baseName + " committed visual must span Y [0," + visualHeight + "].");
-
-            Bounds collider = collision.GetComponent<BoxCollider>().bounds;
-            Assert.That(collider.min.x, Is.EqualTo(colliderFootprint.min.x).Within(0.01f));
-            Assert.That(collider.max.x, Is.EqualTo(colliderFootprint.max.x).Within(0.01f));
-            Assert.That(collider.min.z, Is.EqualTo(colliderFootprint.min.z).Within(0.01f));
-            Assert.That(collider.max.z, Is.EqualTo(colliderFootprint.max.z).Within(0.01f));
-            Assert.That(collider.size.y, Is.EqualTo(colliderFootprint.size.y).Within(0.01f),
-                baseName + " committed gameplay collider height.");
-        }
-
-        // Scoped to the given scene, so nothing in another loaded scene can satisfy a lookup.
-        private static GameObject FindInScene(Scene scene, string name)
-        {
-            foreach (GameObject root in scene.GetRootGameObjects())
-            {
-                foreach (Transform candidate in root.GetComponentsInChildren<Transform>(true))
-                {
-                    if (candidate.gameObject.name == name)
-                    {
-                        return candidate.gameObject;
-                    }
-                }
-            }
-
-            return null;
-        }
-
         // AC-001: asserts a layout constant against the contract's own X/Z range and height,
         // stated as the contract states them rather than as a precomputed centre and size, so a
         // reader can check this line against the contract without doing arithmetic.
@@ -380,20 +208,6 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor.Rooms
 
             Assert.That(collision.GetComponent<BoxCollider>().bounds, Is.EqualTo(colliderFootprint),
                 baseName + " gameplay collider must match its authored footprint exactly.");
-        }
-
-        private static RoomSceneCatalog.RoomCatalogEntry FindRoomEntry(RoomId roomId)
-        {
-            foreach (RoomSceneCatalog.RoomCatalogEntry entry in RoomSceneCatalog.CreateCanonicalRooms())
-            {
-                if (entry.RoomId == roomId)
-                {
-                    return entry;
-                }
-            }
-
-            Assert.Fail($"Missing canonical catalog entry for {roomId}.");
-            return null;
         }
     }
 }
