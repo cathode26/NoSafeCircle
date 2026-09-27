@@ -219,6 +219,11 @@ namespace NoSafeCircle.DoorPrototype.Tests
             IsometricCameraFollow follow = Camera.main.GetComponent<IsometricCameraFollow>();
 
             Assert.IsNotNull(chase);
+            Assert.IsTrue(chase.enabled,
+                "The title chase must bind from the camera over the enlarged first room.");
+            Assert.IsTrue(TitleScreenChaseLane.TryGetFloorSegment(Camera.main,
+                out _, out _),
+                "The title chase lane must include the player's new south-wall starting view.");
             Assert.IsNotNull(passability);
             Assert.IsNotNull(gate);
             Assert.IsNotNull(gateLeaf);

@@ -1,3 +1,4 @@
+using NoSafeCircle.DoorPrototype.World.Rooms;
 using UnityEngine;
 
 namespace NoSafeCircle.DoorPrototype
@@ -5,10 +6,11 @@ namespace NoSafeCircle.DoorPrototype
     /// <summary>Finds the horizontal floor line through the starting camera's view centre.</summary>
     public static class TitleScreenChaseLane
     {
-        private const float MinX = -12.5f;
-        private const float MaxX = 12.5f;
-        private const float MinZ = -24.5f;
-        private const float MaxZ = -1.5f;
+        private const float EdgeInset = 1.5f;
+        private const float MinX = RuinedEntryLayout.MinimumX + EdgeInset;
+        private const float MaxX = RuinedEntryLayout.MaximumX - EdgeInset;
+        private const float MinZ = RuinedEntryLayout.MinimumZ + EdgeInset;
+        private const float MaxZ = RuinedEntryLayout.MaximumZ - EdgeInset;
 
         public static bool TryGetFloorSegment(Camera camera, out Vector3 start, out Vector3 end)
         {
