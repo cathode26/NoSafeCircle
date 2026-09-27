@@ -194,8 +194,7 @@
         "title-screen-transparent-layout-build",
         "spectral-decoy-cast-phantom-cooldown-ui",
         "fireball-input-scene-assembly",
-        "floor-restart-full-closure-integration",
-        "melee-prefab-locomotion-defeat"
+        "floor-restart-full-closure-integration"
       ],
       "resource_key": "unity-scene:Assets/Scenes/DoorPrototype.unity",
       "work_ids": [
@@ -229,8 +228,7 @@
         "NSC-108",
         "NSC-112",
         "NSC-119",
-        "NSC-123",
-        "NSC-125"
+        "NSC-123"
       ]
     },
     {
