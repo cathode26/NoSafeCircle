@@ -218,6 +218,13 @@ namespace NoSafeCircle.DoorPrototype.World.Rooms
                 // around the door should be the same tiles of the wall". Same tiles by identity,
                 // not by resemblance, and no new art.
                 //
+                // WHICH tile is the SIDE'S, exactly as Slots decides it: far (north/west) sides
+                // are wall_straight, near (south/east) sides are the 2.797-unit wall_broken_stub.
+                // Measured 2026-09-27 from this pass: FOUR of the five doors are claimed on a
+                // SOUTH edge, so a flat Straight here would have been the wrong art AND the wrong
+                // height at 8 of the 10 shoulder points. A pilaster is never a candidate - the
+                // shoulder is off the slot lattice and the rhythm keeps a run's end slots plain.
+                //
                 // BASE piece, deliberately. WallPiece's doc: a base Point is the slot CENTRE and
                 // Inward is the inset direction; an overlay Point is a run ENDPOINT and Inward
                 // runs along the run. So centre +/- (half + 0.5) centres a 1.000u wall_straight
@@ -232,8 +239,10 @@ namespace NoSafeCircle.DoorPrototype.World.Rooms
                 // on the floor - both of which wall_door_jamb lacked.
                 Vector3 inward = WallRoom.Inward(edge);
                 float shoulder = half + 0.5f;
-                pieces.Add(new WallPiece(WallPieceKind.Straight, OnLine(alongX, centre - shoulder, line), inward, alongX));
-                pieces.Add(new WallPiece(WallPieceKind.Straight, OnLine(alongX, centre + shoulder, line), inward, alongX));
+                bool far = edge == WallEdge.North || edge == WallEdge.West;
+                WallPieceKind kind = far ? WallPieceKind.Straight : WallPieceKind.Stub;
+                pieces.Add(new WallPiece(kind, OnLine(alongX, centre - shoulder, line), inward, alongX));
+                pieces.Add(new WallPiece(kind, OnLine(alongX, centre + shoulder, line), inward, alongX));
             }
         }
 

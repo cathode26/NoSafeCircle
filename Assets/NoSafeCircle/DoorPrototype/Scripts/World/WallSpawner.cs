@@ -24,9 +24,10 @@ namespace NoSafeCircle.DoorPrototype.World
     // is not a property a prefab can know.
     //
     // WALL PREFABS CARRY NO COLLIDER, DELIBERATELY. The visual door gap is 4 units (a '++' cell
-    // pair) while the contract-pinned collider gap is 3, so half a unit of jamb art overhangs the
-    // collider on each side; per-slot boxes cannot express that. The colliders are per run, from
-    // the layouts, with the names NSC-048 AC-004 asserts (SouthWallWestCollision and friends).
+    // pair) while the contract-pinned collider gap is 3, so half a unit of wall art overhangs the
+    // collider on each side - that is the SHOULDER, filled by WallPiecePass.DoorShoulders with the
+    // side's own tile. Per-slot boxes cannot express that. The colliders are per run, from the
+    // layouts, with the names NSC-048 AC-004 asserts (SouthWallWestCollision and friends).
     [DisallowMultipleComponent]
     public sealed class WallSpawner : MonoBehaviour, ISpawner
     {
@@ -199,10 +200,9 @@ namespace NoSafeCircle.DoorPrototype.World
         // (ArchitecturalWallAccentPlacement.ComputeGroundContactAnchorY returns floorY); this is
         // the path that ships.
         //
-        // THE JAMB DELIBERATELY KEEPS THE OLD LIFT. Grounded, it wins the sort and shows a full
-        // portal over the dressing beside each door; the Art Director has decided to stop placing
-        // it, and the Game Agent owns that removal and the 0.500 shoulder it leaves. Delete this
-        // exception with the jamb, not before.
+        // THE JAMB EXCEPTION THAT USED TO BE DOCUMENTED HERE IS GONE, WITH THE JAMBS. Nothing is
+        // placed as a Jamb any more, so every overlay that reaches this method - corner and end
+        // cap - stands on the floor, and the double-subtraction has no surviving caller.
         private static Vector3 AccentPosition(GameObject instance, WallPiece piece, Quaternion rotation)
         {
             var renderer = instance.GetComponentInChildren<SpriteRenderer>(true);

@@ -18,7 +18,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
     //     the 3x3 classification in WallPiecePass; if the two disagree, one of them is wrong.
     //   - which room owns a shared line: the same north-first rule, re-derived here from the
     //     layouts' own Z bounds.
-    //   - where the posts and jambs sit: the committed room scenes' arithmetic, re-expressed in
+    //   - where the posts and shoulders sit: the committed room scenes' arithmetic, re-expressed in
     //     closed form from the layouts and the imported sprites' bounds (corner at x-min + half
     //     width, y = the sprite's transparent bottom margin), which the spawner reaches through the
     //     ported CreateAccent form instead.
@@ -220,9 +220,68 @@ namespace NoSafeCircle.DoorPrototype.Tests
             return slots;
         }
 
+        private readonly struct Shoulder
+        {
+            public readonly Room Room;
+            public readonly WallEdge Edge;
+            public readonly Vector3 Point;
+
+            public Shoulder(Room room, WallEdge edge, Vector3 point)
+            {
+                Room = room;
+                Edge = edge;
+                Point = point;
+            }
+
+            /// Far (north/west) sides are the straight tile, near (south/east) sides the stub -
+            /// the run's own tile, because the shoulder continues the run it interrupts.
+            public bool Far => Edge == WallEdge.North || Edge == WallEdge.West;
+        }
+
+        // THE DOOR SHOULDERS. The visual opening is 4.000 units (a '++' cell pair at two units a
+        // cell) and the contract-pinned collider gap is 3.000, so the leaf covers x[-1.5..1.5]
+        // about its centre while the slot lattice cannot resume until the next integer - leaving
+        // 0.500 units of bare wall line on each side. Vincent, twice: "The sides of the door still
+        // have a gap" and "the brick around the door should be the same tiles of the wall".
+        //
+        // A 1.000-unit tile centred at centre +/- (half + 0.5) covers that 0.500 exactly and
+        // overlaps the first run slot by the other 0.500. THE OVERLAP IS OUTWARD ON PURPOSE:
+        // 1.000 of tile cannot fill 0.500 of hole without going somewhere, and the alternative is
+        // inward, across the leaf - which is the fill-across-a-doorway that occluded a door once.
+        //
+        // Derived here from the layouts alone - door centre, DoorWidth, and which bound the centre
+        // lies on - so it shares nothing with WallPiecePass.DoorShoulders but the arithmetic it is
+        // meant to check. Deduplicated north-first at half-unit resolution, like the doors are
+        // authored: a shared door is listed by both rooms and drawn once.
+        private static List<Shoulder> ExpectedShoulders(List<Room> rooms)
+        {
+            var seen = new HashSet<(int, int)>();
+            var shoulders = new List<Shoulder>();
+            foreach (Room room in rooms)
+            {
+                foreach (Vector3 door in room.Doors)
+                {
+                    if (!seen.Add((Mathf.RoundToInt(door.x * 2f), Mathf.RoundToInt(door.z * 2f)))) continue;
+                    WallEdge edge = room.EdgeOf(door);
+                    bool alongX = AlongX(edge);
+                    float line = room.Line(edge);
+                    float centre = alongX ? door.x : door.z;
+                    float reach = room.DoorWidth * 0.5f + 0.5f;
+                    foreach (float along in new[] { centre - reach, centre + reach })
+                    {
+                        shoulders.Add(new Shoulder(room, edge,
+                            alongX ? new Vector3(along, 0f, line) : new Vector3(line, 0f, along)));
+                    }
+                }
+            }
+
+            Assert.Greater(shoulders.Count, 0, "No door shoulders were expected, so every assertion about them is vacuous.");
+            return shoulders;
+        }
+
         // Every distinct layout corner across ALL rooms, independent of WallPiecePass's own
         // state.Posts bookkeeping - built straight from each room's own rectangle, the same
-        // shape CornerPostsAndJambsReproduceTheApprovedPlacerArithmetic uses to expect posts.
+        // shape CornerPostsAndDoorShouldersReproduceTheApprovedPlacerArithmetic uses for posts.
         private static HashSet<(int, int)> AllCornerPoints(List<Room> rooms)
         {
             var points = new HashSet<(int, int)>();
@@ -332,8 +391,11 @@ namespace NoSafeCircle.DoorPrototype.Tests
             spawner.Spawn();
             yield return null;
 
-            // Every base piece's ROOT must stand on a lattice point, and every expected lattice
-            // point must hold exactly one. Both directions: no missing slot, no extra piece.
+            // Every base piece's ROOT must stand on a lattice point OR a door shoulder, and every
+            // expected point must hold exactly one. Both directions: no missing slot, no extra
+            // piece. The shoulders are OFF the slot lattice by construction - a door centre is an
+            // integer and a slot centre a half-integer - so the two sets cannot alias, and the
+            // total below is their sum rather than a fudge factor.
             var byPoint = new Dictionary<(int, int), int>();
             foreach (SpriteRenderer renderer in BasePieceRenderers())
             {
@@ -352,11 +414,22 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 }
             }
 
-            Assert.IsEmpty(missing, "Slots not filled exactly once:\n" + string.Join("\n", missing));
-            Assert.AreEqual(expected.Count, byPoint.Values.Sum(),
+            List<Shoulder> shoulders = ExpectedShoulders(rooms);
+            foreach (Shoulder shoulder in shoulders)
+            {
+                if (!byPoint.TryGetValue(Key(shoulder.Point), out int n) || n != 1)
+                {
+                    missing.Add(shoulder.Room.Name + " " + shoulder.Edge + " door shoulder at "
+                        + shoulder.Point.ToString("0.###") + " holds " + n + " piece(s)");
+                }
+            }
+
+            Assert.IsEmpty(missing, "Slots and shoulders not filled exactly once:\n" + string.Join("\n", missing));
+            Assert.AreEqual(expected.Count + shoulders.Count, byPoint.Values.Sum(),
                 "The spawner placed " + byPoint.Values.Sum() + " base pieces for " + expected.Count
-                + " wall slots. A surplus means a piece stands where the lattice walk found no wall - "
-                + "an unclipped Final Room slot, a duplicate on a shared line, or a phantom edge.");
+                + " wall slots plus " + shoulders.Count + " door shoulders. A surplus means a piece stands"
+                + " where neither the lattice walk nor a door put one - an unclipped Final Room slot, a"
+                + " duplicate on a shared line, or a phantom edge.");
         }
 
         [UnityTest]
@@ -515,12 +588,11 @@ namespace NoSafeCircle.DoorPrototype.Tests
         }
 
         [UnityTest]
-        public IEnumerator CornerPostsAndJambsReproduceTheApprovedPlacerArithmetic()
+        public IEnumerator CornerPostsAndDoorShouldersReproduceTheApprovedPlacerArithmetic()
         {
             WallSpawner spawner = CreateSpawner();
             List<Room> rooms = LayoutRooms();
             Bounds corner = AuthoredSprite("WallCorner").bounds;
-            Bounds jamb = AuthoredSprite("WallDoorJamb").bounds;
 
             spawner.Spawn();
             yield return null;
@@ -553,42 +625,68 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     + string.Join(", ", posts.Select(p => p.position.ToString("0.###"))));
             }
 
-            // Jambs: one pair per distinct door, each anchored at the collider gap edge
-            // (centre +/- 1.5) and extending into its run: (centre -/+ (1.5 + halfWidth), -min.y, z).
-            // The jamb alone keeps the -min.y lift until it stops being placed (see WallSpawner).
-            var expectedDoors = new HashSet<(int, int)>();
-            var expectedJambPositions = new List<Vector3>();
-            foreach (Room room in rooms)
+            // !!! THE JAMB IS NOT PLACED AT ALL ANY MORE, AND THAT ABSENCE IS THE ASSERTION. !!!
+            // wall_door_jamb is a complete stone portal - two piers and a full lintel - and the
+            // builder drew it twice, flanking a leaf that carries its own frame. Measured
+            // 2026-09-27 in the live world: it floated 0.40625 (its own transparent bottom pad,
+            // added back as height by the accent anchor), carried none of the 0.151 inward inset
+            // its neighbours carry, and the stub run overlapped 75% of it.
+            //
+            // A COUNT IS THE ONLY WITNESS THAT CAN SEE A REMOVAL. Every other assertion in this
+            // fixture checks that a piece is CORRECT, and a piece that should not exist is correct
+            // by every one of them - which is how this suite asserted the intent in one test and
+            // the defect in another and passed both.
+            Assert.AreEqual(0, RenderersWithSprite(JambSprite).Count(),
+                "wall_door_jamb is still being placed. The shoulder is filled with the wall's own "
+                + "tile instead; nothing should draw a portal beside a door.");
+
+            // The shoulders: two per distinct door, each a BASE piece - root ON the line, at the
+            // base convention's own y of 0 - carrying the SIDE'S tile and the prefab's inward
+            // inset. Read the sprite from the side, not from a literal: four of the five doors are
+            // claimed on a SOUTH edge, where the run is the 2.797-unit stub, so a flat
+            // wall_straight here would be the wrong art and the wrong height at 8 of 10 points.
+            var shoulderByPoint = BasePieceRenderers().ToDictionary(r => Key(r.transform.parent.position), r => r);
+            var wrongShoulders = new List<string>();
+            List<Shoulder> doorShoulders = ExpectedShoulders(rooms);
+            foreach (Shoulder shoulder in doorShoulders)
             {
-                foreach (Vector3 door in room.Doors)
+                string who = shoulder.Room.Name + " " + shoulder.Edge + " shoulder " + shoulder.Point.ToString("0.###");
+                if (!shoulderByPoint.TryGetValue(Key(shoulder.Point), out SpriteRenderer renderer))
                 {
-                    if (!expectedDoors.Add((Mathf.RoundToInt(door.x * 2f), Mathf.RoundToInt(door.z * 2f)))) continue;
-                    Assert.IsTrue(AlongX(room.EdgeOf(door)), "floor01's doors all cut north/south lines; extend this oracle if that changes.");
-                    float reach = room.DoorWidth * 0.5f + jamb.extents.x;
-                    expectedJambPositions.Add(new Vector3(door.x - reach, -jamb.min.y, door.z));
-                    expectedJambPositions.Add(new Vector3(door.x + reach, -jamb.min.y, door.z));
+                    wrongShoulders.Add(who + ": no base piece stands there");
+                    continue;
+                }
+
+                string want = shoulder.Far ? StraightSprite : StubSprite;
+                if (renderer.sprite.name != want)
+                {
+                    wrongShoulders.Add(who + ": " + renderer.sprite.name + " should be " + want);
+                }
+
+                Transform root = renderer.transform.parent;
+                if (Mathf.Abs(root.position.y) > 0.0001f)
+                {
+                    wrongShoulders.Add(who + ": root y is " + root.position.y + ", not 0 - the jamb's float, back again");
+                }
+
+                // THIS one is the real witness and the y above is nearly free: a base root's y is 0
+                // by construction, but the inset is taken from the Inward vector the pass supplies.
+                // The jamb's old call passed a direction ALONG the run, whose perpendicular
+                // component is zero, so the same mistake here would leave the Visual sitting flat
+                // on the line - and this is the line that would catch it.
+                Vector3 offset = renderer.transform.position - root.position;
+                float perpendicular = AlongX(shoulder.Edge) ? offset.z : offset.x;
+                Vector3 toward = shoulder.Room.Center - shoulder.Point;
+                float towardRoom = AlongX(shoulder.Edge) ? Mathf.Sign(toward.z) : Mathf.Sign(toward.x);
+                if (Mathf.Abs(perpendicular - CarriedVisualInset * towardRoom) > 0.0001f)
+                {
+                    wrongShoulders.Add(who + ": the Visual is " + perpendicular + " off the line; expected "
+                        + (CarriedVisualInset * towardRoom) + " toward the room");
                 }
             }
 
-            List<SpriteRenderer> jambs = RenderersWithSprite(JambSprite).ToList();
-            Assert.AreEqual(expectedJambPositions.Count, jambs.Count,
-                "Expected " + expectedJambPositions.Count + " jambs (two per distinct door); got " + jambs.Count
-                + ". Today's composed scene draws 18 at these 10 points; the pass draws each once.");
-            foreach (Vector3 want in expectedJambPositions)
-            {
-                Assert.IsTrue(jambs.Any(j => (j.transform.parent.position - want).magnitude < 0.001f),
-                    "No jamb at " + want + ". Jambs found: "
-                    + string.Join(", ", jambs.Select(j => j.transform.parent.position.ToString("0.###"))));
-            }
-
-            foreach (SpriteRenderer j in jambs)
-            {
-                // Measured in all five committed room scenes: every one of the 18 jamb renderers has
-                // m_FlipX 0. The addendum's "flipX on the east side as the placer does" describes a
-                // placer that does not exist; a mirrored east jamb is an Art Director decision to
-                // make deliberately, and this line is where it would be made.
-                Assert.IsFalse(j.flipX, "A jamb is mirrored; the approved placer never set flipX.");
-            }
+            Assert.IsEmpty(wrongShoulders, doorShoulders.Count + " expected door shoulders, "
+                + wrongShoulders.Count + " wrong:\n" + string.Join("\n", wrongShoulders));
 
             Assert.AreEqual(0, RenderersWithSprite(EndCapSprite).Count(),
                 "floor01's rings leave no free run end, so no end cap should be placed.");
@@ -602,11 +700,12 @@ namespace NoSafeCircle.DoorPrototype.Tests
             yield return null;
 
             // The witness is the sprite's TIGHT MESH, not sprite.bounds: bounds is the rect with its
-            // transparent padding (corner 16px, jamb 26px, end cap 18px below the art), and
+            // transparent padding (corner 16px, end cap 18px below the art), and
             // subtracting it is exactly the defect this guards. A tight mesh hugs the alpha with a
             // dilation of at most 2px (1/32 at 64 PPU), so its lowest vertex is the drawn base.
             const float MeshDilation = 2f / 64f + 0.001f;
-            // Jambs are excluded on purpose: they keep the lift until they stop being placed.
+            // Jambs are not listed because none is placed: the arithmetic test asserts that count
+            // is zero, and this one would pass vacuously on their absence rather than notice it.
             var overlays = RenderersWithSprite(CornerSprite).Concat(RenderersWithSprite(EndCapSprite)).ToList();
             Assert.Greater(overlays.Count, 0, "No overlay pieces were spawned, so this test would pass on nothing.");
 
