@@ -18,7 +18,7 @@
     {
       "criterion_id": "AC-004",
       "reference": "NSC-077 AC-004 and VAL-002 at revision 15, which state the controller count as a RELATION rather than the literal 16; EnemyArtIntegrationTests.cs:142 and :143, which still assert the literal.",
-      "requirement": "An attack mode joins LanternWraithAnimator under the NSC-077 relation - one state per facing per required mode and no others - so the wraith's mode set becomes idle, walk and attack and its controller holds eight states per mode. *** THE TWO CONTROLLERS NO LONGER MATCH, AND THAT IS INTENDED: *** MeleeEnemyAnimator keeps idle and walk only, because the Dungeon Brute's existing MeleeEnemyAttack.cs attacks without an attack animation today and this task does not change it. The expected count is computed from the declared direction and mode lists for each enemy type separately, never read back from the controller under test, and equality stays EXACT so a duplicate or leftover state still fails. EnemyArtIntegrationTests.cs must stop asserting the literal 16 IN THE SAME COMMIT that adds the states, or that fixture fails the moment the clips land."
+      "requirement": "An attack mode joins LanternWraithAnimator under the NSC-077 relation - one state per facing per required mode and no others - so the wraith's mode set becomes idle, walk and attack and its controller holds eight states per mode. *** THE TWO CONTROLLERS NO LONGER MATCH, AND THAT IS INTENDED: *** MeleeEnemyAnimator keeps idle and walk only, because the Dungeon Brute's existing MeleeEnemyAttack.cs attacks without an attack animation today and this task does not change it. The expected count is computed from the declared direction and mode lists for each enemy type separately, never read back from the controller under test, and equality stays EXACT so a duplicate or leftover state still fails. EnemyArtIntegrationTests.cs must stop asserting the literal 16 IN THE SAME COMMIT that adds the states, or that fixture fails the moment the clips land. *** DO NOT WIRE THE 96 FRAMES ALREADY SITTING UNDER Assets/NoSafeCircle/DoorPrototype/Art/Enemies/Source/Attack. THEY ARE THE WRONG CHARACTERS. *** 48 ranged and 48 melee frames are there today, each with a .meta, referenced by nothing - zero hits for _attack_ in any .cs and zero in the Generated controllers, against a control of 18 Generated files matching 'walk', so that zero is real. They are NSC-104's output, and NSC-104's AC-001 named two PixelLab character ids that are not the characters the shipped enemies are made from: measured across all 96 entries of Source/Walk/inventory.json by archetype, melee is 070592db-d334-4e7d-b5c9-5dad404d7f98 and ranged is adf018b5-b4c9-4533-8ea2-9d9d28537dcb, while AC-001 demanded 3db4582d and 361131dd. The Art Director rendered them: the ranged swing is a dark armoured figure with a glowing visor and no staff, the melee swing a pale-faced woman holding a plank. Canvas sizes disagree too - ranged walk 176, ranged attack 192, melee attack 180. **WIRING THEM MAKES BOTH ENEMIES TURN INTO SOMEONE ELSE MID-SWING, AND NOTHING IN THE SUITE WOULD CATCH IT, BECAUSE EVERY ASSERTION IS ABOUT COUNTS, NAMES AND SIZES AND NONE IS ABOUT WHO IS IN THE FRAME.** NSC-104 revision 2 corrects the ids and is the task that supplies the right frames; this task consumes what NSC-104 lands and generates nothing itself."
     },
     {
       "criterion_id": "AC-005",
@@ -61,11 +61,12 @@
   ],
   "confidence": "medium",
   "contract_disposition": "active",
-  "contract_revision": 1,
+  "contract_revision": 2,
   "decomposition_reason": "One enemy's out-of-mana behaviour, its attack animation mode and one new Play Mode fixture form a single bounded change against components that already exist.",
   "decomposition_state": "concrete",
   "depends_on": [
-    "NSC-077"
+    "NSC-077",
+    "NSC-104"
   ],
   "downstream_integration_obligations": [
     {
@@ -102,7 +103,18 @@
     "origin": "ger_agent_contract_request",
     "parent_contract_revision": null,
     "parent_contract_sha256": null,
-    "parent_task_id": null
+    "parent_task_id": null,
+    "contract_followups": [
+      {
+        "date": "2026-09-27",
+        "reason": "The Art Director rendered the 96 attack frames already under Source/Attack and found neither set is its own enemy - the ranged swing is a visored armoured figure, the melee swing a woman with a plank. They are NSC-104's output, generated faithfully from the two wrong character ids its AC-001 named. AC-004 now forbids wiring them, records the correct ids measured from Source/Walk/inventory.json, and NSC-104 is added to depends_on because it is the task that supplies the right frames.",
+        "source_head": "d95ccd392c8f2082196d760115ef46a28cc545fb",
+        "previous_contract_revision": 1,
+        "base_contract_sha256": "12142ca1d9fe32bd3282f5a4fc6bdcab8b26167644d1e00f26088f7ac4248569",
+        "revised_contract_sha256": "0006b59ec5b9c387ad7954138491f322d36b2f8ab7d06f08a8104f8ddc4b943c",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      }
+    ]
   },
   "reconciliation_key": "drained-lantern-wraith-staff-melee",
   "repository_evidence_at_bootstrap": [],
