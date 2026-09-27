@@ -181,7 +181,6 @@
         "independent-room-scene-composition",
         "wizard-eight-direction-locomotion-integration",
         "stationary-enemy-sprite-integration",
-        "victory-trigger-overlay-integration",
         "navmesh-agent-configuration-foundation",
         "title-screen-transparent-layout-build",
         "spectral-decoy-cast-phantom-cooldown-ui"
@@ -205,7 +204,6 @@
         "NSC-069",
         "NSC-075",
         "NSC-077",
-        "NSC-086",
         "NSC-089",
         "NSC-108",
         "NSC-112"

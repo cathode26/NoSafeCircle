@@ -23,7 +23,7 @@
     {
       "criterion_id": "AC-005",
       "reference": "Victory/input-shutdown ownership; NSC-088 INT-002",
-      "requirement": "DoorPrototypeSceneBuilder adds and configures the victory trigger, Victory Gameplay Suspension Coordinator, and You Escaped overlay in Assets/Scenes/DoorPrototype.unity. The builder assigns the final DoorInteractable crossing source, overlay GameObject, coordinator reference, Player Movement, Door Interaction, Fireball, Frost Field, Force Wave, and SpectralDecoy components so the complete victory call path is usable in Play Mode."
+      "requirement": "DoorPrototypeSceneBuilder adds and configures the victory trigger, Victory Gameplay Suspension Coordinator, and You Escaped overlay in the scene it builds; nothing is written to a committed scene file, because the world is built at runtime by GameBootstrap and Assets/Scenes/DoorPrototype.unity was deleted at fe4c95ad. The builder assigns the final DoorInteractable crossing source, overlay GameObject, coordinator reference, Player Movement, Door Interaction, Fireball, Frost Field, Force Wave, and SpectralDecoy components so the complete victory call path is usable in Play Mode."
     },
     {
       "criterion_id": "AC-006",
@@ -33,7 +33,7 @@
     {
       "criterion_id": "AC-007",
       "reference": "NSC-086 revision 2 Codex check; NSC-087 revision 3; NSC-088 INT-002",
-      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/FinalDoorVictoryTrigger.cs (+.meta), the victory trigger component of AC-001 to AC-004: a MonoBehaviour with a serialized DoorInteractable finalDoor, a serialized GameObject youEscapedOverlay, a serialized VictoryGameplaySuspensionCoordinator coordinator (NSC-087), and a read-only HasWon property; it subscribes to finalDoor.CrossedForward and, on the first event, sets HasWon, activates the overlay and calls coordinator.SuspendAllGameplayInput() exactly once. Create Assets/NoSafeCircle/DoorPrototype/Tests/FinalDoorVictoryPlayModeTests.cs (+.meta) for VAL-001 and VAL-002 and Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FinalDoorVictorySceneTests.cs (+.meta) for VAL-004. Because the D5 final door exists only in the composed canonical scene and not in DoorPrototypeSceneBuilder.BuildInMemoryForTests(), wiring is proven against the committed Assets/Scenes/DoorPrototype.unity, opened read-only."
+      "requirement": "Create Assets/NoSafeCircle/DoorPrototype/Scripts/FinalDoorVictoryTrigger.cs (+.meta), the victory trigger component of AC-001 to AC-004: a MonoBehaviour with a serialized DoorInteractable finalDoor, a serialized GameObject youEscapedOverlay, a serialized VictoryGameplaySuspensionCoordinator coordinator (NSC-087), and a read-only HasWon property; it subscribes to finalDoor.CrossedForward and, on the first event, sets HasWon, activates the overlay and calls coordinator.SuspendAllGameplayInput() exactly once. Create Assets/NoSafeCircle/DoorPrototype/Tests/FinalDoorVictoryPlayModeTests.cs (+.meta) for VAL-001 and VAL-002 and Assets/NoSafeCircle/DoorPrototype/Tests/Editor/FinalDoorVictorySceneTests.cs (+.meta) for VAL-004. THAT PREMISE IS SPENT AND THE READ-ONLY COMMITTED-SCENE ROUTE GOES WITH IT. D5 is built at runtime by DoorSpawner - DoorSpawner.cs:92 places DoorId.D5 with its final-door flag set - so the final door exists in the world GameBootstrap builds and no committed scene is needed to reach it; the world is built at runtime by GameBootstrap and Assets/Scenes/DoorPrototype.unity was deleted at fe4c95ad, so the old route is not merely unnecessary but impossible. Wiring is proven in Play Mode against the runtime-built world. GameBootstrap.HasBuilt is named here as the fixture-level readiness evidence that such a check is possible, not as a requirement to keep that member."
     }
   ],
   "basis": "direct_gdd",
@@ -51,12 +51,12 @@
     {
       "gate_id": "VAL-004",
       "reference": "AC-005, AC-007; NSC-086 revision 2 Codex check",
-      "requirement": "FinalDoorVictorySceneTests opens the committed Assets/Scenes/DoorPrototype.unity additively and read-only, scopes lookups to that scene, and closes it without saving. It asserts: exactly one FinalDoorVictoryTrigger exists; its finalDoor is the DoorInteractable whose DoorId is D5 and IsFinalDoor is true, and no DoorInteractable for D1 to D4 is referenced by any FinalDoorVictoryTrigger; its youEscapedOverlay and coordinator references are assigned; exactly one VictoryGameplaySuspensionCoordinator exists and its PlayerMovement, PlayerInteractionController, Fireball, FrostField, ForceWave and SpectralDecoy references are assigned to the scene Player's components; and the overlay starts inactive. The validation run executes this test after the Windows controller's final Build, so a duplicated trigger, coordinator or overlay from a repeated Build fails the exact-count assertions. It also asserts the scene's DemoRunFlow references that same FinalDoorVictoryTrigger."
+      "requirement": "FinalDoorVictorySceneTests exercises the world the runtime builder produces, scopes lookups to the scene under test, and closes it without saving - the world is built at runtime by GameBootstrap and Assets/Scenes/DoorPrototype.unity was deleted at fe4c95ad. It asserts: exactly one FinalDoorVictoryTrigger exists; its finalDoor is the DoorInteractable whose DoorId is D5 and IsFinalDoor is true, and no DoorInteractable for D1 to D4 is referenced by any FinalDoorVictoryTrigger; its youEscapedOverlay and coordinator references are assigned; exactly one VictoryGameplaySuspensionCoordinator exists and its PlayerMovement, PlayerInteractionController, Fireball, FrostField, ForceWave and SpectralDecoy references are assigned to the scene Player's components; and the overlay starts inactive. The validation run executes this test after the Windows controller's final Build, so a duplicated trigger, coordinator or overlay from a repeated Build fails the exact-count assertions. It also asserts the scene's DemoRunFlow references that same FinalDoorVictoryTrigger."
     }
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 5,
+  "contract_revision": 6,
   "decomposition_reason": "The GDD specifies the final-door crossing trigger, overlay, and ownership boundary. This child owns the final Unity scene assembly so the separately implemented trigger and suspension coordinator form one usable Game Flow/Victory behavior.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -72,7 +72,6 @@
   ],
   "exclusive_resources": [
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/DoorPrototypeSceneBuilder.cs",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/DemoRunFlow.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/FinalDoorVictoryTrigger.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/FinalDoorVictoryTrigger.cs.meta",
@@ -142,6 +141,15 @@
         "previous_contract_revision": 4,
         "base_contract_sha256": "19b316bae4ae9e662ac0f540d53d2c564d44c9d8da47b873270345f63ce7ca12",
         "revised_contract_sha256": "30164f385d33b2d9ebf58f4affc75ecd78f8738ca42ce32c792adca17d1b09c8",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-27",
+        "reason": "Deletion fallout at fe4c95ad: drop the dangling owned resource and replace the clauses that still required a deleted artifact. NSC-086 AC-007's premise is spent - D5 is built at runtime by DoorSpawner, so the final door is reachable in the built world; NSC-100 AC-007's seven-assertion inventory re-swept to zero and is superseded by the relation it was standing in for.",
+        "source_head": "1e1bf086622bf379d2c91ea04b44c81d697ce614",
+        "previous_contract_revision": 5,
+        "base_contract_sha256": "3f936ef4c5782a618fb9f250145f00b92de1649f2da8c9a2e1122f9145b805b0",
+        "revised_contract_sha256": "b9a11b52ca04d3d1e9dd9146993e17cf6eadfe4fa19cf4951cc701df454694c5",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
