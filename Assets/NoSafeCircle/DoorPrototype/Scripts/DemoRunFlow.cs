@@ -33,6 +33,7 @@ namespace NoSafeCircle.DoorPrototype
         private float castCooldown;
         private bool won;
         private bool lost;
+        private TitleScreenController titleScreen;
 
         private struct Fireball
         {
@@ -200,6 +201,11 @@ namespace NoSafeCircle.DoorPrototype
 
         private void OnGUI()
         {
+            if (titleScreen == null)
+                titleScreen = FindFirstObjectByType<TitleScreenController>();
+            if (titleScreen != null && titleScreen.IsTitleScreenVisible)
+                return;
+
             if (!won && !lost)
             {
                 DrawEnemyHealthBars();

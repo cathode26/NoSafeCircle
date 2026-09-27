@@ -238,6 +238,19 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsFalse(player.GetComponent<PlayerInteractionController>().IsGameplayEnabled);
             Assert.IsFalse(player.GetComponent<DebugManaSpendControl>().enabled);
 
+            string[] gameplayNames =
+            {
+                "InteractPrompt", "ProgressFill", "HealthFill", "ManaFill",
+                "DebugDamageButton", "DebugManaSpendButton", "ControlsHud"
+            };
+            foreach (string name in gameplayNames)
+            {
+                CanvasGroup group = canvas.transform.Find(name)?.GetComponent<CanvasGroup>();
+                Assert.IsNotNull(group, name + " lost its title visibility control.");
+                Assert.AreEqual(0f, group.alpha, name + " is visible over the title.");
+                Assert.IsFalse(group.blocksRaycasts, name + " still receives title clicks.");
+            }
+
             var requestCount = 0;
             controller.WizardSelectionRequested += () => requestCount++;
             button.onClick.Invoke();
@@ -247,6 +260,12 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.AreEqual(1, requestCount);
             Assert.IsFalse(titlePanel.gameObject.activeSelf);
             Assert.IsFalse(player.GetComponent<PlayerMovement>().IsGameplayEnabled);
+            foreach (string name in gameplayNames)
+            {
+                CanvasGroup group = canvas.transform.Find(name).GetComponent<CanvasGroup>();
+                Assert.AreEqual(1f, group.alpha, name + " did not return for wizard selection.");
+                Assert.IsTrue(group.blocksRaycasts, name + " did not restore its UI input.");
+            }
         }
 
         [UnityTearDown]

@@ -675,37 +675,27 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             titlePanelRect.offsetMax = Vector2.zero;
 
             var titlePanelImage = titlePanel.GetComponent<Image>();
-            titlePanelImage.color = new Color32(16, 10, 23, 255);
+            titlePanelImage.color = new Color32(16, 10, 23, 0);
             titlePanelImage.raycastTarget = true;
 
             var card = new GameObject(
                 "TitleCard",
-                typeof(RectTransform),
-                typeof(CanvasRenderer),
-                typeof(Image),
-                typeof(Outline));
+                typeof(RectTransform));
             card.transform.SetParent(titlePanel.transform, false);
 
             var cardRect = card.GetComponent<RectTransform>();
-            cardRect.anchorMin = new Vector2(0.5f, 0.5f);
-            cardRect.anchorMax = new Vector2(0.5f, 0.5f);
-            cardRect.sizeDelta = new Vector2(900f, 590f);
-
-            var cardImage = card.GetComponent<Image>();
-            cardImage.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/Background.psd");
-            cardImage.type = Image.Type.Sliced;
-            cardImage.color = new Color32(43, 24, 50, 255);
-
-            var cardOutline = card.GetComponent<Outline>();
-            cardOutline.effectColor = new Color32(128, 70, 119, 255);
-            cardOutline.effectDistance = new Vector2(3f, -3f);
+            cardRect.anchorMin = new Vector2(0f, 0.5f);
+            cardRect.anchorMax = new Vector2(0f, 0.5f);
+            cardRect.pivot = new Vector2(0f, 0.5f);
+            cardRect.anchoredPosition = new Vector2(96f, 0f);
+            cardRect.sizeDelta = new Vector2(740f, 620f);
 
             var accent = new GameObject("Accent", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
             accent.transform.SetParent(card.transform, false);
             var accentRect = accent.GetComponent<RectTransform>();
-            accentRect.anchorMin = new Vector2(0.5f, 1f);
-            accentRect.anchorMax = new Vector2(0.5f, 1f);
-            accentRect.pivot = new Vector2(0.5f, 1f);
+            accentRect.anchorMin = new Vector2(0f, 1f);
+            accentRect.anchorMax = new Vector2(0f, 1f);
+            accentRect.pivot = new Vector2(0f, 1f);
             accentRect.anchoredPosition = new Vector2(0f, -34f);
             accentRect.sizeDelta = new Vector2(130f, 8f);
             accent.GetComponent<Image>().color = new Color32(232, 132, 165, 255);
@@ -719,6 +709,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 24,
                 new Color32(232, 132, 165, 255));
             eyebrow.fontStyle = FontStyle.Bold;
+            LeftAlignTitleText(eyebrow);
 
             Text title = CreateTitleText(
                 "Title",
@@ -729,6 +720,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 78,
                 new Color32(255, 238, 224, 255));
             title.fontStyle = FontStyle.Bold;
+            LeftAlignTitleText(title);
             var titleShadow = title.gameObject.AddComponent<Shadow>();
             titleShadow.effectColor = new Color32(8, 4, 12, 220);
             titleShadow.effectDistance = new Vector2(5f, -5f);
@@ -742,6 +734,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 28,
                 new Color32(205, 185, 210, 255));
             tagline.fontStyle = FontStyle.Italic;
+            LeftAlignTitleText(tagline);
 
             var buttonObject = new GameObject(
                 "StartGameButton",
@@ -753,8 +746,9 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             buttonObject.transform.SetParent(card.transform, false);
 
             var buttonRect = buttonObject.GetComponent<RectTransform>();
-            buttonRect.anchorMin = new Vector2(0.5f, 0.22f);
-            buttonRect.anchorMax = new Vector2(0.5f, 0.22f);
+            buttonRect.anchorMin = new Vector2(0f, 0.22f);
+            buttonRect.anchorMax = new Vector2(0f, 0.22f);
+            buttonRect.pivot = new Vector2(0f, 0.5f);
             buttonRect.sizeDelta = new Vector2(380f, 82f);
 
             var buttonImage = buttonObject.GetComponent<Image>();
@@ -788,15 +782,6 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 new Color32(255, 245, 229, 255));
             buttonLabel.fontStyle = FontStyle.Bold;
 
-            CreateTitleText(
-                "Footer",
-                card.transform,
-                new Vector2(0.14f, 0.05f),
-                new Vector2(0.86f, 0.13f),
-                "THE DARKNESS THINKS YOU LOOK SNACK-SIZED.",
-                18,
-                new Color32(159, 137, 164, 255));
-
             var controller = canvasObject.AddComponent<TitleScreenController>();
             SetPrivateField(controller, "titlePanel", titlePanel);
             SetPrivateField(controller, "startGameButton", startButton);
@@ -805,7 +790,61 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
             SetPrivateObjectArray(controller, "gameplayInputBehaviours", debugControl, debugManaControl);
 
             UnityEventTools.AddPersistentListener(startButton.onClick, controller.StartGame);
+
+            Camera chaseCamera = Camera.main;
+            if (!TitleScreenChaseLane.TryGetFloorSegment(chaseCamera, out Vector3 floorStart,
+                    out Vector3 floorEnd))
+            {
+                throw new System.InvalidOperationException("The starting camera has no Ruined Entry chase lane.");
+            }
+
+            EnemyAnimationAssetBuilder.EnemyAnimationAssets enemyAssets = EnemyAnimationAssetBuilder.Load();
+            RuntimeAnimatorController wizardController = CharacterAnimationGenerator.LoadWizardAnimationAssets().controller;
+            var backdrop = canvasObject.AddComponent<TitleScreenChaseBackdrop>();
+            backdrop.Configure(
+                controller,
+                chaseCamera,
+                wizardController,
+                enemyAssets.MeleeController,
+                enemyAssets.WraithController,
+                new[]
+                {
+                    new ConfirmedWizardSelection(WizardPresentation.Masculine, WizardSkin.White),
+                    new ConfirmedWizardSelection(WizardPresentation.Masculine, WizardSkin.Black),
+                    new ConfirmedWizardSelection(WizardPresentation.Feminine, WizardSkin.White),
+                    new ConfirmedWizardSelection(WizardPresentation.Feminine, WizardSkin.Black)
+                },
+                floorStart,
+                floorEnd);
+            backdrop.ConfigureMotion(2.5f, 10f, 20f, 1.5f, 2.5f, 0.5f, 6f);
+
+            string[] gameplayNames =
+            {
+                "InteractPrompt", "ProgressFill", "HealthFill", "ManaFill",
+                "DebugDamageButton", "DebugManaSpendButton", "ControlsHud"
+            };
+            var gameplayGroups = new CanvasGroup[gameplayNames.Length];
+            for (int index = 0; index < gameplayNames.Length; index++)
+            {
+                Transform visual = canvasObject.transform.Find(gameplayNames[index]);
+                if (visual == null)
+                    throw new System.InvalidOperationException("Missing gameplay HUD: " + gameplayNames[index]);
+                gameplayGroups[index] = visual.gameObject.AddComponent<CanvasGroup>();
+            }
+            canvasObject.AddComponent<TitleScreenGameplayHudVisibility>()
+                .Configure(controller, gameplayGroups);
             return controller;
+        }
+
+        private static void LeftAlignTitleText(Text text)
+        {
+            RectTransform rect = text.rectTransform;
+            rect.anchorMin = new Vector2(0f, rect.anchorMin.y);
+            rect.anchorMax = new Vector2(0f, rect.anchorMax.y);
+            rect.pivot = new Vector2(0f, 0.5f);
+            rect.anchoredPosition = new Vector2(0f, rect.anchoredPosition.y);
+            rect.sizeDelta = new Vector2(700f, rect.sizeDelta.y);
+            text.alignment = TextAnchor.MiddleLeft;
         }
 
         private static WizardSelectionController BuildWizardSelectionScreen(
