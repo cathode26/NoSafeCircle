@@ -1,7 +1,7 @@
 {
   "schema_version": "2.0",
   "id": "NSC-070",
-  "contract_revision": 5,
+  "contract_revision": 6,
   "contract_disposition": "active",
   "title": "Four-Wizard Directional Animation State Repair",
   "reconciliation_key": "wizard-animation-audit-repair",
@@ -46,7 +46,7 @@
     {
       "criterion_id": "AC-005",
       "reference": "DoorPrototypeSceneBuilder deterministic materialization",
-      "requirement": "DoorPrototypeSceneBuilder.Build materializes any changed controller binding or generated Animator state reference idempotently. The code worker edits source and focused tests only and requests the Windows Unity builder for generated assets or the scene; it never hand-edits generated animation or scene serialization."
+      "requirement": "Any changed controller binding or generated Animator state reference is materialized idempotently by the path that actually produces the played world - the spawners at Play - and, where a built scene is needed as a test fixture, by DoorPrototypeSceneBuilder.BuildInMemoryForTests(), which saves nothing. NOT by DoorPrototypeSceneBuilder.Build: DoorPrototypeSceneBuilder.cs:20 sets ScenePath to Assets/Scenes/DoorPrototype.unity and :193 saves to it, and that path was DELETED at fe4c95ad, so running Build re-creates a deliberately deleted world as an untracked file and dirties the tree for every other role. The code worker edits source and focused tests only and requests the Windows Unity builder for generated assets or the scene; it never hand-edits generated animation or scene serialization."
     }
   ],
   "completion_gates": [
@@ -151,6 +151,15 @@
         "previous_contract_revision": 4,
         "base_contract_sha256": "aa320637b9a8c7bfbca770641f6afe7c8bf2bf315ef687d55eb88a2fda2e3b7b",
         "revised_contract_sha256": "174b6b23c343c93269da498b23d1fc5816d9f35da3333110da6165f262abd712",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
+      },
+      {
+        "date": "2026-09-27",
+        "reason": "Completes the VAL-004 builder ruling across the held tasks. DoorPrototypeSceneBuilder.Build saves to Assets/Scenes/DoorPrototype.unity (cs:20, :193), deleted at fe4c95ad, so a clause requiring it asks for a deleted world to be re-created as an untracked file. NSC-075's VAL-004 literally said 'run Build twice' and I had edited that same sentence earlier today without removing the demand. BuildInMemoryForTests, which saves nothing, is named as the fixture entry point. The remaining mentions are now warnings against running it rather than demands to run it.",
+        "source_head": "2f96643010f78431445f55fbf9f2ea21af2f7d58",
+        "previous_contract_revision": 5,
+        "base_contract_sha256": "163f172c4d16ab134a71cbd3004c19bbe4e2c93e91df5f14ccabaee4fcf8f568",
+        "revised_contract_sha256": "e29dce3e0564e19cdb394b1cc570e4b3a84723b68a50e79426e23c8ca0e6093f",
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ]
