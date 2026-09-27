@@ -123,11 +123,41 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsNotNull(player.GetComponent<Animator>());
             var visual = player.transform.Find("Visual");
             Assert.IsNotNull(visual);
+            Assert.AreEqual(Vector3.one, visual.localScale,
+                "A 128 px frame at 64 PPU spans the intended 2x2 world-unit box at unit scale.");
+            Assert.That(Quaternion.Angle(visual.rotation, Quaternion.Euler(30f, -45f, 0f)),
+                Is.LessThan(0.01f), "The wizard Visual should face the gameplay camera.");
+            SpriteRenderer renderer = visual.GetComponent<SpriteRenderer>();
+            Assert.IsNotNull(renderer);
+            Assert.IsNotNull(renderer.sprite);
+            Assert.That(renderer.sprite.rect.width / renderer.sprite.pixelsPerUnit,
+                Is.EqualTo(2f).Within(0.001f));
+            Assert.That(renderer.sprite.rect.height / renderer.sprite.pixelsPerUnit,
+                Is.EqualTo(2f).Within(0.001f));
             var characterController = player.GetComponent<CharacterController>();
             Assert.IsNotNull(characterController);
             Assert.That(
                 visual.position.y,
                 Is.EqualTo(player.transform.position.y - characterController.skinWidth).Within(0.001f));
+        }
+
+        [UnityTest]
+        public IEnumerator PlayerVisualKeepsCameraFacingAfterThePlayerRootTurns()
+        {
+            GameObject player = GameObject.Find("Player");
+            Assert.IsNotNull(player);
+            Transform visual = player.transform.Find("Visual");
+            Assert.IsNotNull(visual);
+            player.transform.rotation = Quaternion.Euler(0f, 90f, 0f);
+            yield return null;
+
+            Assert.That(Quaternion.Angle(visual.rotation, Quaternion.Euler(30f, -45f, 0f)),
+                Is.LessThan(0.01f), "Root yaw must not rotate the camera-facing sprite edge-on.");
+            Assert.AreEqual(Vector3.one, visual.localScale);
+            CharacterController characterController = player.GetComponent<CharacterController>();
+            Assert.IsNotNull(characterController);
+            Assert.That(visual.position.y,
+                Is.EqualTo(player.transform.position.y - characterController.skinWidth).Within(0.01f));
         }
 
         // NSC-062 AC-003/AC-004 and VAL-003: the presentation owner applies both serialized
@@ -484,6 +514,10 @@ namespace NoSafeCircle.DoorPrototype.Tests
             WizardPresentation presentation,
             WizardSkin skin)
         {
+            Transform visual = player.transform.Find("Visual");
+            CharacterController characterController = player.GetComponent<CharacterController>();
+            Assert.IsNotNull(visual);
+            Assert.IsNotNull(characterController);
             foreach (ScreenDirection direction in ScreenDirections)
             {
                 string expectedWalkState =
@@ -497,6 +531,11 @@ namespace NoSafeCircle.DoorPrototype.Tests
                     Assert.AreEqual(expectedWalkState, wizard.CurrentState,
                         $"Unexpected held state for {presentation}/{skin}/{direction.Name}.");
                     Assert.AreEqual(direction.Name, wizard.LastDirection);
+                    Assert.That(Quaternion.Angle(visual.rotation, Quaternion.Euler(30f, -45f, 0f)),
+                        Is.LessThan(0.01f), $"Visual lost camera facing while walking {direction.Name}.");
+                    Assert.That(visual.position.y,
+                        Is.EqualTo(player.transform.position.y - characterController.skinWidth).Within(0.01f),
+                        $"Visual lost ground contact while walking {direction.Name}.");
                     animator.Update(0f);
                     Assert.IsTrue(animator.GetCurrentAnimatorStateInfo(0).IsName(expectedWalkState));
                     animator.Update(0.05f);
@@ -516,6 +555,11 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 Assert.AreEqual(expectedIdleState, wizard.CurrentState,
                     $"Idle did not retain {direction.Name} for {presentation}/{skin}.");
                 Assert.AreEqual(direction.Name, wizard.LastDirection);
+                Assert.That(Quaternion.Angle(visual.rotation, Quaternion.Euler(30f, -45f, 0f)),
+                    Is.LessThan(0.01f), $"Visual lost camera facing after walking {direction.Name}.");
+                Assert.That(visual.position.y,
+                    Is.EqualTo(player.transform.position.y - characterController.skinWidth).Within(0.01f),
+                    $"Visual lost ground contact after walking {direction.Name}.");
                 animator.Update(0f);
                 Assert.IsTrue(animator.GetCurrentAnimatorStateInfo(0).IsName(expectedIdleState));
             }

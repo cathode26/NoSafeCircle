@@ -37,7 +37,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         private const string SpawnerResourcePath = GameBootstrap.SpawnerResourceFolder + "/PlayerSpawner";
         private const string PlayerPrefabResourcePath = "Player/Player";
         private const string WizardIdleAssetPath =
-            "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/south-east.png";
+            "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/standing/south-east.png";
         private const string MainCameraTag = "MainCamera";
 
         // Unity's CharacterController default, pinned independently by

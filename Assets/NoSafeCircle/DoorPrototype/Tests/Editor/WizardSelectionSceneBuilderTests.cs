@@ -37,10 +37,10 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
 
         private static readonly string[] ExpectedPreviewPaths =
         {
-            "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-light/selected/standing/south-east.png",
-            "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/masculine-dark/selected/standing/south-east.png",
-            "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-light/selected/standing/south-east.png",
-            "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab/feminine-dark/selected/standing/south-east.png"
+            "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/standing/south-east.png",
+            "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/standing/south-east.png",
+            "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/standing/south-east.png",
+            "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/standing/south-east.png"
         };
 
         [SetUp]
