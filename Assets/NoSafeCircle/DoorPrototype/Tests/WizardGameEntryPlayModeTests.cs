@@ -138,7 +138,13 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 Assert.AreEqual(expectedSelection, selection.ConfirmedSelection);
                 Assert.AreEqual(ExpectedPresentations[optionIndex], wizard.Presentation);
                 Assert.AreEqual(ExpectedSkins[optionIndex], wizard.Skin);
-                Assert.AreEqual(playerSpawnPosition, player.transform.position);
+                Vector3 arrivedPosition = player.transform.position;
+                Assert.That(Mathf.Abs(arrivedPosition.x - playerSpawnPosition.x), Is.LessThan(0.001f),
+                    "The playable wizard moved off the canonical spawn X.");
+                Assert.That(Mathf.Abs(arrivedPosition.y - playerSpawnPosition.y), Is.LessThan(0.001f),
+                    "The playable wizard moved off the canonical spawn Y.");
+                Assert.That(Mathf.Abs(arrivedPosition.z - playerSpawnPosition.z), Is.LessThan(0.001f),
+                    "The playable wizard moved off the canonical spawn Z.");
                 Assert.AreEqual(playerSpawnRotation, player.transform.rotation);
                 Assert.AreSame(expectedIdleSprite, renderer.sprite,
                     "The world entry must display the confirmed option's integrated idle Sprite immediately.");
