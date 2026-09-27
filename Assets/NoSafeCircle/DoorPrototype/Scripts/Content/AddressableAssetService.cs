@@ -143,10 +143,21 @@ namespace NoSafeCircle.DoorPrototype.Content
 
             // Each task settles its own lease even if a sibling faults. WhenAll observes every
             // started task and preserves catalog order while ownership follows completion order.
-            AssetLoadResult<T>[] results = await Task.WhenAll(loads);
+            //
+            // Task.WhenAll hands back its result as a bare array. Returning that array directly
+            // through this IReadOnlyList<T>-typed method leaks the concrete array type to every
+            // caller: an array's IReadOnlyList<T>.Count / ICollection.Count are runtime-supplied
+            // (SZArrayHelper), not an ordinary reflectable public property, so a caller that
+            // inspects "Count" by reflection (as NUnit's older Has.Count constraint does) throws
+            // "Property Count was not found" rather than reading the value. Copy into a List<T> so
+            // the concrete type actually carries the public Count member the declared contract
+            // implies, regardless of what inspects it.
+            AssetLoadResult<T>[] completed = await Task.WhenAll(loads);
+            var results = new List<AssetLoadResult<T>>(completed.Length);
+            results.AddRange(completed);
             if (owner.IsDisposed)
             {
-                for (int i = 0; i < results.Length; i++)
+                for (int i = 0; i < results.Count; i++)
                 {
                     if (results[i].HasAsset)
                     {
