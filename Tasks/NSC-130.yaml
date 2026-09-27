@@ -1,0 +1,78 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "PropPrefabVerifier.cs on main 214bc37e; the reshaping itself merged at c7b5f48a and needs no contract",
+      "requirement": "THE COLLIDER'S VERTICAL EXTENT IS COMPARED AGAINST THE PROP'S OWN DRAWN SPRITE AND A FULL-HEIGHT COLLIDER FAILS. What must hold: for every prop prefab not on the verifier's declared walk-through list, the verifier reads the collider's vertical extent and that prefab's own drawn sprite extent and FAILS when the collider spans the whole sprite. A prop's solid mass is its base; its upper body is drawn, not walked into. THIS IS A RELATION BETWEEN TWO THINGS ON THE SAME PREFAB AND CARRIES NO FIGURE. No fraction, ratio or threshold from any other project enters this contract: a number would die the first time an artist changes a sprite, and the relation survives that. WHY THIS CRITERION EXISTS AT ALL, since the 41 reshapes already merged: the Game Agent reverted one prefab's collider to full sprite height ON PURPOSE and every suite stayed green. That mutation is the measurement - the suite is blind here - so this criterion RELEASES a guard rather than proving work already done."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "CLAUDE.md: break the guard on purpose; an unbroken test is a CLAIM, not evidence",
+      "requirement": "THE GUARD IS PROVEN BY BREAKING IT, IN THE TEST ITSELF. What must hold: a prop whose collider is set to span its whole drawn sprite makes the verifier FAIL, and the same prop with its base-only collider makes the verifier PASS. Both directions are asserted, and the failing case names the prop and what was wrong with it rather than only reporting that something failed. A check that has never been observed to fail is indistinguishable from one that cannot fail, and this exact guard has already been silently absent once."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "SightOcclusionLayers.cs on main; its own comment states the layer policy",
+      "requirement": "THE PHYSICS LAYER A PROP SITS ON IS VERIFIED AGAINST THE SAME POLICY THAT SIGHT QUERIES READ - AND IT IS A DIFFERENT FIELD FROM THE ONE ALREADY CHECKED. The verifier today checks the RENDERER's sortingLayerName, which is draw order. The layer every sight and projectile query reads is the GameObject's physics layer, and nothing checks it. What must hold: a prop drawn below eye height sits on the layer that sight and projectile queries exclude, and a prop drawn at or above eye height sits on a layer they do not exclude - stated against SightOcclusionLayers' own published policy and its EyeOffset, not against a height I invent. A knee-high prop left on the blocking layer stops an enemy seeing through it, which is the same family as the freeze defect NSC-131 exists for."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "SightOcclusionLayers.cs ExcludeLowDressing: it returns the base mask unchanged when the named layer does not resolve",
+      "requirement": "THE EXCLUSION IS PROVEN TO EXCLUDE, BECAUSE IT FAILS OPEN BY DESIGN. ExcludeLowDressing returns the mask unchanged when the named layer does not resolve, so a renamed or deleted layer silently restores the old block-everything behaviour with no error anywhere. What must hold: the named layer resolves, and the mask the helper returns actually has that layer's bit cleared - asserted as the RELATION between the returned mask and the resolved layer rather than against a hardcoded index. A fail-open default is correct behaviour and an untested fail-open default is a silent regression waiting for a rename."
+    },
+    {
+      "criterion_id": "AC-005",
+      "reference": "PropPrefabVerifier.cs: the declared walk-through list and its two-directional check",
+      "requirement": "NOTHING THE VERIFIER ALREADY CATCHES MAY STOP BEING CAUGHT. What must hold after this change: a prop with no collider still fails unless it is on the declared walk-through list with a reason; a prop ON that list that has acquired a collider still fails; a trigger-only collider on a prop expected to be solid still fails; and a non-positive extent still fails. These are named because the new height and layer checks run inside the same loop over the same prefabs and the same renderer, which is exactly where a rewrite quietly drops a branch."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "CLAUDE.md: assert the COUNT from a number derived somewhere other than the thing under test",
+      "requirement": "An Edit Mode test exercises the verifier over the real prop prefabs and asserts every criterion above, including AC-002's deliberate break and restore. It asserts on the verifier's OWN reported failures rather than re-implementing the checks, so the test cannot agree with a broken verifier by construction. It carries a prop known to be correct as a positive control and asserts that control passes, so a green run cannot be a query that matched nothing. No human review is claimed by this gate and none may be recorded against it."
+    }
+  ],
+  "confidence": "high",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "One verifier and its first test. The collider-extent check, the physics-layer check and the fail-open exclusion check all read the same prefabs in the same pass and cannot be scheduled apart without three agents editing one file.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-078"
+  ],
+  "downstream_integration_obligations": [],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Environment/PropPrefabVerifier.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/Environment/PropPrefabVerifier.cs.meta",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/PropPrefabVerifierTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/Editor/PropPrefabVerifierTests.cs.meta"
+  ],
+  "execution_reason": "One agent adds two checks to an existing Editor verifier and writes its first test. The checks and the test must change together and no half is independently schedulable.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "Vincent, reported as a visible defect: props are walked into at full sprite height and dressing blocks sight",
+      "requirement": "The reshaping of the prop colliders merged at c7b5f48a and this contract does not re-specify it. What has no owner is the ASSERTION: PropPrefabVerifier.cs is declared in the exclusive_resources of ZERO of the 128 task contracts on main, and it has no test file at all - measured with DoorPrototypeGlobalSceneBuilder.cs at 13 owners as a working control."
+    }
+  ],
+  "id": "NSC-130",
+  "kind": "implementation",
+  "notes": "AUTHORED 2026-09-27 FROM agent-state/intent-NSC-130-prop-collider-shape-and-sight-layer.md, at game main 214bc37e. THIS CONTRACT DELIBERATELY DOES NOT RE-SPECIFY THE 41 PREFAB RESHAPES - they merged at c7b5f48a and CLAUDE.md is explicit that a defect needs no task id and that a record which only PROVES is rank 3. What is authored here is the set of assertions, which RELEASES something: the Game Agent reverted one prefab to full sprite height on purpose and every suite stayed green, so the blindness is measured rather than suspected. TWO FIELDS THAT LOOK LIKE ONE AND ARE NOT: the verifier already checks renderer.sortingLayerName (draw order); the field every sight and projectile query reads is gameObject.layer (physics), and nothing checks it. AC-003 is about the second. NO PETNIP FIGURE APPEARS IN THIS CONTRACT AND THAT IS DELIBERATE. Vincent's shipped isometric game at F:/Petnip/MoveProblems/client is an approved free reference and its collider polygons cover only the lower part of each sprite, but it is one 2D project on Unity 2019.4 while this is 3D on 6000.1.8f1, and a fraction copied across would die the first time an artist changes a sprite. The SHAPE RULE is copied; no number is. ALSO DELIBERATELY ABSENT: any requirement that props carry a solid base PLUS a walk-through trigger. That is true of chest.prefab alone in the reference project; the pickups there are trigger-only, so a blanket clause would have been false of most of the population. WHAT THE WALK-THROUGH TRIGGER SHOULD DRIVE IN THIS GAME IS STILL VINCENT'S AND IS UNANSWERED - it is not in this contract and its absence is a decision, not an omission. NOT ESTABLISHED: no Unity was run; the sprite-extent source the verifier should read (renderer bounds versus the sprite asset's rect) is the implementer's choice and is not specified here; and whether every prop prefab currently obeys AC-003's layer relation is unmeasured - the first run of VAL-001 is what will say.",
+  "parent": "NSC-022",
+  "provenance": {
+    "graph_delta_plan_id": null,
+    "origin": "ger_agent_contract_request",
+    "parent_contract_revision": null,
+    "parent_contract_sha256": null,
+    "parent_task_id": null
+  },
+  "reconciliation_key": "prop-collider-and-sight-layer-verification",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "Prop Collider Extent and Sight Layer Are Verified, Not Assumed",
+  "type": "editor_tooling"
+}

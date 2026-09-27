@@ -1,0 +1,79 @@
+{
+  "acceptance_criteria": [
+    {
+      "criterion_id": "AC-001",
+      "reference": "Vincent, reported as a visible defect: the enemy will not walk around the furniture, and it needs to be able to move",
+      "requirement": "AN ENEMY WHOSE ONLY UNMET ACQUISITION CONDITION IS LINE OF SIGHT DOES NOT STAND STILL. What must hold: with the wizard inside the enemy's detection distance, an occluder on a sight-blocking layer between them, and a walkable route to the wizard existing, the enemy's root leaves its spawn position within a bounded time and the straight-line distance from the enemy to the wizard decreases. THIS IS STATED AS AN OUTCOME AND NOT AS A MECHANISM, for a measured reason: the leash fix next door was towed AND kept its give-up, and a criterion requiring only the towing would have been satisfied by the defect. A criterion naming a mechanism is a literal wearing a verb. The current build fails this criterion - state Idle, hasPath false, velocity zero, root frozen at spawn for the whole observation window, while NavMesh.CalculatePath proves a complete detour exists."
+    },
+    {
+      "criterion_id": "AC-002",
+      "reference": "EnemyTargetKnowledge.cs: HasUnobstructedViewOfWizard gates AcquireTarget",
+      "requirement": "SIGHT STILL GATES PURSUING, AND THIS IS THE LIMIT THAT KEEPS COVER MEANINGFUL. What must hold: at every moment the view of the wizard is obstructed, the enemy is NOT in the pursuing state; when the view becomes unobstructed, the enemy acquires by the ordinary path with no separate route to pursuit. An enemy closing on a wizard it cannot see is suspicious, not locked on, and can still be evaded. WITHOUT THIS CRITERION, AC-001 IS SATISFIED BY DELETING THE SIGHT CHECK, which would be a worse game and would pass every movement assertion."
+    },
+    {
+      "criterion_id": "AC-003",
+      "reference": "Vincent, on the sibling leash defect: the enemy keeps pacing back and forth - the pacing WAS an oscillation introduced by a correct-looking change",
+      "requirement": "THE APPROACH TERMINATES AND CANNOT OSCILLATE. What must hold: with the wizard's position and the occluder unchanged, the enemy reaches a terminal outcome - it acquires, or it stops approaching - within a bounded time, and it does not alternate between moving and stationary more than once. This criterion exists because the sibling defect in this same file was an oscillation nobody predicted: an enemy that walks out, gives up, walks back and re-acquires satisfies every assertion that it moves while being exactly what Vincent reported."
+    },
+    {
+      "criterion_id": "AC-004",
+      "reference": "SightOcclusionLayers.cs ExcludeLowDressing; the reported occluder is a 2.73-unit shelf on the Default layer",
+      "requirement": "AN OCCLUDER TALL ENOUGH TO BLOCK SIGHT STILL BLOCKS SIGHT. THE FIX CHANGES WHAT THE ENEMY DOES WHEN SIGHT FAILS, NEVER WHAT COUNTS AS AN OCCLUDER. What must hold: after this task, a landmark-scale prop between the enemy and the wizard still returns an obstructed view. Low dressing is already excluded from sight queries by SightOcclusionLayers and that is not what the reported case was behind. THIS CRITERION IS HERE BECAUSE NOTHING ELSE IN THE SYSTEM CAN CARRY IT: SightOcclusionLayers.cs is declared in the exclusive_resources of ZERO of the 128 task contracts on main - measured, with EnemyPursuitMovement.cs at three owners as a control - so no ownership guard stands between this defect and the cheap wrong fix of widening the exclusion until the shelf stops occluding. A stated criterion is the only guard that exists."
+    }
+  ],
+  "basis": "direct_gdd",
+  "completion_gates": [
+    {
+      "gate_id": "VAL-001",
+      "reference": "The gated reproduction already on main at Tests/RuntimeWorldEnemyNavMeshPlayModeTests.cs, which is owned by no contract",
+      "requirement": "A Play Mode test reproduces the reported case - a melee enemy at its real spawn, the wizard inside detection distance with a landmark-scale prop between them, a walkable route existing - and asserts AC-001, AC-002 and AC-003: that the root displaces and the gap closes; that the enemy is not pursuing while the view is obstructed and does acquire once it clears; and that it reaches a terminal outcome without alternating between moving and stationary more than once. IT MUST ALSO ASSERT THE APPROACH FROM A SECOND DIRECTION IN WHICH SIGHT IS CLEAR, so the test proves the sight-blocked case specifically rather than proving that pursuit works at all. The existing reproduction is skipped by an environment-variable Assert.Ignore rather than by an attribute; it must run unconditionally once it passes, because a guard that only runs when someone remembers an environment variable is not a guard. No human review is claimed by this gate and none may be recorded against it."
+    }
+  ],
+  "confidence": "medium",
+  "contract_disposition": "active",
+  "contract_revision": 1,
+  "decomposition_reason": "One behaviour in one component with one Play Mode reproduction. The sight fallback and its test cannot be scheduled apart, and the leash half of the original report is already fixed and is not in this contract.",
+  "decomposition_state": "concrete",
+  "depends_on": [
+    "NSC-091",
+    "NSC-092"
+  ],
+  "downstream_integration_obligations": [
+    {
+      "obligation_id": "INT-001",
+      "reference": "Tests/RuntimeWorldEnemyNavMeshPlayModeTests.cs is declared by ZERO contracts; its placement helper tries +X first, which in the Bone Archive is the sight-blocked direction",
+      "requirement": "WHOEVER SATISFIES VAL-001 ALSO REPAIRS THAT FILE'S DIRECTION ORDER AND ITS NAME, IN THE SAME COMMIT. The reproduction reports that the enemy never begins pursuit while actually measuring that it never begins pursuit when approached from +X in that room, because the helper's first candidate direction happens to be the occluded one; approached from +Z, pursuit starts. So the test reproduces a real defect under a name that overstates its scope, and a future reader will draw the wrong conclusion from a pass. The file has no other owner, so there is nobody else to hand this to."
+    }
+  ],
+  "exclusive_resources": [
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyTargetKnowledge.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/RuntimeWorldEnemyNavMeshPlayModeTests.cs",
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Tests/RuntimeWorldEnemyNavMeshPlayModeTests.cs.meta"
+  ],
+  "execution_reason": "One agent changes what one component does when a single condition fails, and repairs the one reproduction that covers it. The behaviour and its assertions must land together.",
+  "execution_scope": "single_agent",
+  "gdd_evidence": [
+    {
+      "reference": "GDD Enemy Detection, Pursuit, and Target Loss rules; Docs/Engineering/ENEMY_PURSUIT_AND_THE_LEASH.md on main",
+      "requirement": "The GDD asks for detection that leads to pursuit. Measured at main 214bc37e: HasUnobstructedViewOfWizard is an unconditional pre-requisite of AcquireTarget and there is no fallback of any kind when it returns false - the enemy simply does not acquire, and nothing else moves it. The wizard being inside detection distance is not enough."
+    }
+  ],
+  "id": "NSC-131",
+  "kind": "implementation",
+  "notes": "AUTHORED 2026-09-27 FROM agent-state/intent-NSC-132-enemy-pursuit-sight-fallback-and-leash-detour.md, at game main 214bc37e. *** THE ID SHIFTED AND THAT MATTERS FOR ANYONE HOLDING A REFERENCE: the intent file reserves NSC-132 for this work, and this contract is NSC-131. new_task_commit.py requires new ids to be contiguous from the highest existing task, which was NSC-129, and the intent reserved for NSC-131 (player navmesh pathfinding) was ruled NOT to need a contract because its fix merged at 214bc37e. So intent-NSC-132 maps to task NSC-131, and intent-NSC-131 maps to no task at all and never will. *** ONLY HALF OF THE INTENT IS HERE. Its half (b), the leash tripping on a legitimate detour, IS ALREADY FIXED: Vincent settled the anchor as TOWED on 2026-09-27, the Game Agent implemented it, and the ordinary-chase give-up is gone at main - read at source before this was written. This contract carries half (a), the sight fallback, only. THE DESIGN DECISION IS GER'S AND IS RECORDED RATHER THAN LEFT OPEN: a sight-blocked enemy INVESTIGATES - it closes on the wizard's detected position without acquiring, and acquires only when the view actually clears. WHAT WAS RULED OUT AND WHY: approaching the last-glimpsed point, which the intent listed as an option, IS NOT AVAILABLE IN THE REPORTED CASE - the enemy never acquired, so there is no glimpse and LastKnownPosition holds nothing from a sighting. A criterion naming it would have been unsatisfiable exactly where the defect lives, which is the failure this contract family has already paid for once. THE MECHANISM IS THE IMPLEMENTER'S, NOT THIS CONTRACT'S: whether this is a new state, a flag, or a movement-side behaviour, what anything is named, and how the approach point is chosen are all open. THE PARENT IS NSC-010 (Enemies) AND NOT NSC-014, DELIBERATELY: NSC-014 is a DECOMPOSED aggregate whose decomposition_children name exactly NSC-091 and NSC-092, so parenting a third task under it would assert that this behaviour was part of that decomposition's scope - it was not, and taskcontrol validate refuses it outright. NSC-010 is the coarse Enemies umbrella and already parents every recent enemy behaviour task including NSC-114, NSC-116, NSC-121 and NSC-129, so this is the conventional home rather than a way around a guard. WHY THE RESOURCE LIST IS SUFFICIENT WITHOUT NAMING A MECHANISM: at least one route to the required outcome exists entirely inside the one implementation file this task declares, because EnemyPursuitMovement.HandleSearching already sets the agent's destination to LastKnownPosition and reports arrival, so knowledge-side state alone can produce motion. That is offered as evidence the list is adequate, NOT as a requirement to take that route - and if the chosen mechanism needs EnemyPursuitMovement.cs, that file is declared by NSC-017, NSC-092 and NSC-125 and this contract must be revised to add it rather than written outside its resources. CONTENTION, MEASURED: EnemyTargetKnowledge.cs is declared by exactly TWO other contracts, NSC-091 and NSC-111, parsed from the exclusive_resources arrays of all 128 task files with DoorPrototypeGlobalSceneBuilder.cs at 13 owners as a control - a whole-file grep says six and NSC-015, NSC-088, NSC-112 and NSC-125 are prose only. Both have a delivery record and there are ZERO candidate refs in canonical, so the three-way contention is not live today. NSC-111's control record reads awaiting_human, which is un-revisable, and nothing here touches it - its criterion (3) requires the give-up for a REDIRECTED enemy and that path is preserved. confidence is MEDIUM because the behaviour is a design choice made under the 80-percent rule rather than one Vincent specified, and because AC-003's no-oscillation bound is the clause most likely to need a number once someone watches it. NOT ESTABLISHED: no Unity was run; whether the other melee enemies behave the same way is unmeasured, since only ba-melee-1 was instrumented; and why the route to a point four units north detours as far west as x = -3.167 is still unexplained and is not this task's to answer.",
+  "parent": "NSC-010",
+  "provenance": {
+    "graph_delta_plan_id": null,
+    "origin": "ger_agent_contract_request",
+    "parent_contract_revision": null,
+    "parent_contract_sha256": null,
+    "parent_task_id": null
+  },
+  "reconciliation_key": "sight-blocked-enemy-investigates",
+  "repository_evidence_at_bootstrap": [],
+  "repository_state_at_bootstrap": "not_applicable",
+  "schema_version": "2.0",
+  "source_scope": "required",
+  "title": "A Sight-Blocked Enemy Investigates Instead of Freezing",
+  "type": "enemy_ai_state"
+}

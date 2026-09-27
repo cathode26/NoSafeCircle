@@ -1082,12 +1082,14 @@
     {
       "reconciliation_keys": [
         "enemy-target-knowledge-state",
-        "spectral-decoy-enemy-target-redirect"
+        "spectral-decoy-enemy-target-redirect",
+        "sight-blocked-enemy-investigates"
       ],
       "resource_key": "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/Enemies/EnemyTargetKnowledge.cs",
       "work_ids": [
         "NSC-091",
-        "NSC-111"
+        "NSC-111",
+        "NSC-131"
       ]
     },
     {
