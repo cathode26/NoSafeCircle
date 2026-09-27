@@ -109,16 +109,49 @@ namespace NoSafeCircle.DoorPrototype.Editor.Environment
         // call this and assert on the verifier's own reported failures without killing the test
         // run the way calling Verify() itself would (every path through Verify() used to end in
         // EditorApplication.Exit, which terminates the Unity process mid test run).
+        //
+        // Every production caller (Verify() below) uses this zero-argument overload, which simply
+        // forwards to the real folder and the real exception list. Behaviour is therefore
+        // unchanged for every existing caller and every existing test.
         public static PropPrefabVerifyReport Collect()
+        {
+            return Collect(PrefabFolder, NoColliderByDesign);
+        }
+
+        // TEST SEAM (NSC-130). Lets a test point verification at a disposable fixture folder with
+        // its own independent NoColliderByDesign exception set, instead of the real folder and the
+        // real four-entry list above.
+        //
+        // WHY THIS EXISTS: Collect() derives each prop id from the PREFAB FILENAME, and (until this
+        // overload) NoColliderByDesign was a private field keyed by exactly four real prop_ids that
+        // exist as tracked files under PrefabFolder (shared_web_corner_a, shared_web_drape_b,
+        // ca_sigil_floor_mark, lv_sluice_slime_spill). AC-005's "a prop ON the declared walk-through
+        // list that has ACQUIRED a collider still fails" branch, and AC-002's "break the guard on
+        // purpose" directive for whichever check a test is exercising, can only be reached by a
+        // fixture whose id and folder the test controls - occupying one of those four real
+        // filenames would mean writing to a canonical prop prefab, which
+        // Docs/Engineering/UNITY_TESTING_POLICY.md's non-mutation invariant forbids ("Tests may not
+        // save canonical scenes, prefabs, ScriptableObjects, ProjectSettings, task contracts, or
+        // GDD files" and "Serialization and migration tests must use temporary assets, copies,
+        // temporary repositories, or disposable checkouts").
+        //
+        // This overload changes nothing about WHAT is checked - every check below is identical to
+        // the zero-argument path. It only changes WHERE the checks look and WHICH ids are treated
+        // as declared walk-through exceptions, so a test can build throwaway fixture prefabs under
+        // its own folder (for example a temp path under Assets, imported and deleted by the test
+        // itself) and give them ids that collide with a NoColliderByDesign key of the TEST'S
+        // choosing rather than production's.
+        public static PropPrefabVerifyReport Collect(
+            string folder, IReadOnlyDictionary<string, string> noColliderByDesign)
         {
             var report = new PropPrefabVerifyReport();
             var failures = report.Failures;
             var lines = report.Lines;
 
-            if (!Directory.Exists(PrefabFolder))
+            if (!Directory.Exists(folder))
             {
                 report.EnvironmentError =
-                    $"PROP PREFAB VERIFY: folder does not exist: {PrefabFolder}";
+                    $"PROP PREFAB VERIFY: folder does not exist: {folder}";
                 return report;
             }
 
@@ -126,12 +159,12 @@ namespace NoSafeCircle.DoorPrototype.Editor.Environment
             // nothing is indistinguishable from a folder that imported nothing, and this check
             // exists precisely to catch a prefab Unity refused.
             string[] paths = Directory
-                .GetFiles(PrefabFolder, "*.prefab", SearchOption.TopDirectoryOnly)
+                .GetFiles(folder, "*.prefab", SearchOption.TopDirectoryOnly)
                 .Select(p => p.Replace('\\', '/'))
                 .OrderBy(p => p, StringComparer.Ordinal)
                 .ToArray();
 
-            lines.Add($"PROP PREFAB VERIFY: {paths.Length} .prefab file(s) on disk in {PrefabFolder}");
+            lines.Add($"PROP PREFAB VERIFY: {paths.Length} .prefab file(s) on disk in {folder}");
 
             if (paths.Length == 0)
             {
@@ -201,7 +234,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Environment
                 var box = prefab.GetComponent<BoxCollider>();
                 if (box == null)
                 {
-                    if (NoColliderByDesign.TryGetValue(id, out string why))
+                    if (noColliderByDesign.TryGetValue(id, out string why))
                     {
                         lines.Add(string.Format(CultureInfo.InvariantCulture,
                             "  {0,-38} sprite={1,-30} layer={2,-13} order={3,-3} NO COLLIDER BY "
@@ -223,10 +256,10 @@ namespace NoSafeCircle.DoorPrototype.Editor.Environment
                 // The inverse guard, and it is the one that actually earns its keep: a prop on the
                 // declared walk-through list that HAS acquired a collider. A check that only looks
                 // for a missing collider cannot see a collider that should not exist.
-                if (NoColliderByDesign.ContainsKey(id))
+                if (noColliderByDesign.ContainsKey(id))
                 {
                     failures.Add($"{id}: carries a collider but is on the declared walk-through "
-                        + $"list ({NoColliderByDesign[id]}). Remove one or the other deliberately.");
+                        + $"list ({noColliderByDesign[id]}). Remove one or the other deliberately.");
                 }
 
                 if (box.isTrigger)
