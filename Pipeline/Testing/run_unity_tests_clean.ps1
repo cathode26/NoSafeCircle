@@ -531,6 +531,20 @@ try {
     if ($acceptableResults -notcontains $result) {
         Stop-WithCode $ExitResult "RESULT FAILURE: Test-run result is '$result', expected one of: $($acceptableResults -join ', ')."
     }
+    # ORDER IS LOAD-BEARING AND THIS IS THE ONLY MESSAGE THAT NAMES THE FILTER.
+    # total == 0 forces passed == 0, so whichever of these two runs first is the
+    # only one a dead filter can ever reach. It used to be the `passed` gate,
+    # whose text names neither the platform nor the filter -- so a filter naming
+    # a deleted fixture produced "zero passed tests" and the operator had to go
+    # and find out why. Observed on a real PlayMode run: Unity itself reports
+    # "Passed" with exit 0 on total=0, so this text is the whole diagnosis.
+    # Do not move the `passed` gate above this one to tidy the counts together;
+    # testing_policy_smoke_test.py asserts this ordering and says why.
+    if ($total -le 0) {
+        Stop-WithCode $ExitResult "RESULT FAILURE: Unity discovered zero tests for platform '$TestPlatform' and filter '$TestFilter'."
+    }
+    # Reached only when tests WERE discovered, which is the all-ignored run this
+    # gate was added for: total > 0, passed == 0, result "Skipped:Ignored".
     if ($passed -le 0) {
         Stop-WithCode $ExitResult "RESULT FAILURE: Test run reports zero passed tests (total=$total skipped=$skipped)."
     }
@@ -540,9 +554,6 @@ try {
         $ignoredNodes = $resultDocument.SelectNodes("//test-case[starts-with(@result,'Skipped')]")
         $ignoredNames = @($ignoredNodes | ForEach-Object { $_.GetAttribute("fullname") })
         Write-Host "Ignored tests ($skipped): $($ignoredNames -join ', ')"
-    }
-    if ($total -le 0) {
-        Stop-WithCode $ExitResult "RESULT FAILURE: Unity discovered zero tests for platform '$TestPlatform' and filter '$TestFilter'."
     }
 
     $manifestPath = Join-Path $artifactDirectory "validation-manifest.json"

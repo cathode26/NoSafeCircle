@@ -92,7 +92,15 @@ def main() -> int:
     require(runner, r'@\("total", "passed", "failed", "skipped"\)', "Runner does not require all result counts")
     require(runner, r"GetAttribute\(\"result\"\)", "Runner does not parse the test-run result")
     require(runner, r"failed\s+-ne\s+0", "Runner does not reject failed tests")
-    require(runner, r"result\s+-ne\s+\"Passed\"", "Runner does not reject a non-Passed result")
+    # c4fe986d replaced `$result -ne "Passed"` with an allow-list so an opt-in
+    # visual capture could report Skipped:Ignored. THIS LINE STILL DEMANDED THE OLD
+    # LITERAL AND WENT RED FOR FIVE DAYS, and because it raises here the ordering
+    # assertion below never ran at all. Assert the allow-list and its exact members,
+    # so widening it again is a decision someone has to make on purpose.
+    require(runner, r'\$acceptableResults\s*=\s*@\("Passed", "Skipped:Ignored"\)',
+            "Runner does not define the exact accepted test-run results")
+    require(runner, r"acceptableResults\s+-notcontains\s+\$result",
+            "Runner does not reject a result outside the accepted set")
     require(runner, r"total\s+-le\s+0", "Runner does not reject a zero-test result")
     require(runner, r"function\s+Invoke-PythonCapture.+Start-Process.+RedirectStandardOutput.+RedirectStandardError",
             "Runner does not isolate Python stdout/stderr from PowerShell's error stream")
@@ -102,10 +110,27 @@ def main() -> int:
     manifest_start = runner.find('$manifestPath = Join-Path $artifactDirectory "validation-manifest.json"')
     final_success = runner.find('Write-Host "VALIDATION PASSED:')
     failed_check = runner.find('if ($failed -ne 0)')
-    passed_check = runner.find('if ($result -ne "Passed")')
+    result_check = runner.find('if ($acceptableResults -notcontains $result)')
     zero_check = runner.find('if ($total -le 0)')
-    if not (failed_check < passed_check < zero_check < manifest_start < final_success):
+    passed_count_check = runner.find('if ($passed -le 0)')
+    for label, offset in (("failed", failed_check), ("result", result_check),
+                          ("zero-test", zero_check), ("zero-passed", passed_count_check),
+                          ("manifest", manifest_start), ("final success", final_success)):
+        if offset < 0:
+            raise AssertionError(f"Runner no longer contains the {label} check this test compares")
+    if not (failed_check < result_check < zero_check < manifest_start < final_success):
         raise AssertionError("Runner does not publish the manifest only after all result success checks")
+    # THE RELATION THAT MATTERS, AND THE ONE NOTHING ASSERTED. `total -le 0` carries
+    # the only failure text naming $TestPlatform and $TestFilter, and total == 0
+    # forces passed == 0 -- so if the `passed -le 0` gate comes first, the
+    # filter-naming message is UNREACHABLE for the dead filter it exists to
+    # diagnose, and the operator gets "zero passed tests" instead. Asserted as the
+    # ordering rather than as the presence of either line, because both were
+    # present the whole time this was broken.
+    if not (zero_check < passed_count_check):
+        raise AssertionError(
+            "The zero-test check must precede the zero-passed check: total == 0 implies "
+            "passed == 0, so otherwise the only message naming the dead filter cannot fire")
     for fact in ("preHead", "preTree", "postHead", "postTree", "TestPlatform", "TestFilter",
                  "result", "total", "passed", "failed", "skipped", "xmlHash", "logHash"):
         require(runner[manifest_start:final_success], rf"\${fact}\b", f"Manifest does not include deterministic fact {fact}")
