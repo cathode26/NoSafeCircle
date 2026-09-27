@@ -23,7 +23,7 @@
     {
       "criterion_id": "AC-005",
       "reference": "NSC-007 AC-009 and AC-010's builder-wiring pattern",
-      "requirement": "Update DoorPrototypeGlobalSceneBuilder.BuildPlayer to add FireballChargeGlow and FireballPresentation to the Player and assign their references deterministically, the same way it adds Fireball. The production builder materializes the wiring into Assets/Scenes/DoorPrototype.unity; implementation code and tests never hand-edit or reconstruct the serialized scene. Running the builder twice produces an equivalent hierarchy, references and component values - raw scene bytes are not the equivalence oracle, since every rebuild assigns new fileIDs."
+      "requirement": "Update DoorPrototypeGlobalSceneBuilder.BuildPlayer to add FireballChargeGlow and FireballPresentation to the Player and assign their references deterministically, the same way it adds Fireball. The production builder produces the wiring in the scene it builds, and nothing is materialized into a committed scene file: the world is built at runtime by GameBootstrap and Assets/Scenes/DoorPrototype.unity was deleted at fe4c95ad, and DoorPrototypeGlobalSceneBuilder saves no scene. Implementation code and tests never hand-edit, reconstruct or save a serialized scene. Running the builder twice produces an equivalent hierarchy, references and component values - raw scene bytes are not the equivalence oracle, since every rebuild assigns new fileIDs."
     }
   ],
   "basis": "direct_gdd",
@@ -56,7 +56,7 @@
   ],
   "confidence": "high",
   "contract_disposition": "active",
-  "contract_revision": 5,
+  "contract_revision": 6,
   "decomposition_reason": "One bounded presentation responsibility over a fixed 28-sprite set. The three parts share the same art, the same charge seam and the same fixtures, so splitting them would triple the wiring and the review for no isolation.",
   "decomposition_state": "concrete",
   "depends_on": [
@@ -144,8 +144,7 @@
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/FireballProjectile.cs",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Scripts/FireballProjectile.cs.meta",
     "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs",
-    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs.meta",
-    "unity-scene:Assets/Scenes/DoorPrototype.unity"
+    "repo-file:Assets/NoSafeCircle/DoorPrototype/Editor/World/DoorPrototypeGlobalSceneBuilder.cs.meta"
   ],
   "execution_reason": "One crew binds an approved sprite set to spell states that already exist, scales one visual with a tier the mechanics already carry, and adds one glow component reading a public seam NSC-007 already exposes. No new gameplay rule, no balance change, no new input.",
   "execution_scope": "single_agent",
@@ -216,6 +215,15 @@
         "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)",
         "revised_contract_sha256": "fd7a960f341353143ba4fd6dc033ab97da75073206aac715a5bc3cd692d79de3",
         "source_head": "1082a3b833cc0cc65752b90591063e7e48fe5ddf"
+      },
+      {
+        "date": "2026-09-27",
+        "reason": "Deletion fallout: drop the owned unity-scene resource for Assets/Scenes/DoorPrototype.unity, deleted at fe4c95ad, and replace the clauses that still required a committed scene. DoorPrototypeGlobalSceneBuilder saves no scene and the world is built at runtime by GameBootstrap, so 'materializes into <scene>' named a mechanism that no longer exists; the clauses now state what must hold of the built world.",
+        "source_head": "d740bdd875ab839ed7b7a7e6b50417e0a39c1054",
+        "previous_contract_revision": 5,
+        "base_contract_sha256": "cf834b64c69f98dc434da91c41419126b47683faca6d8547a0105627c82d341c",
+        "revised_contract_sha256": "41febf7ca4d4b9938e03c9ca22b5c4338e8a71d715d0bc44734d8f8a7ce15493",
+        "review": "none; no pre-commit review, design revisions get a post-commit Codex contract check (2026-09-17)"
       }
     ],
     "migration_id": "task-contract-schema-v2-20260822-r2",

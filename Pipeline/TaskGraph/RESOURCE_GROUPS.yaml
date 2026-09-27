@@ -184,7 +184,6 @@
         "stationary-enemy-sprite-integration",
         "victory-trigger-overlay-integration",
         "navmesh-agent-configuration-foundation",
-        "fireball-second-mint",
         "title-screen-transparent-layout-build",
         "spectral-decoy-cast-phantom-cooldown-ui",
         "fireball-input-scene-assembly"
@@ -211,7 +210,6 @@
         "NSC-077",
         "NSC-086",
         "NSC-089",
-        "NSC-098",
         "NSC-108",
         "NSC-112",
         "NSC-119"
