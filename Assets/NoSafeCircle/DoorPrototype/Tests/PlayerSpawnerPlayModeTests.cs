@@ -257,18 +257,79 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "The wizard sorts by Center rather than Pivot, its ground-contact point.");
 
             // The ground-contact convention: the root rides one skinWidth above the floor and the
-            // visual is offset back down by exactly that, so the sprite's feet (pivot y 0) sit at
-            // world y 0 for the transparency axis. Two prefab literals that must agree; this is
-            // the relation, not either number.
+            // visual is offset back down by exactly that, so the sprite's PIVOT sits at world y 0
+            // for the transparency axis. Two prefab literals that must agree; this is the
+            // relation, not either number.
             Assert.AreEqual(0f, visual.position.y, 0.0001f,
-                "The wizard's feet sit at world y " + visual.position.y + " rather than 0, so the "
+                "The wizard's pivot sits at world y " + visual.position.y + " rather than 0, so the "
                 + "isometric sort axis reads him behind a doorway he is standing south of.");
+
+            // AND THE PIVOT MUST BE THE FEET. Until 2026-09-27 every frame pivoted on its CANVAS
+            // bottom, 8-28px below the drawn feet, so the check above passed while the drawn feet
+            // floated 0.21u. The witness is the Tight mesh, never sprite.bounds (the rect).
+            float drawnFeetY = visual.position.y + LowestDrawnY(renderer.sprite) * visual.lossyScale.y;
+            float dilation = TightMeshDilation(renderer.sprite) * visual.lossyScale.y;
+            Assert.That(drawnFeetY, Is.InRange(-dilation - 0.0005f, 0.0005f),
+                "The wizard's DRAWN feet are at world y " + drawnFeetY + " (sprite '" + renderer.sprite.name
+                + "'), not on the floor.");
             Assert.Less(Quaternion.Angle(Quaternion.identity, visual.localRotation), 0.01f,
                 "The wizard's visual is rotated. Unlike enemies it is NOT camera-tilted (builder "
                 + "lines 280-284).");
 
             yield return null;
         }
+
+        [Test]
+        public void EveryShippedWizardFrameHasItsPivotOnItsDrawnBase()
+        {
+            // Every frame, not just the idle one: the padding under the feet varied 8-28px INSIDE
+            // walk cycles, which bobbed the wizard up to 0.22u between frames. The expected count
+            // comes from the file system, not from the AssetDatabase query it checks.
+            const string Folder = "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab";
+            int pngs = System.IO.Directory.GetFiles(Folder, "*.png", System.IO.SearchOption.AllDirectories).Length;
+            Assert.Greater(pngs, 0, Folder + " holds no PNGs, so this test would pass on nothing.");
+
+            var paths = new System.Collections.Generic.HashSet<string>();
+            foreach (string guid in UnityEditor.AssetDatabase.FindAssets("t:Sprite", new[] { Folder }))
+            {
+                paths.Add(UnityEditor.AssetDatabase.GUIDToAssetPath(guid));
+            }
+
+            var offBase = new System.Collections.Generic.List<string>();
+            foreach (string path in paths)
+            {
+                Sprite sprite = UnityEditor.AssetDatabase.LoadAssetAtPath<Sprite>(path);
+                float lowest = LowestDrawnY(sprite);
+                if (lowest > 0.0005f || lowest < -TightMeshDilation(sprite) - 0.0005f)
+                {
+                    offBase.Add(path.Substring(Folder.Length + 1) + " drawn base " + lowest.ToString("0.####"));
+                }
+            }
+
+            Assert.AreEqual(pngs, paths.Count, "The folder holds " + pngs + " PNGs but " + paths.Count + " import as sprites.");
+            Assert.AreEqual(0, offBase.Count, offBase.Count + " of " + paths.Count
+                + " wizard frames do not pivot on their drawn feet: " + string.Join("; ", offBase));
+        }
+
+        // The lowest vertex of a Tight sprite mesh, in the sprite's local units: its drawn base.
+        private static float LowestDrawnY(Sprite sprite)
+        {
+            var importer = (UnityEditor.TextureImporter)UnityEditor.AssetImporter.GetAtPath(UnityEditor.AssetDatabase.GetAssetPath(sprite));
+            var settings = new UnityEditor.TextureImporterSettings();
+            importer.ReadTextureSettings(settings);
+            Assert.AreEqual(SpriteMeshType.Tight, settings.spriteMeshType,
+                sprite.name + " is not a Tight mesh, so its vertices are the rect and cannot witness the drawn base.");
+            float lowest = float.MaxValue;
+            foreach (Vector2 v in sprite.vertices)
+            {
+                lowest = Mathf.Min(lowest, v.y);
+            }
+
+            return lowest;
+        }
+
+        // A Tight mesh hugs the alpha outline with up to 2px of dilation.
+        private static float TightMeshDilation(Sprite sprite) => 2f / sprite.pixelsPerUnit;
 
         [UnityTest]
         public IEnumerator Spawn_VisualScaleIsUniformAndFillsTheControllerHeight()
