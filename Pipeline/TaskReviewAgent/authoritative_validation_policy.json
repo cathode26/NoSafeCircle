@@ -676,6 +676,16 @@
         "PlayMode": "NoSafeCircle.DoorPrototype.Tests.DrainedWraithStaffMeleePlayModeTests;NoSafeCircle.DoorPrototype.Tests.EnemyLanternWispCasterPlayModeTests"
       },
       "authority": "committed_task_specific_authoritative_validation_policy"
+    },
+    "NSC-127": {
+      "task_contract_sha256": "130abb357ad15f3183710472094ff84597d8cecb81ff3ee8572b05e5a09ae14c",
+      "required_test_platforms": [
+        "PlayMode"
+      ],
+      "test_filters": {
+        "PlayMode": "NoSafeCircle.DoorPrototype.Tests.WallSpawnerPlayModeTests"
+      },
+      "authority": "committed_task_specific_authoritative_validation_policy"
     }
   },
   "decomposition_child_templates": {}
