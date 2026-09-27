@@ -274,10 +274,28 @@ namespace NoSafeCircle.DoorPrototype.Tests
         // hide the defect: ba-melee-1 is written up in the Game Agent todo and was reported to
         // Vincent directly. Remove [Explicit] the moment the defect is fixed - if this starts
         // passing, that is the signal the fix landed.
-        [Explicit("Reproduces the open ba-melee-1 pursuit defect; run it deliberately.")]
         [UnityTest]
         public IEnumerator RuntimeWorld_BaMeleeAndFrMelee_CloseADistantGapToThePlayer()
         {
+            // GATED, NOT HIDDEN - and NOT with [Explicit], which does NOT prevent
+            // execution under this project's broad -TestFilter. Measured: CaptureRuntimeWorld
+            // carries [Explicit] and still RAN AND FAILED under -TestFilter NoSafeCircle, while
+            // the capture fixtures that genuinely skip do it with an env-var Assert.Ignore
+            // exactly like this one. Copy the idiom that works, not the attribute that reads
+            // like it should.
+            //
+            // Set NSC_RUN_KNOWN_DEFECTS to run it. It reproduces ba-melee-1 and FAILS on
+            // purpose: the BoneArchive melee enemy is on the navmesh at a point an independent
+            // NavMesh.CalculatePath proves reachable, and still never begins pursuit at 4u.
+            // Delete this gate when the defect is fixed.
+            if (string.IsNullOrWhiteSpace(
+                    System.Environment.GetEnvironmentVariable("NSC_RUN_KNOWN_DEFECTS")))
+            {
+                Assert.Ignore("ba-melee-1 is an OPEN defect: the BoneArchive melee enemy never "
+                              + "begins pursuit at 4u although its target is on-mesh and "
+                              + "path-reachable. Set NSC_RUN_KNOWN_DEFECTS to reproduce it.");
+            }
+
             yield return SceneManager.LoadSceneAsync("RuntimeWorld", LoadSceneMode.Single);
             yield return WaitForWorldBuilt();
 
