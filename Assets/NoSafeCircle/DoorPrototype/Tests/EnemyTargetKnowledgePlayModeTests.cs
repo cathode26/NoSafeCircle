@@ -280,7 +280,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         [Test]
         public void FullTargetLossAndExpiryCycle_DoesNotDestroyOrReplaceEnemyGameObject_AndAllowsReacquisitionLater()
         {
-            var originalInstanceId = enemyObject.GetInstanceID();
+            var originalInstanceId = enemyObject.GetEntityId();
 
             EnterSearchingState();
             targetKnowledge.ReportArrivedAtLastKnownPosition();
@@ -288,7 +288,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             Assert.That(targetKnowledge.State, Is.EqualTo(EnemyTargetKnowledgeState.Idle));
             Assert.That(enemyObject, Is.Not.Null);
-            Assert.That(enemyObject.GetInstanceID(), Is.EqualTo(originalInstanceId));
+            Assert.That(enemyObject.GetEntityId(), Is.EqualTo(originalInstanceId));
             Assert.That(enemyObject.activeInHierarchy, Is.True);
             Assert.That(targetKnowledge.gameObject, Is.SameAs(enemyObject));
 

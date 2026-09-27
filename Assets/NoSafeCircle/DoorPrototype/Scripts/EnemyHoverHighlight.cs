@@ -103,7 +103,7 @@ namespace NoSafeCircle.DoorPrototype
                 if (!other.TryGetHoverDistance(out var otherDistance)) continue;
 
                 if (otherDistance < ownDistance) return false;
-                if (Mathf.Approximately(otherDistance, ownDistance) && other.GetInstanceID() < GetInstanceID())
+                if (Mathf.Approximately(otherDistance, ownDistance) && other.GetEntityId() < GetEntityId())
                 {
                     return false;
                 }
