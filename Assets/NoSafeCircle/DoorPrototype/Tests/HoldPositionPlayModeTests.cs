@@ -57,11 +57,11 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "<Mouse>/leftButton");
 
             // AC-001: the same action name PlayerMovement.Awake looks up via FindAction,
-            // bound to both physical Shift keys, matching the committed
-            // InputSystem_Actions.inputactions Keyboard&Mouse bindings.
+            // bound to the Z key, matching the committed InputSystem_Actions.inputactions
+            // Keyboard&Mouse binding. Both physical Shift keys were withdrawn on Vincent's
+            // 2026-09-26 instruction and must not be reinstated here.
             var holdPositionAction = playerMap.AddAction("HoldPosition", InputActionType.Button);
-            holdPositionAction.AddBinding("<Keyboard>/leftShift");
-            holdPositionAction.AddBinding("<Keyboard>/rightShift");
+            holdPositionAction.AddBinding("<Keyboard>/z");
 
             playerMap.devices = new InputDevice[] { mouseDevice, keyboardDevice };
 
@@ -119,7 +119,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             var target = new Vector3(3f, 0f, 0f);
             var screenPoint = testCamera.WorldToScreenPoint(target);
 
-            Press(keyboardDevice.leftShiftKey);
+            Press(keyboardDevice.zKey);
             SetMouse(screenPoint, true);
             movement.Tick(0.02f);
 
@@ -128,7 +128,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             var heldDisplacement = HorizontalOffset(movement.transform.position, startHeld);
 
             SetMouse(screenPoint, false);
-            Release(keyboardDevice.leftShiftKey);
+            Release(keyboardDevice.zKey);
             InputSystem.Update();
             movement.Tick(0.02f);
             movement.ResetMovement();
@@ -159,14 +159,14 @@ namespace NoSafeCircle.DoorPrototype.Tests
             var target = new Vector3(3f, 0f, 0f);
             var screenPoint = testCamera.WorldToScreenPoint(target);
 
-            Press(keyboardDevice.leftShiftKey);
+            Press(keyboardDevice.zKey);
             SetMouse(screenPoint, true);
             movement.Tick(0.02f);
 
             Assert.IsFalse(movement.HasActiveDestination,
                 "A fresh press while HoldPosition is held must not set a destination.");
 
-            Release(keyboardDevice.leftShiftKey);
+            Release(keyboardDevice.zKey);
             InputSystem.Update();
             AdvanceMovementTime(movement, 2f);
 
@@ -183,14 +183,14 @@ namespace NoSafeCircle.DoorPrototype.Tests
         {
             var baselineCount = GetPrivateField<int>(movement, "movementRestrictionCount");
 
-            Press(keyboardDevice.leftShiftKey);
+            Press(keyboardDevice.zKey);
             InputSystem.Update();
             movement.Tick(0.02f);
 
             Assert.IsTrue(movement.IsMovementRestricted,
                 "Test setup must actually restrict movement while the action is held.");
 
-            Release(keyboardDevice.leftShiftKey);
+            Release(keyboardDevice.zKey);
             InputSystem.Update();
             movement.Tick(0.02f);
 
@@ -202,29 +202,21 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "The restriction count must return to its starting value after a press-release cycle.");
         }
 
-        // AC-001: the action responds to either physical Shift key.
+        // AC-001: the action responds to the Z key (both physical Shift keys were withdrawn
+        // on Vincent's 2026-09-26 instruction and must not be reinstated).
         [UnityTest]
-        public IEnumerator HoldPosition_RespondsToEitherPhysicalShiftKey()
+        public IEnumerator HoldPosition_RespondsToZKey()
         {
-            Press(keyboardDevice.leftShiftKey);
+            Press(keyboardDevice.zKey);
             InputSystem.Update();
             movement.Tick(0.02f);
-            Assert.IsTrue(movement.IsMovementRestricted, "The left Shift key must suppress movement.");
-            Release(keyboardDevice.leftShiftKey);
+            Assert.IsTrue(movement.IsMovementRestricted, "The Z key must suppress movement.");
+            Release(keyboardDevice.zKey);
             InputSystem.Update();
             movement.Tick(0.02f);
             Assert.IsFalse(movement.IsMovementRestricted);
 
             yield return null;
-
-            Press(keyboardDevice.rightShiftKey);
-            InputSystem.Update();
-            movement.Tick(0.02f);
-            Assert.IsTrue(movement.IsMovementRestricted, "The right Shift key must also suppress movement.");
-            Release(keyboardDevice.rightShiftKey);
-            InputSystem.Update();
-            movement.Tick(0.02f);
-            Assert.IsFalse(movement.IsMovementRestricted);
         }
 
         // AC-003: suppression uses the existing reference-counted movement restriction and
@@ -240,7 +232,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsTrue(movement.IsMovementRestricted,
                 "Test setup must actually hold a concurrent (e.g. Fireball charge) restriction first.");
 
-            Press(keyboardDevice.leftShiftKey);
+            Press(keyboardDevice.zKey);
             InputSystem.Update();
             movement.Tick(0.02f);
 
@@ -248,7 +240,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 "Holding the action while another restriction is already active must add exactly one more " +
                 "restriction, not replace or duplicate the existing one.");
 
-            Release(keyboardDevice.leftShiftKey);
+            Release(keyboardDevice.zKey);
             InputSystem.Update();
             movement.Tick(0.02f);
 
@@ -274,7 +266,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         {
             var baselineCount = GetPrivateField<int>(movement, "movementRestrictionCount");
 
-            Press(keyboardDevice.leftShiftKey);
+            Press(keyboardDevice.zKey);
             InputSystem.Update();
             movement.Tick(0.02f);
 
@@ -298,7 +290,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         [UnityTest]
         public IEnumerator CastPerformedWhileHeld_StillSpendsMana_AndProducesProjectile()
         {
-            Press(keyboardDevice.leftShiftKey);
+            Press(keyboardDevice.zKey);
             InputSystem.Update();
             movement.Tick(0.02f);
 
@@ -426,8 +418,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
                 InputActionType.Button,
                 "<Mouse>/leftButton");
             var holdPositionAction = playerMap.AddAction("HoldPosition", InputActionType.Button);
-            holdPositionAction.AddBinding("<Keyboard>/leftShift");
-            holdPositionAction.AddBinding("<Keyboard>/rightShift");
+            holdPositionAction.AddBinding("<Keyboard>/z");
             playerMap.devices = new InputDevice[] { mouseDevice, keyboardDevice };
 
             doorObject = new GameObject("TestDoor");
@@ -486,7 +477,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
         {
             var doorScreenPoint = testCamera.WorldToScreenPoint(door.SelectionPoint);
 
-            Press(keyboardDevice.leftShiftKey);
+            Press(keyboardDevice.zKey);
             SetMouse(doorScreenPoint, true);
             movement.Tick(0.02f);
 
@@ -496,7 +487,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             SetMouse(doorScreenPoint, false);
             movement.Tick(0.02f);
-            Release(keyboardDevice.leftShiftKey);
+            Release(keyboardDevice.zKey);
             InputSystem.Update();
             movement.Tick(0.02f);
 
@@ -517,14 +508,14 @@ namespace NoSafeCircle.DoorPrototype.Tests
         {
             var doorScreenPoint = testCamera.WorldToScreenPoint(door.SelectionPoint);
 
-            Press(keyboardDevice.leftShiftKey);
+            Press(keyboardDevice.zKey);
             SetMouse(doorScreenPoint, true);
             movement.Tick(0.02f);
 
             Assert.IsFalse(interactionController.HasLockedDoorInteraction,
                 "Test setup must actually suppress the door approach while HoldPosition is held.");
 
-            Release(keyboardDevice.leftShiftKey);
+            Release(keyboardDevice.zKey);
             InputSystem.Update();
             movement.Tick(0.02f);
 
