@@ -253,6 +253,8 @@ namespace NoSafeCircle.DoorPrototype
 
         private void OnGUI()
         {
+            // Menus and entry own the screen until gameplay handoff. Keep the end banner visible.
+            if (movement == null || (!movement.IsGameplayEnabled && !HasEnded)) return;
             if (titleScreen == null)
                 titleScreen = FindFirstObjectByType<TitleScreenController>();
             if (titleScreen != null && titleScreen.IsTitleScreenVisible)
