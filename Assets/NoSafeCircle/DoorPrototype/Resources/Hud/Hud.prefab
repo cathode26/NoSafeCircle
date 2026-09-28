@@ -273,6 +273,7 @@ MonoBehaviour:
   wraithChaseAnimator: {fileID: 9100000, guid: 0180b5ae94034f64d8f4afb61bd8e6f2, type: 2}
   entry: {fileID: 7300000000000000011}
   worldSpawn: {fileID: 7300000000000000225}
+  mobileControlsPrefab: {fileID: 1000, guid: cc41bc85a01c40ed868bafc827cceb7d, type: 3}
 --- !u!114 &361473297779284770
 MonoBehaviour:
   m_ObjectHideFlags: 0

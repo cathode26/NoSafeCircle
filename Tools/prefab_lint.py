@@ -135,8 +135,8 @@ def check_prefab(path: pathlib.Path, known_guids: set) -> list:
     class_ids = {class_id for class_id, _ in anchors}
     if "1" not in class_ids:
         failures.append("has no GameObject (class 1)")
-    if "4" not in class_ids:
-        failures.append("has no Transform (class 4); Unity will not import it as a prefab")
+    if "4" not in class_ids and "224" not in class_ids:
+        failures.append("has no Transform or RectTransform; Unity will not import it as a prefab")
 
     relative = path.as_posix()
     sprite_optional_reason = None

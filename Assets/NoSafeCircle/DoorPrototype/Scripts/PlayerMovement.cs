@@ -1,7 +1,10 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 using UnityEngine.InputSystem;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 namespace NoSafeCircle.DoorPrototype
 {
@@ -55,6 +58,98 @@ namespace NoSafeCircle.DoorPrototype
         private float blockedDestinationTime;
         private bool wasMoveToCursorPressed;
         private bool isHoldingPositionRestriction;
+        private bool mousePressStartedOverUi;
+        private bool ignoreMouseUntilRelease;
+        private readonly HashSet<int> movingFirePointers = new HashSet<int>();
+        private readonly HashSet<int> standingFirePointers = new HashSet<int>();
+        private readonly List<RaycastResult> uiHits = new List<RaycastResult>();
+
+        public MobileFireMode CurrentMobileFireMode => standingFirePointers.Count > 0
+            ? MobileFireMode.StandAndFire
+            : movingFirePointers.Count > 0 ? MobileFireMode.FireWhileMoving : MobileFireMode.None;
+
+        /// <summary>A world tap while a mobile fire modifier is held; the bound spell owner casts it.</summary>
+        public event Action<Vector3> WorldFireRequested;
+
+        public void SetMobileFireHeld(MobileFireMode mode, int pointerId, bool held)
+        {
+            if (mode == MobileFireMode.None || (held && !IsGameplayEnabled)) return;
+            HashSet<int> pointers = mode == MobileFireMode.StandAndFire
+                ? standingFirePointers : movingFirePointers;
+            if (!held)
+            {
+                if (pointers.Remove(pointerId) && CurrentMobileFireMode == MobileFireMode.None
+                    && moveToCursorAction != null && moveToCursorAction.IsPressed())
+                    ignoreMouseUntilRelease = true;
+                return;
+            }
+            if (!pointers.Add(pointerId)) return;
+            if (mode == MobileFireMode.StandAndFire)
+            {
+                // Cancel, rather than pause: neither the path nor a pending door timer can resume.
+                interactionController?.CancelDoorCommand();
+                ClearDestination();
+                ignoreMouseUntilRelease = moveToCursorAction != null && moveToCursorAction.IsPressed();
+            }
+        }
+
+        public void ClearMobileFireHolds()
+        {
+            if (CurrentMobileFireMode != MobileFireMode.None)
+                ignoreMouseUntilRelease = moveToCursorAction != null && moveToCursorAction.IsPressed();
+            movingFirePointers.Clear();
+            standingFirePointers.Clear();
+        }
+
+        /// <summary>One fresh UI world pointer, with its own aim position (never the held button finger).</summary>
+        public void HandleWorldTap(Vector2 screenPosition)
+        {
+            if (!IsGameplayEnabled || !TryProjectPointer(screenPosition, out Vector3 target)) return;
+            PointerWorldTarget = target;
+            HasPointerWorldTarget = true;
+            if (CurrentMobileFireMode != MobileFireMode.None)
+            {
+                WorldFireRequested?.Invoke(target);
+                return;
+            }
+            if (IsHoldPositionHeld) return;
+            if (interactionController != null && interactionController.TryBeginDoorApproach(target)) return;
+            SetDestination(target);
+        }
+
+        public bool TryProjectPointer(Vector2 screenPosition, out Vector3 target)
+        {
+            target = default;
+            if (mainCamera == null) mainCamera = Camera.main;
+            if (mainCamera == null) return false;
+            Ray ray = mainCamera.ScreenPointToRay(screenPosition);
+            var plane = new Plane(Vector3.up, new Vector3(0f, gameplayPlaneHeight, 0f));
+            if (!plane.Raycast(ray, out float distance)) return false;
+            target = ray.GetPoint(distance);
+            return true;
+        }
+
+        /// <summary>Raycast this pointer directly; EventSystem's cached/any-pointer query is unsuitable for multitouch.</summary>
+        public bool IsPointerOverGameplayUi(Vector2 screenPosition)
+        {
+            EventSystem events = EventSystem.current;
+            if (events == null) return false;
+            uiHits.Clear();
+            events.RaycastAll(new PointerEventData(events) { position = screenPosition }, uiHits);
+            foreach (RaycastResult hit in uiHits)
+                if (hit.module is GraphicRaycaster) return true;
+            return false;
+        }
+
+        private void OnApplicationFocus(bool focused)
+        {
+            if (!focused) ClearMobileFireHolds();
+        }
+
+        private void OnApplicationPause(bool paused)
+        {
+            if (paused) ClearMobileFireHolds();
+        }
 
         // AC (this fix): follows a baked NavMesh route around obstacles to the requested
         // destination via NavMesh.CalculatePath, walked with the existing CharacterController -
@@ -75,7 +170,8 @@ namespace NoSafeCircle.DoorPrototype
         public Vector3 PointerWorldTarget { get; private set; }
         public bool HasPointerWorldTarget { get; private set; }
 
-        public bool IsMovementRestricted => movementRestrictionCount > 0;
+        public bool IsMovementRestricted => movementRestrictionCount > 0
+            || CurrentMobileFireMode == MobileFireMode.StandAndFire;
         public bool IsGameplayEnabled { get; private set; } = true;
         public bool HasActiveDestination => hasDestination;
 
@@ -127,6 +223,7 @@ namespace NoSafeCircle.DoorPrototype
 
         private void OnDisable()
         {
+            ClearMobileFireHolds();
             pointerPositionAction?.Disable();
             moveToCursorAction?.Disable();
             holdPositionAction?.Disable();
@@ -183,17 +280,11 @@ namespace NoSafeCircle.DoorPrototype
 
             if (pointerPositionAction == null) return;
 
-            if (mainCamera == null) mainCamera = Camera.main;
-            if (mainCamera == null) return;
-
-            var screenPosition = pointerPositionAction.ReadValue<Vector2>();
-            var ray = mainCamera.ScreenPointToRay(screenPosition);
-            var plane = new Plane(Vector3.up, new Vector3(0f, gameplayPlaneHeight, 0f));
-
-            if (!plane.Raycast(ray, out var distance)) return;
-
-            PointerWorldTarget = ray.GetPoint(distance);
-            HasPointerWorldTarget = true;
+            if (TryProjectPointer(pointerPositionAction.ReadValue<Vector2>(), out Vector3 target))
+            {
+                PointerWorldTarget = target;
+                HasPointerWorldTarget = true;
+            }
         }
 
         private void HandleMoveToCursorInput()
@@ -207,6 +298,18 @@ namespace NoSafeCircle.DoorPrototype
             // between two distinct input samples.
             var isFreshPress = isPressed && !wasMoveToCursorPressed;
             wasMoveToCursorPressed = isPressed;
+            if (!isPressed)
+            {
+                mousePressStartedOverUi = false;
+                ignoreMouseUntilRelease = false;
+            }
+            // Touch UI owns all mobile world gestures; compatibility mouse events must not replay them.
+            if (Application.isMobilePlatform || Touchscreen.current != null) return;
+            if (isFreshPress)
+                mousePressStartedOverUi = IsPointerOverGameplayUi(pointerPositionAction.ReadValue<Vector2>());
+            if (mousePressStartedOverUi || ignoreMouseUntilRelease) return;
+            // Mobile world taps arrive through the UI surface, once per pointer-down.
+            if (CurrentMobileFireMode != MobileFireMode.None) return;
 
             // AC-005: while Z is held, a fresh press starts no destination and no door
             // approach. wasMoveToCursorPressed above is still updated while held, so a press
@@ -309,7 +412,7 @@ namespace NoSafeCircle.DoorPrototype
         /// projecting screen coordinates or polling pointer hardware.
         public void RequestDestination(Vector3 worldPosition)
         {
-            if (!IsGameplayEnabled) return;
+            if (!IsGameplayEnabled || CurrentMobileFireMode == MobileFireMode.StandAndFire) return;
 
             SetDestination(worldPosition);
         }
@@ -467,6 +570,7 @@ namespace NoSafeCircle.DoorPrototype
         /// all owned movement state, including re-enabling gameplay input.
         public void ResetMovement()
         {
+            ClearMobileFireHolds();
             ClearDestination();
             movementRestrictionCount = 0;
             isHoldingPositionRestriction = false;
@@ -484,6 +588,7 @@ namespace NoSafeCircle.DoorPrototype
         public void SuspendGameplayInput()
         {
             IsGameplayEnabled = false;
+            ClearMobileFireHolds();
             ClearDestination();
 
             // AC-003: a title-screen transition mid-hold must not strand this restriction;

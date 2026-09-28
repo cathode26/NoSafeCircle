@@ -159,6 +159,9 @@ namespace NoSafeCircle.DoorPrototype
             PendingDoor.StartInteraction();
         }
 
+        /// <summary>Cancel a selected door during either approach or opening, including its movement request.</summary>
+        public void CancelDoorCommand() => CancelCurrentDoorInteraction();
+
         private void CancelCurrentDoorInteraction()
         {
             IsInteracting = false;

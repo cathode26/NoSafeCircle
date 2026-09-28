@@ -34,10 +34,47 @@ namespace NoSafeCircle.DoorPrototype
         private bool won;
         private bool lost;
         private TitleScreenController titleScreen;
+        private PlayerMovement movement;
+        public bool HasEnded => won || lost;
+
+        public void BindToPlayer(PlayerMovement playerMovement)
+        {
+            if (movement != null) movement.WorldFireRequested -= HandleWorldFireRequested;
+            if (playerHealth != null) playerHealth.Died -= HandlePlayerDied;
+            movement = playerMovement;
+            player = movement != null ? movement.transform : null;
+            playerHealth = player != null ? player.GetComponent<PlayerHealth>() : null;
+            playerMana = player != null ? player.GetComponent<PlayerMana>() : null;
+            if (isActiveAndEnabled) SubscribePlayer();
+        }
+
+        private void SubscribePlayer()
+        {
+            if (movement != null)
+            {
+                movement.WorldFireRequested -= HandleWorldFireRequested;
+                movement.WorldFireRequested += HandleWorldFireRequested;
+            }
+            if (playerHealth != null)
+            {
+                playerHealth.Died -= HandlePlayerDied;
+                playerHealth.Died += HandlePlayerDied;
+            }
+        }
+
+        private void OnEnable() => SubscribePlayer();
+        private void OnDisable()
+        {
+            if (movement != null) movement.WorldFireRequested -= HandleWorldFireRequested;
+            if (playerHealth != null) playerHealth.Died -= HandlePlayerDied;
+        }
+
+        private void HandleWorldFireRequested(Vector3 target) => TryCastFireball(target);
 
         private struct Fireball
         {
             public GameObject Visual;
+            public Material Material;
             public Vector3 Direction;
             public float RemainingLifetime;
         }
@@ -46,7 +83,7 @@ namespace NoSafeCircle.DoorPrototype
         {
             if (player == null)
             {
-                var movement = FindFirstObjectByType<PlayerMovement>();
+                var movement = FindAnyObjectByType<PlayerMovement>();
                 if (movement != null) player = movement.transform;
             }
 
@@ -56,7 +93,7 @@ namespace NoSafeCircle.DoorPrototype
                 if (playerMana == null) playerMana = player.GetComponent<PlayerMana>();
             }
 
-            if (playerHealth != null) playerHealth.Died += HandlePlayerDied;
+            if (movement == null && player != null) BindToPlayer(player.GetComponent<PlayerMovement>());
 
             foreach (DoorInteractable door in FindObjectsByType<DoorInteractable>(FindObjectsSortMode.None))
             {
@@ -66,22 +103,34 @@ namespace NoSafeCircle.DoorPrototype
 
         private void OnDestroy()
         {
-            if (playerHealth != null) playerHealth.Died -= HandlePlayerDied;
+            OnDisable();
+            foreach (Fireball fireball in fireballs) RetireFireball(fireball);
+            fireballs.Clear();
+            foreach (DoorInteractable door in FindObjectsByType<DoorInteractable>(FindObjectsSortMode.None))
+                if (door.IsFinalDoor) door.CrossedForward -= HandleFinalDoorCrossed;
+        }
+
+        private static void RetireFireball(Fireball fireball)
+        {
+            if (fireball.Visual != null) Destroy(fireball.Visual);
+            if (fireball.Material != null) Destroy(fireball.Material);
         }
 
         private void HandlePlayerDied()
         {
             lost = true;
+            movement?.ClearMobileFireHolds();
         }
 
         private void HandleFinalDoorCrossed()
         {
             won = true;
+            movement?.ClearMobileFireHolds();
         }
 
         private void Update()
         {
-            if (won || lost) return;
+            if (won || lost || (movement != null && !movement.IsGameplayEnabled)) return;
 
             if (castCooldown > 0f) castCooldown -= Time.deltaTime;
 
@@ -92,26 +141,24 @@ namespace NoSafeCircle.DoorPrototype
 
         private void TryFireAtCursor()
         {
+            if (Hud.MobileGameplayControls.IsTouchDevice) return;
             Mouse mouse = Mouse.current;
-            if (mouse == null || player == null || !mouse.rightButton.wasPressedThisFrame) return;
-            if (castCooldown > 0f) return;
+            if (mouse == null || movement == null || !mouse.rightButton.wasPressedThisFrame) return;
+            Vector2 screenPoint = mouse.position.ReadValue();
+            if (movement.IsPointerOverGameplayUi(screenPoint)) return;
+            if (movement.TryProjectPointer(screenPoint, out Vector3 target)) TryCastFireball(target);
+        }
 
-            // Mana gates casting exactly as it does for the enemy caster, so a wizard that
-            // regenerates faster genuinely sustains more fire.
-            if (playerMana != null && !playerMana.Spend(fireballManaCost)) return;
-
-            Camera camera = Camera.main;
-            if (camera == null) return;
-
-            // Aim across the gameplay plane at the wizard's own height.
-            var plane = new Plane(Vector3.up, new Vector3(0f, player.position.y, 0f));
-            Ray ray = camera.ScreenPointToRay(mouse.position.ReadValue());
-            if (!plane.Raycast(ray, out float distance)) return;
-
-            Vector3 target = ray.GetPoint(distance);
+        /// <summary>Shared mouse/touch cast path; aim validation precedes the existing mana/cooldown gates.</summary>
+        public bool TryCastFireball(Vector3 target)
+        {
+            if (!isActiveAndEnabled || won || lost || player == null || movement == null
+                || !movement.IsGameplayEnabled || (playerHealth != null && playerHealth.CurrentHealth <= 0f)
+                || castCooldown > 0f) return false;
             Vector3 direction = target - player.position;
             direction.y = 0f;
-            if (direction.sqrMagnitude < 0.0001f) return;
+            if (direction.sqrMagnitude < 0.0001f) return false;
+            if (playerMana != null && !playerMana.Spend(fireballManaCost)) return false;
 
             var visual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             visual.name = "Fireball";
@@ -120,16 +167,19 @@ namespace NoSafeCircle.DoorPrototype
             visual.transform.position = player.position + Vector3.up + direction.normalized;
 
             Renderer renderer = visual.GetComponent<Renderer>();
-            if (renderer != null) renderer.material.color = new Color(1f, 0.45f, 0.1f);
+            Material material = renderer != null ? renderer.material : null;
+            if (material != null) material.color = new Color(1f, 0.45f, 0.1f);
 
             fireballs.Add(new Fireball
             {
                 Visual = visual,
+                Material = material,
                 Direction = direction.normalized,
                 RemainingLifetime = fireballLifetime,
             });
 
             castCooldown = fireballCooldown;
+            return true;
         }
 
         private void AdvanceFireballs(float deltaTime)
@@ -139,6 +189,7 @@ namespace NoSafeCircle.DoorPrototype
                 Fireball fireball = fireballs[index];
                 if (fireball.Visual == null)
                 {
+                    RetireFireball(fireball);
                     fireballs.RemoveAt(index);
                     continue;
                 }
@@ -168,7 +219,7 @@ namespace NoSafeCircle.DoorPrototype
 
                 if (consumed || fireball.RemainingLifetime <= 0f)
                 {
-                    Destroy(fireball.Visual);
+                    RetireFireball(fireball);
                     fireballs.RemoveAt(index);
                     continue;
                 }
@@ -268,7 +319,9 @@ namespace NoSafeCircle.DoorPrototype
             }
 
             GUI.Label(new Rect(20f, 72f, 700f, 28f),
-                "Left-click to move and open doors    Right-click to cast fireball", style);
+                Hud.MobileGameplayControls.IsTouchDevice
+                    ? "Tap to walk. Hold a fire button, then tap to aim."
+                    : "Left-click to move and open doors    Right-click to cast fireball", style);
         }
 
         private void DrawEndScreen()

@@ -44,6 +44,9 @@ namespace NoSafeCircle.DoorPrototype.Hud
         [SerializeField] private RuntimeAnimatorController wraithChaseAnimator;
         [SerializeField] private WizardGameEntryController entry;
         [SerializeField] private Transform worldSpawn;
+        [SerializeField] private GameObject mobileControlsPrefab;
+
+        public MobileGameplayControls MobileControls { get; private set; }
 
         /// <summary>True once <see cref="BindToPlayer"/> has completed; never true for a HUD that
         /// failed to bind, because the spawner destroys that one.</summary>
@@ -162,6 +165,20 @@ namespace NoSafeCircle.DoorPrototype.Hud
                 titleChase.enabled = false;
             }
 
+            var run = GetComponentInChildren<DemoRunFlow>();
+            if (run != null) run.BindToPlayer(movement);
+            if (MobileControls == null)
+                MobileControls = Instantiate(mobileControlsPrefab, transform)
+                    .GetComponent<MobileGameplayControls>();
+            MobileControls.Bind(movement, run);
+            if (MobileGameplayControls.IsTouchDevice)
+            {
+                damageButton.gameObject.SetActive(false);
+                manaButton.gameObject.SetActive(false);
+                Transform desktopInstructions = transform.Find("ControlsHud");
+                if (desktopInstructions != null) desktopInstructions.gameObject.SetActive(false);
+            }
+
             IsBound = true;
             BoundPlayer = movement;
             return true;
@@ -181,6 +198,7 @@ namespace NoSafeCircle.DoorPrototype.Hud
                 (wraithChaseAnimator, nameof(wraithChaseAnimator)),
                 (entry, nameof(entry)),
                 (worldSpawn, nameof(worldSpawn)),
+                (mobileControlsPrefab, nameof(mobileControlsPrefab)),
             };
 
             foreach ((Object part, string fieldName) in parts)
