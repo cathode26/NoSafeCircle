@@ -1187,7 +1187,8 @@ namespace NoSafeCircle.DoorPrototype
             visual.transform.SetParent(actorContainer, true);
             visual.transform.position = start;
             visual.transform.localScale = Vector3.one * 0.45f;
-            Collider collider = visual.GetComponent<Collider>();
+            // CreatePrimitive needs this concrete type retained by the player build.
+            SphereCollider collider = visual.GetComponent<SphereCollider>();
             if (collider != null)
             {
                 collider.enabled = false;

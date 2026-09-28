@@ -132,7 +132,8 @@ namespace NoSafeCircle.DoorPrototype.Enemies
 
             var visual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             visual.name = "LanternWisp";
-            Collider collider = visual.GetComponent<Collider>();
+            // CreatePrimitive needs this concrete type retained by the player build.
+            SphereCollider collider = visual.GetComponent<SphereCollider>();
             if (collider != null)
             {
                 collider.enabled = false;

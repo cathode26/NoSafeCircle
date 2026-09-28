@@ -309,6 +309,12 @@ mergeInto(LibraryManager.library,
         }
     },
 
+    NSC_IsMobileBrowser__deps: ["$NSC_MobileLandscape"],
+    NSC_IsMobileBrowser: function ()
+    {
+        return NSC_MobileLandscape.isMobileBrowser() ? 1 : 0;
+    },
+
     NSC_InitializeMobileLandscape__deps: ["$NSC_MobileLandscape"],
     NSC_InitializeMobileLandscape: function ()
     {

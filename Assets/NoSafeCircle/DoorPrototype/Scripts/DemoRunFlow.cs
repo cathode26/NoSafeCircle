@@ -162,7 +162,8 @@ namespace NoSafeCircle.DoorPrototype
 
             var visual = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             visual.name = "Fireball";
-            Destroy(visual.GetComponent<Collider>());
+            // The concrete reference keeps CreatePrimitive's collider in stripped player builds.
+            Destroy(visual.GetComponent<SphereCollider>());
             visual.transform.localScale = Vector3.one * 0.5f;
             visual.transform.position = player.position + Vector3.up + direction.normalized;
 

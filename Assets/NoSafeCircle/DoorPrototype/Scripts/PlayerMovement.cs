@@ -310,7 +310,7 @@ namespace NoSafeCircle.DoorPrototype
                 ignoreMouseUntilRelease = false;
             }
             // Touch UI owns all mobile world gestures; compatibility mouse events must not replay them.
-            if (UseMobileWorldInput || Application.isMobilePlatform || Touchscreen.current != null) return;
+            if (UseMobileWorldInput || Application.isMobilePlatform) return;
             if (isFreshPress)
                 mousePressStartedOverUi = IsPointerOverGameplayUi(pointerPositionAction.ReadValue<Vector2>());
             if (mousePressStartedOverUi || ignoreMouseUntilRelease) return;

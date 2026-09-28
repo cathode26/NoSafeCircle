@@ -14,7 +14,7 @@ Stand takes priority when both buttons are held. Each button tracks its own poin
 
 `PlayerMovement` owns the mode and cancellation rules. `MobileWorldTapSurface` routes each world pointer's own position. `DemoRunFlow.TryCastFireball` shares the mouse cast's mana and cooldown checks. Mouse movement rejects the entire press that started over UI, including a drag away from it; normal desktop left-click movement and right-click casting remain available.
 
-Controls appear for mobile platforms or a connected Input System Touchscreen, after gameplay handoff. They reject input in portrait, during menus/cutscene, after death/victory, on focus loss, and while suspended. Holds clear on suspension, reset and HUD disable. Native mobile startup allows only the two landscape orientations.
+Controls appear for native mobile platforms or a mobile browser, after gameplay handoff. Desktop touchscreens do not enable them. The Editor requires the explicit preview toggle. They reject input in portrait, during menus/cutscene, after death/victory, on focus loss, and while suspended. Holds clear on suspension, reset and HUD disable. Native mobile startup allows only the two landscape orientations.
 
 `Assets/Plugins/WebGL/MobileLandscape.jslib` requests fullscreen and `screen.orientation.lock("landscape")` from a user gesture. Browsers that reject or lack orientation locking show a portrait rotate prompt. Browser support and fullscreen requirements are documented by [MDN](https://developer.mozilla.org/en-US/docs/Web/API/ScreenOrientation/lock). The plugin changes no Unity index/template files. A new WebGL build is required to include both the gameplay code and plugin; the earlier localhost build has neither.
 

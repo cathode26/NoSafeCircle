@@ -364,6 +364,9 @@ namespace NoSafeCircle.DoorPrototype.Tests
         {
             Assert.Greater(Screen.width, Screen.height, "Run this mobile UI case in landscape.");
             SetCameraPixelSurface(Screen.width, Screen.height);
+#if UNITY_EDITOR
+            MobileGameplayControls.EditorPreviewEnabled = true;
+#endif
             Touchscreen touchscreen = InputSystem.AddDevice<Touchscreen>();
             CreateEventSystem();
             GameObject template = Resources.Load<GameObject>("Hud/MobileControls");
@@ -625,7 +628,7 @@ namespace NoSafeCircle.DoorPrototype.Tests
             Assert.IsNull(Touchscreen.current, "Editor preview must work without a synthetic touch device.");
             SetCameraPixelSurface(Screen.width, Screen.height);
             CreateEventSystem();
-            GameObject controlsObject = CreateMobileControls(out MobileGameplayControls controls);
+            GameObject controlsObject = CreateMobileControls(out MobileGameplayControls controls, false);
             controls.Bind(movement, null);
             yield return null;
             Assert.IsFalse(controls.CanReceiveInput);
@@ -712,8 +715,42 @@ namespace NoSafeCircle.DoorPrototype.Tests
         }
 #endif
 
-        private GameObject CreateMobileControls(out MobileGameplayControls controls)
+#if UNITY_EDITOR
+        [UnityTest]
+        public IEnumerator DesktopTouchscreen_DoesNotEnableMobileControls_WithoutExplicitPreview()
         {
+            Touchscreen touchscreen = InputSystem.AddDevice<Touchscreen>();
+            Assert.IsNotNull(touchscreen);
+            CreateEventSystem();
+            GameObject controlsObject = CreateMobileControls(out MobileGameplayControls controls, false);
+            controls.Bind(movement, null);
+            yield return null;
+            Assert.IsFalse(MobileGameplayControls.IsMobileDevice);
+            Assert.IsFalse(controls.UsesTouchControls);
+            Assert.IsFalse(controls.CanReceiveInput);
+            Assert.IsFalse(movement.UseMobileWorldInput);
+            Assert.AreEqual(0f, controlsObject.GetComponent<CanvasGroup>().alpha);
+            Assert.IsFalse(controlsObject.GetComponent<CanvasGroup>().blocksRaycasts);
+
+            // A desktop touchscreen must not suppress ordinary mouse movement either.
+            Vector3 walkTarget = new Vector3(3f, 0f, 3f);
+            SetMouse(ScreenPoint(walkTarget), true);
+            movement.Tick(0.02f);
+            Assert.IsTrue(movement.HasActiveDestination);
+            SetMouse(ScreenPoint(walkTarget), false);
+            MobileGameplayControls.EditorPreviewEnabled = true;
+            yield return null;
+            Assert.IsTrue(controls.CanReceiveInput);
+            Assert.IsTrue(movement.UseMobileWorldInput);
+        }
+#endif
+
+        private GameObject CreateMobileControls(out MobileGameplayControls controls, bool forceMobilePreview = true)
+        {
+#if UNITY_EDITOR
+            // Touch gestures in the Editor require the same explicit preview opt-in as a human test.
+            MobileGameplayControls.EditorPreviewEnabled = forceMobilePreview;
+#endif
             GameObject template = Resources.Load<GameObject>("Hud/MobileControls");
             Assert.IsNotNull(template);
             GameObject canvasObject = new GameObject("MobileControlsGestureTestCanvas",

@@ -30,7 +30,7 @@ namespace NoSafeCircle.DoorPrototype.Hud
         private const int PreviewMovingPointer = -10002;
         private bool previewKeysNeedRelease;
 #endif
-        public bool UsesTouchControls => IsTouchDevice
+        public bool UsesTouchControls => IsMobileDevice
 #if UNITY_EDITOR
             || EditorPreviewEnabled
 #endif
@@ -42,9 +42,20 @@ namespace NoSafeCircle.DoorPrototype.Hud
             && (run == null || !run.HasEnded)
             && UsesTouchControls && Screen.width >= Screen.height;
 
-        public static bool IsTouchDevice => Application.isMobilePlatform || Touchscreen.current != null;
+        public static bool IsMobileDevice
+        {
+            get
+            {
+#if UNITY_WEBGL && !UNITY_EDITOR
+                return NSC_IsMobileBrowser() != 0;
+#else
+                return Application.isMobilePlatform;
+#endif
+            }
+        }
 
 #if UNITY_WEBGL && !UNITY_EDITOR
+        [DllImport("__Internal")] private static extern int NSC_IsMobileBrowser();
         [DllImport("__Internal")] private static extern void NSC_InitializeMobileLandscape();
         [DllImport("__Internal")] private static extern void NSC_DisposeMobileLandscape();
 #endif
@@ -157,7 +168,7 @@ namespace NoSafeCircle.DoorPrototype.Hud
         {
             if (group == null) return;
 #if UNITY_WEBGL && !UNITY_EDITOR
-            if (IsTouchDevice && !landscapeInitialized)
+            if (IsMobileDevice && !landscapeInitialized)
             {
                 NSC_InitializeMobileLandscape();
                 landscapeInitialized = true;
