@@ -290,8 +290,11 @@ namespace NoSafeCircle.DoorPrototype.Tests
             rect.anchoredPosition = new Vector2(20f, 20f);
             rect.sizeDelta = new Vector2(120f, 120f);
             blocker.GetComponent<Image>().raycastTarget = true;
+            yield return null; // UGUI must assign the new Graphic its rendered depth before it can raycast.
             Canvas.ForceUpdateCanvases();
             Vector2 uiPoint = RectTransformUtility.WorldToScreenPoint(null, rect.TransformPoint(rect.rect.center));
+            Assert.IsTrue(movement.IsPointerOverGameplayUi(uiPoint),
+                "The owned UI blocker must be raycastable before testing gesture suppression.");
             Vector3 worldTarget = new Vector3(3f, 0f, 3f);
 
             SetMouse(uiPoint, true);

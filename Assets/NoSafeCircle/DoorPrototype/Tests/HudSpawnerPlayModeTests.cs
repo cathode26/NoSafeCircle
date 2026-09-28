@@ -308,6 +308,10 @@ namespace NoSafeCircle.DoorPrototype.Tests
 
             // Move the player away, as WizardGameEntryPlayModeTests:104 does, so the return is real.
             player.transform.position = StandInSpawnPose + new Vector3(2f, 0f, -1f);
+            // This component fixture supplies no entrance door or camera follow. Assert the
+            // intentional recovery path; the full entry fixtures cover the actual cutscene.
+            LogAssert.Expect(LogType.Error, "Wizard entry needs the title chase, presentation visibility, "
+                + "the entrance door, and the gameplay camera follow.");
             Part<Button>(canvas, "WizardSelectionScreen/ConfirmSelectionButton").onClick.Invoke();
 
             Assert.IsTrue(entry.HasEnteredGameplay,
