@@ -1,105 +1,98 @@
+/* These rules apply only to the optional ?diag / ?diags UI. */
 #diagnostics-overlay {
-  resize: vertical;
-  overflow: auto;
-  position:fixed;
-  left:0px;
-  bottom:0px;
-  height:20%;
-  width:100%;
-  color: #090909;
-  background:rgba(200, 200, 200, .90);
+  --diag-safe-top: env(safe-area-inset-top, 0px);
+  --diag-safe-right: env(safe-area-inset-right, 0px);
+  --diag-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --diag-safe-left: env(safe-area-inset-left, 0px);
+  position: fixed;
+  z-index: 2147483647;
+  inset: auto;
+  margin: 0;
   display: flex;
-  align-items: stretch;
+  flex-direction: column;
+  box-sizing: border-box;
+  max-width: calc(100vw - 24px);
+  color: #f5f7fa;
+  background: rgba(16, 22, 31, 0.68);
+  border: 1px solid rgba(230, 240, 255, 0.3);
+  border-radius: 12px;
+  box-shadow: 0 3px 16px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+  font: 13px/1.4 Arial, sans-serif;
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  -webkit-user-select: none;
+  pointer-events: auto;
 }
+
+#diagnostics-overlay [hidden], #diagnostics-overlay[hidden], #diagnostics-icon[hidden] {
+  display: none !important;
+}
+
+#diagnostics-header {
+  display: flex;
+  flex: 0 0 44px;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding-left: 12px;
+  cursor: move;
+  touch-action: none;
+  border-bottom: 1px solid rgba(230, 240, 255, 0.18);
+}
+
+#diagnostics-header strong { font-size: 14px; }
+#diagnostics-header > span { flex: 1; font-size: 11px; color: #c4ccd6; }
 
 #diagnostics-btn {
-  float: left;
-  font-family: arial;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  border: 1px solid #CCC;
-  background: #DDD;
-  box-shadow: 0 0 5px -1px rgba(0,0,0,0.2);
+  flex: 0 0 44px;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  font: 26px/1 Arial, sans-serif;
   cursor: pointer;
-  width: 38px;
-  height: 38px;
+  touch-action: manipulation;
 }
+
+#diagnostics-btn:hover, #diagnostics-btn:focus-visible { background: rgba(255, 255, 255, 0.16); }
+#diagnostics-content {
+  min-height: 0;
+  padding: 10px 12px 12px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+#diagnostics-summary { display: grid; gap: 4px; min-width: 0; }
+#diagnostics-summary .data-row { display: flex; align-items: baseline; gap: 12px; }
+#diagnostics-summary .label { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+#diagnostics-summary .data { flex: 0 0 auto; text-align: right; white-space: nowrap; }
+#diagnostics-status { color: #c4ccd6; }
+#diagnostics-graph { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin-top: 12px; }
+#diagnostics-graph .diagnostics-graph-canvas { display: block; width: 100%; height: auto; border-radius: 6px; }
+#diagnostics-overlay.diagnostics-compact { font-size: 13px; }
+#diagnostics-overlay.diagnostics-compact #diagnostics-summary { gap: 5px; }
 
 #diagnostics-icon {
-  display: flex;
-  float: right;
-  width:38px;
-  height: 38px;
-  cursor:pointer;
-}
-
-#diagnostics-icon:hover {
-  background-color:#D3D3D3;
-}
-#diagnostics-summary {
-  display: inline-flex;
-  font-family: arial;
-  flex-flow: column;
-  column-gap: 1em;
-  margin: 1em;
-  padding: 1em;
-  max-width: 33em;
-  row-gap: 0.2em;
-  width: 20%;
-  resize: horizontal;
-  overflow-y: auto;
-  float: left;
-  border-right: 4px solid gray;
-  min-width: fit-content;
-  height: 60%;
-}
-
-#diagnostics-summary::-webkit-scrollbar {
-  -webkit-appearance: none;
-}
-
-#diagnostics-summary::-webkit-scrollbar:vertical {
-  width: 8px;
-}
-
-#diagnostics-summary::-webkit-scrollbar-thumb {
+  position: fixed;
+  z-index: 2147483647;
+  inset: auto;
+  margin: 0;
+  right: max(12px, env(safe-area-inset-right, 0px));
+  bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  display: block;
+  box-sizing: border-box;
+  width: 44px;
+  height: 44px;
+  padding: 3px;
+  border: 1px solid rgba(230, 240, 255, 0.3);
   border-radius: 8px;
-  border: 1px solid white;
-  background-color: rgba(0, 0, 0, .5);
+  background: rgba(16, 22, 31, 0.6);
+  cursor: pointer;
+  touch-action: manipulation;
 }
 
-#diagnostics-graph {
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
-  vertical-align: top;
-  height: 100%;
-  margin-left: 2%;
-}
-
-#diagnostics-graph-canvas{
-  width: 210px;
-  height: 120px;
-}
-
-.data-row {
-  display: flex;
-}
-
-.label {
-  display: flex;
-  flex: 2 1 auto;
-}
-
-.indented {
-  display: flex;
-  flex: 2 1 auto;
-  margin-left: 1em;
-}
-
-.data {
-  display: flex;
-  flex: 1 1 auto;
-  justify-content: right;
-}
+#diagnostics-icon:hover, #diagnostics-icon:focus-visible { background: rgba(50, 64, 80, 0.85); }

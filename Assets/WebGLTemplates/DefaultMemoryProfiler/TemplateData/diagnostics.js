@@ -1,281 +1,310 @@
+// Optional floating diagnostics for Unity 6000.6 GetMetricsInfo().
 var unityDiagnostics = (function () {
-  var overlayOpen = false;
-  var intervalId = 0;
-  var graph_stats;
-  function openDiagnosticsDiv(GetMetricsInfoFunc) {
-    // if not open, open!
-    if (!overlayOpen) {
-      var diagnostics_div = document.getElementById('diagnostics-overlay');
-      if (!diagnostics_div) {
-        createDiagnosticsLayout();
-      }
+  var overlay, header, summary, graph, status, intervalId = 0, readMetrics;
+  var rows = [], graphPanels = [], compact, drag;
+  var smallViewport = window.matchMedia('(max-width: 700px), (max-height: 480px)');
+  var mobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
+    (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var fields = [
+    ['totalWASMHeapSize', 'Total WASM heap', 'wasmTotalMem', 'bytes', true],
+    ['usedWASMHeapSize', 'Used WASM heap', 'wasmUsedMem', 'bytes', true],
+    ['fps', 'FPS', 'fps', 'number', true],
+    ['totalJSHeapSize', 'Total JS memory', 'jsTotalMem', 'bytes'],
+    ['usedJSHeapSize', 'Used JS memory', 'jsUsedMem', 'bytes'],
+    ['movingAverageFps', 'Average FPS (10 seconds)', 'movingAverageFps', 'number'],
+    ['numJankedFrames', 'Frame stalls', 'numJankedFrames', 'integer'],
+    ['pageLoadTimeToFrame1', 'Load to first frame', 'pageLoadTimeToFrame1', 'time'],
+    ['pageLoadTime', 'Page load', 'pageLoadTime', 'time'],
+    ['codeDownloadTime', 'Code download', 'codeDownloadTime', 'time'],
+    ['assetLoadTime', 'Asset load', 'assetLoadTime', 'time'],
+    ['webAssemblyStartupTime', 'WASM startup', 'webAssemblyStartupTime', 'time'],
+    ['gameStartupTime', 'Game startup', 'gameStartupTime', 'time']
+  ];
+  var inputEvents = ['pointerdown', 'pointermove', 'pointerup', 'pointercancel',
+    'mousedown', 'mousemove', 'mouseup', 'click', 'dblclick', 'contextmenu',
+    'touchstart', 'touchmove', 'touchend', 'touchcancel', 'wheel', 'keydown', 'keyup'];
 
-      var totalJSMemDiv = document.getElementById("jsTotalMem");
-      var usedJSMemDiv = document.getElementById("jsUsedMem");
-      var totalWASMHeapDiv = document.getElementById("wasmTotalMem");
-      var usedWASMHeapDiv = document.getElementById("wasmUsedMem");
-      var pageLoadTimeDiv = document.getElementById("pageLoadTime");
-      var pageLoadTimeToFrame1Div = document.getElementById("pageLoadTimeToFrame1");
-      var movingAverageFpsDiv = document.getElementById("movingAverageFps");
-      var fpsDiv = document.getElementById("fps");
-      var numJankedFramesDiv = document.getElementById("numJankedFrames");
-      var webAssemblyStartupTimeDiv = document.getElementById("webAssemblyStartupTime");
-      var codeDownloadTimeDiv = document.getElementById("codeDownloadTime");
-      var gameStartupTimeDiv = document.getElementById("gameStartupTime");
-      var assetLoadTimeDiv = document.getElementById("assetLoadTime");
+  function stopGameInput(event) {
+    event.stopPropagation();
+    if (event.type === 'keydown' && event.key === 'Escape') closeOverlay();
+  }
 
-      intervalId = setInterval(updateWebMetricInfo, 1000);
-      document.getElementById("diagnostics-overlay").style.height = "20%";
-      document.getElementById("diagnostics-icon").style.filter = "grayscale(1)";
-      overlayOpen = true;
+  function viewport() {
+    var view = window.visualViewport;
+    var style = getComputedStyle(overlay);
+    function inset(side) { return parseFloat(style.getPropertyValue('--diag-safe-' + side)) || 0; }
+    var left = (view ? view.offsetLeft : 0) + inset('left') + 12;
+    var top = (view ? view.offsetTop : 0) + inset('top') + 12;
+    return { left: left, top: top,
+      right: (view ? view.offsetLeft + view.width : window.innerWidth) - inset('right') - 12,
+      bottom: (view ? view.offsetTop + view.height : window.innerHeight) - inset('bottom') - 12 };
+  }
+
+  function clamp(value, min, max) { return Math.max(min, Math.min(value, Math.max(min, max))); }
+
+  function showFloating(element) {
+    if (!element || element.hidden || typeof element.showPopover !== 'function') return;
+    element.setAttribute('popover', 'manual');
+    try { if (!element.matches(':popover-open')) element.showPopover(); } catch (_) {}
+  }
+
+  function hideFloating(element) {
+    if (!element || typeof element.hidePopover !== 'function') return;
+    try { if (element.matches(':popover-open')) element.hidePopover(); } catch (_) {}
+  }
+
+  function positionCard(reset) {
+    if (!overlay || overlay.hidden) return;
+    var bounds = viewport();
+    overlay.style.width = Math.max(0, Math.min(compact ? 280 : 600, bounds.right - bounds.left)) + 'px';
+    overlay.style.maxHeight = Math.max(0, bounds.bottom - bounds.top) + 'px';
+    var size = overlay.getBoundingClientRect();
+    var left = reset ? bounds.right - size.width : parseFloat(overlay.style.left);
+    var top = reset ? bounds.bottom - size.height : parseFloat(overlay.style.top);
+    overlay.style.left = clamp(Number.isFinite(left) ? left : bounds.left, bounds.left, bounds.right - size.width) + 'px';
+    overlay.style.top = clamp(Number.isFinite(top) ? top : bounds.top, bounds.top, bounds.bottom - size.height) + 'px';
+  }
+
+  function moveToFullscreen() {
+    var parent = document.fullscreenElement || document.body;
+    if (overlay && overlay.parentNode !== parent) {
+      hideFloating(overlay);
+      parent.appendChild(overlay);
     }
+    showFloating(overlay);
+    positionCard(false);
+  }
 
-    function createDiagnosticsLayout() {
-      diagnostics_div = document.createElement("div");
-      diagnostics_div.id = "diagnostics-overlay";
-
-      document.body.appendChild(diagnostics_div);
-
-      var diagnostics_btn = document.createElement("div");
-      diagnostics_btn.id = "diagnostics-btn";
-      diagnostics_btn.innerHTML = "X";
-      diagnostics_btn.addEventListener("click", closeOverlay);
-
-      diagnostics_div.appendChild(diagnostics_btn);
-
-      var diagnostics_summary = document.createElement("div");
-      diagnostics_summary.id = "diagnostics-summary";
-
-      var diagnostics_graph = document.createElement("div");
-      diagnostics_graph.id = "diagnostics-graph";
-
-      diagnostics_div.appendChild(diagnostics_summary);
-      diagnostics_div.appendChild(diagnostics_graph);
-
-      createDiagnosticsRow(diagnostics_summary, "Total JS Memory", "jsTotalMem", false);
-      createDiagnosticsRow(diagnostics_summary, "Used JS Memory", "jsUsedMem", true);
-      createDiagnosticsRow(diagnostics_summary, "Total WASM Heap", "wasmTotalMem", false);
-      createDiagnosticsRow(diagnostics_summary, "Used WASM Heap", "wasmUsedMem", true);
-      createDiagnosticsRow(diagnostics_summary, "Page Load Time To First Frame", "pageLoadTimeToFrame1", false);
-      createDiagnosticsRow(diagnostics_summary, "Page Load Time", "pageLoadTime", true);
-      createDiagnosticsRow(diagnostics_summary, "Code Download Time", "codeDownloadTime", true);
-      createDiagnosticsRow(diagnostics_summary, "Load time of asset file(.data)", "assetLoadTime", true);
-      createDiagnosticsRow(diagnostics_summary, "WebAssembly Startup Time", "webAssemblyStartupTime", true);
-      createDiagnosticsRow(diagnostics_summary, "Game Startup Time", "gameStartupTime", true);
-      createDiagnosticsRow(diagnostics_summary, "Average FPS (10 seconds)", "movingAverageFps", false);
-      createDiagnosticsRow(diagnostics_summary, "Current frames per second", "fps", true);
-      createDiagnosticsRow(diagnostics_summary, "Number of Frame Stalls", "numJankedFrames", false);
-
-      graph_stats = new createGraph();
-      diagnostics_graph.appendChild(graph_stats.graph_dom);
-    }
-
-    function createDiagnosticsRow(diagnostics_summary, labelInnerHtml, spanId, indent) {
-      var data_row = document.createElement("div");
-      data_row.className = "data-row";
-      diagnostics_summary.appendChild(data_row);
-
-      var label = document.createElement("div");
-      label.className = "label";
-
-      var data = document.createElement("div");
-      data.className = "data";
-      data_row.appendChild(data);
-
-      var span = document.createElement("span");
-      data.appendChild(span);
-
-      label.innerHTML = labelInnerHtml;
-      span.id = spanId;
-      if (indent) {
-        var indent = document.createElement("div");
-        indent.className = "indented";
-        data_row.appendChild(indent);
-        indent.appendChild(label);
-      } else {
-        data_row.append(label);
-      }
-      data_row.append(data);
-    }
-
-    function updateWebMetricInfo(){
-      var metricsInfo = GetMetricsInfoFunc();
-      if (isNaN(metricsInfo.totalJSHeapSize) && isNaN(metricsInfo.usedJSHeapSize)) {
-        totalJSMemDiv.textContent = "N/A";
-        usedJSMemDiv.textContent = "N/A";
-      } else {
-        totalJSMemDiv.textContent = formatBytes(metricsInfo.totalJSHeapSize);
-        usedJSMemDiv.textContent = formatBytes(metricsInfo.usedJSHeapSize);
-      }
-      totalWASMHeapDiv.textContent = formatBytes(metricsInfo.totalWASMHeapSize);
-      usedWASMHeapDiv.textContent = formatBytes(metricsInfo.usedWASMHeapSize);
-      pageLoadTimeDiv.textContent = (metricsInfo.pageLoadTime/1000).toFixed(2) + ' sec';
-      pageLoadTimeToFrame1Div.textContent = (metricsInfo.pageLoadTimeToFrame1/1000).toFixed(2) + ' sec';
-      assetLoadTimeDiv.textContent = (metricsInfo.assetLoadTime/1000).toFixed(2) + ' sec';
-      webAssemblyStartupTimeDiv.textContent = (metricsInfo.webAssemblyStartupTime/1000).toFixed(2) + ' sec';
-      codeDownloadTimeDiv.textContent = (metricsInfo.codeDownloadTime/1000).toFixed(2) + ' sec';
-      gameStartupTimeDiv.textContent = (metricsInfo.gameStartupTime/1000).toFixed(2) + ' sec';
-      movingAverageFpsDiv.textContent = (metricsInfo.movingAverageFps).toFixed(2);
-      fpsDiv.textContent = (metricsInfo.fps).toFixed(2);
-      numJankedFramesDiv.textContent = metricsInfo.numJankedFrames;
-
-      graph_stats.plotGraph(metricsInfo, true);
-    }
-
-    function closeOverlay() {
-      clearInterval(intervalId);
-      intervalId = 0;
-      document.getElementById("diagnostics-overlay").style.height = "0px";
-      var icon = document.getElementById("diagnostics-icon");
-      if (icon) icon.style.filter = "grayscale(0)";
-      overlayOpen = false;
-    }
-
-    function formatNumber(num) {
-      num = num || 0;
-      var num_str = num.toString();
-      if (num >= 1000) return num_str.substr(0, 4);
-      else return num_str.substr(0, 5);
-    }
-
-    function formatBytes(bytes) {
-      if (bytes >= 1024 * 1024 * 1024) return formatNumber(bytes / (1024 * 1024 * 1024)) + '\xa0GB';
-      else if (bytes >= 1024 * 1024) return formatNumber(bytes / (1024 * 1024)) + '\xa0MB';
-      else if (bytes >= 1024) return formatNumber(bytes / 1024) + '\xa0KB';
-      else return formatNumber(bytes) + ' B';
-    }
-
-    function formatBytesInfo(bytes) {
-      if (bytes >= 1024 * 1024 * 1024) return {
-        bytesValue: formatNumber(bytes / (1024 * 1024 * 1024)),
-        unitMeasure: 'GB'
-      };
-      else if (bytes >= 1024 * 1024) return {
-        bytesValue: formatNumber(bytes / (1024 * 1024)),
-        unitMeasure: 'MB'
-      };
-      else if (bytes >= 1024) return {
-        bytesValue: formatNumber(bytes / 1024),
-        unitMeasure: 'KB'
-      };
-      else return {
-        bytesValue: formatNumber(bytes),
-        unitMeasure: 'B'
-      };
-    }
-
-    function GraphPanel(name, fontColor, backgroundColor) {
-      var min = Infinity, max = 0, round = Math.round;
-
-      var pixel_ratio = round( window.devicePixelRatio || 1);
-      if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent)) {
-        pixel_ratio = 1;
-      }
-
-      var canvas_width = 250 * pixel_ratio, canvas_height = 180 * pixel_ratio,
-          textname_xpos = 6 * pixel_ratio, textname_ypos = 6 * pixel_ratio,
-          graph_area_xpos = 8 * pixel_ratio, graph_area_ypos = 30 * pixel_ratio,
-          graph_area_width = 234 * pixel_ratio, graph_area_height = 140 * pixel_ratio;
-
-      var graph_canvas = document.createElement('canvas');
-      graph_canvas.id = "diagnostics-graph-canvas";
-      graph_canvas.width = canvas_width;
-      graph_canvas.height = canvas_height;
-
-      var graph_ctx = graph_canvas.getContext('2d');
-      graph_ctx.font = 'bold ' + ( 16 * pixel_ratio) + 'px Helvetica,Arial,sans-serif';
-      graph_ctx.textBaseline = 'top';
-
-      graph_ctx.fillStyle = backgroundColor;
-      graph_ctx.fillRect( 0, 0, canvas_width, canvas_height);
-
-      graph_ctx.fillStyle = fontColor;
-      graph_ctx.fillText( name, textname_xpos, textname_ypos);
-      graph_ctx.fillRect( graph_area_xpos, graph_area_ypos, graph_area_width, graph_area_height);
-
-
-      graph_ctx.fillStyle = backgroundColor;
-      graph_ctx.globalAlpha = 0.5;
-      graph_ctx.fillRect( graph_area_xpos, graph_area_ypos, graph_area_width, graph_area_height);
-
-      return {
-        graph_dom: graph_canvas,
-        update: function (value, unitMeasure) {
-          min = Math.min(min, value);
-          max = Math.max(max, value);
-
-          graph_ctx.fillStyle = backgroundColor;
-          graph_ctx.globalAlpha = 1;
-          graph_ctx.fillRect(0, 0, canvas_width, graph_area_ypos);
-
-          graph_ctx.fillStyle = fontColor;
-          graph_ctx.textAlign = 'left';
-          graph_ctx.fillText(name, textname_xpos, textname_ypos);
-
-          graph_ctx.textAlign = 'right';
-          if(unitMeasure){
-            graph_ctx.fillText(formatNumber(value) + unitMeasure + ' (' + round( min ) + '-' + round( max ) + ')', canvas_width-10, textname_ypos);
-          }
-          else{
-            graph_ctx.fillText(formatNumber(value) + ' (' + round( min ) + '-' + round( max ) + ')', canvas_width-10, textname_ypos);
-          }
-
-          graph_ctx.drawImage(graph_canvas, graph_area_xpos + pixel_ratio, graph_area_ypos, graph_area_width - pixel_ratio, graph_area_height, graph_area_xpos, graph_area_ypos, graph_area_width - pixel_ratio, graph_area_height);
-
-          graph_ctx.fillRect(graph_area_xpos + graph_area_width - pixel_ratio, graph_area_ypos, pixel_ratio, graph_area_height);
-
-          graph_ctx.fillStyle = backgroundColor;
-          graph_ctx.globalAlpha = 0.5;
-          graph_ctx.fillRect(graph_area_xpos + graph_area_width - pixel_ratio, graph_area_ypos, pixel_ratio, round((1 - (value / max)) * graph_area_height));
-        }
-      };
-    }
-
-    function createGraph(){
-      var numGraphPanel = 4;
-      var graphContainer = document.createElement('div');
-      if(graphContainer === undefined) return;
-
-      graphContainer.style.cssText = 'cursor:pointer;';
-      graphContainer.style.display = 'contents';
-
-
-      function addGraphPanel(graph_panel) {
-        graphContainer.appendChild(graph_panel.graph_dom);
-        return graph_panel;
-      }
-
-      function showGraphPanel(id) {
-        graphContainer.children[id].style.margin = '1em';
-      }
-      var fpsGraphPanel = addGraphPanel(new GraphPanel('FPS', '#0ff', '#002'));
-      var movingAvgFpsGraphPanel = addGraphPanel(new GraphPanel('Average FPS', '#0f0', '#020'));
-      var usedJsMemGraphPanel = addGraphPanel(new GraphPanel('Used JS Mem', '#f60', '#201'));
-      var usedWasmMemGraphPanel = addGraphPanel(new GraphPanel('Used Wasm', '#ff0', '#020'));
-
-      for(var i=0;i<numGraphPanel;i++){
-        showGraphPanel(i);
-      }
-
-      return {
-        graph_dom: graphContainer,
-        plotGraph: function (metrics) {
-          fpsGraphPanel.update(metrics.fps);
-          movingAvgFpsGraphPanel.update(metrics.movingAverageFps);
-
-          var formattedBytesInfo = formatBytesInfo(metrics.usedWASMHeapSize);
-          usedWasmMemGraphPanel.update(formattedBytesInfo.bytesValue, formattedBytesInfo.unitMeasure);
-          if(!isNaN(metrics.usedJSHeapSize)){
-            formattedBytesInfo = formatBytesInfo(metrics.usedJSHeapSize);
-            usedJsMemGraphPanel.update(formattedBytesInfo.bytesValue, formattedBytesInfo.unitMeasure);
-          }
-        }
-      };
+  // The game's rotate prompt may enter the top layer after an orientation change.
+  function onGamePopover(event) {
+    if (event.newState !== 'open' || event.target.getAttribute('aria-label') !== 'Rotate your device') return;
+    if (overlay && !overlay.hidden) {
+      hideFloating(overlay);
+      showFloating(overlay);
     }
   }
 
-  return {
-    openDiagnosticsDiv: openDiagnosticsDiv
-  };
+  function resize() {
+    if (!overlay || overlay.hidden) return;
+    update();
+    positionCard(false);
+  }
 
+  function startDrag(event) {
+    if (event.button !== 0 || event.isPrimary === false || event.target.closest('button')) return;
+    var rect = overlay.getBoundingClientRect();
+    drag = { id: event.pointerId, x: event.clientX - rect.left, y: event.clientY - rect.top };
+    header.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  }
+
+  function moveDrag(event) {
+    if (!drag || drag.id !== event.pointerId) return;
+    overlay.style.left = event.clientX - drag.x + 'px';
+    overlay.style.top = event.clientY - drag.y + 'px';
+    positionCard(false);
+  }
+
+  function endDrag(event) {
+    if (!drag || drag.id !== event.pointerId) return;
+    drag = null;
+    if (header.hasPointerCapture(event.pointerId)) header.releasePointerCapture(event.pointerId);
+  }
+
+  function createLayout() {
+    overlay = document.createElement('section');
+    overlay.id = 'diagnostics-overlay';
+    overlay.hidden = true;
+    overlay.setAttribute('role', 'region');
+    overlay.setAttribute('aria-label', 'Memory diagnostics');
+    header = document.createElement('div');
+    header.id = 'diagnostics-header';
+    var title = document.createElement('strong');
+    title.textContent = 'Memory';
+    var hint = document.createElement('span');
+    hint.textContent = 'Drag to move';
+    var close = document.createElement('button');
+    close.id = 'diagnostics-btn';
+    close.type = 'button';
+    close.textContent = '\u00d7';
+    close.setAttribute('aria-label', 'Close memory diagnostics');
+    close.addEventListener('click', closeOverlay);
+    header.append(title, hint, close);
+    var content = document.createElement('div');
+    content.id = 'diagnostics-content';
+    summary = document.createElement('div');
+    summary.id = 'diagnostics-summary';
+    graph = document.createElement('div');
+    graph.id = 'diagnostics-graph';
+    status = document.createElement('div');
+    status.id = 'diagnostics-status';
+    status.hidden = true;
+    content.append(summary, graph, status);
+    overlay.append(header, content);
+    inputEvents.forEach(function (name) { overlay.addEventListener(name, stopGameInput); });
+    header.addEventListener('pointerdown', startDrag);
+    header.addEventListener('pointermove', moveDrag);
+    header.addEventListener('pointerup', endDrag);
+    header.addEventListener('pointercancel', endDrag);
+    header.addEventListener('lostpointercapture', function () { drag = null; });
+    window.addEventListener('resize', resize);
+    document.addEventListener('fullscreenchange', moveToFullscreen);
+    document.addEventListener('toggle', onGamePopover, true);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', resize);
+      window.visualViewport.addEventListener('scroll', resize);
+    }
+    moveToFullscreen();
+  }
+
+  function createRow(field) {
+    var row = document.createElement('div');
+    row.className = 'data-row';
+    row.dataset.metric = field[0];
+    var label = document.createElement('span');
+    label.className = 'label';
+    label.textContent = field[1];
+    var value = document.createElement('span');
+    value.id = field[2];
+    value.className = 'data';
+    row.append(label, value);
+    summary.appendChild(row);
+    return { element: row, value: value, field: field };
+  }
+
+  function setMode(nextCompact) {
+    if (compact === nextCompact && rows.length) return;
+    compact = nextCompact;
+    overlay.classList.toggle('diagnostics-compact', compact);
+    summary.replaceChildren();
+    graph.replaceChildren();
+    rows = fields.filter(function (field) { return !compact || field[4]; }).map(createRow);
+    graphPanels = [];
+    graph.hidden = compact;
+  }
+
+  function formatBytes(value) {
+    var units = ['B', 'KB', 'MB', 'GB'], unit = 0;
+    while (value >= 1024 && unit < units.length - 1) { value /= 1024; unit++; }
+    return (unit ? value.toFixed(1) : Math.round(value)) + ' ' + units[unit];
+  }
+
+  function formatMetric(value, kind) {
+    if (kind === 'bytes') return formatBytes(value);
+    if (kind === 'time') return (value / 1000).toFixed(2) + ' sec';
+    if (kind === 'integer') return Math.round(value).toString();
+    return value.toFixed(1);
+  }
+
+  function update() {
+    var metrics;
+    try { metrics = readMetrics() || {}; }
+    catch (_) { metrics = {}; }
+    setMode(mobile || smallViewport.matches);
+    var visible = 0;
+    rows.forEach(function (row) {
+      var value = metrics[row.field[0]];
+      row.element.hidden = !Number.isFinite(value) || value < 0;
+      if (!row.element.hidden) { row.value.textContent = formatMetric(value, row.field[3]); visible++; }
+    });
+    status.hidden = visible > 0;
+    status.textContent = visible ? '' : 'Memory diagnostics unavailable';
+    if (!compact) updateGraphs(metrics);
+    positionCard(false);
+  }
+
+  function updateGraphs(metrics) {
+    var specs = [
+      ['fps', 'FPS', '#7ff', '#102a32', ''],
+      ['movingAverageFps', 'Average FPS', '#8fa', '#122c25', ''],
+      ['usedWASMHeapSize', 'Used WASM', '#ffe599', '#29291c', ' MB', 1048576],
+      ['usedJSHeapSize', 'Used JS', '#ffb388', '#2e201a', ' MB', 1048576]
+    ];
+    specs.forEach(function (spec, index) {
+      var available = Number.isFinite(metrics[spec[0]]) && metrics[spec[0]] >= 0;
+      var panel = graphPanels[index];
+      if (!available) { if (panel) panel.canvas.hidden = true; return; }
+      if (!panel) {
+        panel = graphPanels[index] = GraphPanel(spec[1], spec[2], spec[3]);
+        panel.canvas.dataset.metric = spec[0];
+        graph.appendChild(panel.canvas);
+      }
+      panel.canvas.hidden = false;
+      panel.update(metrics[spec[0]] / (spec[5] || 1), spec[4]);
+    });
+  }
+
+  function closeOverlay() {
+    clearInterval(intervalId);
+    intervalId = 0;
+    readMetrics = null;
+    drag = null;
+    hideFloating(overlay);
+    if (overlay) overlay.hidden = true;
+    var icon = document.getElementById('diagnostics-icon');
+    if (icon) {
+      icon.hidden = false;
+      icon.setAttribute('aria-expanded', 'false');
+      showFloating(icon);
+    }
+  }
+
+  function openDiagnosticsDiv(getMetrics) {
+    if (typeof getMetrics !== 'function') return;
+    if (intervalId) return;
+    var resetPosition = !overlay || !overlay.style.left;
+    readMetrics = getMetrics;
+    if (!overlay) createLayout();
+    overlay.hidden = false;
+    update();
+    showFloating(overlay);
+    positionCard(resetPosition);
+    var icon = document.getElementById('diagnostics-icon');
+    if (icon) {
+      hideFloating(icon);
+      icon.hidden = true;
+      icon.setAttribute('aria-expanded', 'true');
+    }
+    intervalId = setInterval(update, 1000);
+  }
+
+  function destroy() {
+    closeOverlay();
+    window.removeEventListener('resize', resize);
+    document.removeEventListener('fullscreenchange', moveToFullscreen);
+    document.removeEventListener('toggle', onGamePopover, true);
+    if (window.visualViewport) {
+      window.visualViewport.removeEventListener('resize', resize);
+      window.visualViewport.removeEventListener('scroll', resize);
+    }
+    if (overlay) overlay.remove();
+    overlay = header = summary = graph = status = null;
+    rows = graphPanels = [];
+    compact = undefined;
+  }
+
+  function GraphPanel(name, color, background) {
+    var canvas = document.createElement('canvas');
+    canvas.className = 'diagnostics-graph-canvas';
+    canvas.width = 250;
+    canvas.height = 150;
+    var context = canvas.getContext('2d'), max = 0;
+    context.font = 'bold 13px Arial,sans-serif';
+    context.textBaseline = 'top';
+    context.fillStyle = background;
+    context.fillRect(0, 0, 250, 150);
+    return { canvas: canvas, update: function (value, unit) {
+      max = Math.max(max, value);
+      context.fillStyle = background; context.fillRect(0, 0, 250, 28);
+      context.fillStyle = color; context.textAlign = 'left'; context.fillText(name, 8, 8);
+      context.textAlign = 'right'; context.fillText(value.toFixed(1) + unit, 242, 8);
+      context.drawImage(canvas, 9, 30, 233, 112, 8, 30, 233, 112);
+      context.fillStyle = background; context.fillRect(241, 30, 1, 112);
+      context.fillStyle = color;
+      var height = Math.round(112 * value / Math.max(1, max));
+      context.fillRect(241, 142 - height, 1, height);
+    } };
+  }
+
+  return { openDiagnosticsDiv: openDiagnosticsDiv, closeDiagnosticsDiv: closeOverlay, destroy: destroy };
 })();
