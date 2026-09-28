@@ -141,7 +141,7 @@ namespace NoSafeCircle.DoorPrototype
 
         private void TryFireAtCursor()
         {
-            if (Hud.MobileGameplayControls.IsTouchDevice) return;
+            if (movement != null && movement.UseMobileWorldInput) return;
             Mouse mouse = Mouse.current;
             if (mouse == null || movement == null || !mouse.rightButton.wasPressedThisFrame) return;
             Vector2 screenPoint = mouse.position.ReadValue();
@@ -319,7 +319,7 @@ namespace NoSafeCircle.DoorPrototype
             }
 
             GUI.Label(new Rect(20f, 72f, 700f, 28f),
-                Hud.MobileGameplayControls.IsTouchDevice
+                movement != null && movement.UseMobileWorldInput
                     ? "Tap to walk. Hold a fire button, then tap to aim."
                     : "Left-click to move and open doors    Right-click to cast fireball", style);
         }

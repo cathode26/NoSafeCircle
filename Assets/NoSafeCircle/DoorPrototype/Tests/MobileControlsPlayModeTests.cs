@@ -15,7 +15,7 @@ using UnityEngine.UI;
 namespace NoSafeCircle.DoorPrototype.Tests
 {
     // Candidate for Vincent's 2026-09-27 mobile controls rules, not TaskGraph delivery proof.
-    // Play Mode component tests plus one read-only prefab/UI-input integration test.
+    // Play Mode component tests plus read-only prefab/UI-input integration tests.
     // Everything instantiated here belongs to a fresh in-memory scene; no assets are saved.
     public sealed class MobileControlsPlayModeTests : InputTestFixture
     {
@@ -28,18 +28,26 @@ namespace NoSafeCircle.DoorPrototype.Tests
         private RenderTexture testRenderTexture;
         private InputActionAsset testInputActions;
         private Mouse mouseDevice;
+        private Keyboard keyboardDevice;
         private readonly List<Vector3> fireTargets = new List<Vector3>();
+#if UNITY_EDITOR
+        private bool previousEditorPreviewEnabled;
+#endif
 
         public override void Setup()
         {
             base.Setup();
+#if UNITY_EDITOR
+            previousEditorPreviewEnabled = MobileGameplayControls.EditorPreviewEnabled;
+            MobileGameplayControls.EditorPreviewEnabled = false;
+#endif
             previousScene = SceneManager.GetActiveScene();
             testScene = SceneManager.CreateScene("MobileControlsTest-" + System.Guid.NewGuid().ToString("N"));
             SceneManager.SetActiveScene(testScene);
             fireTargets.Clear();
 
             mouseDevice = InputSystem.AddDevice<Mouse>();
-            Keyboard keyboardDevice = InputSystem.AddDevice<Keyboard>();
+            keyboardDevice = InputSystem.AddDevice<Keyboard>();
             GameObject cameraObject = new GameObject("MobileControlsTestCamera");
             cameraObject.tag = "MainCamera";
             testCamera = cameraObject.AddComponent<Camera>();
@@ -93,6 +101,10 @@ namespace NoSafeCircle.DoorPrototype.Tests
             mana = null;
             testCamera = null;
             mouseDevice = null;
+            keyboardDevice = null;
+#if UNITY_EDITOR
+            MobileGameplayControls.EditorPreviewEnabled = previousEditorPreviewEnabled;
+#endif
             base.TearDown();
         }
 
@@ -430,6 +442,257 @@ namespace NoSafeCircle.DoorPrototype.Tests
             EndTouch(53, movePoint, screen: touchscreen);
             yield return null;
             Assert.AreEqual(MobileFireMode.None, movement.CurrentMobileFireMode);
+        }
+
+        // Regression: sliding releases the old button in the gap, then presses the new one.
+        // A Stand stop remains permanent, and pointer-up is delivered to the original button.
+        [UnityTest]
+        public IEnumerator RealTouchUi_SlideMovingToStandAndBack_CancelsPath_AndReleasesTransferredHold()
+        {
+            Assert.Greater(Screen.width, Screen.height, "Run this mobile UI case in landscape.");
+            SetCameraPixelSurface(Screen.width, Screen.height);
+            Touchscreen touchscreen = InputSystem.AddDevice<Touchscreen>();
+            CreateEventSystem();
+            GameObject controlsObject = CreateMobileControls(out MobileGameplayControls controls);
+            controls.Bind(movement, null);
+            yield return null;
+            Canvas.ForceUpdateCanvases();
+            RectTransform standButton = FindNamed(controlsObject, "StandFireButton").GetComponent<RectTransform>();
+            RectTransform moveButton = FindNamed(controlsObject, "MoveFireButton").GetComponent<RectTransform>();
+            Vector2 standPoint = UiCenter(standButton);
+            Vector2 movePoint = UiCenter(moveButton);
+            Vector2 gapPoint = (standPoint + movePoint) * 0.5f;
+            Assert.IsFalse(RectTransformUtility.RectangleContainsScreenPoint(standButton, gapPoint, null));
+            Assert.IsFalse(RectTransformUtility.RectangleContainsScreenPoint(moveButton, gapPoint, null),
+                "The test must cross the real empty gap between the stacked buttons.");
+
+            movement.RequestDestination(new Vector3(20f, 0f, 0f));
+            BeginTouch(61, movePoint, screen: touchscreen);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.FireWhileMoving, movement.CurrentMobileFireMode);
+            Assert.IsTrue(movement.HasActiveDestination);
+            MoveTouch(61, gapPoint, screen: touchscreen);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.None, movement.CurrentMobileFireMode,
+                "Leaving the lower button releases it while the finger crosses the gap.");
+            Assert.IsTrue(movement.HasActiveDestination);
+
+            MoveTouch(61, standPoint, screen: touchscreen);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.StandAndFire, movement.CurrentMobileFireMode);
+            Assert.IsFalse(movement.HasActiveDestination);
+            Assert.IsTrue(movement.IsMovementRestricted);
+            MoveTouch(61, movePoint, screen: touchscreen);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.FireWhileMoving, movement.CurrentMobileFireMode);
+            Assert.IsFalse(movement.IsMovementRestricted);
+            Assert.IsFalse(movement.HasActiveDestination,
+                "Sliding back to Move cannot revive the path canceled by Stand.");
+            Assert.AreEqual(0, fireTargets.Count, "A modifier finger's slide must not become a world tap.");
+            EndTouch(61, movePoint, screen: touchscreen);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.None, movement.CurrentMobileFireMode);
+
+            // This release is still sent to the original lower button, though Stand now owns it.
+            movement.RequestDestination(new Vector3(20f, 0f, 0f));
+            BeginTouch(62, movePoint, screen: touchscreen);
+            yield return null;
+            MoveTouch(62, standPoint, screen: touchscreen);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.StandAndFire, movement.CurrentMobileFireMode);
+            EndTouch(62, standPoint, screen: touchscreen);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.None, movement.CurrentMobileFireMode);
+            Assert.IsFalse(movement.IsMovementRestricted);
+            Assert.IsFalse(movement.HasActiveDestination);
+        }
+
+        // Regression: gesture ownership follows each finger, including two fingers on one button.
+        // A movement reset invalidates even a still-down finger's permission to slide onto a button.
+        [UnityTest]
+        public IEnumerator RealTwoTouchUi_SlidingPreservesStandPriority_AndResetInvalidatesHeldGesture()
+        {
+            Assert.Greater(Screen.width, Screen.height, "Run this mobile UI case in landscape.");
+            SetCameraPixelSurface(Screen.width, Screen.height);
+            Touchscreen touchscreen = InputSystem.AddDevice<Touchscreen>();
+            CreateEventSystem();
+            GameObject controlsObject = CreateMobileControls(out MobileGameplayControls controls);
+            controls.Bind(movement, null);
+            yield return null;
+            Canvas.ForceUpdateCanvases();
+            Vector2 standPoint = UiCenter(FindNamed(controlsObject, "StandFireButton").GetComponent<RectTransform>());
+            Vector2 movePoint = UiCenter(FindNamed(controlsObject, "MoveFireButton").GetComponent<RectTransform>());
+
+            movement.RequestDestination(new Vector3(20f, 0f, 0f));
+            BeginTouch(71, movePoint, screen: touchscreen);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.FireWhileMoving, movement.CurrentMobileFireMode);
+            BeginTouch(72, standPoint, screen: touchscreen);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.StandAndFire, movement.CurrentMobileFireMode);
+            Assert.IsFalse(movement.HasActiveDestination);
+            MoveTouch(71, standPoint, screen: touchscreen);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.StandAndFire, movement.CurrentMobileFireMode);
+            MoveTouch(72, movePoint, screen: touchscreen);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.StandAndFire, movement.CurrentMobileFireMode,
+                "One finger leaving Stand cannot release the other finger still holding it.");
+            EndTouch(71, standPoint, screen: touchscreen);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.FireWhileMoving, movement.CurrentMobileFireMode,
+                "Releasing the lower-origin finger must release its transferred Stand hold only.");
+            Assert.IsFalse(movement.HasActiveDestination);
+            EndTouch(72, movePoint, screen: touchscreen);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.None, movement.CurrentMobileFireMode);
+
+            BeginTouch(73, movePoint, screen: touchscreen);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.FireWhileMoving, movement.CurrentMobileFireMode);
+            movement.ResetMovement();
+            yield return null;
+            Assert.AreEqual(MobileFireMode.None, movement.CurrentMobileFireMode);
+            MoveTouch(73, standPoint, screen: touchscreen);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.None, movement.CurrentMobileFireMode,
+                "Reset requires a fresh button press; a still-down old finger cannot reactivate Stand.");
+            EndTouch(73, standPoint, screen: touchscreen);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.None, movement.CurrentMobileFireMode);
+            Assert.AreEqual(0, fireTargets.Count);
+        }
+
+        // Regression: a world-origin aim/movement finger may not acquire a modifier by dragging.
+        [UnityTest]
+        public IEnumerator RealTouchUi_WorldOriginFingerEnteringButtons_DoesNotAcquireOrReleaseHold()
+        {
+            Assert.Greater(Screen.width, Screen.height, "Run this mobile UI case in landscape.");
+            SetCameraPixelSurface(Screen.width, Screen.height);
+            Touchscreen touchscreen = InputSystem.AddDevice<Touchscreen>();
+            CreateEventSystem();
+            GameObject controlsObject = CreateMobileControls(out MobileGameplayControls controls);
+            controls.Bind(movement, null);
+            yield return null;
+            Canvas.ForceUpdateCanvases();
+            Vector2 standPoint = UiCenter(FindNamed(controlsObject, "StandFireButton").GetComponent<RectTransform>());
+            Vector2 movePoint = UiCenter(FindNamed(controlsObject, "MoveFireButton").GetComponent<RectTransform>());
+            Vector2 worldPoint = new Vector2(Screen.width * 0.8f, Screen.height * 0.55f);
+
+            BeginTouch(81, worldPoint, screen: touchscreen);
+            yield return null;
+            Assert.IsTrue(movement.HasActiveDestination);
+            MoveTouch(81, movePoint, screen: touchscreen);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.None, movement.CurrentMobileFireMode);
+            MoveTouch(81, standPoint, screen: touchscreen);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.None, movement.CurrentMobileFireMode);
+            Assert.IsTrue(movement.HasActiveDestination,
+                "Entering Stand with a world-origin finger must not cancel the walking route.");
+            Assert.AreEqual(0, fireTargets.Count);
+            EndTouch(81, standPoint, screen: touchscreen);
+            yield return null;
+
+            BeginTouch(82, movePoint, screen: touchscreen);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.FireWhileMoving, movement.CurrentMobileFireMode);
+            BeginTouch(83, worldPoint, screen: touchscreen);
+            yield return null;
+            Assert.AreEqual(1, fireTargets.Count);
+            MoveTouch(83, standPoint, screen: touchscreen);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.FireWhileMoving, movement.CurrentMobileFireMode,
+                "The world aiming finger cannot acquire Stand while the modifier finger holds Move.");
+            Assert.IsTrue(movement.HasActiveDestination);
+            Assert.AreEqual(1, fireTargets.Count);
+            EndTouch(83, standPoint, screen: touchscreen);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.FireWhileMoving, movement.CurrentMobileFireMode,
+                "Releasing the aiming finger cannot release the modifier finger's hold.");
+            EndTouch(82, movePoint, screen: touchscreen);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.None, movement.CurrentMobileFireMode);
+        }
+
+#if UNITY_EDITOR
+        // Regression: the Editor-only opt-in exposes the real touch HUD without adding a device.
+        // Keyboard modifiers share permanent Stand cancellation and one-shot mouse aiming.
+        [UnityTest]
+        public IEnumerator EditorPreview_WithoutTouchscreen_EnablesHudMouseAimAndKeyboardModifiers()
+        {
+            Assert.Greater(Screen.width, Screen.height, "Run this mobile UI case in landscape.");
+            Assert.IsNull(Touchscreen.current, "Editor preview must work without a synthetic touch device.");
+            SetCameraPixelSurface(Screen.width, Screen.height);
+            CreateEventSystem();
+            GameObject controlsObject = CreateMobileControls(out MobileGameplayControls controls);
+            controls.Bind(movement, null);
+            yield return null;
+            Assert.IsFalse(controls.CanReceiveInput);
+            Assert.IsFalse(movement.UseMobileWorldInput);
+            CanvasGroup group = controlsObject.GetComponent<CanvasGroup>();
+            Assert.IsFalse(group.blocksRaycasts);
+
+            MobileGameplayControls.EditorPreviewEnabled = true;
+            yield return null;
+            Canvas.ForceUpdateCanvases();
+            Assert.IsTrue(controls.CanReceiveInput);
+            Assert.IsTrue(movement.UseMobileWorldInput);
+            Assert.IsTrue(group.blocksRaycasts);
+            Assert.AreEqual(1f, group.alpha);
+
+            movement.RequestDestination(new Vector3(20f, 0f, 0f));
+            Press(keyboardDevice.leftShiftKey);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.FireWhileMoving, movement.CurrentMobileFireMode);
+            Assert.IsTrue(movement.HasActiveDestination);
+            Vector3 aimTarget = new Vector3(3f, 0f, 3f);
+            SetMouse(ScreenPoint(aimTarget), true);
+            yield return null;
+            Assert.AreEqual(1, fireTargets.Count);
+            Assert.Less(HorizontalDistance(fireTargets[0], aimTarget), 0.03f);
+            Assert.IsTrue(movement.HasActiveDestination);
+            SetMouse(ScreenPoint(aimTarget) + new Vector2(20f, 20f), true);
+            yield return null;
+            Assert.AreEqual(1, fireTargets.Count, "Held mouse aim must not repeat the world tap.");
+            SetMouse(ScreenPoint(aimTarget), false);
+            yield return null;
+
+            Press(keyboardDevice.leftCtrlKey);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.StandAndFire, movement.CurrentMobileFireMode);
+            Assert.IsFalse(movement.HasActiveDestination);
+            Release(keyboardDevice.leftCtrlKey);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.FireWhileMoving, movement.CurrentMobileFireMode);
+            Assert.IsFalse(movement.HasActiveDestination,
+                "Releasing Ctrl while Shift stays held cannot revive the old path.");
+            Release(keyboardDevice.leftShiftKey);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.None, movement.CurrentMobileFireMode);
+            MobileGameplayControls.EditorPreviewEnabled = false;
+            yield return null;
+            Assert.IsFalse(controls.CanReceiveInput);
+            Assert.IsFalse(movement.UseMobileWorldInput);
+            Assert.IsFalse(group.blocksRaycasts);
+        }
+#endif
+
+        private GameObject CreateMobileControls(out MobileGameplayControls controls)
+        {
+            GameObject template = Resources.Load<GameObject>("Hud/MobileControls");
+            Assert.IsNotNull(template);
+            GameObject canvasObject = new GameObject("MobileControlsGestureTestCanvas",
+                typeof(RectTransform), typeof(Canvas), typeof(CanvasScaler), typeof(GraphicRaycaster));
+            canvasObject.GetComponent<Canvas>().renderMode = RenderMode.ScreenSpaceOverlay;
+            CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            scaler.referenceResolution = new Vector2(1920f, 1080f);
+            scaler.matchWidthOrHeight = 0.5f;
+            GameObject controlsObject = UnityEngine.Object.Instantiate(template, canvasObject.transform, false);
+            controls = controlsObject.GetComponentInChildren<MobileGameplayControls>(true);
+            Assert.IsNotNull(controls);
+            return controlsObject;
         }
 
         private void RecordFireTarget(Vector3 target) => fireTargets.Add(target);

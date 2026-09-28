@@ -171,7 +171,7 @@ namespace NoSafeCircle.DoorPrototype.Hud
                 MobileControls = Instantiate(mobileControlsPrefab, transform)
                     .GetComponent<MobileGameplayControls>();
             MobileControls.Bind(movement, run);
-            if (MobileGameplayControls.IsTouchDevice)
+            if (MobileControls.UsesTouchControls)
             {
                 damageButton.gameObject.SetActive(false);
                 manaButton.gameObject.SetActive(false);

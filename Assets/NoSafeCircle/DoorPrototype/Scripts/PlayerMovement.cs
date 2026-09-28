@@ -60,6 +60,11 @@ namespace NoSafeCircle.DoorPrototype
         private bool isHoldingPositionRestriction;
         private bool mousePressStartedOverUi;
         private bool ignoreMouseUntilRelease;
+        public bool UseMobileWorldInput { get; private set; }
+        public void SetMobileWorldInputEnabled(bool enabled) => UseMobileWorldInput = enabled;
+        public event Action MobileFireHoldsCleared;
+        public bool IsMobileFireHeld(MobileFireMode mode) => mode == MobileFireMode.StandAndFire
+            ? standingFirePointers.Count > 0 : mode == MobileFireMode.FireWhileMoving && movingFirePointers.Count > 0;
         private readonly HashSet<int> movingFirePointers = new HashSet<int>();
         private readonly HashSet<int> standingFirePointers = new HashSet<int>();
         private readonly List<RaycastResult> uiHits = new List<RaycastResult>();
@@ -99,6 +104,7 @@ namespace NoSafeCircle.DoorPrototype
                 ignoreMouseUntilRelease = moveToCursorAction != null && moveToCursorAction.IsPressed();
             movingFirePointers.Clear();
             standingFirePointers.Clear();
+            MobileFireHoldsCleared?.Invoke();
         }
 
         /// <summary>One fresh UI world pointer, with its own aim position (never the held button finger).</summary>
@@ -304,7 +310,7 @@ namespace NoSafeCircle.DoorPrototype
                 ignoreMouseUntilRelease = false;
             }
             // Touch UI owns all mobile world gestures; compatibility mouse events must not replay them.
-            if (Application.isMobilePlatform || Touchscreen.current != null) return;
+            if (UseMobileWorldInput || Application.isMobilePlatform || Touchscreen.current != null) return;
             if (isFreshPress)
                 mousePressStartedOverUi = IsPointerOverGameplayUi(pointerPositionAction.ReadValue<Vector2>());
             if (mousePressStartedOverUi || ignoreMouseUntilRelease) return;

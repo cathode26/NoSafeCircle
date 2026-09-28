@@ -7,7 +7,7 @@ namespace NoSafeCircle.DoorPrototype.Hud
 {
     /// <summary>A modifier held by one or more UI pointers. A different finger can aim in the world.</summary>
     [DisallowMultipleComponent]
-    public sealed class MobileFireHoldButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandler
+    public sealed class MobileFireHoldButton : MonoBehaviour, IPointerDownHandler, IPointerUpHandler, IPointerEnterHandler, IPointerExitHandler
     {
         [SerializeField] private MobileFireMode mode;
         [SerializeField] private Image background;
@@ -29,15 +29,32 @@ namespace NoSafeCircle.DoorPrototype.Hud
         {
             if (eventData.button != PointerEventData.InputButton.Left || owner == null || !owner.CanReceiveInput)
                 return;
-            if (pointers.Add(eventData.pointerId))
-                movement.SetMobileFireHeld(mode, eventData.pointerId, true);
-            RefreshVisual();
+            owner.BeginHoldGesture(this, eventData.pointerId);
         }
 
         public void OnPointerUp(PointerEventData eventData)
         {
-            if (pointers.Remove(eventData.pointerId) && movement != null)
-                movement.SetMobileFireHeld(mode, eventData.pointerId, false);
+            if (owner != null) owner.EndHoldGesture(eventData.pointerId);
+        }
+
+        public void OnPointerEnter(PointerEventData eventData)
+        {
+            if (owner != null) owner.SlideHoldGesture(this, eventData.pointerId);
+        }
+
+        public void OnPointerExit(PointerEventData eventData)
+        {
+            if (owner != null) owner.ExitHoldGesture(this, eventData.pointerId);
+        }
+
+        public void SetPointerHeld(int pointerId, bool held)
+        {
+            if (held)
+            {
+                if (pointers.Add(pointerId)) movement.SetMobileFireHeld(mode, pointerId, true);
+            }
+            else if (pointers.Remove(pointerId) && movement != null)
+                movement.SetMobileFireHeld(mode, pointerId, false);
             RefreshVisual();
         }
 
@@ -55,12 +72,13 @@ namespace NoSafeCircle.DoorPrototype.Hud
             // A floor reset or gameplay suspension clears owner state even while a finger stays down.
             if (movement == null || !movement.IsGameplayEnabled || movement.CurrentMobileFireMode == MobileFireMode.None)
                 ReleaseAll();
+            RefreshVisual();
         }
 
         private void OnDisable() => ReleaseAll();
         private void RefreshVisual()
         {
-            if (background != null) background.color = pointers.Count > 0 ? heldColor : idleColor;
+            if (background != null) background.color = pointers.Count > 0 || (movement != null && movement.IsMobileFireHeld(mode)) ? heldColor : idleColor;
         }
     }
 }
