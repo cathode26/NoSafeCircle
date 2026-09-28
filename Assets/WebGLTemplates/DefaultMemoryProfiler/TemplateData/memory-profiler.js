@@ -1,6 +1,7 @@
-// Optional Unity diagnostics. Without ?diags, the default page has no extra UI.
+// Optional Unity diagnostics. Without ?diag or ?diags, the default page has no extra UI.
 (function () {
-    const enabled = new URLSearchParams(window.location.search).has("diags");
+    const query = new URLSearchParams(window.location.search);
+    const enabled = query.has("diags") || query.has("diag");
     const assetBase = new URL(".", document.currentScript.src);
 
     window.unityMemoryProfiler = {
