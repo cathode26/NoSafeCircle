@@ -10,6 +10,10 @@ The two hold buttons are stacked at the bottom left, inside `Screen.safeArea`:
 
 Slide a held finger onto the other button to switch modes. Leaving the old button releases it; entering the new button presses it. Neither mode is held in the gap. Pointer-up releases the current mode even when UGUI delivers it to the original button. A world-origin finger cannot become a fire-button hold by sliding over one.
 
+A transparent dead zone covers the bottom-left corner, the gap, and a 24-reference-pixel margin above/right of the stack. Near-miss taps there neither move nor fire; the buttons keep their visible hit areas. The dead zone includes the device safe-area inset.
+
+The mobile **Restart** button sits at the top right during gameplay and after victory or defeat. It reloads the game through the same path as the desktop R key and returns to the title/wizard selection. Fire and world controls hide at the end; Restart stays available.
+
 Stand takes priority when both buttons are held. Each button tracks its own pointer IDs, so one release cannot end another finger's hold. With neither held, each fresh world pointer-down is a movement/door command. Dragging or holding a world finger does not repeat it. A finger that started on a hold button cannot become a world command by dragging away.
 
 `PlayerMovement` owns the mode and cancellation rules. `MobileWorldTapSurface` routes each world pointer's own position. `DemoRunFlow.TryCastFireball` shares the mouse cast's mana and cooldown checks. Mouse movement rejects the entire press that started over UI, including a drag away from it; normal desktop left-click movement and right-click casting remain available.

@@ -33,6 +33,7 @@ namespace NoSafeCircle.DoorPrototype
         private float castCooldown;
         private bool won;
         private bool lost;
+        private bool isRestartRequested;
         private TitleScreenController titleScreen;
         private PlayerMovement movement;
         public bool HasEnded => won || lost;
@@ -327,6 +328,16 @@ namespace NoSafeCircle.DoorPrototype
                     : "Left-click to move and open doors    Right-click to cast fireball", style);
         }
 
+        /// <summary>Restarts the full game through the same scene reload as the desktop R key.</summary>
+        public void RestartGame()
+        {
+            if (isRestartRequested) return;
+            isRestartRequested = true;
+            movement?.ClearMobileFireHolds();
+            UnityEngine.SceneManagement.SceneManager.LoadScene(
+                UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
+        }
+
         private void DrawEndScreen()
         {
             GUI.color = new Color(0f, 0f, 0f, 0.75f);
@@ -350,13 +361,14 @@ namespace NoSafeCircle.DoorPrototype
                 alignment = TextAnchor.MiddleCenter,
             };
             hintStyle.normal.textColor = Color.white;
-            GUI.Label(new Rect(0f, Screen.height * 0.5f, Screen.width, 40f), "Press R to play again", hintStyle);
+            GUI.Label(new Rect(0f, Screen.height * 0.5f, Screen.width, 40f),
+                movement != null && movement.UseMobileWorldInput
+                    ? "Tap Restart to play again" : "Press R to play again", hintStyle);
 
             Keyboard keyboard = Keyboard.current;
             if (keyboard != null && keyboard.rKey.wasPressedThisFrame)
             {
-                UnityEngine.SceneManagement.SceneManager.LoadScene(
-                    UnityEngine.SceneManagement.SceneManager.GetActiveScene().buildIndex);
+                RestartGame();
             }
         }
     }

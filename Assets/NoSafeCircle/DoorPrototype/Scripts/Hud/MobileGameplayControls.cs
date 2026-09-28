@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UI;
 
 namespace NoSafeCircle.DoorPrototype.Hud
 {
@@ -12,6 +13,8 @@ namespace NoSafeCircle.DoorPrototype.Hud
     public sealed class MobileGameplayControls : MonoBehaviour
     {
         [SerializeField] private RectTransform safeArea;
+        [SerializeField] private RectTransform buttonDeadZone;
+        [SerializeField] private Button restartButton;
         [SerializeField] private MobileFireHoldButton standFireButton;
         [SerializeField] private MobileFireHoldButton moveFireButton;
         [SerializeField] private MobileWorldTapSurface worldTapSurface;
@@ -40,6 +43,11 @@ namespace NoSafeCircle.DoorPrototype.Hud
             && movement != null && movement.IsGameplayEnabled
             && (health == null || health.CurrentHealth > 0f)
             && (run == null || !run.HasEnded)
+            && UsesTouchControls && Screen.width >= Screen.height;
+
+        public bool CanRestartGame => isActiveAndEnabled && hasFocus && !paused
+            && movement != null && run != null
+            && (movement.IsGameplayEnabled || run.HasEnded)
             && UsesTouchControls && Screen.width >= Screen.height;
 
         public static bool IsMobileDevice
@@ -77,6 +85,7 @@ namespace NoSafeCircle.DoorPrototype.Hud
         private void Awake()
         {
             group = GetComponent<CanvasGroup>();
+            if (restartButton != null) restartButton.onClick.AddListener(RestartGame);
             ApplyPresentation();
         }
 
@@ -146,6 +155,13 @@ namespace NoSafeCircle.DoorPrototype.Hud
 
         private void OnPlayerHoldsCleared() => ClearHolds();
 
+        private void RestartGame()
+        {
+            if (!CanRestartGame) return;
+            ClearHolds();
+            run.RestartGame();
+        }
+
 #if UNITY_EDITOR
         private void RefreshEditorModifiers()
         {
@@ -175,11 +191,18 @@ namespace NoSafeCircle.DoorPrototype.Hud
             }
 #endif
             if (movement != null) movement.SetMobileWorldInputEnabled(UsesTouchControls);
-            bool visible = CanReceiveInput;
+            bool gameplayVisible = CanReceiveInput;
+            bool restartVisible = CanRestartGame;
+            bool visible = gameplayVisible || restartVisible;
             group.alpha = visible ? 1f : 0f;
             group.interactable = visible;
             group.blocksRaycasts = visible;
-            if (!visible) ClearHolds();
+            if (!gameplayVisible) ClearHolds();
+            if (standFireButton != null) standFireButton.gameObject.SetActive(gameplayVisible);
+            if (moveFireButton != null) moveFireButton.gameObject.SetActive(gameplayVisible);
+            if (worldTapSurface != null) worldTapSurface.gameObject.SetActive(gameplayVisible);
+            if (buttonDeadZone != null) buttonDeadZone.gameObject.SetActive(gameplayVisible);
+            if (restartButton != null) restartButton.gameObject.SetActive(restartVisible);
 
             if (safeArea == null || Screen.width <= 0 || Screen.height <= 0) return;
             Rect area = Screen.safeArea;
@@ -187,6 +210,8 @@ namespace NoSafeCircle.DoorPrototype.Hud
             safeArea.anchorMax = new Vector2(area.xMax / Screen.width, area.yMax / Screen.height);
             safeArea.offsetMin = Vector2.zero;
             safeArea.offsetMax = Vector2.zero;
+            // The root blocker includes the device inset between the screen corner and buttons.
+            if (buttonDeadZone != null) buttonDeadZone.anchorMax = safeArea.anchorMin;
         }
 
         private void ClearHolds()
@@ -232,6 +257,7 @@ namespace NoSafeCircle.DoorPrototype.Hud
 
         private void OnDestroy()
         {
+            if (restartButton != null) restartButton.onClick.RemoveListener(RestartGame);
             if (movement != null)
             {
                 movement.MobileFireHoldsCleared -= OnPlayerHoldsCleared;
