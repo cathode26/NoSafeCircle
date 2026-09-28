@@ -678,6 +678,40 @@ namespace NoSafeCircle.DoorPrototype.Tests
         }
 #endif
 
+#if UNITY_EDITOR
+        [UnityTest]
+        public IEnumerator EditorPreview_RightAndMiddleRelease_DoNotEndLeftButtonHold()
+        {
+            SetCameraPixelSurface(Screen.width, Screen.height);
+            MobileGameplayControls.EditorPreviewEnabled = true;
+            CreateEventSystem();
+            GameObject controlsObject = CreateMobileControls(out MobileGameplayControls controls);
+            controls.Bind(movement, null);
+            yield return null;
+            Canvas.ForceUpdateCanvases();
+            Vector2 movePoint = UiCenter(FindNamed(controlsObject, "MoveFireButton").GetComponent<RectTransform>());
+            Set(mouseDevice.position, movePoint);
+            Press(mouseDevice.leftButton);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.FireWhileMoving, movement.CurrentMobileFireMode);
+
+            Press(mouseDevice.rightButton);
+            yield return null;
+            Release(mouseDevice.rightButton);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.FireWhileMoving, movement.CurrentMobileFireMode,
+                "Releasing another mouse button must not release the still-held left button.");
+            Press(mouseDevice.middleButton);
+            yield return null;
+            Release(mouseDevice.middleButton);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.FireWhileMoving, movement.CurrentMobileFireMode);
+            Release(mouseDevice.leftButton);
+            yield return null;
+            Assert.AreEqual(MobileFireMode.None, movement.CurrentMobileFireMode);
+        }
+#endif
+
         private GameObject CreateMobileControls(out MobileGameplayControls controls)
         {
             GameObject template = Resources.Load<GameObject>("Hud/MobileControls");

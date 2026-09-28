@@ -34,7 +34,8 @@ namespace NoSafeCircle.DoorPrototype.Hud
 
         public void OnPointerUp(PointerEventData eventData)
         {
-            if (owner != null) owner.EndHoldGesture(eventData.pointerId);
+            if (eventData.button == PointerEventData.InputButton.Left && owner != null)
+                owner.EndHoldGesture(eventData.pointerId);
         }
 
         public void OnPointerEnter(PointerEventData eventData)
