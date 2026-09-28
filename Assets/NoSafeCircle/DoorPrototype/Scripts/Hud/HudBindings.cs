@@ -46,6 +46,11 @@ namespace NoSafeCircle.DoorPrototype.Hud
         [SerializeField] private Transform worldSpawn;
         [SerializeField] private GameObject mobileControlsPrefab;
 
+        private GameObject[] desktopControls;
+        private bool[] originalDesktopActive;
+        private bool desktopUsesTouch;
+        private bool hasDesktopPresentation;
+
         public MobileGameplayControls MobileControls { get; private set; }
 
         /// <summary>True once <see cref="BindToPlayer"/> has completed; never true for a HUD that
@@ -171,17 +176,33 @@ namespace NoSafeCircle.DoorPrototype.Hud
                 MobileControls = Instantiate(mobileControlsPrefab, transform)
                     .GetComponent<MobileGameplayControls>();
             MobileControls.Bind(movement, run);
-            if (MobileControls.UsesTouchControls)
+            if (desktopControls == null)
             {
-                damageButton.gameObject.SetActive(false);
-                manaButton.gameObject.SetActive(false);
-                Transform desktopInstructions = transform.Find("ControlsHud");
-                if (desktopInstructions != null) desktopInstructions.gameObject.SetActive(false);
+                desktopControls = new[] { damageButton.gameObject, manaButton.gameObject,
+                    transform.Find("ControlsHud")?.gameObject };
+                originalDesktopActive = new bool[desktopControls.Length];
+                for (int index = 0; index < desktopControls.Length; index++)
+                    originalDesktopActive[index] = desktopControls[index] != null && desktopControls[index].activeSelf;
             }
+            ApplyDesktopPresentation();
 
             IsBound = true;
             BoundPlayer = movement;
             return true;
+        }
+
+        private void Update() => ApplyDesktopPresentation();
+
+        private void ApplyDesktopPresentation()
+        {
+            if (MobileControls == null || desktopControls == null) return;
+            bool touch = MobileControls.UsesTouchControls;
+            if (hasDesktopPresentation && desktopUsesTouch == touch) return;
+            hasDesktopPresentation = true;
+            desktopUsesTouch = touch;
+            for (int index = 0; index < desktopControls.Length; index++)
+                if (desktopControls[index] != null)
+                    desktopControls[index].SetActive(!touch && originalDesktopActive[index]);
         }
 
         private bool HasEveryOwnPart()
