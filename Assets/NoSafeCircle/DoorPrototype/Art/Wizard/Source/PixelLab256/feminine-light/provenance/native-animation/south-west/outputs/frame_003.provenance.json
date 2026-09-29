@@ -1,0 +1,17 @@
+{
+  "method": "animate_with_skeleton_v3",
+  "job_id": "5f550adf-f1f2-4de6-88e4-ba0c6f7d4546",
+  "direction": "south-west",
+  "frame_index": 3,
+  "output_index": 3,
+  "source_manifest_sha256": "e82610433241f399b4dd15708c47eb4612ffd1202398341faef57658cf5a4ec0",
+  "pose_request_sha256": "98d89b08c201a4a7cc2e4e2efd0a60ac99aff59d2365a8d3f68bacd5b4ce4106",
+  "source_example_sha256": "01faf2e9251c81349e7b3132f90e0320a4ca348e8c59bfb4b099029e72aeb1ac",
+  "download_origin": "https://api.pixellab.ai",
+  "download_url_sha256": "55358dd67cb7a98c7e60e3114fe909096d108dc347893cd690931d5106d5a237",
+  "download_sent_credentials": false,
+  "redirects_followed": false,
+  "art_bytes_modified": false,
+  "png_sha256": "1565c1ebaf8980d33b8ff78f18994be2eaaa1ad39adcf9ae0d247a0fbb066f38",
+  "bytes": 17092
+}

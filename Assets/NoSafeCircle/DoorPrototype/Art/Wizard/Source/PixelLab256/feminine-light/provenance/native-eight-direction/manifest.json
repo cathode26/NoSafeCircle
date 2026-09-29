@@ -1,0 +1,286 @@
+{
+  "schema": "nsc-eight-direction-256-v1",
+  "status": "completed",
+  "character_id": "5f461db6-6e2e-4fbf-bbe2-e6826767dbf5",
+  "request": {
+    "description": "Same copper-haired female wizard as the supplied sprite: shoulder-length copper bob with uneven bangs, fair rosy skin with subtle freckles, round muted slate blue-gray glasses, a delicate gold septum hoop, soft oval face with rounded chin, dark navy pointed wizard hat with gold band, dark navy robe, brown belt and boots. Maintain her recognizable facial features, head shape, hair length, color palette and clothing in every view.",
+    "first_frame_url": "https://api.pixellab.ai/mcp/images/565f10ce-4dfc-4cc2-a6c5-067fcc531ea9/download?index=0",
+    "first_frame_direction": "south",
+    "name": "wizard_feminine_light_glasses_r8_256",
+    "n_directions": 8,
+    "seed": 20929256,
+    "template_id": "mannequin",
+    "view": "low top-down"
+  },
+  "queue_response": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\n  \"background_job_id\": \"5778d80b-d604-4634-bbb2-2ce7a1d055a2\",\n  \"character_id\": \"5f461db6-6e2e-4fbf-bbe2-e6826767dbf5\",\n  \"status\": \"processing\",\n  \"first_direction_generated\": false,\n  \"estimated_generations\": 8,\n  \"job_id\": \"5778d80b-d604-4634-bbb2-2ce7a1d055a2\",\n  \"n_directions\": 8,\n  \"poll_tool\": \"get_character\",\n  \"status_path\": \"/v2/background-jobs/5778d80b-d604-4634-bbb2-2ce7a1d055a2\",\n  \"download_path\": \"/mcp/characters/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/download\"\n}\nPoll get_character(character_id=\"5f461db6-6e2e-4fbf-bbe2-e6826767dbf5\") or /v2/background-jobs/5778d80b-d604-4634-bbb2-2ce7a1d055a2; wait for the outer job to complete before downloading or animating. The selected first direction is reused without another image charge. Only V3 rotations are billed."
+      }
+    ],
+    "structuredContent": {
+      "background_job_id": "5778d80b-d604-4634-bbb2-2ce7a1d055a2",
+      "character_id": "5f461db6-6e2e-4fbf-bbe2-e6826767dbf5",
+      "status": "processing",
+      "first_direction_generated": false,
+      "estimated_generations": 8,
+      "job_id": "5778d80b-d604-4634-bbb2-2ce7a1d055a2",
+      "n_directions": 8,
+      "poll_tool": "get_character",
+      "status_path": "/v2/background-jobs/5778d80b-d604-4634-bbb2-2ce7a1d055a2",
+      "download_path": "/mcp/characters/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/download"
+    },
+    "isError": false
+  },
+  "queued_at_utc": "2026-09-29T07:11:45.660Z",
+  "requested_canvas": [
+    256,
+    256
+  ],
+  "approved_south": {
+    "job_id": "565f10ce-4dfc-4cc2-a6c5-067fcc531ea9",
+    "manifest": "../20260929-walk-256/animation-manifest.json",
+    "path": "../20260929-walk-256/generated/walk/south",
+    "user_feedback": "much better",
+    "accepted": true
+  },
+  "requested_remaining_directions": [
+    "north",
+    "north-east",
+    "east",
+    "south-east",
+    "south-west",
+    "west",
+    "north-west"
+  ],
+  "directions": {
+    "east": {
+      "status": "completed",
+      "appearance": {
+        "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/rotations/east.png?t=1790666040",
+        "relative_path": "appearance/east.png"
+      },
+      "job_id": "fae6dd51-6cb2-4f7a-8bfd-ba4d30cceaf9",
+      "animation_manifest": "directions/east/animation-manifest.json",
+      "pose_request_path": "pose-request-v2-integer-z.json",
+      "source_manifest_sha256": "19460d3cd938f8aa1ebd42b801c851b7a8f1451c47f0c1de7a5f6da822e566cf",
+      "pose_request_sha256": "0021c55078e183c4f6967ddfe594c40482a020c99663ef71ce2416cabc34f3a1",
+      "queued_at_utc": "2026-09-29T07:21:29.377Z",
+      "asset_id": "2e68f344-931f-5329-acfb-9e5f6ac88237",
+      "completed_at_utc": "2026-09-29T07:28:09.573Z",
+      "comparison_manifest": "directions/east/comparison-manifest.json",
+      "actual_canvas": [
+        256,
+        256
+      ],
+      "frame_count": 6,
+      "new_anchor_row": 242
+    },
+    "north": {
+      "status": "completed",
+      "appearance": {
+        "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/rotations/north.png?t=1790666040",
+        "relative_path": "appearance/north.png"
+      },
+      "job_id": "b4b1ae97-91e2-4b25-a45b-a09d8c417dd8",
+      "animation_manifest": "directions/north/animation-manifest.json",
+      "source_manifest_sha256": "e9f9c6dcd6689dd5b093384a3d4ceb2448addf00adaec377143e6b001e5a509b",
+      "pose_request_sha256": "9c230e6fd0b883259f2161fc9ff4828226c4020f69978a0b78e4a45914b3317c",
+      "queued_at_utc": "2026-09-29T07:16:41.653Z",
+      "asset_id": "0c96eb1d-b960-5e88-9912-2d27de4929cf",
+      "completed_at_utc": "2026-09-29T07:23:47.874Z",
+      "comparison_manifest": "directions/north/comparison-manifest.json",
+      "actual_canvas": [
+        256,
+        256
+      ],
+      "frame_count": 6,
+      "new_anchor_row": 243
+    },
+    "west": {
+      "status": "completed",
+      "appearance": {
+        "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/rotations/west.png?t=1790666040",
+        "relative_path": "appearance/west.png"
+      },
+      "job_id": "084195c1-ed86-4fc2-acc0-b98b9c96a7dc",
+      "animation_manifest": "directions/west/animation-manifest.json",
+      "source_manifest_sha256": "3209207cf8b25dd4aca4ac9e8c6879671ff3a5de49db6b95b2f8ffd409426c08",
+      "pose_request_sha256": "2816b148e4e9ec087ff6636faa5ca9d1fe7a644b79ccc3aa02e97edeb8877c05",
+      "queued_at_utc": "2026-09-29T07:21:32.940Z",
+      "failed_jobs": [
+        {
+          "job_id": "bf2de4ae-5fab-4cf8-91bc-d17e35b181df",
+          "manifest": "directions/west/animation-manifest-v1-failed.json",
+          "reason": "Backend requires integer z_index; provider skeleton estimate included fractional face layering."
+        }
+      ],
+      "pose_request_path": "pose-request-v2-integer-z.json",
+      "asset_id": "e4e8e863-a716-5779-ba8f-a162d4b1eeb9",
+      "completed_at_utc": "2026-09-29T07:26:29.861Z",
+      "comparison_manifest": "directions/west/comparison-manifest.json",
+      "actual_canvas": [
+        256,
+        256
+      ],
+      "frame_count": 6,
+      "new_anchor_row": 238
+    },
+    "south-east": {
+      "status": "completed",
+      "appearance": {
+        "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/rotations/south-east.png?t=1790666040",
+        "relative_path": "appearance/south-east.png"
+      },
+      "job_id": "92774f6e-717c-4e82-9b3f-e6ee31b9b422",
+      "animation_manifest": "directions/south-east/animation-manifest.json",
+      "pose_request_path": "pose-request-v2-integer-z.json",
+      "source_manifest_sha256": "43d6827c37a83835e5c26bf6f9930bd8d2118d32fbd8ac7cb68f1aa94c998854",
+      "pose_request_sha256": "7de240d05b08d74f000349cfdadcdf9e02ce9d4e2e102e5b19d4cc8da4795e9a",
+      "queued_at_utc": "2026-09-29T07:21:31.582Z",
+      "asset_id": "9926078a-6e62-5598-b1c7-99159fb5b9e0",
+      "completed_at_utc": "2026-09-29T07:26:31.033Z",
+      "comparison_manifest": "directions/south-east/comparison-manifest.json",
+      "actual_canvas": [
+        256,
+        256
+      ],
+      "frame_count": 6,
+      "new_anchor_row": 240
+    },
+    "north-east": {
+      "status": "completed",
+      "appearance": {
+        "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/rotations/north-east.png?t=1790666040",
+        "relative_path": "appearance/north-east.png"
+      },
+      "job_id": "d95e37e9-6dae-4065-8ded-208e7d5327ef",
+      "animation_manifest": "directions/north-east/animation-manifest.json",
+      "source_manifest_sha256": "723119ba4c8d8ce37555e1ecf492fe7da8f1bfee2e0cd5371387f7da8e179a3d",
+      "pose_request_sha256": "6e4eba499f5242c67114a6200579040d27bdb9faa4a49868365748593b82f8d2",
+      "queued_at_utc": "2026-09-29T07:17:31.203Z",
+      "asset_id": "692c4412-9e5e-53df-84b4-e3ec34c6d50b",
+      "completed_at_utc": "2026-09-29T07:23:48.973Z",
+      "comparison_manifest": "directions/north-east/comparison-manifest.json",
+      "actual_canvas": [
+        256,
+        256
+      ],
+      "frame_count": 6,
+      "new_anchor_row": 242
+    },
+    "north-west": {
+      "status": "completed",
+      "appearance": {
+        "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/rotations/north-west.png?t=1790666040",
+        "relative_path": "appearance/north-west.png"
+      },
+      "job_id": "cc72274d-d86f-4a6f-b05c-1dd31d716551",
+      "animation_manifest": "directions/north-west/animation-manifest.json",
+      "source_manifest_sha256": "cb9150ab62248b4fcb4ea98b0660ccafd8eb1396fa518efb57f2bdb5eac3cf9c",
+      "pose_request_sha256": "58fad6ecd824955c2b531001e0ace9134aaac5dcbb0ce92a714cb96b5f1da743",
+      "queued_at_utc": "2026-09-29T07:18:17.662Z",
+      "asset_id": "1686915b-8520-5b9a-8755-d3cef2a446c7",
+      "completed_at_utc": "2026-09-29T07:23:50.048Z",
+      "comparison_manifest": "directions/north-west/comparison-manifest.json",
+      "actual_canvas": [
+        256,
+        256
+      ],
+      "frame_count": 6,
+      "new_anchor_row": 238
+    },
+    "south-west": {
+      "status": "completed",
+      "appearance": {
+        "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/rotations/south-west.png?t=1790666040",
+        "relative_path": "appearance/south-west.png"
+      },
+      "job_id": "5f550adf-f1f2-4de6-88e4-ba0c6f7d4546",
+      "animation_manifest": "directions/south-west/animation-manifest.json",
+      "source_manifest_sha256": "e82610433241f399b4dd15708c47eb4612ffd1202398341faef57658cf5a4ec0",
+      "pose_request_sha256": "98d89b08c201a4a7cc2e4e2efd0a60ac99aff59d2365a8d3f68bacd5b4ce4106",
+      "queued_at_utc": "2026-09-29T07:17:34.208Z",
+      "asset_id": "e92c784a-9fbc-57e6-a1db-4e327f700e30",
+      "completed_at_utc": "2026-09-29T07:26:32.221Z",
+      "comparison_manifest": "directions/south-west/comparison-manifest.json",
+      "actual_canvas": [
+        256,
+        256
+      ],
+      "frame_count": 6,
+      "new_anchor_row": 240
+    },
+    "south": {
+      "status": "completed",
+      "accepted": true,
+      "job_id": "565f10ce-4dfc-4cc2-a6c5-067fcc531ea9",
+      "comparison_manifest": "directions/south/comparison-manifest.json",
+      "reference_raster_preserved": true
+    }
+  },
+  "output_images_locally_modified": false,
+  "unity_imported": false,
+  "published": false,
+  "visual_review_requested": false,
+  "original_motion_root": "C:/NSC/NSC/NoSafeCircle/Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/walk",
+  "character_completed_at_utc": "2026-09-29T07:14:31.570Z",
+  "character_completed_text": "status: completed\nid: 5f461db6-6e2e-4fbf-bbe2-e6826767dbf5\nname: wizard_feminine_light_glasses_r8_256\nstate_name: Idle\ndirections: 8 (south, east, north, west, south-east, north-east, north-west, south-west)\nsize: 256x256px\nview: low top-down\nstyle: -, -, -\ngroup: ba184bbf-07d6-44f6-b88d-2e6e04c79f05 (1 state)\n\nrotations:\n  south: https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/rotations/south.png?t=1790666040\n  east: https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/rotations/east.png?t=1790666040\n  north: https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/rotations/north.png?t=1790666040\n  west: https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/rotations/west.png?t=1790666040\n  south-east: https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/rotations/south-east.png?t=1790666040\n  north-east: https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/rotations/north-east.png?t=1790666040\n  north-west: https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/rotations/north-west.png?t=1790666040\n  south-west: https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/rotations/south-west.png?t=1790666040\n\nanimations: none\n\ndownload: https://api.pixellab.ai/mcp/characters/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/download\nspritesheet: https://api.pixellab.ai/mcp/characters/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/spritesheet (this state only — one uniform-grid sheet PNG + layout JSON, zipped; cells pivot-centred)\n\navailable_animations: backflip, breathing-idle, cross-punch, crouched-walking, crouching, drinking, falling-back-death, fight-stance-idle-8-frames, fireball, flying-kick, front-flip, getting-up, high-kick, hurricane-kick, jumping-1, jumping-2, lead-jab, leg-sweep, picking-up, pull-heavy-object, pushing, roundhouse-kick, running-4-frames, running-6-frames, running-8-frames, running-jump, running-slide, sad-walk, scary-walk, surprise-uppercut, taking-punch, throw-object, two-footed-jump, walk, walk-1, walk-2, walking, walking-10, walking-2, walking-3, walking-4, walking-4-frames, walking-5, walking-6, walking-6-frames, walking-7, walking-8, walking-8-frames, walking-9\n\nactions: animate_character(character_id=\"5f461db6-6e2e-4fbf-bbe2-e6826767dbf5\", ...) | create_character_state(character_id=\"5f461db6-6e2e-4fbf-bbe2-e6826767dbf5\", ...) | delete_character(character_id=\"5f461db6-6e2e-4fbf-bbe2-e6826767dbf5\")\nhint: animate_character(character_id=\"5f461db6-6e2e-4fbf-bbe2-e6826767dbf5\", template_animation_id=\"backflip\")",
+  "rotations": {
+    "south": {
+      "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/rotations/south.png?t=1790666040",
+      "relative_path": "appearance/south.png"
+    },
+    "east": {
+      "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/rotations/east.png?t=1790666040",
+      "relative_path": "appearance/east.png"
+    },
+    "north": {
+      "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/rotations/north.png?t=1790666040",
+      "relative_path": "appearance/north.png"
+    },
+    "west": {
+      "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/rotations/west.png?t=1790666040",
+      "relative_path": "appearance/west.png"
+    },
+    "south-east": {
+      "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/rotations/south-east.png?t=1790666040",
+      "relative_path": "appearance/south-east.png"
+    },
+    "north-east": {
+      "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/rotations/north-east.png?t=1790666040",
+      "relative_path": "appearance/north-east.png"
+    },
+    "north-west": {
+      "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/rotations/north-west.png?t=1790666040",
+      "relative_path": "appearance/north-west.png"
+    },
+    "south-west": {
+      "url": "https://backblaze.pixellab.ai/file/pixellab-characters/d045108f-d37a-40ec-b505-a74f42800cc9/5f461db6-6e2e-4fbf-bbe2-e6826767dbf5/rotations/south-west.png?t=1790666040",
+      "relative_path": "appearance/south-west.png"
+    }
+  },
+  "preview_url": "http://127.0.0.1:54522/20260929-eight-direction-256/preview.html",
+  "preview_manifest": "preview-manifest.json",
+  "completed_at_utc": "2026-09-29T07:29:18.175Z",
+  "frame_count": 48,
+  "frame_count_per_direction": 6,
+  "actual_canvas": [
+    256,
+    256
+  ],
+  "fps": 12,
+  "packet_zip": "wizard-256-walks.zip",
+  "screenshot": "eight-direction-preview.png",
+  "remaining_jobs": [],
+  "user_review": {
+    "south_accepted": true,
+    "remaining_directions_accepted": null
+  },
+  "packet_sha256": "fd173b6749efb94ca0dbcc7d3cba30a2ab6fdea563d34c84be325daf5b66fb9b",
+  "preview_selected_direction": "south-east",
+  "preview_equal_display_size": true,
+  "preview_zoom": 3,
+  "delivery_status": "preview_open_and_48_frame_zip_ready"
+}

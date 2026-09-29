@@ -1,0 +1,6 @@
+{
+  "imagePath": "C:\\Users\\VincentLiguori\\Downloads\\NoSafeCircleOutput\\RedHairedMage\\20260929-walk-256\\sources\\reference\\r8-south-256.png",
+  "imageSHA256": "bebe19ee806142fb7380d6aa44961dafdfed959d33d6ee08f05eb99d0eff6cfc",
+  "rawResponseSHA256": "2f9b6cb4e114177e1ecdd7ec68358bb8be3e89717a486d810b89cd73697a4779",
+  "endpoint": "https://api.pixellab.ai/v2/estimate-skeleton"
+}

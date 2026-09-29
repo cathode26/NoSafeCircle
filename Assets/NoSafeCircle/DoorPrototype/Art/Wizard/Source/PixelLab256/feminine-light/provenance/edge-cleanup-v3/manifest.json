@@ -1,0 +1,125 @@
+{
+  "schema": "nsc-wizard-256-edge-cleanup-v3",
+  "status": "native_cleanup_completed",
+  "request": "Remove remaining light hat-edge pixels, then integrate this mage to replace Frost at the other wizards' game size.",
+  "source_manifest": "../edge-cleanup-v2/manifest.json",
+  "method": "PixelLab pixelart_workbench exact exterior hat outline recolor",
+  "changes": {
+    "operation": "outline",
+    "layer": "image",
+    "frames": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "mode": "recolor",
+    "width": 1,
+    "connectivity": 8,
+    "include_holes": false,
+    "region": [
+      0,
+      0,
+      255,
+      74
+    ],
+    "colors": [
+      "#3e515cff"
+    ],
+    "color": "#020106ff",
+    "reason": "Darken the remaining observed gray-blue exterior hat flecks; preserve alpha and glasses below the hat."
+  },
+  "canvas": [
+    256,
+    256
+  ],
+  "fps": 12,
+  "frame_count_per_direction": 6,
+  "originals_preserved": true,
+  "unity_imported": false,
+  "directions": [
+    {
+      "id": "north",
+      "source_job_id": "b4b1ae97-91e2-4b25-a45b-a09d8c417dd8",
+      "source_pixel_tool_id": "55ffaed5-3dcf-4f5c-a619-1edd916c0834",
+      "status": "native_cleanup_completed",
+      "pixel_tool_id": "cd67de30-5ea1-4228-af30-9be465d549b9",
+      "native_changed_pixels": 0,
+      "frames_url": "https://api.pixellab.ai/mcp/pixel-tools/cd67de30-5ea1-4228-af30-9be465d549b9/frames.png"
+    },
+    {
+      "id": "north-east",
+      "source_job_id": "d95e37e9-6dae-4065-8ded-208e7d5327ef",
+      "source_pixel_tool_id": "7c81fcd7-0bb1-425d-8064-1ab7a17fc7ca",
+      "status": "native_cleanup_completed",
+      "pixel_tool_id": "041a3fd1-55ab-4636-bede-da52aaffc464",
+      "native_changed_pixels": 0,
+      "frames_url": "https://api.pixellab.ai/mcp/pixel-tools/041a3fd1-55ab-4636-bede-da52aaffc464/frames.png"
+    },
+    {
+      "id": "east",
+      "source_job_id": "fae6dd51-6cb2-4f7a-8bfd-ba4d30cceaf9",
+      "source_pixel_tool_id": "9212914c-3cc7-49fa-acc9-382b5d8d37d5",
+      "status": "native_cleanup_completed",
+      "pixel_tool_id": "b081cf8e-a817-471d-847b-0c7056218476",
+      "native_changed_pixels": 36,
+      "frames_url": "https://api.pixellab.ai/mcp/pixel-tools/b081cf8e-a817-471d-847b-0c7056218476/frames.png"
+    },
+    {
+      "id": "south-east",
+      "source_job_id": "92774f6e-717c-4e82-9b3f-e6ee31b9b422",
+      "source_pixel_tool_id": "34b2a1f8-1d4b-4bf0-af5f-b34c47a250d2",
+      "status": "native_cleanup_completed",
+      "pixel_tool_id": "35409f90-4153-4945-ad30-38bd1b263310",
+      "native_changed_pixels": 0,
+      "frames_url": "https://api.pixellab.ai/mcp/pixel-tools/35409f90-4153-4945-ad30-38bd1b263310/frames.png"
+    },
+    {
+      "id": "south",
+      "source_job_id": "565f10ce-4dfc-4cc2-a6c5-067fcc531ea9",
+      "source_pixel_tool_id": "5fa19345-3da3-47cb-abeb-c1a2fd313e96",
+      "status": "native_cleanup_completed",
+      "pixel_tool_id": "3d267b6a-8de2-4e89-93ee-1e7d70a0595b",
+      "native_changed_pixels": 8,
+      "frames_url": "https://api.pixellab.ai/mcp/pixel-tools/3d267b6a-8de2-4e89-93ee-1e7d70a0595b/frames.png"
+    },
+    {
+      "id": "south-west",
+      "source_job_id": "5f550adf-f1f2-4de6-88e4-ba0c6f7d4546",
+      "source_pixel_tool_id": "af6bffd2-1b29-4563-9b2c-7547817cd9ae",
+      "status": "native_cleanup_completed",
+      "pixel_tool_id": "789453fa-b36e-409a-8d0c-c568e50cd9a2",
+      "native_changed_pixels": 0,
+      "frames_url": "https://api.pixellab.ai/mcp/pixel-tools/789453fa-b36e-409a-8d0c-c568e50cd9a2/frames.png"
+    },
+    {
+      "id": "west",
+      "source_job_id": "084195c1-ed86-4fc2-acc0-b98b9c96a7dc",
+      "source_pixel_tool_id": "ecac5007-b355-4cfa-866d-239df6e34efa",
+      "status": "native_cleanup_completed",
+      "pixel_tool_id": "04d9211c-b285-4d27-8de9-16f0082a4e38",
+      "native_changed_pixels": 9,
+      "frames_url": "https://api.pixellab.ai/mcp/pixel-tools/04d9211c-b285-4d27-8de9-16f0082a4e38/frames.png"
+    },
+    {
+      "id": "north-west",
+      "source_job_id": "cc72274d-d86f-4a6f-b05c-1dd31d716551",
+      "source_pixel_tool_id": "3613c3e0-de9d-428a-b8bc-f6098ef3f78a",
+      "status": "native_cleanup_completed",
+      "pixel_tool_id": "63b9ec88-939c-49ad-9a9e-6025d6245f30",
+      "native_changed_pixels": 0,
+      "frames_url": "https://api.pixellab.ai/mcp/pixel-tools/63b9ec88-939c-49ad-9a9e-6025d6245f30/frames.png"
+    }
+  ],
+  "integration": {
+    "authorized": true,
+    "target": "feminine-light / Frost Wizard",
+    "pixels_per_unit": 137,
+    "branch": "codex/red-haired-mage-256",
+    "checkout": "C:/nscrev/work/game-sprint2/mage-256-integrate-20260929"
+  },
+  "expected_changed_pixels": 53,
+  "native_completed_at_utc": "2026-09-29T08:14:32.043Z"
+}

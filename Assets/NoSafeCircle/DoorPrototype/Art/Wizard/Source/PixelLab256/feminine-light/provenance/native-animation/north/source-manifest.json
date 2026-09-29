@@ -1,0 +1,480 @@
+{
+  "producer": "direction-pose-metadata-helper",
+  "method": "animate_with_skeleton_v3",
+  "direction": "north",
+  "fps": 12,
+  "frame_count": 6,
+  "appearance_canvas": [
+    256,
+    256
+  ],
+  "source_motion_canvas": [
+    128,
+    128
+  ],
+  "expected_output_count": 6,
+  "reference_echoed": false,
+  "source_files": [
+    {
+      "relative_path": "sources/walk/north/frame_000.png",
+      "path": "C:\\Users\\VincentLiguori\\Downloads\\NoSafeCircleOutput\\RedHairedMage\\20260929-eight-direction-256\\directions\\north\\sources\\walk\\north\\frame_000.png",
+      "bytes": 3705,
+      "sha256": "497dd2061f38941af5ecfba62b93b223a36b87401de5a771f12391d6e5541ef9",
+      "size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "has_alpha": true,
+      "alpha_range": [
+        0,
+        255
+      ],
+      "content_bounds": [
+        40,
+        15,
+        90,
+        120
+      ],
+      "fully_opaque_bounds": [
+        40,
+        15,
+        90,
+        120
+      ],
+      "lowest_nontransparent_row": 119,
+      "lowest_fully_opaque_row": 119,
+      "bottom_transparent_padding": 8,
+      "has_transparent_pixels": true,
+      "touches_canvas_edges": false,
+      "margins": [
+        40,
+        15,
+        38,
+        8
+      ],
+      "png_frame_count": 1,
+      "transparent_pixel_count": 13194,
+      "partially_transparent_pixel_count": 0,
+      "fully_opaque_pixel_count": 3190,
+      "direction": "north",
+      "frame_index": 0,
+      "source_index": 0,
+      "character_id": "53aebb62-452d-4228-bda3-3a873a42f9eb",
+      "original_path": "C:\\NSC\\NSC\\NoSafeCircle\\Assets\\NoSafeCircle\\DoorPrototype\\Art\\Wizard\\Source\\PixelLab128\\feminine-light\\selected\\walk\\north\\frame_000.png"
+    },
+    {
+      "relative_path": "sources/walk/north/frame_001.png",
+      "path": "C:\\Users\\VincentLiguori\\Downloads\\NoSafeCircleOutput\\RedHairedMage\\20260929-eight-direction-256\\directions\\north\\sources\\walk\\north\\frame_001.png",
+      "bytes": 3043,
+      "sha256": "c597fca7ec02f1d40ed31f31330b028875945ee1390d006577cc14414a230aed",
+      "size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "has_alpha": true,
+      "alpha_range": [
+        0,
+        255
+      ],
+      "content_bounds": [
+        40,
+        15,
+        89,
+        120
+      ],
+      "fully_opaque_bounds": [
+        40,
+        15,
+        89,
+        120
+      ],
+      "lowest_nontransparent_row": 119,
+      "lowest_fully_opaque_row": 119,
+      "bottom_transparent_padding": 8,
+      "has_transparent_pixels": true,
+      "touches_canvas_edges": false,
+      "margins": [
+        40,
+        15,
+        39,
+        8
+      ],
+      "png_frame_count": 1,
+      "transparent_pixel_count": 13246,
+      "partially_transparent_pixel_count": 0,
+      "fully_opaque_pixel_count": 3138,
+      "direction": "north",
+      "frame_index": 1,
+      "source_index": 1,
+      "character_id": "53aebb62-452d-4228-bda3-3a873a42f9eb",
+      "original_path": "C:\\NSC\\NSC\\NoSafeCircle\\Assets\\NoSafeCircle\\DoorPrototype\\Art\\Wizard\\Source\\PixelLab128\\feminine-light\\selected\\walk\\north\\frame_001.png"
+    },
+    {
+      "relative_path": "sources/walk/north/frame_002.png",
+      "path": "C:\\Users\\VincentLiguori\\Downloads\\NoSafeCircleOutput\\RedHairedMage\\20260929-eight-direction-256\\directions\\north\\sources\\walk\\north\\frame_002.png",
+      "bytes": 3478,
+      "sha256": "3f20c1a56192d01d55ce6fdf432a598eddfe2efc821f3850856759abacc0db5c",
+      "size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "has_alpha": true,
+      "alpha_range": [
+        0,
+        255
+      ],
+      "content_bounds": [
+        40,
+        17,
+        88,
+        120
+      ],
+      "fully_opaque_bounds": [
+        40,
+        17,
+        88,
+        120
+      ],
+      "lowest_nontransparent_row": 119,
+      "lowest_fully_opaque_row": 119,
+      "bottom_transparent_padding": 8,
+      "has_transparent_pixels": true,
+      "touches_canvas_edges": false,
+      "margins": [
+        40,
+        17,
+        40,
+        8
+      ],
+      "png_frame_count": 1,
+      "transparent_pixel_count": 13323,
+      "partially_transparent_pixel_count": 0,
+      "fully_opaque_pixel_count": 3061,
+      "direction": "north",
+      "frame_index": 2,
+      "source_index": 2,
+      "character_id": "53aebb62-452d-4228-bda3-3a873a42f9eb",
+      "original_path": "C:\\NSC\\NSC\\NoSafeCircle\\Assets\\NoSafeCircle\\DoorPrototype\\Art\\Wizard\\Source\\PixelLab128\\feminine-light\\selected\\walk\\north\\frame_002.png"
+    },
+    {
+      "relative_path": "sources/walk/north/frame_003.png",
+      "path": "C:\\Users\\VincentLiguori\\Downloads\\NoSafeCircleOutput\\RedHairedMage\\20260929-eight-direction-256\\directions\\north\\sources\\walk\\north\\frame_003.png",
+      "bytes": 3208,
+      "sha256": "3b4add46406f6aed59a1c3349db68fd6b022ba856dc26c733edda9ef4adeba48",
+      "size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "has_alpha": true,
+      "alpha_range": [
+        0,
+        255
+      ],
+      "content_bounds": [
+        40,
+        19,
+        88,
+        120
+      ],
+      "fully_opaque_bounds": [
+        40,
+        19,
+        88,
+        120
+      ],
+      "lowest_nontransparent_row": 119,
+      "lowest_fully_opaque_row": 119,
+      "bottom_transparent_padding": 8,
+      "has_transparent_pixels": true,
+      "touches_canvas_edges": false,
+      "margins": [
+        40,
+        19,
+        40,
+        8
+      ],
+      "png_frame_count": 1,
+      "transparent_pixel_count": 13322,
+      "partially_transparent_pixel_count": 0,
+      "fully_opaque_pixel_count": 3062,
+      "direction": "north",
+      "frame_index": 3,
+      "source_index": 3,
+      "character_id": "53aebb62-452d-4228-bda3-3a873a42f9eb",
+      "original_path": "C:\\NSC\\NSC\\NoSafeCircle\\Assets\\NoSafeCircle\\DoorPrototype\\Art\\Wizard\\Source\\PixelLab128\\feminine-light\\selected\\walk\\north\\frame_003.png"
+    },
+    {
+      "relative_path": "sources/walk/north/frame_004.png",
+      "path": "C:\\Users\\VincentLiguori\\Downloads\\NoSafeCircleOutput\\RedHairedMage\\20260929-eight-direction-256\\directions\\north\\sources\\walk\\north\\frame_004.png",
+      "bytes": 3749,
+      "sha256": "43cbec3d172fcd7b5f113d0ac45db950a4d6dc6cabce9cf08e5fec68422caf19",
+      "size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "has_alpha": true,
+      "alpha_range": [
+        0,
+        255
+      ],
+      "content_bounds": [
+        40,
+        14,
+        93,
+        120
+      ],
+      "fully_opaque_bounds": [
+        40,
+        14,
+        93,
+        120
+      ],
+      "lowest_nontransparent_row": 119,
+      "lowest_fully_opaque_row": 119,
+      "bottom_transparent_padding": 8,
+      "has_transparent_pixels": true,
+      "touches_canvas_edges": false,
+      "margins": [
+        40,
+        14,
+        35,
+        8
+      ],
+      "png_frame_count": 1,
+      "transparent_pixel_count": 13229,
+      "partially_transparent_pixel_count": 0,
+      "fully_opaque_pixel_count": 3155,
+      "direction": "north",
+      "frame_index": 4,
+      "source_index": 4,
+      "character_id": "53aebb62-452d-4228-bda3-3a873a42f9eb",
+      "original_path": "C:\\NSC\\NSC\\NoSafeCircle\\Assets\\NoSafeCircle\\DoorPrototype\\Art\\Wizard\\Source\\PixelLab128\\feminine-light\\selected\\walk\\north\\frame_004.png"
+    },
+    {
+      "relative_path": "sources/walk/north/frame_005.png",
+      "path": "C:\\Users\\VincentLiguori\\Downloads\\NoSafeCircleOutput\\RedHairedMage\\20260929-eight-direction-256\\directions\\north\\sources\\walk\\north\\frame_005.png",
+      "bytes": 3142,
+      "sha256": "8bc67dc406aa0e86fffc78be0c39276ee553aaa5fbf497fa19ac4830b50358d2",
+      "size": [
+        128,
+        128
+      ],
+      "mode": "RGBA",
+      "has_alpha": true,
+      "alpha_range": [
+        0,
+        255
+      ],
+      "content_bounds": [
+        40,
+        14,
+        95,
+        120
+      ],
+      "fully_opaque_bounds": [
+        40,
+        14,
+        95,
+        120
+      ],
+      "lowest_nontransparent_row": 119,
+      "lowest_fully_opaque_row": 119,
+      "bottom_transparent_padding": 8,
+      "has_transparent_pixels": true,
+      "touches_canvas_edges": false,
+      "margins": [
+        40,
+        14,
+        33,
+        8
+      ],
+      "png_frame_count": 1,
+      "transparent_pixel_count": 13263,
+      "partially_transparent_pixel_count": 0,
+      "fully_opaque_pixel_count": 3121,
+      "direction": "north",
+      "frame_index": 5,
+      "source_index": 5,
+      "character_id": "53aebb62-452d-4228-bda3-3a873a42f9eb",
+      "original_path": "C:\\NSC\\NSC\\NoSafeCircle\\Assets\\NoSafeCircle\\DoorPrototype\\Art\\Wizard\\Source\\PixelLab128\\feminine-light\\selected\\walk\\north\\frame_005.png"
+    }
+  ],
+  "reference": {
+    "relative_path": "sources/reference/r8-north-256.png",
+    "path": "C:\\Users\\VincentLiguori\\Downloads\\NoSafeCircleOutput\\RedHairedMage\\20260929-eight-direction-256\\directions\\north\\sources\\reference\\r8-north-256.png",
+    "bytes": 14791,
+    "sha256": "bd4294b6d11ad14118dc40604639faed9be352df4dad58d9f58bfbb22f9a91f4",
+    "size": [
+      256,
+      256
+    ],
+    "mode": "RGBA",
+    "has_alpha": true,
+    "alpha_range": [
+      0,
+      255
+    ],
+    "content_bounds": [
+      77,
+      26,
+      179,
+      237
+    ],
+    "fully_opaque_bounds": [
+      77,
+      26,
+      179,
+      237
+    ],
+    "lowest_nontransparent_row": 236,
+    "lowest_fully_opaque_row": 236,
+    "bottom_transparent_padding": 19,
+    "has_transparent_pixels": true,
+    "touches_canvas_edges": false,
+    "margins": [
+      77,
+      26,
+      77,
+      19
+    ],
+    "png_frame_count": 1,
+    "transparent_pixel_count": 50681,
+    "partially_transparent_pixel_count": 0,
+    "fully_opaque_pixel_count": 14855,
+    "direction": "north",
+    "character_id": "5f461db6-6e2e-4fbf-bbe2-e6826767dbf5",
+    "original_path": "C:\\Users\\VincentLiguori\\Downloads\\NoSafeCircleOutput\\RedHairedMage\\20260929-eight-direction-256\\appearance\\north.png"
+  },
+  "loops": [
+    {
+      "id": "old",
+      "label": "Original mage - motion example",
+      "canvas": [
+        128,
+        128
+      ],
+      "anchor_row": 119,
+      "mixed_canvas_sizes": false,
+      "frames": [
+        {
+          "relative_path": "sources/walk/north/frame_000.png",
+          "size": [
+            128,
+            128
+          ],
+          "sha256": "497dd2061f38941af5ecfba62b93b223a36b87401de5a771f12391d6e5541ef9",
+          "frame_index": 0,
+          "source_index": 0,
+          "content_bounds": [
+            40,
+            15,
+            90,
+            120
+          ],
+          "lowest_opaque_row": 119,
+          "lowest_nontransparent_row": 119
+        },
+        {
+          "relative_path": "sources/walk/north/frame_001.png",
+          "size": [
+            128,
+            128
+          ],
+          "sha256": "c597fca7ec02f1d40ed31f31330b028875945ee1390d006577cc14414a230aed",
+          "frame_index": 1,
+          "source_index": 1,
+          "content_bounds": [
+            40,
+            15,
+            89,
+            120
+          ],
+          "lowest_opaque_row": 119,
+          "lowest_nontransparent_row": 119
+        },
+        {
+          "relative_path": "sources/walk/north/frame_002.png",
+          "size": [
+            128,
+            128
+          ],
+          "sha256": "3f20c1a56192d01d55ce6fdf432a598eddfe2efc821f3850856759abacc0db5c",
+          "frame_index": 2,
+          "source_index": 2,
+          "content_bounds": [
+            40,
+            17,
+            88,
+            120
+          ],
+          "lowest_opaque_row": 119,
+          "lowest_nontransparent_row": 119
+        },
+        {
+          "relative_path": "sources/walk/north/frame_003.png",
+          "size": [
+            128,
+            128
+          ],
+          "sha256": "3b4add46406f6aed59a1c3349db68fd6b022ba856dc26c733edda9ef4adeba48",
+          "frame_index": 3,
+          "source_index": 3,
+          "content_bounds": [
+            40,
+            19,
+            88,
+            120
+          ],
+          "lowest_opaque_row": 119,
+          "lowest_nontransparent_row": 119
+        },
+        {
+          "relative_path": "sources/walk/north/frame_004.png",
+          "size": [
+            128,
+            128
+          ],
+          "sha256": "43cbec3d172fcd7b5f113d0ac45db950a4d6dc6cabce9cf08e5fec68422caf19",
+          "frame_index": 4,
+          "source_index": 4,
+          "content_bounds": [
+            40,
+            14,
+            93,
+            120
+          ],
+          "lowest_opaque_row": 119,
+          "lowest_nontransparent_row": 119
+        },
+        {
+          "relative_path": "sources/walk/north/frame_005.png",
+          "size": [
+            128,
+            128
+          ],
+          "sha256": "8bc67dc406aa0e86fffc78be0c39276ee553aaa5fbf497fa19ac4830b50358d2",
+          "frame_index": 5,
+          "source_index": 5,
+          "content_bounds": [
+            40,
+            14,
+            95,
+            120
+          ],
+          "lowest_opaque_row": 119,
+          "lowest_nontransparent_row": 119
+        }
+      ]
+    }
+  ],
+  "art_bytes_modified": false,
+  "anchor_row_is_comparison_only": true,
+  "sources_uploaded_by_exporter": false,
+  "game_assets_replaced": false,
+  "source_ground_rows_119": true
+}

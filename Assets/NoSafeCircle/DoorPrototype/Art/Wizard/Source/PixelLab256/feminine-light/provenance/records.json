@@ -1,0 +1,1401 @@
+{
+  "schema": "native-source-record-index-v1",
+  "note": "Raw provider/manifests are byte-preserved historical snapshots. Their host paths and URLs are provenance, not Unity asset locations. source-inventory.json contains the authoritative relative asset paths.",
+  "records": [
+    {
+      "path": "provenance/edge-cleanup-v1/export-manifest.json",
+      "sha256": "fd41b1785bc5ddcb419ff9204f9ae6b676a56a218d53175ac56933673e2ff62e",
+      "bytes": 211500
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/input-manifest.json",
+      "sha256": "8ddca5fafb0c33b7851d32a4d37b87bfb133c38d2f19cee7b81cc3086b2f9bdd",
+      "bytes": 4221
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/manifest.json",
+      "sha256": "bb0a0418938460a61fc8ab248b0b17551dbe605876988ec307f331c1ebb4fa77",
+      "bytes": 4797
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/raw/east/animation.gif.provenance.json",
+      "sha256": "abf2a9223fb5010aeb6c929b6b5bdff7c65aa68797689b02ff7d464332c5b0a5",
+      "bytes": 443
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/raw/east/frames.png.provenance.json",
+      "sha256": "7d9433cc7b01331d3833c118afa55ff1db39c43cb830699e03f6d90e61fbdef1",
+      "bytes": 443
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/raw/north-east/animation.gif.provenance.json",
+      "sha256": "5287153798f2825a0a8cff80c56c6f8d42cacd93c377b15dfff3336e7395b1d2",
+      "bytes": 449
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/raw/north-east/frames.png.provenance.json",
+      "sha256": "2a30356423c91f1e49c12286b26faadf008826b5e3e0e40555c92bd0325c07b6",
+      "bytes": 449
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/raw/north-west/animation.gif.provenance.json",
+      "sha256": "de67b6e38695f17092eff96e6ca77a1dbd68794de11af25f4df7674a8ff3a7e6",
+      "bytes": 449
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/raw/north-west/frames.png.provenance.json",
+      "sha256": "95c2af68f83054bdbe72f98ab3413a113e61f445404bcb4f0fdea5a536e0ae16",
+      "bytes": 449
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/raw/north/animation.gif.provenance.json",
+      "sha256": "36c13c72e9cba40ea188170442b2e4bf9eb0c111283611477a21f98f5506b5ab",
+      "bytes": 444
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/raw/north/frames.png.provenance.json",
+      "sha256": "3d1ac9e0047d54ef318b4d8ee246e1357236d72f0f1d9d5be47066988185333c",
+      "bytes": 444
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/raw/south-east/animation.gif.provenance.json",
+      "sha256": "05e34b0f6cc044aa1c80df40af54c83d33f8df3f72594688e35e5d550f0127fa",
+      "bytes": 449
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/raw/south-east/frames.png.provenance.json",
+      "sha256": "f99718f424e04d1a8300adbe6914fea08760c109b8e98ee484e080c958b9b872",
+      "bytes": 450
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/raw/south-west/animation.gif.provenance.json",
+      "sha256": "746ca135070102ede0c2288d06c512c974933acab11e1b9435cb07de4c3c0095",
+      "bytes": 449
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/raw/south-west/frames.png.provenance.json",
+      "sha256": "2eb42f47e6826a8639962821875b428dc5b4d6a06c9b6705a78b6de141fb9281",
+      "bytes": 449
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/raw/south/animation.gif.provenance.json",
+      "sha256": "f77ddc097e90ead3a88cd24273dbef2f0de74d4f262366af7e1d26336cc503d5",
+      "bytes": 444
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/raw/south/frames.png.provenance.json",
+      "sha256": "eabbfea90d241cea09fecbf6a0e66e9d3063a7743ae0c61c166c264dce0959cc",
+      "bytes": 445
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/raw/west/animation.gif.provenance.json",
+      "sha256": "fd71905df8d38f3180e8c1cc7d2f8135945f7cae3a39e2ff7bc0ab51901ee2a6",
+      "bytes": 443
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/raw/west/frames.png.provenance.json",
+      "sha256": "925ca90c326b9ca40803349bfa0707c79a3b4888aae76fb933bb1d823014e455",
+      "bytes": 443
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/responses/east.json",
+      "sha256": "a35f0e0bf66a3b97694b9f1fa336f7ae6a9e82160ffa6604229b24fc356fa6f2",
+      "bytes": 708
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/responses/north-east.json",
+      "sha256": "520b2c340a6c6ec89af993330b153fc6b73fd8b391a5386c1a50b1540af2c740",
+      "bytes": 708
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/responses/north-west.json",
+      "sha256": "fd942001110981958bcedf96be1262d4e592e2b189a93906c3341125b9b6a334",
+      "bytes": 709
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/responses/north.json",
+      "sha256": "558e1377e1f094a9dcc531f98a989a30602d7abd873445ce2fe3087e8c6ea649",
+      "bytes": 704
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/responses/south-east.json",
+      "sha256": "c40ee6024f0dd42f649e629222e4a5f74c9d9a161eca2e2c21b8df648b074f03",
+      "bytes": 708
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/responses/south-west.json",
+      "sha256": "51ecea38072a3a5687f3b49e903cd339561ad8a8bcb554835f7513175ab5eaa8",
+      "bytes": 708
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/responses/south.json",
+      "sha256": "9ab8a07f8b1969edbe3f7504e32b76706abc3b5d54815d5e000c22d0d97c78db",
+      "bytes": 708
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/responses/west.json",
+      "sha256": "d3fe9422247c45cc7e705ee4bfbf85581ad8f33a9de2b156fa6fdf5a15f4256a",
+      "bytes": 705
+    },
+    {
+      "path": "provenance/edge-cleanup-v1/walk-manifest.json",
+      "sha256": "a91ddec24391ea91de64634d083f128dfaf951cbb1a6f6a8b31ecd8e4bbcc147",
+      "bytes": 19516
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/export-manifest.json",
+      "sha256": "7f07ca97fe1fcb188642e554f55e869d20142831941349a117799f95b924125b",
+      "bytes": 194951
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/input-manifest.json",
+      "sha256": "449865f0d8e2a77fb6bd57c7c20d657afc33aedec3d1266975c230eed601fbea",
+      "bytes": 4939
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/manifest.json",
+      "sha256": "2234b5c5a477117d9925fe44d0a1cf2dc8084de43a3b068cca934db7e471298d",
+      "bytes": 5812
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/raw/east/animation.gif.provenance.json",
+      "sha256": "ff57efcc134c7d4a84267050f8d221d316a7e74fd0770a8804dc25970aaf2f82",
+      "bytes": 443
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/raw/east/frames.png.provenance.json",
+      "sha256": "d2fcfee51fc983c23ac0a80d40d7a133b907cab2fb6dd57f824447b4fecc52a5",
+      "bytes": 443
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/raw/north-east/animation.gif.provenance.json",
+      "sha256": "45c58f9f965c57296132f44efa2db269f2cf47416140e5c1fb334e74375fbd42",
+      "bytes": 449
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/raw/north-east/frames.png.provenance.json",
+      "sha256": "bde123297e3552ac0f2526d8719589ae38a06528a28f0fd1d8f5398116fbc706",
+      "bytes": 449
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/raw/north-west/animation.gif.provenance.json",
+      "sha256": "55f2c9f30d0fcd076f44e21804c9b4035f8906abdb597d73739564fd079de7b4",
+      "bytes": 449
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/raw/north-west/frames.png.provenance.json",
+      "sha256": "d8a0180c10657bbb231bddc1932cedc70147a4c50777bd1ba2e4a465f0329859",
+      "bytes": 449
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/raw/north/animation.gif.provenance.json",
+      "sha256": "fbc029f280583a5a7f8a776c68b009e1c5bccf85332d6c5ad93e2050e08f7fb3",
+      "bytes": 444
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/raw/north/frames.png.provenance.json",
+      "sha256": "cc7c9a5de6d3cb49dd23896473dac1a5eea000d367c098c4f70bfd2eb86c0140",
+      "bytes": 444
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/raw/south-east/animation.gif.provenance.json",
+      "sha256": "768c57ef51bc2daf40e55d28cbdeec09b35347d759aee2639e74309ba98dd047",
+      "bytes": 449
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/raw/south-east/frames.png.provenance.json",
+      "sha256": "847247571449a07524a248738b3ecf1f7f45d2a4fa51ec59654e0b76ddaafe23",
+      "bytes": 450
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/raw/south-west/animation.gif.provenance.json",
+      "sha256": "6103d300302839d2ed030c319121ea26fe5c43236ab1f8d1a6f2c7a405e5da97",
+      "bytes": 449
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/raw/south-west/frames.png.provenance.json",
+      "sha256": "7c0c48103fe1e9f143c664ca2734288a275bb08b8957e6d4d9c3f46c5d88fb95",
+      "bytes": 449
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/raw/south/animation.gif.provenance.json",
+      "sha256": "dce921176a29eedf633db80101cdc657cdae42f7e3b6c06114b68fa91a4e822b",
+      "bytes": 444
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/raw/south/frames.png.provenance.json",
+      "sha256": "4ac506acd73cffbceaae10f8e835a77a37fef786782a0670a36a434ed34c7649",
+      "bytes": 445
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/raw/west/animation.gif.provenance.json",
+      "sha256": "7a0e6c799785d2e52e9798207e0ffcb5e0634830c8e3492f487ead22398aba3a",
+      "bytes": 443
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/raw/west/frames.png.provenance.json",
+      "sha256": "a58e53d0ca3b88208ad5e8cda7366cefb97d781c445a31dc2ab67dfc600001fe",
+      "bytes": 443
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/responses/east.json",
+      "sha256": "55886ba1916fbbf487896eddcf94760cf01015de2e597015eeafdb9e5c822dfe",
+      "bytes": 760
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/responses/north-east.json",
+      "sha256": "556fb30c7ac3d30ebc506b12951c28fddffe7c9a0267de231e9bfa18d9eb856c",
+      "bytes": 802
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/responses/north-west.json",
+      "sha256": "a8e09c736bbcefd4c0da80cc302555042cb936f199ee4363f1107cf6b5845a57",
+      "bytes": 803
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/responses/north.json",
+      "sha256": "a271a15f38047b40ce0c0ea01d73e5b79d4b35bc32aca46a43d32eaa523e8d18",
+      "bytes": 798
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/responses/south-east.json",
+      "sha256": "bf5b4302c033dd2540004277f0126f8ae396d3de6e19094de5954e25af48f23a",
+      "bytes": 759
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/responses/south-west.json",
+      "sha256": "89df256a04d1cb393f822c40ea39c1a07041f75f1c452914b268d7ea144f9e5f",
+      "bytes": 760
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/responses/south.json",
+      "sha256": "02cc97a0bce1f00eff4fb46c67031564d5ce7a571ff03a1f20e7ea2b37459f71",
+      "bytes": 802
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/responses/west.json",
+      "sha256": "8f1dcb32af461c561423b77ad2e39dd82b8d31396c6e5241b65b2cbff43d942f",
+      "bytes": 799
+    },
+    {
+      "path": "provenance/edge-cleanup-v2/walk-manifest.json",
+      "sha256": "184ea105bf0b5c7798c7fbe9768b387be5df6648a5a89ed0d53bcc9eebf33ac8",
+      "bytes": 12884
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/export-manifest.json",
+      "sha256": "1980996ef7ba44b90c778dfc1433657a42cf953c2035b1199ff74286ece35fcc",
+      "bytes": 192593
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/input-manifest.json",
+      "sha256": "79b7cd1db0e502cb87acc5753f843800b94c1a390857f2e35299ccfca63766fa",
+      "bytes": 4694
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/manifest.json",
+      "sha256": "79b7cd1db0e502cb87acc5753f843800b94c1a390857f2e35299ccfca63766fa",
+      "bytes": 4694
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/raw/east/animation.gif.provenance.json",
+      "sha256": "8d0fc75422d4b5ff1d4da3bc55cdef2117d299f5f99ce33f20e4e3086adb5480",
+      "bytes": 443
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/raw/east/frames.png.provenance.json",
+      "sha256": "dff582c3e8389a428205d2ae78d7f4b3b4c9d7bad43b11cdc84ab6962b6b02c9",
+      "bytes": 443
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/raw/north-east/animation.gif.provenance.json",
+      "sha256": "65d2a890b99bdb82d8506b74b39374c2332f86e562a36eb37755295974a35206",
+      "bytes": 449
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/raw/north-east/frames.png.provenance.json",
+      "sha256": "bc64d7944b16b5c054ecdfb328483b1e1940dd0ff13331823baed6390347d7d9",
+      "bytes": 449
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/raw/north-west/animation.gif.provenance.json",
+      "sha256": "b223dbe2a9e11e570babb2d7e9566e0ae489f24277fb9b3afa20e4445b3cee40",
+      "bytes": 449
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/raw/north-west/frames.png.provenance.json",
+      "sha256": "32fe39c0dab9c97874f321e300b71535fcea13494abeea0274c052d4a64d3fce",
+      "bytes": 449
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/raw/north/animation.gif.provenance.json",
+      "sha256": "4a5e4bed0e32a71019dec8d6059d3dfc37958656f7a8303235fc1bb5abd1054c",
+      "bytes": 444
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/raw/north/frames.png.provenance.json",
+      "sha256": "b9e25d97f2195341e7dc4fed7b38601fb2e7ada8c9f1afd60b343106262852d5",
+      "bytes": 444
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/raw/south-east/animation.gif.provenance.json",
+      "sha256": "f5a0dc55d9356af7703979f6e52e7a6bd7d3c5ad59834791185abd3dc2ae1ea4",
+      "bytes": 449
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/raw/south-east/frames.png.provenance.json",
+      "sha256": "cc7514e7e32339ca2cc86dce4ee043e592a298f1123887489d8a7ce1cae23578",
+      "bytes": 450
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/raw/south-west/animation.gif.provenance.json",
+      "sha256": "a966a365f28ff638ada64ee120bdd2fc7909a5daa332f1e71318fe09041ec618",
+      "bytes": 449
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/raw/south-west/frames.png.provenance.json",
+      "sha256": "014aaa793a698bd33ec73d5ed32292a1ccdc06b098ea829c7c166d8aa726d7ce",
+      "bytes": 449
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/raw/south/animation.gif.provenance.json",
+      "sha256": "c4e381f090bc7148e70a4800843b3d0ff605756833c06902dfbea58fc8eb8925",
+      "bytes": 444
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/raw/south/frames.png.provenance.json",
+      "sha256": "eac02398b8cab45ca3a83f6eb74537cf0434ca618987cbe9ee0490993e875648",
+      "bytes": 445
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/raw/west/animation.gif.provenance.json",
+      "sha256": "99a7f305ec667b25851ed25dd0c90afb6781a9dd19fb36ae4ca89515537da6af",
+      "bytes": 443
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/raw/west/frames.png.provenance.json",
+      "sha256": "3626bad1771534546a0c32383f17477f6a334c288398375ca75046501ec9613f",
+      "bytes": 443
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/responses/east.json",
+      "sha256": "61e4b0a2d7e7f9e34f97f1689ff8685086e4ec6a2f183c04cd7579d810f047b3",
+      "bytes": 1291
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/responses/north-east.json",
+      "sha256": "093ff4d6265b6e4d23dba073216947188f0aef9cbd9f7a383515f02a44a9aa04",
+      "bytes": 1334
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/responses/north-west.json",
+      "sha256": "d9d59309f50ebb9a47965a5c5b27ea301c52cbea9a3c16a825b953f132a22d53",
+      "bytes": 1335
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/responses/north.json",
+      "sha256": "6974e3ec16ecc2a9dde84803eaac096acdf7e2936a43124917478fe179049ea2",
+      "bytes": 1330
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/responses/south-east.json",
+      "sha256": "02435273b16a7ea7971f835946fd5faf345ae03d3edcce95f135447ca441a862",
+      "bytes": 1334
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/responses/south-west.json",
+      "sha256": "b9538464542948a88ffbae392acfa699541b58d6bbe3c2826381683129ba1350",
+      "bytes": 1334
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/responses/south.json",
+      "sha256": "9f033d3fa5f28f68c687cfa5b901d979d9c0da7413aba63c8c82884f6093c14f",
+      "bytes": 1287
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/responses/west.json",
+      "sha256": "ebeeec8a2f7ebdc930d68811e120135995fbb625b0b064f20fac7ae6e9020983",
+      "bytes": 1284
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/source-provenance.json",
+      "sha256": "ceb5be85c46e47c03703937750b49ffbfbeb26d54f03fd08984485bf40b54d0c",
+      "bytes": 11135
+    },
+    {
+      "path": "provenance/edge-cleanup-v3/walk-manifest.json",
+      "sha256": "b4235aeb45ef4e6ab6956af0bf69fcf46f0e152a32f4be5fbdea95f886745bca",
+      "bytes": 22009
+    },
+    {
+      "path": "provenance/native-animation/east/animation-manifest.json",
+      "sha256": "f948737899cc461b1e7ff73a3f7c2cce7e79a71dbf8ff26389b849b729420f5b",
+      "bytes": 21316
+    },
+    {
+      "path": "provenance/native-animation/east/outputs/frame_000.provenance.json",
+      "sha256": "0a63706ca4acd8707e0c9112079bfd31514c644a995660b06514215c11a1db23",
+      "bytes": 843
+    },
+    {
+      "path": "provenance/native-animation/east/outputs/frame_001.provenance.json",
+      "sha256": "a1ef55446a6e4e92aa66991ca4e1d07ea59d5396a373ada8a1a164d0da20d7e1",
+      "bytes": 843
+    },
+    {
+      "path": "provenance/native-animation/east/outputs/frame_002.provenance.json",
+      "sha256": "4cffc030ec4f9ecbae48a1335f2d214167c5c4003ba83c3683b92ccc74156e8c",
+      "bytes": 843
+    },
+    {
+      "path": "provenance/native-animation/east/outputs/frame_003.provenance.json",
+      "sha256": "bac4e59d60be06791f9a3f09e1d7cb61be4c19ba6d5d37f3447826ac2b9c6e08",
+      "bytes": 843
+    },
+    {
+      "path": "provenance/native-animation/east/outputs/frame_004.provenance.json",
+      "sha256": "30e860ebf108c4e7957c362de6bbeacb29a030786b0dffcfa70dc94f51be6939",
+      "bytes": 843
+    },
+    {
+      "path": "provenance/native-animation/east/outputs/frame_005.provenance.json",
+      "sha256": "4d5ab51656c1392fd7e2f1982b52ae7ffdfa0a8d3aeeea58c18f53c3cc3e5b8b",
+      "bytes": 843
+    },
+    {
+      "path": "provenance/native-animation/east/pose-request-v2-integer-z.json",
+      "sha256": "0021c55078e183c4f6967ddfe594c40482a020c99663ef71ce2416cabc34f3a1",
+      "bytes": 23382
+    },
+    {
+      "path": "provenance/native-animation/east/raw-estimates/old-east-000.attempt.json",
+      "sha256": "413d6e71cce60f332590e420a77c007ca9ac81726375d3cdccaf3321343ed783",
+      "bytes": 178
+    },
+    {
+      "path": "provenance/native-animation/east/raw-estimates/old-east-000.json",
+      "sha256": "8e6e42f5f7ec7cc1a4b1ad6b1ef888dbd74a40ec4d56bc13d411ce7a71d30338",
+      "bytes": 1551
+    },
+    {
+      "path": "provenance/native-animation/east/raw-estimates/old-east-000.source.json",
+      "sha256": "c68260a100a4093c13dcbd7b0a30e5c91b8769d11cc31d8d16461c13c55acb2c",
+      "bytes": 415
+    },
+    {
+      "path": "provenance/native-animation/east/raw-estimates/old-east-001.attempt.json",
+      "sha256": "5ad26f0271904d7e338b7cc7cfcae35ca211849013be5fe3763ced054fdf9fd6",
+      "bytes": 178
+    },
+    {
+      "path": "provenance/native-animation/east/raw-estimates/old-east-001.json",
+      "sha256": "2bc540809bf88e186704b8b81fb299a0564c70a606fd8a5422ce867e5d1d81d8",
+      "bytes": 1549
+    },
+    {
+      "path": "provenance/native-animation/east/raw-estimates/old-east-001.source.json",
+      "sha256": "cefc891c36f05ee8f28a20717d975476612c38348d523c6e86e106cfa3b414bb",
+      "bytes": 415
+    },
+    {
+      "path": "provenance/native-animation/east/raw-estimates/old-east-002.attempt.json",
+      "sha256": "6d47d15e3dfe13a9a77c7998ffbbeb6c1a6adfcf3a5557d05c8cbd98a327fc5e",
+      "bytes": 178
+    },
+    {
+      "path": "provenance/native-animation/east/raw-estimates/old-east-002.json",
+      "sha256": "8e06703744804dbf484b9fd3f55021a51aae996ae9ad60012f1e4163c883a295",
+      "bytes": 1557
+    },
+    {
+      "path": "provenance/native-animation/east/raw-estimates/old-east-002.source.json",
+      "sha256": "7729481a82369631106f21dc9a159114c12ff54af2a5fcb05de2fd331570dfcd",
+      "bytes": 415
+    },
+    {
+      "path": "provenance/native-animation/east/raw-estimates/old-east-003.attempt.json",
+      "sha256": "fca6945e8a1786d59eac9f4cecedee9023743c442c858dd8c6d71beb258da984",
+      "bytes": 178
+    },
+    {
+      "path": "provenance/native-animation/east/raw-estimates/old-east-003.json",
+      "sha256": "83ae6b43f8dece1943dbf6b5a43c1c20f37e87ec41dab7b896564bd115cb467d",
+      "bytes": 1541
+    },
+    {
+      "path": "provenance/native-animation/east/raw-estimates/old-east-003.source.json",
+      "sha256": "e73eb8f4b590c3b9502ea1ba97beeb5ca8d8f7900c9ab2d9bab1dd8c663ff7af",
+      "bytes": 415
+    },
+    {
+      "path": "provenance/native-animation/east/raw-estimates/old-east-004.attempt.json",
+      "sha256": "a9aef76ba3e3c7a44bedfc34e7686bb8cc47067fa0a7245b09816b9e5aa2ba08",
+      "bytes": 178
+    },
+    {
+      "path": "provenance/native-animation/east/raw-estimates/old-east-004.json",
+      "sha256": "83b25865739d6b2b4cebb0dc08b40312b65fd6b9158d4e97019e2e16dfea9eca",
+      "bytes": 1555
+    },
+    {
+      "path": "provenance/native-animation/east/raw-estimates/old-east-004.source.json",
+      "sha256": "f0d83abde5582db82ef06122acbbbb9a6efdec4c693bf71ed2b859b86e55ba55",
+      "bytes": 415
+    },
+    {
+      "path": "provenance/native-animation/east/raw-estimates/old-east-005.attempt.json",
+      "sha256": "a7d684d9140e5b6433eb982e3e80da97aacb5e18e1a38839714ba8e519b0ca5f",
+      "bytes": 178
+    },
+    {
+      "path": "provenance/native-animation/east/raw-estimates/old-east-005.json",
+      "sha256": "cc3468b54e68c4870016e6878ef90c34788f18897d984a839f85a98de8855bbe",
+      "bytes": 1523
+    },
+    {
+      "path": "provenance/native-animation/east/raw-estimates/old-east-005.source.json",
+      "sha256": "9784d92e6b1baae5956fc611d88ae03479c1ef7216b01ee13ac8257d3644f129",
+      "bytes": 415
+    },
+    {
+      "path": "provenance/native-animation/east/raw-estimates/r8-east-256.attempt.json",
+      "sha256": "0182a131a643d8e47dfcf006bcbb8574e2005fb466a994aede1f084077e31b50",
+      "bytes": 178
+    },
+    {
+      "path": "provenance/native-animation/east/raw-estimates/r8-east-256.json",
+      "sha256": "98b9be2c19189c2eb8972dd1de5af6cdce60cf4bc5159baaf07637ceef5f1535",
+      "bytes": 1531
+    },
+    {
+      "path": "provenance/native-animation/east/raw-estimates/r8-east-256.source.json",
+      "sha256": "1b8bce13195db4d99ad9946615c9dad5991fe85a58c9b0c8edb0410cfa0ba6bf",
+      "bytes": 416
+    },
+    {
+      "path": "provenance/native-animation/east/source-manifest.json",
+      "sha256": "19460d3cd938f8aa1ebd42b801c851b7a8f1451c47f0c1de7a5f6da822e566cf",
+      "bytes": 13919
+    },
+    {
+      "path": "provenance/native-animation/north-east/animation-manifest.json",
+      "sha256": "7777be03ae2bd4b885c256a42e7ed97e7c6df05bf58789a7f38e9a554de782eb",
+      "bytes": 21337
+    },
+    {
+      "path": "provenance/native-animation/north-east/outputs/frame_000.provenance.json",
+      "sha256": "86b3157d328a340a54bf52a654467fb2c34112e005fadf6ec38a3c4e3dec5bf9",
+      "bytes": 792
+    },
+    {
+      "path": "provenance/native-animation/north-east/outputs/frame_001.provenance.json",
+      "sha256": "ee29e6983d41c4700aba0a2572df49d0590309bd1a12e37febc9e3b9ba2c23b2",
+      "bytes": 792
+    },
+    {
+      "path": "provenance/native-animation/north-east/outputs/frame_002.provenance.json",
+      "sha256": "5d60b66c1b0df4d0d3487716bbca6bf544351f1a0c028fe04d5030c020a070e0",
+      "bytes": 792
+    },
+    {
+      "path": "provenance/native-animation/north-east/outputs/frame_003.provenance.json",
+      "sha256": "9098573b72d2172168fa7a81dc7c64d3c81a5efde0f54bb33840cff7d286fa02",
+      "bytes": 792
+    },
+    {
+      "path": "provenance/native-animation/north-east/outputs/frame_004.provenance.json",
+      "sha256": "f8782bf458a0967cfe139d28b0cdfd6b2c1740c216ceee55f61d1fdb89b38681",
+      "bytes": 792
+    },
+    {
+      "path": "provenance/native-animation/north-east/outputs/frame_005.provenance.json",
+      "sha256": "7977002b826ee391ce3bb57b0a77bd81bdd2d431db59bef0d03182fba5df2ee5",
+      "bytes": 792
+    },
+    {
+      "path": "provenance/native-animation/north-east/pose-request.json",
+      "sha256": "6e4eba499f5242c67114a6200579040d27bdb9faa4a49868365748593b82f8d2",
+      "bytes": 55957
+    },
+    {
+      "path": "provenance/native-animation/north-east/raw-estimates/old-north-east-000.json",
+      "sha256": "f552aac03331ec732f813f1a6aa1ac45596f49acf15c6a7a759622bc5e1314ac",
+      "bytes": 1514
+    },
+    {
+      "path": "provenance/native-animation/north-east/raw-estimates/old-north-east-000.source.json",
+      "sha256": "6a6ef777706f409d4b1fe9715e8884ed4abb2f69020853b14e1237aaa89c511a",
+      "bytes": 433
+    },
+    {
+      "path": "provenance/native-animation/north-east/raw-estimates/old-north-east-001.json",
+      "sha256": "4dcb3567750564d4ba0ec0a3d3a98d9468a30f610c0b2c0c3af7f106be8b3d57",
+      "bytes": 1545
+    },
+    {
+      "path": "provenance/native-animation/north-east/raw-estimates/old-north-east-001.source.json",
+      "sha256": "83eaddce2642220b19b2505e0275accf559d45106bd921e1b0b00c7696a3f14e",
+      "bytes": 433
+    },
+    {
+      "path": "provenance/native-animation/north-east/raw-estimates/old-north-east-002.json",
+      "sha256": "63118aec16092caffbc8600e5f60db303863d32da986d7a700df4483fc34d311",
+      "bytes": 1545
+    },
+    {
+      "path": "provenance/native-animation/north-east/raw-estimates/old-north-east-002.source.json",
+      "sha256": "00549e4b1d1fb87cdf6b43273334f1ab7dc76c91fcd33807e270a44dd714f77f",
+      "bytes": 433
+    },
+    {
+      "path": "provenance/native-animation/north-east/raw-estimates/old-north-east-003.json",
+      "sha256": "7bf822adac7e02b223aea4b7d755f86cf6c6ff0078ac50cc20899554be7f003e",
+      "bytes": 1545
+    },
+    {
+      "path": "provenance/native-animation/north-east/raw-estimates/old-north-east-003.source.json",
+      "sha256": "8f4c1ca88daf9fa6c220b56f54e1a74d4c20fccd1f5f425da46140b4ba702245",
+      "bytes": 433
+    },
+    {
+      "path": "provenance/native-animation/north-east/raw-estimates/old-north-east-004.json",
+      "sha256": "d4453a71f59fdd8f94e45a03484e42003fb27b90545d69d302c34143668fe558",
+      "bytes": 1550
+    },
+    {
+      "path": "provenance/native-animation/north-east/raw-estimates/old-north-east-004.source.json",
+      "sha256": "a50adf4548c244697912e0bce71f60da45179966b23a013a8f630401f5c8b6fa",
+      "bytes": 433
+    },
+    {
+      "path": "provenance/native-animation/north-east/raw-estimates/old-north-east-005.json",
+      "sha256": "981a9a3426c4c00e57987977c3ccfcfe717c1061cecad0eb718326e4d8160374",
+      "bytes": 1548
+    },
+    {
+      "path": "provenance/native-animation/north-east/raw-estimates/old-north-east-005.source.json",
+      "sha256": "6655c0658472ec72c0a6ec333f114712b2fe8c49e369c30cac8139bf856c256e",
+      "bytes": 433
+    },
+    {
+      "path": "provenance/native-animation/north-east/raw-estimates/r8-idle-north-east.json",
+      "sha256": "206854386c5ecf36a39cea07efc8965ff3d908632fb3b1b7e150487acf60595a",
+      "bytes": 1543
+    },
+    {
+      "path": "provenance/native-animation/north-east/raw-estimates/r8-idle-north-east.source.json",
+      "sha256": "2dd15adde90b05c5a0d5bfb84c17ebe23d8b7fa659f7d149efe10d3a42dfe9e1",
+      "bytes": 434
+    },
+    {
+      "path": "provenance/native-animation/north-east/source-manifest.json",
+      "sha256": "723119ba4c8d8ce37555e1ecf492fe7da8f1bfee2e0cd5371387f7da8e179a3d",
+      "bytes": 14050
+    },
+    {
+      "path": "provenance/native-animation/north-west/animation-manifest.json",
+      "sha256": "83f4ce3d1880739af44de0c8c303e6469c98586ee8639b433df534c453bde708",
+      "bytes": 21350
+    },
+    {
+      "path": "provenance/native-animation/north-west/outputs/frame_000.provenance.json",
+      "sha256": "8866ccc54d2229c02d2d527846cad6d60c205567f18845e976ffbd613bbc2a1b",
+      "bytes": 792
+    },
+    {
+      "path": "provenance/native-animation/north-west/outputs/frame_001.provenance.json",
+      "sha256": "c3b253aa1f9f63d996831bb0bdbc9a55b2d1922fc7c61d2a2dfc514b90312f0e",
+      "bytes": 792
+    },
+    {
+      "path": "provenance/native-animation/north-west/outputs/frame_002.provenance.json",
+      "sha256": "728e2bdfe9c24824edb080e0722f9919e1e2e70ed8f652fe4a608be3c4afdae9",
+      "bytes": 792
+    },
+    {
+      "path": "provenance/native-animation/north-west/outputs/frame_003.provenance.json",
+      "sha256": "9d7c0dc8526f693f9cd96f11f526dfcbb72e7f843f4ac92e0e7088f09bfce364",
+      "bytes": 792
+    },
+    {
+      "path": "provenance/native-animation/north-west/outputs/frame_004.provenance.json",
+      "sha256": "3304496913776dae272cbe424a9235f9aa2679369d469f381b76b336d4a5618f",
+      "bytes": 792
+    },
+    {
+      "path": "provenance/native-animation/north-west/outputs/frame_005.provenance.json",
+      "sha256": "38aa168de83d7cc4191eb72ac2705f395396408cddb659c70f8bb44332971250",
+      "bytes": 792
+    },
+    {
+      "path": "provenance/native-animation/north-west/pose-request.json",
+      "sha256": "58fad6ecd824955c2b531001e0ace9134aaac5dcbb0ce92a714cb96b5f1da743",
+      "bytes": 55969
+    },
+    {
+      "path": "provenance/native-animation/north-west/raw-estimates/old-north-west-000.json",
+      "sha256": "ce556e30f47eee7f894dfefb9d504dba44f80dbae28279e26b9dd898265a3a0b",
+      "bytes": 1550
+    },
+    {
+      "path": "provenance/native-animation/north-west/raw-estimates/old-north-west-000.source.json",
+      "sha256": "ef923bb0bd7004f5ce97f9be4ed936e02cc4fe2beadabfcd84461f234a4260cb",
+      "bytes": 433
+    },
+    {
+      "path": "provenance/native-animation/north-west/raw-estimates/old-north-west-001.json",
+      "sha256": "16a21fbc964c612a6fae85286839909076b2f1d957d3a829c349e800f1b50699",
+      "bytes": 1552
+    },
+    {
+      "path": "provenance/native-animation/north-west/raw-estimates/old-north-west-001.source.json",
+      "sha256": "ea55cef78ba20f95f4f507b0d4f56bba409c84fdfe053825c82b2401871a9bc1",
+      "bytes": 433
+    },
+    {
+      "path": "provenance/native-animation/north-west/raw-estimates/old-north-west-002.json",
+      "sha256": "c522c043267713f25ce7640be86a0294aa9d7bf10aca1971d64d33f1038bbda2",
+      "bytes": 1548
+    },
+    {
+      "path": "provenance/native-animation/north-west/raw-estimates/old-north-west-002.source.json",
+      "sha256": "44455cd0b551f5a6700a8304079f3210a277c7ff9ec5ffc5d32674f8a14e9729",
+      "bytes": 433
+    },
+    {
+      "path": "provenance/native-animation/north-west/raw-estimates/old-north-west-003.json",
+      "sha256": "2f439243de50f57a667adedbdcf567c5b3b612b9ff71b26185581fc3afeb9dac",
+      "bytes": 1548
+    },
+    {
+      "path": "provenance/native-animation/north-west/raw-estimates/old-north-west-003.source.json",
+      "sha256": "5e7df51d8e463f440de9800734dfdac5382abca0c12c7e32cc1178e4d672875b",
+      "bytes": 433
+    },
+    {
+      "path": "provenance/native-animation/north-west/raw-estimates/old-north-west-004.json",
+      "sha256": "f68cd31c7988abfbc0f0f52c428bf2494848c48b1fdead5e9cf1311d601dda3e",
+      "bytes": 1544
+    },
+    {
+      "path": "provenance/native-animation/north-west/raw-estimates/old-north-west-004.source.json",
+      "sha256": "a8291d3eed04756effe85a2d42454b5b9bc2bb5e2f0f9b2bf6a0ad8be1f9b04b",
+      "bytes": 433
+    },
+    {
+      "path": "provenance/native-animation/north-west/raw-estimates/old-north-west-005.json",
+      "sha256": "f34a0dbbe56e508e47efbc154f27d313196352bdf1d3d2b2a87b4e11f678623e",
+      "bytes": 1534
+    },
+    {
+      "path": "provenance/native-animation/north-west/raw-estimates/old-north-west-005.source.json",
+      "sha256": "f5b5baefd26349f006ad5babcb420d674b013b2398de8ed5cd88ac2e07210a8f",
+      "bytes": 433
+    },
+    {
+      "path": "provenance/native-animation/north-west/raw-estimates/r8-idle-north-west.json",
+      "sha256": "d981708993c5f5f29075040f6695fe1eba6688f6bf2725ce9fb8f404a4658df2",
+      "bytes": 1548
+    },
+    {
+      "path": "provenance/native-animation/north-west/raw-estimates/r8-idle-north-west.source.json",
+      "sha256": "1213b30c401cf56679d3118c567239327523f501621c321d8f04e6b052531330",
+      "bytes": 434
+    },
+    {
+      "path": "provenance/native-animation/north-west/source-manifest.json",
+      "sha256": "cb9150ab62248b4fcb4ea98b0660ccafd8eb1396fa518efb57f2bdb5eac3cf9c",
+      "bytes": 14050
+    },
+    {
+      "path": "provenance/native-animation/north/animation-manifest.json",
+      "sha256": "b7bebc5e8bfe78ba7d23868b2a6bd7bfa0eb6120816989cac562dd0242389867",
+      "bytes": 21342
+    },
+    {
+      "path": "provenance/native-animation/north/outputs/frame_000.provenance.json",
+      "sha256": "ab944f443efc04945b47e35e4fd480f7fd3a1f4187e0afc8c90e3fec47b9d089",
+      "bytes": 787
+    },
+    {
+      "path": "provenance/native-animation/north/outputs/frame_001.provenance.json",
+      "sha256": "9f822069e256e73ddebd16c0a8e142b076b124e027021c97bd04ad61ed428db8",
+      "bytes": 787
+    },
+    {
+      "path": "provenance/native-animation/north/outputs/frame_002.provenance.json",
+      "sha256": "d20998f94d082e48e9f6d2c21b43f495a425909e55462c03e246d9020c21707b",
+      "bytes": 787
+    },
+    {
+      "path": "provenance/native-animation/north/outputs/frame_003.provenance.json",
+      "sha256": "cccca2b33bf858f8611fbbbe2420e81e4fe5854fc3a88c816f10fd8f325f4dc0",
+      "bytes": 787
+    },
+    {
+      "path": "provenance/native-animation/north/outputs/frame_004.provenance.json",
+      "sha256": "5ba3a63d52dd4ccc7657ea1b583747bbfe9cbb03276ac4fd1f39928dab29caf8",
+      "bytes": 787
+    },
+    {
+      "path": "provenance/native-animation/north/outputs/frame_005.provenance.json",
+      "sha256": "9a95a78924b1af2c5bbe7dd78c1344642589f4078c3d4523d0394ad05a883ff9",
+      "bytes": 787
+    },
+    {
+      "path": "provenance/native-animation/north/pose-request.json",
+      "sha256": "9c230e6fd0b883259f2161fc9ff4828226c4020f69978a0b78e4a45914b3317c",
+      "bytes": 55830
+    },
+    {
+      "path": "provenance/native-animation/north/raw-estimates/old-north-000.json",
+      "sha256": "d6090584da54b3a3b3fbf852a2be7d9fedf63495d59469dd76ebcbed2756079e",
+      "bytes": 1552
+    },
+    {
+      "path": "provenance/native-animation/north/raw-estimates/old-north-000.source.json",
+      "sha256": "5663707513d695d7f68ba41ff8b0313c943d5bb1ff7b42a37f449da797690aea",
+      "bytes": 423
+    },
+    {
+      "path": "provenance/native-animation/north/raw-estimates/old-north-001.json",
+      "sha256": "1a4577c2c9ac83b2b0eafeb4da192c4b0c1708c2ea0a9d38ce16f9986101e6d2",
+      "bytes": 1537
+    },
+    {
+      "path": "provenance/native-animation/north/raw-estimates/old-north-001.source.json",
+      "sha256": "ad99b529eba32c110ceada5a8d9687fe5460972341359ad8a9a183ba4eac53cb",
+      "bytes": 423
+    },
+    {
+      "path": "provenance/native-animation/north/raw-estimates/old-north-002.json",
+      "sha256": "44421b2804dd2db7e24310cd01b8a4adab13a352a2cae2b378c95786af7c5c2d",
+      "bytes": 1550
+    },
+    {
+      "path": "provenance/native-animation/north/raw-estimates/old-north-002.source.json",
+      "sha256": "547db2bb998fbed4540aaf62a7abe769e5c0bea7db54a8330612de343a18e11c",
+      "bytes": 423
+    },
+    {
+      "path": "provenance/native-animation/north/raw-estimates/old-north-003.json",
+      "sha256": "e8290e20279f6db374efd80a5d5384b7b2bd86589716f349abe5086e6686b97b",
+      "bytes": 1546
+    },
+    {
+      "path": "provenance/native-animation/north/raw-estimates/old-north-003.source.json",
+      "sha256": "01845a7c558a8d673c79efe75471517ae7f41f21cae561f483580005839bc85d",
+      "bytes": 423
+    },
+    {
+      "path": "provenance/native-animation/north/raw-estimates/old-north-004.json",
+      "sha256": "2a2b4bbb6fbcb2c263e9ef5574d2f121173884e2347051735f7b3061a65de570",
+      "bytes": 1546
+    },
+    {
+      "path": "provenance/native-animation/north/raw-estimates/old-north-004.source.json",
+      "sha256": "ea977fbcdb9ff2765d133b5fe9f5bfe495831fc5982e03b6cf98aa7972b67488",
+      "bytes": 423
+    },
+    {
+      "path": "provenance/native-animation/north/raw-estimates/old-north-005.json",
+      "sha256": "590b444b6b1863fe147b36d8470b5e4d217b8e96013341601323344f3f56da25",
+      "bytes": 1547
+    },
+    {
+      "path": "provenance/native-animation/north/raw-estimates/old-north-005.source.json",
+      "sha256": "6ce433467a5825ff96f22905d96c435bdfce079a36e135eb939c322a3c5b7342",
+      "bytes": 423
+    },
+    {
+      "path": "provenance/native-animation/north/raw-estimates/r8-idle-north.json",
+      "sha256": "bb6b6addb46756ee6e3859c3ca3b0d4e5392cb6c5e01df2cea224a343bf78232",
+      "bytes": 1547
+    },
+    {
+      "path": "provenance/native-animation/north/raw-estimates/r8-idle-north.source.json",
+      "sha256": "9dce50f6efd1735b427c8575c26510f8c7bd72e0dea89fdd5d60e17b8e11158a",
+      "bytes": 424
+    },
+    {
+      "path": "provenance/native-animation/north/source-manifest.json",
+      "sha256": "e9f9c6dcd6689dd5b093384a3d4ceb2448addf00adaec377143e6b001e5a509b",
+      "bytes": 13840
+    },
+    {
+      "path": "provenance/native-animation/south-east/animation-manifest.json",
+      "sha256": "34f3401ee87ccdcbc2bb759cdafa3215a3f8f4357f3f792b6d946ea72d81dd98",
+      "bytes": 21354
+    },
+    {
+      "path": "provenance/native-animation/south-east/outputs/frame_000.provenance.json",
+      "sha256": "70d94658721dd043bb365e1464bb1b8553ff09bb85a6a83f2d668147df8f0759",
+      "bytes": 849
+    },
+    {
+      "path": "provenance/native-animation/south-east/outputs/frame_001.provenance.json",
+      "sha256": "8b97cfaf133718c8955c7024261fe2d8071b17f7c70adf04a0f169ff87b1bf11",
+      "bytes": 849
+    },
+    {
+      "path": "provenance/native-animation/south-east/outputs/frame_002.provenance.json",
+      "sha256": "e09695126d87a1434f86a6fa1116b0a40ecf1158947c101acef3557c1f3d1203",
+      "bytes": 849
+    },
+    {
+      "path": "provenance/native-animation/south-east/outputs/frame_003.provenance.json",
+      "sha256": "55b5a33caf6c87f91a6bd77d7c2d2ecac26c60069b54314d7c1a8f9e87c59c74",
+      "bytes": 849
+    },
+    {
+      "path": "provenance/native-animation/south-east/outputs/frame_004.provenance.json",
+      "sha256": "cf7b506e2f4bbd9746fd09d77748154b31778f35ca3921f2579ef3c2d0930829",
+      "bytes": 849
+    },
+    {
+      "path": "provenance/native-animation/south-east/outputs/frame_005.provenance.json",
+      "sha256": "deecca7e0b08ea7250f3b706fbb1fe046b9eb8b90f62f9ae123e15d5c4f214d7",
+      "bytes": 849
+    },
+    {
+      "path": "provenance/native-animation/south-east/pose-request-v2-integer-z.json",
+      "sha256": "7de240d05b08d74f000349cfdadcdf9e02ce9d4e2e102e5b19d4cc8da4795e9a",
+      "bytes": 23585
+    },
+    {
+      "path": "provenance/native-animation/south-east/raw-estimates/old-south-east-000.attempt.json",
+      "sha256": "f581f4d9b4d3cc35c92bbbdd1878089fd63b1fb43da5c3fd4d45dde206648a16",
+      "bytes": 178
+    },
+    {
+      "path": "provenance/native-animation/south-east/raw-estimates/old-south-east-000.json",
+      "sha256": "78fb6cfce87a03e1a222c9283f6f58968125171ebb635a007af248df3f1c29b5",
+      "bytes": 1550
+    },
+    {
+      "path": "provenance/native-animation/south-east/raw-estimates/old-south-east-000.source.json",
+      "sha256": "41bc07ff975ec59e80defa725ea2bde583bfff4e721bc64c70b2f0edc66d0078",
+      "bytes": 427
+    },
+    {
+      "path": "provenance/native-animation/south-east/raw-estimates/old-south-east-001.attempt.json",
+      "sha256": "ebb203573f2831a61e536d719212ee838054f16c576ad1d52e2ab070ad5d12e0",
+      "bytes": 178
+    },
+    {
+      "path": "provenance/native-animation/south-east/raw-estimates/old-south-east-001.json",
+      "sha256": "64354faefbfadf3711877d944b46447568fe4c62c389c159894665d13c3873bc",
+      "bytes": 1551
+    },
+    {
+      "path": "provenance/native-animation/south-east/raw-estimates/old-south-east-001.source.json",
+      "sha256": "8170079716a55148fc3b13dbf6cd455a0bac9d1e3c23e2d10c81b84927a6e4dd",
+      "bytes": 427
+    },
+    {
+      "path": "provenance/native-animation/south-east/raw-estimates/old-south-east-002.attempt.json",
+      "sha256": "deafa0cba76201632397c0595a2a5ea579fa8cb2b0ccde7358963e21cea8bb57",
+      "bytes": 178
+    },
+    {
+      "path": "provenance/native-animation/south-east/raw-estimates/old-south-east-002.json",
+      "sha256": "5722575182f6f63585cdcc34ff0c3d6946b60cf83cfe7608c7081206595c4ec9",
+      "bytes": 1497
+    },
+    {
+      "path": "provenance/native-animation/south-east/raw-estimates/old-south-east-002.source.json",
+      "sha256": "c2cf3aa1f0bff2fe69b3603c1538125cdeb8c48a686a08ac06f8d9555b2e78d3",
+      "bytes": 427
+    },
+    {
+      "path": "provenance/native-animation/south-east/raw-estimates/old-south-east-003.attempt.json",
+      "sha256": "a86a9b6a00eeeae589e26a1f987be88b72346afffb8696a7d5c52553b09e93ed",
+      "bytes": 178
+    },
+    {
+      "path": "provenance/native-animation/south-east/raw-estimates/old-south-east-003.json",
+      "sha256": "ada7e67ba5a6942d360d57784b540e01bc66a75d4c52f6f1d6cc0d5ddb3b4e81",
+      "bytes": 1540
+    },
+    {
+      "path": "provenance/native-animation/south-east/raw-estimates/old-south-east-003.source.json",
+      "sha256": "c915aefc71034c635f9e254d74cfb90226dd7ed76572414635c5b4572c6ce74f",
+      "bytes": 427
+    },
+    {
+      "path": "provenance/native-animation/south-east/raw-estimates/old-south-east-004.attempt.json",
+      "sha256": "5e9137ed25d7d21c295cb71b0ba2b13231a18bc19d6e0571514b4066e14afbc7",
+      "bytes": 178
+    },
+    {
+      "path": "provenance/native-animation/south-east/raw-estimates/old-south-east-004.json",
+      "sha256": "287ecfa6b7592c15de91f17c94fe4925b27c644e3fb22c9c384927f755ef77b3",
+      "bytes": 1543
+    },
+    {
+      "path": "provenance/native-animation/south-east/raw-estimates/old-south-east-004.source.json",
+      "sha256": "4cdb50e0bee7d0019d0735df5a9951fd95ee50f06fb9f78ed7123352ffe428d5",
+      "bytes": 427
+    },
+    {
+      "path": "provenance/native-animation/south-east/raw-estimates/old-south-east-005.attempt.json",
+      "sha256": "ec5f623ef231603e4b78d327510b971cc75b19576244b753fde4bc6387072f47",
+      "bytes": 178
+    },
+    {
+      "path": "provenance/native-animation/south-east/raw-estimates/old-south-east-005.json",
+      "sha256": "8d8da834c18201542e633a20b2e64ce547995791097a44c38693cdfd2aaea88c",
+      "bytes": 1547
+    },
+    {
+      "path": "provenance/native-animation/south-east/raw-estimates/old-south-east-005.source.json",
+      "sha256": "2eeddbe05ddaa953c280dcb2c45da38f812bb52cd056d8cd5b2db41f47dc03d8",
+      "bytes": 427
+    },
+    {
+      "path": "provenance/native-animation/south-east/raw-estimates/r8-south-east-256.attempt.json",
+      "sha256": "6aec860976604cb064f9fe5dbdc3f5e509855403d454a586ff18a815376ca8bf",
+      "bytes": 178
+    },
+    {
+      "path": "provenance/native-animation/south-east/raw-estimates/r8-south-east-256.json",
+      "sha256": "d736ee66a651e323b89ac8fac1bc5c456e9a602b40812fc0e5de6d8d1087eae6",
+      "bytes": 1556
+    },
+    {
+      "path": "provenance/native-animation/south-east/raw-estimates/r8-south-east-256.source.json",
+      "sha256": "a5d60a12a5fdc717a9bd66c3b02b297f2591681bafa758d13ebe3c819281e72d",
+      "bytes": 428
+    },
+    {
+      "path": "provenance/native-animation/south-east/source-manifest.json",
+      "sha256": "43d6827c37a83835e5c26bf6f9930bd8d2118d32fbd8ac7cb68f1aa94c998854",
+      "bytes": 14243
+    },
+    {
+      "path": "provenance/native-animation/south-west/animation-manifest.json",
+      "sha256": "78646ae4dd65781d10081a11b2b85c04d53094e646c580aeb47f843ba590a860",
+      "bytes": 21337
+    },
+    {
+      "path": "provenance/native-animation/south-west/outputs/frame_000.provenance.json",
+      "sha256": "ebda13dbcc97ff96b1bb6a27e9f6eb332d5996c695844d3eb1ee4f7cae700fe7",
+      "bytes": 792
+    },
+    {
+      "path": "provenance/native-animation/south-west/outputs/frame_001.provenance.json",
+      "sha256": "6d11ef82527af882c190604ebb57d6670d3851390748ea7a5c6e4c0f160607b6",
+      "bytes": 792
+    },
+    {
+      "path": "provenance/native-animation/south-west/outputs/frame_002.provenance.json",
+      "sha256": "0fa51126d71fc3c46c640971d91199d4f474730b7c43aa55d1d3e65f792b0342",
+      "bytes": 792
+    },
+    {
+      "path": "provenance/native-animation/south-west/outputs/frame_003.provenance.json",
+      "sha256": "ec2085b4e437b0de90f697562a48e6b3b449f94b38045918834daf41c3cf49ed",
+      "bytes": 792
+    },
+    {
+      "path": "provenance/native-animation/south-west/outputs/frame_004.provenance.json",
+      "sha256": "ceaa04a7c4bc7cb3891ff9ff1b11539b2d0c91f283fc5a0c941ad24439843dde",
+      "bytes": 792
+    },
+    {
+      "path": "provenance/native-animation/south-west/outputs/frame_005.provenance.json",
+      "sha256": "92066395f9cc3cd1306f518a1d1e91e433adb2b054d239ce82cb2795add15e90",
+      "bytes": 792
+    },
+    {
+      "path": "provenance/native-animation/south-west/pose-request.json",
+      "sha256": "98d89b08c201a4a7cc2e4e2efd0a60ac99aff59d2365a8d3f68bacd5b4ce4106",
+      "bytes": 53199
+    },
+    {
+      "path": "provenance/native-animation/south-west/raw-estimates/old-south-west-000.json",
+      "sha256": "fdb3fa32218ca3385c0d2e0acd0706f5db8dc43869ae99cfb53591f8ba963dd1",
+      "bytes": 1513
+    },
+    {
+      "path": "provenance/native-animation/south-west/raw-estimates/old-south-west-000.source.json",
+      "sha256": "ef0d7b72403895b8d0dc3f3d8fcf0789ff0ab38662b03efb060c2bcaaa04241f",
+      "bytes": 433
+    },
+    {
+      "path": "provenance/native-animation/south-west/raw-estimates/old-south-west-001.json",
+      "sha256": "e5e8e5f229c78ef79e4af23b2cd96afda5a07cba8cdd3de744db28f47bb4232a",
+      "bytes": 1550
+    },
+    {
+      "path": "provenance/native-animation/south-west/raw-estimates/old-south-west-001.source.json",
+      "sha256": "493c8cf8b59428b357f0bb4439f09f3e35336989002c579d040d1f1183a759c0",
+      "bytes": 433
+    },
+    {
+      "path": "provenance/native-animation/south-west/raw-estimates/old-south-west-002.json",
+      "sha256": "857f307091af151d6c9501e90ce8e4e850ce921fd69751cb32589984c9f61ae6",
+      "bytes": 1532
+    },
+    {
+      "path": "provenance/native-animation/south-west/raw-estimates/old-south-west-002.source.json",
+      "sha256": "d502176116a41b9ca5866185d62f3cd065adeae63dd2cf1dd7680c90aa87a6fd",
+      "bytes": 433
+    },
+    {
+      "path": "provenance/native-animation/south-west/raw-estimates/old-south-west-003.json",
+      "sha256": "b1dac1abfa8098ac71e8a6b171f5ee43a5dbed1805a0ca4f21799be74f1791f3",
+      "bytes": 1496
+    },
+    {
+      "path": "provenance/native-animation/south-west/raw-estimates/old-south-west-003.source.json",
+      "sha256": "45d78312c0bf5fda99d81f487861cee4ba857c2777a27bb9a0da31ee160faaff",
+      "bytes": 433
+    },
+    {
+      "path": "provenance/native-animation/south-west/raw-estimates/old-south-west-004.json",
+      "sha256": "f8d05eddc3f0263714e1cb4ba1342cd1ad513a511a99e8bf33eae4bf7018d917",
+      "bytes": 1543
+    },
+    {
+      "path": "provenance/native-animation/south-west/raw-estimates/old-south-west-004.source.json",
+      "sha256": "81e2e6e8ae37f38966ff84de6aa373cceccb1b62d60bffd3bc983bc8b3656cbf",
+      "bytes": 433
+    },
+    {
+      "path": "provenance/native-animation/south-west/raw-estimates/old-south-west-005.json",
+      "sha256": "8a339c9986b116baea780f4b78870db5277c4c259bf596af0ae234c0a33ea232",
+      "bytes": 1515
+    },
+    {
+      "path": "provenance/native-animation/south-west/raw-estimates/old-south-west-005.source.json",
+      "sha256": "ab635a64009d0541dc1de1fecb1f606d820d097314eb0ae6a10c762cea9311ad",
+      "bytes": 433
+    },
+    {
+      "path": "provenance/native-animation/south-west/raw-estimates/r8-south-west-256.json",
+      "sha256": "d20a26beb2c90c6eda27f538e0aafaa251584c3a63ee84cf5c114c30eb4a294c",
+      "bytes": 1533
+    },
+    {
+      "path": "provenance/native-animation/south-west/raw-estimates/r8-south-west-256.source.json",
+      "sha256": "33a156883e826089c771f26536fd20f278a9e6275e133975e66faa91e296a113",
+      "bytes": 434
+    },
+    {
+      "path": "provenance/native-animation/south-west/source-manifest.json",
+      "sha256": "e82610433241f399b4dd15708c47eb4612ffd1202398341faef57658cf5a4ec0",
+      "bytes": 14880
+    },
+    {
+      "path": "provenance/native-animation/south/animation-manifest.json",
+      "sha256": "f6d08d1a3cb9d9aab017b8eb6c85253f9c2a5273618c3caf6276d5c564f5f10e",
+      "bytes": 21710
+    },
+    {
+      "path": "provenance/native-animation/south/manifest.json",
+      "sha256": "11a3a818c4e366db03b1c46cd796129069b51ac39614103ab74dcb32c2c8dd50",
+      "bytes": 3704
+    },
+    {
+      "path": "provenance/native-animation/south/outputs/frame_000.provenance.json",
+      "sha256": "594de6299e2481912596d16ece72d8d5d59701f8ab9ad340d4344d61e3e4bc3f",
+      "bytes": 822
+    },
+    {
+      "path": "provenance/native-animation/south/outputs/frame_001.provenance.json",
+      "sha256": "a50d9fa0409870ddfcef787b07f84b4a46e5719b466415231edd3e63ebb35eb6",
+      "bytes": 822
+    },
+    {
+      "path": "provenance/native-animation/south/outputs/frame_002.provenance.json",
+      "sha256": "4034465c26aacd4563823699bc32f3d9be494e9adcd6fa92016b04a5ee73ac41",
+      "bytes": 822
+    },
+    {
+      "path": "provenance/native-animation/south/outputs/frame_003.provenance.json",
+      "sha256": "28a83b9efcba63272c8bf7353fadfca96abeb71208d0b7a4a3ca0732eb241aa0",
+      "bytes": 822
+    },
+    {
+      "path": "provenance/native-animation/south/outputs/frame_004.provenance.json",
+      "sha256": "38b8f998a4faeff05b6b35e6ce5f9a3ff600c43a51b8cea4a62e860ed0aeb1b9",
+      "bytes": 822
+    },
+    {
+      "path": "provenance/native-animation/south/outputs/frame_005.provenance.json",
+      "sha256": "19336261c7156fb93a343879adfaecfcc0823172f762a72191a394ae09badbd5",
+      "bytes": 822
+    },
+    {
+      "path": "provenance/native-animation/south/pose-request.json",
+      "sha256": "0ea1e8cc9ce5c7df826b7f20555c8b96cf346aa4e5019541945c764240a3125d",
+      "bytes": 53478
+    },
+    {
+      "path": "provenance/native-animation/south/raw-estimates/old-south-000.json",
+      "sha256": "81d293d06617ab8c47660f144a5674884a01871bd3575ac50ceda1305caf7334",
+      "bytes": 1545
+    },
+    {
+      "path": "provenance/native-animation/south/raw-estimates/old-south-001.json",
+      "sha256": "6dbd21a2dc9ec5cbbbd1f4020be4d70e0bb228caf980e3bd1c75894362704ebf",
+      "bytes": 1547
+    },
+    {
+      "path": "provenance/native-animation/south/raw-estimates/old-south-002.json",
+      "sha256": "1149714dddd5e5294cc71a055c2a6e39793a7b05631ac867d2d3a6e0038c2f6d",
+      "bytes": 1471
+    },
+    {
+      "path": "provenance/native-animation/south/raw-estimates/old-south-003.json",
+      "sha256": "95d3c15b1705ce45804b2ab21e521071000cf12f90c2e667325184880e0b917b",
+      "bytes": 1515
+    },
+    {
+      "path": "provenance/native-animation/south/raw-estimates/old-south-004.json",
+      "sha256": "b935c8de61c530e1ddcf0f081db4b47c4f33f402c001eba5b12949b1e7b9eb7d",
+      "bytes": 1512
+    },
+    {
+      "path": "provenance/native-animation/south/raw-estimates/old-south-005.json",
+      "sha256": "cb946eb76d6f157d484df8d67c9ee0eaba9cc90940ae11454b5b7dadac74c109",
+      "bytes": 1551
+    },
+    {
+      "path": "provenance/native-animation/south/raw-estimates/r8-south-256.json",
+      "sha256": "2f9b6cb4e114177e1ecdd7ec68358bb8be3e89717a486d810b89cd73697a4779",
+      "bytes": 1444
+    },
+    {
+      "path": "provenance/native-animation/south/raw-estimates/r8-south-256.source.json",
+      "sha256": "c1283892bce409df3eb96b16100037135a5cd887593734b2ff5135c074e3df0b",
+      "bytes": 394
+    },
+    {
+      "path": "provenance/native-animation/south/source-manifest.json",
+      "sha256": "061416fa3bd0b6096c0eb3b4631b55ed46a097a21136bf073365c68850b7780d",
+      "bytes": 16494
+    },
+    {
+      "path": "provenance/native-animation/west/animation-manifest.json",
+      "sha256": "bd4da8f64002fff0167a620a21f0ac32a267046fadbedbaf0badf80462589d99",
+      "bytes": 21406
+    },
+    {
+      "path": "provenance/native-animation/west/outputs/frame_000.provenance.json",
+      "sha256": "bf62f2c66f7a54e1d608c03cb383beb195e9d33b2ffc4d70cc2c63fb98e91c9f",
+      "bytes": 786
+    },
+    {
+      "path": "provenance/native-animation/west/outputs/frame_001.provenance.json",
+      "sha256": "d9da45875e8ff2fe49a03026dacedcb6bc90ea21b5d4d94a16e49713c40a662c",
+      "bytes": 786
+    },
+    {
+      "path": "provenance/native-animation/west/outputs/frame_002.provenance.json",
+      "sha256": "91c3e35f936ee91c9ddea518106a31a6b15c2f0e01d5b4aa72c528c4491ce664",
+      "bytes": 786
+    },
+    {
+      "path": "provenance/native-animation/west/outputs/frame_003.provenance.json",
+      "sha256": "7def2ba9ea2025307798b1517b792cab76da7135ce13ab77580ce583a0b8dfc4",
+      "bytes": 786
+    },
+    {
+      "path": "provenance/native-animation/west/outputs/frame_004.provenance.json",
+      "sha256": "7b433f443c21efe27f91367e2470068d2945831eac3ff0221b7a23b82b66414c",
+      "bytes": 786
+    },
+    {
+      "path": "provenance/native-animation/west/outputs/frame_005.provenance.json",
+      "sha256": "0fd8ea9f52118057091ca91e9db1b1836bf4cd819440dfcbcab39daeda4dcbe8",
+      "bytes": 786
+    },
+    {
+      "path": "provenance/native-animation/west/pose-request-v2-integer-z.json",
+      "sha256": "2816b148e4e9ec087ff6636faa5ca9d1fe7a644b79ccc3aa02e97edeb8877c05",
+      "bytes": 54293
+    },
+    {
+      "path": "provenance/native-animation/west/raw-estimates/old-west-000.json",
+      "sha256": "63a4507e3947d3a6950a709bf4a0106b3a664cea76d59eb7aa32a3073ab5f6ce",
+      "bytes": 1553
+    },
+    {
+      "path": "provenance/native-animation/west/raw-estimates/old-west-000.source.json",
+      "sha256": "c2a81b1c144e24b379a2f5199deac825008b20f0a760babb7a32db0b542c9576",
+      "bytes": 421
+    },
+    {
+      "path": "provenance/native-animation/west/raw-estimates/old-west-001.json",
+      "sha256": "8d29b2d80d1fc90252fb17e17b83049154bf1b06138a965e350fcbd2849dbeb7",
+      "bytes": 1556
+    },
+    {
+      "path": "provenance/native-animation/west/raw-estimates/old-west-001.source.json",
+      "sha256": "cf3f756e8d50b258b8418deddc2816311deabeda49cacfb81a9fecb3aa7bb38f",
+      "bytes": 421
+    },
+    {
+      "path": "provenance/native-animation/west/raw-estimates/old-west-002.json",
+      "sha256": "2c64295b45dd7e17de13670bce74016905602a55d3166d2a0585e399a21a9c99",
+      "bytes": 1555
+    },
+    {
+      "path": "provenance/native-animation/west/raw-estimates/old-west-002.source.json",
+      "sha256": "2e3571126f2d3c0bad3e648bbe1fdee89557d6e6825ef5d31b0852c06ce30ce4",
+      "bytes": 421
+    },
+    {
+      "path": "provenance/native-animation/west/raw-estimates/old-west-003.json",
+      "sha256": "2b8c301d34bc932722f18788e8b0cbfcc7bf7eb188aee42d93e2219d7caefa51",
+      "bytes": 1556
+    },
+    {
+      "path": "provenance/native-animation/west/raw-estimates/old-west-003.source.json",
+      "sha256": "a45c971d7c8da834ae83acc026c16c7931ae9a9b9eca73f20f94d2c0531564d3",
+      "bytes": 421
+    },
+    {
+      "path": "provenance/native-animation/west/raw-estimates/old-west-004.json",
+      "sha256": "b0821f864b14745a2cfbc07eca00e2c2e49b5b74150a4164bcfb90879fffeb72",
+      "bytes": 1559
+    },
+    {
+      "path": "provenance/native-animation/west/raw-estimates/old-west-004.source.json",
+      "sha256": "720555f99bed947d4c0c32a3ac0fef5d90d7b3353e4abae6af3546a4eb0de8aa",
+      "bytes": 421
+    },
+    {
+      "path": "provenance/native-animation/west/raw-estimates/old-west-005.json",
+      "sha256": "4cc4a989059b5da9c39b6b4d3fd36e81328d2e4682bc03d631663a3774a7221e",
+      "bytes": 1548
+    },
+    {
+      "path": "provenance/native-animation/west/raw-estimates/old-west-005.source.json",
+      "sha256": "05b8e416b776b604cf7e8d7e8c2d1daa3dde3451b422aaa10632b5b69e41c77f",
+      "bytes": 421
+    },
+    {
+      "path": "provenance/native-animation/west/raw-estimates/r8-west-256.json",
+      "sha256": "04981f73c5c4f881d29af4e4baf34dc7b63a66b6fdcb1b58be042ba124ebeb60",
+      "bytes": 1448
+    },
+    {
+      "path": "provenance/native-animation/west/raw-estimates/r8-west-256.source.json",
+      "sha256": "59aa91c466de73ded80eb1259b57ba536aec81f8d75b95310503ccf19fbfd2cc",
+      "bytes": 422
+    },
+    {
+      "path": "provenance/native-animation/west/source-manifest.json",
+      "sha256": "3209207cf8b25dd4aca4ac9e8c6879671ff3a5de49db6b95b2f8ffd409426c08",
+      "bytes": 14556
+    },
+    {
+      "path": "provenance/native-eight-direction/manifest.json",
+      "sha256": "2ef98317b93f99737db0dc3416d425c640ad939dc651fd3ebd6e06ea00210b95",
+      "bytes": 16920
+    }
+  ]
+}

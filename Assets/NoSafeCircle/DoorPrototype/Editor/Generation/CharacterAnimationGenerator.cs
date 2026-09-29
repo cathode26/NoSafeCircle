@@ -19,11 +19,12 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
     // World/EnemyAnimationAssetBuilder.cs - and is left where it is.
     internal static class CharacterAnimationGenerator
     {
-        // Also read by DoorPrototypeGlobalSceneBuilder.LoadWizardSelectionPreview, for the wizard
-        // selection screen's preview art, which is why these two stay internal instead of private.
+        // Keep the original source archive intact when one variant uses a newer source canvas.
         internal const string WizardSourceRoot = "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128";
         internal const string WizardCanonicalInitialDirection = "south-east";
 
+        private const string FeminineLightWizardSourceRoot =
+            "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab256/feminine-light";
         private const string WizardGeneratedRoot = "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated";
 
         private static readonly string[] WizardVariants =
@@ -62,29 +63,46 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
 
         internal static WizardAnimationAssets BuildWizardAnimationAssets()
         {
-            Dictionary<string, Vector2> sourcePivots = ReadWizardSourcePivots();
+            return BuildWizardAnimationAssets(null);
+        }
+
+        /// <summary>Regenerates only the replacement Frost wizard's sprites and existing clips.</summary>
+        public static void BuildFeminineLightWizardAnimationAssets()
+        {
+            BuildWizardAnimationAssets("Feminine_White");
+        }
+
+        private static WizardAnimationAssets BuildWizardAnimationAssets(string onlyVariant)
+        {
+            Dictionary<string, WizardSpriteSourceSettings> sourceSettings = ReadWizardSourceSettings(onlyVariant);
             EnsureFolder("Assets/NoSafeCircle/DoorPrototype/Art");
             EnsureFolder("Assets/NoSafeCircle/DoorPrototype/Art/Wizard");
             EnsureFolder(WizardGeneratedRoot);
             var controllerPath = WizardGeneratedRoot + "/WizardAnimator.controller";
             var controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(controllerPath);
+            if (controller == null && onlyVariant != null)
+                throw new InvalidDataException("A single-wizard regeneration requires the existing controller: " + controllerPath);
             if (controller == null) controller = AnimatorController.CreateAnimatorControllerAtPath(controllerPath);
 
             var stateMachine = controller.layers[0].stateMachine;
-            Sprite defaultIdle = null;
+            Sprite defaultIdle = AssetDatabase.LoadAssetAtPath<Sprite>(
+                GetWizardStandingSourcePath("masculine-light", WizardCanonicalInitialDirection));
             foreach (var variant in WizardVariants)
             {
+                if (onlyVariant != null && variant != onlyVariant) continue;
                 var sourceVariant = variant.Replace("_White", "-light").Replace("_Black", "-dark")
                     .Replace("Masculine", "masculine").Replace("Feminine", "feminine");
-                Vector2 sourcePivot = sourcePivots[sourceVariant];
+                WizardSpriteSourceSettings settings = sourceSettings[sourceVariant];
                 foreach (var standingDirection in WizardStandingDirections)
                 {
-                    ImportWizardSprite(WizardSourceRoot + "/" + sourceVariant + "/selected/standing/" + standingDirection + ".png", sourcePivot);
+                    ImportWizardSprite(GetWizardStandingSourcePath(sourceVariant, standingDirection),
+                        settings.PivotFor(standingDirection), settings.PixelsPerUnit);
                 }
                 foreach (var direction in WizardDirections)
                 {
-                    var standingPath = WizardSourceRoot + "/" + sourceVariant + "/selected/standing/" + direction + ".png";
-                    var idle = ImportWizardSprite(standingPath, sourcePivot);
+                    Vector2 sourcePivot = settings.PivotFor(direction);
+                    var standingPath = GetWizardStandingSourcePath(sourceVariant, direction);
+                    var idle = ImportWizardSprite(standingPath, sourcePivot, settings.PixelsPerUnit);
                     var idleName = "Wizard_" + variant + "_idle_" + direction;
                     EnsureWizardState(stateMachine, idleName, EnsureWizardClip(idleName, new[] { idle }, 1));
                     if (variant == "Masculine_White" && direction == WizardCanonicalInitialDirection)
@@ -93,8 +111,8 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
                     var walk = new Sprite[6];
                     for (var frame = 0; frame < walk.Length; frame++)
                     {
-                        var walkPath = WizardSourceRoot + "/" + sourceVariant + "/selected/walk/" + direction + "/frame_00" + frame + ".png";
-                        walk[frame] = ImportWizardSprite(walkPath, sourcePivot);
+                        var walkPath = GetWizardWalkSourcePath(sourceVariant, direction, frame);
+                        walk[frame] = ImportWizardSprite(walkPath, sourcePivot, settings.PixelsPerUnit);
                     }
                     var walkName = "Wizard_" + variant + "_walk_" + direction;
                     EnsureWizardState(stateMachine, walkName, EnsureWizardClip(walkName, walk, 12));
@@ -110,11 +128,43 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
             var controller = AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(
                 WizardGeneratedRoot + "/WizardAnimator.controller");
             var defaultIdle = AssetDatabase.LoadAssetAtPath<Sprite>(
-                WizardSourceRoot + "/masculine-light/selected/standing/south-east.png");
+                GetWizardStandingSourcePath("masculine-light", WizardCanonicalInitialDirection));
             return new WizardAnimationAssets(controller, defaultIdle);
         }
 
-        private static Sprite ImportWizardSprite(string path, Vector2 sourcePivot)
+        internal static string GetWizardStandingSourcePath(string sourceVariant, string direction)
+        {
+            ValidateWizardDirection(direction);
+            return GetWizardVariantSourceRoot(sourceVariant) + "/selected/standing/" + direction + ".png";
+        }
+
+        internal static string GetWizardWalkSourcePath(string sourceVariant, string direction, int frame)
+        {
+            ValidateWizardDirection(direction);
+            if (frame < 0 || frame >= 6) throw new ArgumentOutOfRangeException(nameof(frame));
+            return GetWizardVariantSourceRoot(sourceVariant) + "/selected/walk/" + direction +
+                "/frame_" + frame.ToString("000") + ".png";
+        }
+
+        private static string GetWizardVariantSourceRoot(string sourceVariant)
+        {
+            switch (sourceVariant)
+            {
+                case "feminine-light": return FeminineLightWizardSourceRoot;
+                case "masculine-light":
+                case "masculine-dark":
+                case "feminine-dark": return WizardSourceRoot + "/" + sourceVariant;
+                default: throw new ArgumentOutOfRangeException(nameof(sourceVariant));
+            }
+        }
+
+        private static void ValidateWizardDirection(string direction)
+        {
+            if (Array.IndexOf(WizardDirections, direction) < 0)
+                throw new ArgumentOutOfRangeException(nameof(direction));
+        }
+
+        private static Sprite ImportWizardSprite(string path, Vector2 sourcePivot, float pixelsPerUnit)
         {
             AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
             var importer = AssetImporter.GetAtPath(path) as TextureImporter;
@@ -125,7 +175,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
             importer.filterMode = FilterMode.Point;
             importer.textureCompression = TextureImporterCompression.Uncompressed;
             importer.mipmapEnabled = false;
-            importer.spritePixelsPerUnit = 64f;
+            importer.spritePixelsPerUnit = pixelsPerUnit;
             var textureSettings = new TextureImporterSettings();
             importer.ReadTextureSettings(textureSettings);
             textureSettings.spriteAlignment = (int)SpriteAlignment.Custom;
@@ -138,8 +188,16 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
             return sprite;
         }
 
-        private static Dictionary<string, Vector2> ReadWizardSourcePivots()
+        private static Dictionary<string, WizardSpriteSourceSettings> ReadWizardSourceSettings(string onlyVariant)
         {
+            if (onlyVariant == "Feminine_White")
+            {
+                return new Dictionary<string, WizardSpriteSourceSettings>
+                {
+                    { "feminine-light", ReadFeminineLightSourceSettings() }
+                };
+            }
+
             string inventoryPath = WizardSourceRoot + "/source-inventory.json";
             if (!File.Exists(inventoryPath))
                 throw new FileNotFoundException("Wizard source inventory is missing", inventoryPath);
@@ -158,13 +216,49 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
                 inventory.canvas[0] != 128 || inventory.canvas[1] != 128 || inventory.wizards == null)
                 throw new InvalidDataException("Wizard source inventory must describe a 128 x 128 canvas and four wizards: " + inventoryPath);
 
-            return new Dictionary<string, Vector2>
+            return new Dictionary<string, WizardSpriteSourceSettings>
             {
-                { "masculine-light", GroundLinePivot(inventory.wizards.masculine_light, "masculine-light") },
-                { "masculine-dark", GroundLinePivot(inventory.wizards.masculine_dark, "masculine-dark") },
-                { "feminine-light", GroundLinePivot(inventory.wizards.feminine_light, "feminine-light") },
-                { "feminine-dark", GroundLinePivot(inventory.wizards.feminine_dark, "feminine-dark") }
+                { "masculine-light", LegacySourceSettings(inventory.wizards.masculine_light, "masculine-light") },
+                { "masculine-dark", LegacySourceSettings(inventory.wizards.masculine_dark, "masculine-dark") },
+                { "feminine-light", ReadFeminineLightSourceSettings() },
+                { "feminine-dark", LegacySourceSettings(inventory.wizards.feminine_dark, "feminine-dark") }
             };
+        }
+
+        private static WizardSpriteSourceSettings LegacySourceSettings(WizardSourceWizard wizard, string variant)
+        {
+            Vector2 pivot = GroundLinePivot(wizard, variant);
+            var directionPivots = new Dictionary<string, Vector2>();
+            foreach (string direction in WizardDirections) directionPivots.Add(direction, pivot);
+            return new WizardSpriteSourceSettings(64f, directionPivots);
+        }
+
+        private static WizardSpriteSourceSettings ReadFeminineLightSourceSettings()
+        {
+            string inventoryPath = FeminineLightWizardSourceRoot + "/source-inventory.json";
+            if (!File.Exists(inventoryPath))
+                throw new FileNotFoundException("Frost wizard source inventory is missing", inventoryPath);
+            WizardVariantSourceInventory inventory = JsonUtility.FromJson<WizardVariantSourceInventory>(
+                File.ReadAllText(inventoryPath));
+            if (inventory == null || inventory.canvas == null || inventory.canvas.Length != 2 ||
+                inventory.canvas[0] != 256 || inventory.canvas[1] != 256 ||
+                inventory.pixels_per_unit <= 0f || float.IsNaN(inventory.pixels_per_unit) ||
+                float.IsInfinity(inventory.pixels_per_unit) || inventory.directions == null ||
+                inventory.directions.Length != WizardDirections.Length)
+                throw new InvalidDataException("Frost wizard inventory requires a 256 x 256 canvas, positive pixels_per_unit and eight direction ground lines: " + inventoryPath);
+
+            var directionPivots = new Dictionary<string, Vector2>();
+            foreach (WizardDirectionGroundLine direction in inventory.directions)
+            {
+                if (direction == null || Array.IndexOf(WizardDirections, direction.id) < 0 ||
+                    directionPivots.ContainsKey(direction.id) || direction.ground_line_y_from_top < 1 ||
+                    direction.ground_line_y_from_top > inventory.canvas[1])
+                    throw new InvalidDataException("Frost wizard inventory has an invalid or duplicate direction ground line: " + inventoryPath);
+                // Keep one foot pivot for idle and the whole walk loop; do not erase gait drift.
+                directionPivots.Add(direction.id, new Vector2(0.5f,
+                    (inventory.canvas[1] - direction.ground_line_y_from_top) / (float)inventory.canvas[1]));
+            }
+            return new WizardSpriteSourceSettings(inventory.pixels_per_unit, directionPivots);
         }
 
         private static Vector2 GroundLinePivot(WizardSourceWizard wizard, string variant)
@@ -195,6 +289,39 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
         private sealed class WizardSourceWizard
         {
             public int ground_line_y_from_top;
+        }
+
+        [Serializable]
+        private sealed class WizardVariantSourceInventory
+        {
+            public int[] canvas;
+            public float pixels_per_unit;
+            public WizardDirectionGroundLine[] directions;
+        }
+
+        [Serializable]
+        private sealed class WizardDirectionGroundLine
+        {
+            public string id;
+            public int ground_line_y_from_top;
+        }
+
+        private sealed class WizardSpriteSourceSettings
+        {
+            private readonly Dictionary<string, Vector2> directionPivots;
+
+            public WizardSpriteSourceSettings(float pixelsPerUnit, Dictionary<string, Vector2> directionPivots)
+            {
+                PixelsPerUnit = pixelsPerUnit;
+                this.directionPivots = directionPivots;
+            }
+
+            public float PixelsPerUnit { get; }
+
+            public Vector2 PivotFor(string direction)
+            {
+                return directionPivots[direction];
+            }
         }
 
         // A GUID-only .meta imports with point-light cookie defaults; reset them to match every other wizard source.

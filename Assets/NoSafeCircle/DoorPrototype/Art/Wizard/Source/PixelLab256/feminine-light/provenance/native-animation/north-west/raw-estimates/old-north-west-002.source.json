@@ -1,0 +1,6 @@
+{
+  "imagePath": "C:\\Users\\VincentLiguori\\Downloads\\NoSafeCircleOutput\\RedHairedMage\\20260929-eight-direction-256\\directions\\north-west\\sources\\walk\\north-west\\frame_002.png",
+  "imageSHA256": "5e30d2bc7e9223c41d39c1cec4dfe847b0a91f8637c31d4b788f520b964f5c9c",
+  "endpoint": "https://api.pixellab.ai/v2/estimate-skeleton",
+  "rawResponseSHA256": "c522c043267713f25ce7640be86a0294aa9d7bf10aca1971d64d33f1038bbda2"
+}

@@ -1,0 +1,132 @@
+{
+  "schema": "nsc-wizard-256-edge-cleanup-v1",
+  "status": "exporting",
+  "request": "Remove white/gray exterior artifacts from all 48 native256 walk frames, preserving identity and motion.",
+  "method": "PixelLab pixelart_workbench exact outline erase",
+  "changes": {
+    "operation": "outline",
+    "layer": "image",
+    "frames": [
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "mode": "erase",
+    "width": 2,
+    "connectivity": 8,
+    "include_holes": false,
+    "colors": [
+      "#323034ff",
+      "#343132ff",
+      "#383635ff",
+      "#38363aff",
+      "#413c3fff",
+      "#423e3eff",
+      "#424040ff",
+      "#454449ff",
+      "#4b4848ff",
+      "#4b494aff",
+      "#4e4549ff",
+      "#515153ff",
+      "#555153ff",
+      "#555454ff",
+      "#565151ff",
+      "#5a5a5bff",
+      "#5e595aff",
+      "#5e5a5aff",
+      "#636060ff",
+      "#636363ff",
+      "#676464ff",
+      "#6c6969ff",
+      "#6c6c6bff",
+      "#6d6a6aff",
+      "#6f6e6fff",
+      "#716e70ff",
+      "#767675ff",
+      "#7b7a79ff",
+      "#7e7e7eff",
+      "#818181ff",
+      "#82807fff",
+      "#828282ff",
+      "#868786ff"
+    ],
+    "reason": "Remove neutral gray exterior fringe, keeping colored interior and exact poses."
+  },
+  "source_manifest": "../manifest.json",
+  "canvas": [
+    256,
+    256
+  ],
+  "fps": 12,
+  "frame_count_per_direction": 6,
+  "originals_preserved": true,
+  "unity_imported": false,
+  "directions": [
+    {
+      "id": "north",
+      "source_job_id": "b4b1ae97-91e2-4b25-a45b-a09d8c417dd8",
+      "status": "native_cleanup_completed",
+      "pixel_tool_id": "7ce1c349-49b4-4965-8bbf-f1520b7813d4",
+      "frames_url": "https://api.pixellab.ai/mcp/pixel-tools/7ce1c349-49b4-4965-8bbf-f1520b7813d4/frames.png",
+      "native_changed_pixels": 255
+    },
+    {
+      "id": "north-east",
+      "source_job_id": "d95e37e9-6dae-4065-8ded-208e7d5327ef",
+      "status": "native_cleanup_completed",
+      "pixel_tool_id": "75c26d8d-bd0f-4daa-8731-f5e7376524af",
+      "frames_url": "https://api.pixellab.ai/mcp/pixel-tools/75c26d8d-bd0f-4daa-8731-f5e7376524af/frames.png",
+      "native_changed_pixels": 256
+    },
+    {
+      "id": "east",
+      "source_job_id": "fae6dd51-6cb2-4f7a-8bfd-ba4d30cceaf9",
+      "status": "native_cleanup_completed",
+      "pixel_tool_id": "890a479b-ba98-4267-867f-289176a7d4b8",
+      "frames_url": "https://api.pixellab.ai/mcp/pixel-tools/890a479b-ba98-4267-867f-289176a7d4b8/frames.png",
+      "native_changed_pixels": 989
+    },
+    {
+      "id": "south-east",
+      "source_job_id": "92774f6e-717c-4e82-9b3f-e6ee31b9b422",
+      "status": "native_cleanup_completed",
+      "pixel_tool_id": "f22e5122-2113-419b-86a9-fa7264bf4f76",
+      "frames_url": "https://api.pixellab.ai/mcp/pixel-tools/f22e5122-2113-419b-86a9-fa7264bf4f76/frames.png"
+    },
+    {
+      "id": "south",
+      "source_job_id": "565f10ce-4dfc-4cc2-a6c5-067fcc531ea9",
+      "status": "native_cleanup_completed",
+      "pixel_tool_id": "77c3c63e-ddea-4855-aa1a-56f4e4c75152",
+      "frames_url": "https://api.pixellab.ai/mcp/pixel-tools/77c3c63e-ddea-4855-aa1a-56f4e4c75152/frames.png",
+      "native_changed_pixels": 150
+    },
+    {
+      "id": "south-west",
+      "source_job_id": "5f550adf-f1f2-4de6-88e4-ba0c6f7d4546",
+      "status": "native_cleanup_completed",
+      "pixel_tool_id": "b10a98db-df9f-41e6-a31f-25fa04ad64b4",
+      "frames_url": "https://api.pixellab.ai/mcp/pixel-tools/b10a98db-df9f-41e6-a31f-25fa04ad64b4/frames.png",
+      "native_changed_pixels": 592
+    },
+    {
+      "id": "west",
+      "source_job_id": "084195c1-ed86-4fc2-acc0-b98b9c96a7dc",
+      "status": "native_cleanup_completed",
+      "pixel_tool_id": "f4c6b952-a185-432b-8616-fc15dde93150",
+      "frames_url": "https://api.pixellab.ai/mcp/pixel-tools/f4c6b952-a185-432b-8616-fc15dde93150/frames.png",
+      "native_changed_pixels": 513
+    },
+    {
+      "id": "north-west",
+      "source_job_id": "cc72274d-d86f-4a6f-b05c-1dd31d716551",
+      "status": "native_cleanup_completed",
+      "pixel_tool_id": "a82416ad-680b-4c15-a539-544f44c6fa3d",
+      "frames_url": "https://api.pixellab.ai/mcp/pixel-tools/a82416ad-680b-4c15-a539-544f44c6fa3d/frames.png",
+      "native_changed_pixels": 238
+    }
+  ]
+}

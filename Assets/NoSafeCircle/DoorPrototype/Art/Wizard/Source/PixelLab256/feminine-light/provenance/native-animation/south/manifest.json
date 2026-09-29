@@ -1,0 +1,102 @@
+{
+  "schema": "nsc-mage-256-south-v1",
+  "status": "completed_preview_open",
+  "canvas_request": [
+    256,
+    256
+  ],
+  "source": {
+    "path": "C:\\Users\\VincentLiguori\\Downloads\\NoSafeCircleOutput\\RedHairedMage\\20260928-likeness-r8\\R8-rounded-chin.png",
+    "sha256": "e35b05f68b8ace9e69e131cb136268d7ba54c01910d1b5b4b2965ff06de8c723"
+  },
+  "conversion": {
+    "job_id": "ab213048-0b7f-4227-83c9-1a960c547cd7",
+    "request": {
+      "output_width": 256,
+      "output_height": 256,
+      "faithful": true,
+      "init_image_strength": 250,
+      "seed": 20929256,
+      "text_guidance_scale": 7
+    },
+    "queue_response": {
+      "content": [
+        {
+          "type": "text",
+          "text": "id: ab213048-0b7f-4227-83c9-1a960c547cd7\njob_id: ab213048-0b7f-4227-83c9-1a960c547cd7\nsource: 1254x1254px\noutput: 256x256px\nfaithful: True\ninit_image_strength: 250\nseed: 20929256\nasset_id: 64b5dc51-6425-5eb1-b7fc-24220a0ffe50\nasset_status: pending (saved when generation completes)\ncost: 1 generation\nstatus: processing (~20-60s)\n\nhint: get_image(job_id=\"ab213048-0b7f-4227-83c9-1a960c547cd7\")"
+        }
+      ],
+      "isError": false
+    },
+    "status": "completed",
+    "completed_response": {
+      "job_id": "ab213048-0b7f-4227-83c9-1a960c547cd7",
+      "status": "completed",
+      "frames": 1,
+      "download_url": "https://api.pixellab.ai/mcp/images/ab213048-0b7f-4227-83c9-1a960c547cd7/download?index=0",
+      "download_urls": [
+        "https://api.pixellab.ai/mcp/images/ab213048-0b7f-4227-83c9-1a960c547cd7/download"
+      ],
+      "asset": {
+        "id": "64b5dc51-6425-5eb1-b7fc-24220a0ffe50",
+        "type": "image",
+        "status": "saved"
+      },
+      "frame": 0
+    },
+    "output_path": "appearance/r8-south-256.png",
+    "output_url": "https://api.pixellab.ai/mcp/images/ab213048-0b7f-4227-83c9-1a960c547cd7/download?index=0",
+    "completed_at_utc": "2026-09-29T06:59:42.559Z",
+    "output_size": [
+      256,
+      256
+    ],
+    "output_alpha": {
+      "min": 255,
+      "max": 255
+    },
+    "note": "Provider conversion returns gray opaque backdrop. Preserve raw; animate_with_skeleton_v3 no_background:true will request transparent animated outputs."
+  },
+  "user_steering": "Increase source detail within PixelLab animation 256x256 limit; show results quickly. Preserve approved R8 face and old South walk motion. No additional agent visual reviews.",
+  "queued_at_utc": "2026-09-29T06:58:35.352Z",
+  "other_directions_held": false,
+  "unity_imported": false,
+  "image_pixels_modified_locally": false,
+  "animation": {
+    "job_id": "565f10ce-4dfc-4cc2-a6c5-067fcc531ea9",
+    "manifest": "animation-manifest.json",
+    "pose_request": "pose-request.json",
+    "pose_request_sha256": "0ea1e8cc9ce5c7df826b7f20555c8b96cf346aa4e5019541945c764240a3125d",
+    "queued_at_utc": "2026-09-29T07:02:20.215Z",
+    "status": "completed",
+    "asset_id": "ca39772d-d8d2-5432-94b1-d0b032432fa3",
+    "completed_at_utc": "2026-09-29T07:08:00.33Z"
+  },
+  "native_generation_cost": 4.1,
+  "preview_url": "http://127.0.0.1:54522/20260929-walk-256/comparison.html",
+  "outputs": {
+    "count": 6,
+    "canvas": [
+      256,
+      256
+    ],
+    "rgba": true,
+    "alpha": "binary transparent",
+    "foot_rows": [
+      245,
+      243,
+      245,
+      243,
+      242,
+      243
+    ],
+    "unchanged_raw_directory": "generated/walk/south",
+    "inspection": "inspection.json",
+    "comparison_manifest": "comparison-manifest.json"
+  },
+  "user_review": {
+    "accepted": true,
+    "feedback": "much better"
+  },
+  "preview_screenshot": "comparison.png"
+}

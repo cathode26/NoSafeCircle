@@ -1,0 +1,11 @@
+{
+  "direction": "south-west",
+  "pixel_tool_id": "af6bffd2-1b29-4563-9b2c-7547817cd9ae",
+  "source_job_id": "5f550adf-f1f2-4de6-88e4-ba0c6f7d4546",
+  "url_sha256": "00885036029b258e3659e2066721eb60adbbb5ddd2a3f015ef10bd79fe6c64a4",
+  "download_origin": "https://api.pixellab.ai",
+  "download_sent_credentials": false,
+  "redirects_followed": false,
+  "sha256": "19421b259648f1d63a25bd894be301a5ce1286473bd450d6f722c998eb9b8704",
+  "bytes": 95023
+}

@@ -1,0 +1,297 @@
+{
+  "source_manifest": "../edge-cleanup-v2/manifest.json",
+  "source_manifest_sha256": "2234b5c5a477117d9925fe44d0a1cf2dc8084de43a3b068cca934db7e471298d",
+  "source_export_manifest": "../edge-cleanup-v2/export-manifest.json",
+  "source_export_manifest_sha256": "7f07ca97fe1fcb188642e554f55e869d20142831941349a117799f95b924125b",
+  "native_format_helper_sha256": "a72139e4786a06f42fd9afc0462d527614365a21caff74efac6f13dbf3825616",
+  "source_files": [
+    {
+      "direction": "north",
+      "frame_index": 0,
+      "relative_path": "../edge-cleanup-v2/walk/north/frame_000.png",
+      "sha256": "13de43ed72aa52067110f041fc9f0acea5e8c85192ab7771971e90ac4a65e0fc"
+    },
+    {
+      "direction": "north",
+      "frame_index": 1,
+      "relative_path": "../edge-cleanup-v2/walk/north/frame_001.png",
+      "sha256": "7bee643dc51e89e2e103b03a354e18b2f1b5fd472fcc5051f9b3b4a8af7b541e"
+    },
+    {
+      "direction": "north",
+      "frame_index": 2,
+      "relative_path": "../edge-cleanup-v2/walk/north/frame_002.png",
+      "sha256": "2fbf11524fffcbe354cc837f98b7844c3fadd362b488675f4a28da60bb439b90"
+    },
+    {
+      "direction": "north",
+      "frame_index": 3,
+      "relative_path": "../edge-cleanup-v2/walk/north/frame_003.png",
+      "sha256": "f0c529b9943cc7f81b30ae4ddaa0132208ec70820a550c12c3e1c2362fdf429b"
+    },
+    {
+      "direction": "north",
+      "frame_index": 4,
+      "relative_path": "../edge-cleanup-v2/walk/north/frame_004.png",
+      "sha256": "c7d0460cafb014b0a559ea33fabcfd13f51b02a769255b8f734ba4ea1184b3c4"
+    },
+    {
+      "direction": "north",
+      "frame_index": 5,
+      "relative_path": "../edge-cleanup-v2/walk/north/frame_005.png",
+      "sha256": "92c4baa22dc0c4d40f32691d7da881baaddd3a634fe3eeb55515b68cdec00c57"
+    },
+    {
+      "direction": "north-east",
+      "frame_index": 0,
+      "relative_path": "../edge-cleanup-v2/walk/north-east/frame_000.png",
+      "sha256": "f3a796b8f4af86292c4843c9fa7276940bc6962fae2555d7b89e5d6c20eeda5d"
+    },
+    {
+      "direction": "north-east",
+      "frame_index": 1,
+      "relative_path": "../edge-cleanup-v2/walk/north-east/frame_001.png",
+      "sha256": "7fef34f5e0d4612ae95fa915f5260e0c0d5c125432681aa404f364add4948a2d"
+    },
+    {
+      "direction": "north-east",
+      "frame_index": 2,
+      "relative_path": "../edge-cleanup-v2/walk/north-east/frame_002.png",
+      "sha256": "21031117137cc77277bbce0da171a92473855d0c5fb7f98a42ea240874bb2ba6"
+    },
+    {
+      "direction": "north-east",
+      "frame_index": 3,
+      "relative_path": "../edge-cleanup-v2/walk/north-east/frame_003.png",
+      "sha256": "0085befc7a89caa202f0e011dad875b1ca3d07342baa8ba30b5c245515ada602"
+    },
+    {
+      "direction": "north-east",
+      "frame_index": 4,
+      "relative_path": "../edge-cleanup-v2/walk/north-east/frame_004.png",
+      "sha256": "30dd16855faca3cf957b095379f8513ccfda6f0bc9efb2cabaf46fb1e7cb1c9d"
+    },
+    {
+      "direction": "north-east",
+      "frame_index": 5,
+      "relative_path": "../edge-cleanup-v2/walk/north-east/frame_005.png",
+      "sha256": "a5d7b7689b481d22ec3dd5a726a1fcf579d0c14f24ab0001caf8e6f6e5fecf90"
+    },
+    {
+      "direction": "east",
+      "frame_index": 0,
+      "relative_path": "../edge-cleanup-v2/walk/east/frame_000.png",
+      "sha256": "50dfe2b8ae1c8a7346315aedfb4119af36ae9372565d7057c57d388ee7f6ecf4"
+    },
+    {
+      "direction": "east",
+      "frame_index": 1,
+      "relative_path": "../edge-cleanup-v2/walk/east/frame_001.png",
+      "sha256": "ff87f3e1b18ce5b374c664d6edd695a5dd99c3c7fabbcbfcb30c8ee1bf3e0b9d"
+    },
+    {
+      "direction": "east",
+      "frame_index": 2,
+      "relative_path": "../edge-cleanup-v2/walk/east/frame_002.png",
+      "sha256": "8524f8677db682e9931178878cc950041392048ff2c7df7ef62fd0475e9633c0"
+    },
+    {
+      "direction": "east",
+      "frame_index": 3,
+      "relative_path": "../edge-cleanup-v2/walk/east/frame_003.png",
+      "sha256": "2167d0cfa8adf9e2abc64995b29e4ad87c45138510d8f0596001c031055917f0"
+    },
+    {
+      "direction": "east",
+      "frame_index": 4,
+      "relative_path": "../edge-cleanup-v2/walk/east/frame_004.png",
+      "sha256": "f2964cd82a8ef42c4845b3c1e60508aedf1e3ac6ce465efe1989ebec7c7976b6"
+    },
+    {
+      "direction": "east",
+      "frame_index": 5,
+      "relative_path": "../edge-cleanup-v2/walk/east/frame_005.png",
+      "sha256": "9fe05ef5665faf0b2b92a3cfbc25638445b79cbd3228f091171ed3870ba71403"
+    },
+    {
+      "direction": "south-east",
+      "frame_index": 0,
+      "relative_path": "../edge-cleanup-v2/walk/south-east/frame_000.png",
+      "sha256": "246da535cb7000d75c712577445bbf41de11307cb6fa92b6d9c2d7c934e7d53a"
+    },
+    {
+      "direction": "south-east",
+      "frame_index": 1,
+      "relative_path": "../edge-cleanup-v2/walk/south-east/frame_001.png",
+      "sha256": "f59dacd31901f630d8a27cdea502a04ecb29f0bfed86cab714441157a1892f99"
+    },
+    {
+      "direction": "south-east",
+      "frame_index": 2,
+      "relative_path": "../edge-cleanup-v2/walk/south-east/frame_002.png",
+      "sha256": "82d017d4b205e3ceb6583ec3edf6ca6116f096901a577bc6393127da135d6c70"
+    },
+    {
+      "direction": "south-east",
+      "frame_index": 3,
+      "relative_path": "../edge-cleanup-v2/walk/south-east/frame_003.png",
+      "sha256": "eceaf5c4ea93bbf53b3880700c3ce9936cacb3f20bd9fd5e1fbe7c6088303ef8"
+    },
+    {
+      "direction": "south-east",
+      "frame_index": 4,
+      "relative_path": "../edge-cleanup-v2/walk/south-east/frame_004.png",
+      "sha256": "19892bc95512eff9cf8e9cbd3d37c944593bc9f1ee9c45777a1b03b65efe0b48"
+    },
+    {
+      "direction": "south-east",
+      "frame_index": 5,
+      "relative_path": "../edge-cleanup-v2/walk/south-east/frame_005.png",
+      "sha256": "301899296a58da1bc4b92ce1d732c5cf15ce1734b081b9551b2aa278a74c026c"
+    },
+    {
+      "direction": "south",
+      "frame_index": 0,
+      "relative_path": "../edge-cleanup-v2/walk/south/frame_000.png",
+      "sha256": "04d32b615f70c425fc70fa8a95a85726966a567308568f0e240295b53ccc7be5"
+    },
+    {
+      "direction": "south",
+      "frame_index": 1,
+      "relative_path": "../edge-cleanup-v2/walk/south/frame_001.png",
+      "sha256": "e2c6895bce0da817c3c259577a9ab83f9fcc094ff140bcba82092c38fe1d6cab"
+    },
+    {
+      "direction": "south",
+      "frame_index": 2,
+      "relative_path": "../edge-cleanup-v2/walk/south/frame_002.png",
+      "sha256": "f59acc3432bcc2f178ddcc88f304233194058436f6079bbdfe24d87f51cf8f9a"
+    },
+    {
+      "direction": "south",
+      "frame_index": 3,
+      "relative_path": "../edge-cleanup-v2/walk/south/frame_003.png",
+      "sha256": "95c70d4208c3d5c0f8ec0e6c9d79e4597334c441c9a448f36afab3baf2aeea39"
+    },
+    {
+      "direction": "south",
+      "frame_index": 4,
+      "relative_path": "../edge-cleanup-v2/walk/south/frame_004.png",
+      "sha256": "d0d4466e3743ac3f864c2bba3a54d01b0c24450e5e90ca71666ddff34007cff4"
+    },
+    {
+      "direction": "south",
+      "frame_index": 5,
+      "relative_path": "../edge-cleanup-v2/walk/south/frame_005.png",
+      "sha256": "a7d07384f9d7cc523edd71a5401b2e07d39cc7b55939410687b4163551b2d65c"
+    },
+    {
+      "direction": "south-west",
+      "frame_index": 0,
+      "relative_path": "../edge-cleanup-v2/walk/south-west/frame_000.png",
+      "sha256": "48872fe19ddbf7725c5c4e6208be82e5ee77073e7c766aec045031ad3fd597c9"
+    },
+    {
+      "direction": "south-west",
+      "frame_index": 1,
+      "relative_path": "../edge-cleanup-v2/walk/south-west/frame_001.png",
+      "sha256": "c0be49c263eda8a3c33066c1b36a7cdd17e0248cc78687ccf17f3cb3b3a4b562"
+    },
+    {
+      "direction": "south-west",
+      "frame_index": 2,
+      "relative_path": "../edge-cleanup-v2/walk/south-west/frame_002.png",
+      "sha256": "a97b4ab16c9a37adca993ea8d0e9208e91d26992f085656b2752b4e5a343da2d"
+    },
+    {
+      "direction": "south-west",
+      "frame_index": 3,
+      "relative_path": "../edge-cleanup-v2/walk/south-west/frame_003.png",
+      "sha256": "8cd27165580efd3afd217c684154cb919328c4b5e056a6a08c60525d280586d7"
+    },
+    {
+      "direction": "south-west",
+      "frame_index": 4,
+      "relative_path": "../edge-cleanup-v2/walk/south-west/frame_004.png",
+      "sha256": "cda4812cb8f90a023ab0c52055acb86adb5b3587cba23e751d2399dfd26ee0fd"
+    },
+    {
+      "direction": "south-west",
+      "frame_index": 5,
+      "relative_path": "../edge-cleanup-v2/walk/south-west/frame_005.png",
+      "sha256": "0775864711a46e413a51c54905ee4de0324bf3c3da51d8d130eae9477a129efa"
+    },
+    {
+      "direction": "west",
+      "frame_index": 0,
+      "relative_path": "../edge-cleanup-v2/walk/west/frame_000.png",
+      "sha256": "99e35de85fda3bcfec372cc5e68a077460e7c4f368104893343bcfee5a5e5ea1"
+    },
+    {
+      "direction": "west",
+      "frame_index": 1,
+      "relative_path": "../edge-cleanup-v2/walk/west/frame_001.png",
+      "sha256": "0c21f643e9728dc419f82dbd4162eb4e1226c22f42e8f9a67cbac104847b0eb2"
+    },
+    {
+      "direction": "west",
+      "frame_index": 2,
+      "relative_path": "../edge-cleanup-v2/walk/west/frame_002.png",
+      "sha256": "6e0cd24b5b98f127696d4a5f4701a67ff96494c94871fb860e778ea8da2ceb7e"
+    },
+    {
+      "direction": "west",
+      "frame_index": 3,
+      "relative_path": "../edge-cleanup-v2/walk/west/frame_003.png",
+      "sha256": "6172e40f23bbf6f704978dfed4b14d7f42ac20caa3330c875fe3698ad8080327"
+    },
+    {
+      "direction": "west",
+      "frame_index": 4,
+      "relative_path": "../edge-cleanup-v2/walk/west/frame_004.png",
+      "sha256": "5d0cee3687b2257615b1c6d981cff7d371c2cf3f60fee9bb5d034cdc2b0fafa7"
+    },
+    {
+      "direction": "west",
+      "frame_index": 5,
+      "relative_path": "../edge-cleanup-v2/walk/west/frame_005.png",
+      "sha256": "f88fd7aef7e4c4ad66e579a14d0109828cb1330b30797fc9549e5bf6a35ced19"
+    },
+    {
+      "direction": "north-west",
+      "frame_index": 0,
+      "relative_path": "../edge-cleanup-v2/walk/north-west/frame_000.png",
+      "sha256": "9f14183d3ce63ee2746be7529189506fad4ecc50ea8041f5d70ec19f2aa0e34b"
+    },
+    {
+      "direction": "north-west",
+      "frame_index": 1,
+      "relative_path": "../edge-cleanup-v2/walk/north-west/frame_001.png",
+      "sha256": "ff5a4d289df9c3f3dc36ce15f0f404522f0d964ed973f0d9e90ab0fb5e6e79c3"
+    },
+    {
+      "direction": "north-west",
+      "frame_index": 2,
+      "relative_path": "../edge-cleanup-v2/walk/north-west/frame_002.png",
+      "sha256": "cbfb652356f27c676b0a7c33e4a270d33342fe03aeae0d07709ac295e5f95dee"
+    },
+    {
+      "direction": "north-west",
+      "frame_index": 3,
+      "relative_path": "../edge-cleanup-v2/walk/north-west/frame_003.png",
+      "sha256": "9b32fe1b36ee41b8d20075c84bb27cb426c99d5f7ab68ac92cd75f9ba5a1e1de"
+    },
+    {
+      "direction": "north-west",
+      "frame_index": 4,
+      "relative_path": "../edge-cleanup-v2/walk/north-west/frame_004.png",
+      "sha256": "997e380b30568d2ad839270a5bb8854fb8a1a7f5f1068697a116cc463cd93f2a"
+    },
+    {
+      "direction": "north-west",
+      "frame_index": 5,
+      "relative_path": "../edge-cleanup-v2/walk/north-west/frame_005.png",
+      "sha256": "0543c5f707894cd1294f9ac2f5574ea16b51776967e952c38d788a4d645636d0"
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "image_id: 5fa19345-3da3-47cb-abeb-c1a2fd313e96  (edited from 77c3c63e-ddea-4855-aa1a-56f4e4c75152)\ncanvas: 256x256, 6 frame(s)\n1. outline: 0 px changed\nnote: no visible pixel changed — check colours with `inspect --region`\npalette (75): #303248ff x21222, #000000ff x9064, #25263bff x5316, #28293eff x4721, #202134ff x4314, #020106ff x2538, #fccebdff x2345, #ad3c29ff x1958, #562516ff x1906, #131222ff x1862, #9a3123ff x1837, #1d1e31ff x1836, #0c0a13ff x1618, #0e0d1bff x1531, #181524ff x1517, #d05234ff x1385, … +59 more\ndownload https://api.pixellab.ai/mcp/pixel-tools/5fa19345-3da3-47cb-abeb-c1a2fd313e96/: frames.png, animation.gif\nnext: edit 5fa19345-3da3-47cb-abeb-c1a2fd313e96 --changes […]"
+    }
+  ],
+  "isError": false
+}

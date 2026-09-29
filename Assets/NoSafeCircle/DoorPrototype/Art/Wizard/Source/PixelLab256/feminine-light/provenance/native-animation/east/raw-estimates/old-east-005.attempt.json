@@ -1,0 +1,5 @@
+{
+  "endpoint": "https://api.pixellab.ai/v2/estimate-skeleton",
+  "imageSHA256": "fb023556aa67382507ba44aed07733d61db36b8f5f01c5f3851bd44c6d79fdd2",
+  "one_request_only": true
+}

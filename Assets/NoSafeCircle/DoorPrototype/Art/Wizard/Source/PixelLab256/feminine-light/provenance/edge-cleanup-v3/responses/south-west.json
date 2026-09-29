@@ -1,0 +1,33 @@
+{
+  "source_id": "af6bffd2-1b29-4563-9b2c-7547817cd9ae",
+  "changes": [
+    {
+      "operation": "outline",
+      "layer": "image",
+      "frames": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "mode": "recolor",
+      "width": 1,
+      "connectivity": 8,
+      "include_holes": false,
+      "region": [
+        0,
+        0,
+        255,
+        74
+      ],
+      "colors": [
+        "#3e515cff"
+      ],
+      "color": "#020106ff",
+      "reason": "Darken the remaining observed gray-blue exterior hat flecks; preserve alpha and glasses below the hat."
+    }
+  ],
+  "response_text": "image_id: 789453fa-b36e-409a-8d0c-c568e50cd9a2  (edited from af6bffd2-1b29-4563-9b2c-7547817cd9ae)\ncanvas: 256x256, 6 frame(s)\n1. outline: 0 px changed\nnote: no visible pixel changed — check colours with `inspect --region`\npalette (69): #303248ff x22276, #000000ff x5990, #25263bff x5983, #0c0a13ff x4397, #28293eff x4050, #131222ff x3549, #202134ff x2650, #07050aff x2200, #562516ff x1790, #fccebdff x1727, #86251aff x1565, #c0462eff x1462, #ad3c29ff x1331, #18182bff x1245, #f67c4dff x1226, #0c0101ff x1145, … +53 more\ndownload https://api.pixellab.ai/mcp/pixel-tools/789453fa-b36e-409a-8d0c-c568e50cd9a2/: frames.png, animation.gif\nnext: edit 789453fa-b36e-409a-8d0c-c568e50cd9a2 --changes […]"
+}

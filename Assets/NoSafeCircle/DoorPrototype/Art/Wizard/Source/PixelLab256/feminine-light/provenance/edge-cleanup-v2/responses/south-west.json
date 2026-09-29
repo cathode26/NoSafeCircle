@@ -1,0 +1,9 @@
+{
+  "content": [
+    {
+      "type": "text",
+      "text": "image_id: af6bffd2-1b29-4563-9b2c-7547817cd9ae  (edited from b10a98db-df9f-41e6-a31f-25fa04ad64b4)\ncanvas: 256x256, 6 frame(s)\n1. outline: 162 px changed\nsheet rows: frames [2, 3, 4]\npalette (69): #303248ff x22276, #000000ff x5990, #25263bff x5983, #0c0a13ff x4397, #28293eff x4050, #131222ff x3549, #202134ff x2650, #07050aff x2200, #562516ff x1790, #fccebdff x1727, #86251aff x1565, #c0462eff x1462, #ad3c29ff x1331, #18182bff x1245, #f67c4dff x1226, #0c0101ff x1145, … +53 more\ndownload https://api.pixellab.ai/mcp/pixel-tools/af6bffd2-1b29-4563-9b2c-7547817cd9ae/: frames.png, animation.gif\nnext: edit af6bffd2-1b29-4563-9b2c-7547817cd9ae --changes […]"
+    }
+  ],
+  "isError": false
+}

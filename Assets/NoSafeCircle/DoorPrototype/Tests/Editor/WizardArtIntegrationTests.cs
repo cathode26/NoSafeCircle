@@ -14,9 +14,13 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
     public sealed class WizardArtIntegrationTests
     {
         private const string SourceRoot = "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128";
+        private const string FeminineLightSourceRoot =
+            "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab256/feminine-light";
         private const string InventoryPath = SourceRoot + "/source-inventory.json";
         private const string GeneratedRoot = "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Generated";
         private const int SourceSize = 128;
+        private const int FeminineLightSourceSize = 256;
+        private const float FeminineLightPixelsPerUnit = 137f;
         private const int WalkFrameCount = 6;
 
         private static readonly WizardVariant[] Variants =
@@ -39,8 +43,8 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             "north-west"
         };
 
-        // NSC-075 AC-002/AC-003 and VAL-001: all 224 standing and walk PNGs used by the
-        // generated clips share the same Sprite import geometry, transparent canvas, and feet pivot.
+        // Active clips use 168 unchanged 128 px sources and 56 replacement Frost sources.
+        // The replacement uses one fixed feet pivot per direction across idle and walk.
         [Test]
         public void ApprovedSourceFramesHaveExactImportGeometryAndGroundPivot()
         {
@@ -48,21 +52,30 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.AreEqual(224, expectedPaths.Length);
             Assert.AreEqual(expectedPaths.Length, expectedPaths.Distinct().Count());
 
-            string[] importedSpritePaths = AssetDatabase.FindAssets("t:Sprite", new[] { SourceRoot })
+            string[] importedSpritePaths = AssetDatabase.FindAssets("t:Sprite", new[] { SourceRoot, FeminineLightSourceRoot })
                 .Select(AssetDatabase.GUIDToAssetPath)
+                .Where(path => !path.StartsWith(SourceRoot + "/feminine-light/", StringComparison.Ordinal))
                 .OrderBy(path => path)
                 .ToArray();
             CollectionAssert.AreEquivalent(expectedPaths, importedSpritePaths);
 
             SourceInventory inventory = LoadInventory();
+            ReplacementSourceInventory replacementInventory = LoadReplacementInventory();
             foreach (WizardVariant variant in Variants)
             {
-                int groundLine = GroundLineFor(inventory, variant.SourceFolder);
+                bool isReplacement = variant.SourceFolder == "feminine-light";
+                int sourceSize = isReplacement ? FeminineLightSourceSize : SourceSize;
+                float pixelsPerUnit = isReplacement ? FeminineLightPixelsPerUnit : 64f;
                 foreach (string direction in Directions)
                 {
-                    AssertSourceImport(StandingPath(variant.SourceFolder, direction), groundLine);
+                    int groundLine = isReplacement
+                        ? replacementInventory.directions.Single(entry => entry.id == direction).ground_line_y_from_top
+                        : GroundLineFor(inventory, variant.SourceFolder);
+                    AssertSourceImport(StandingPath(variant.SourceFolder, direction),
+                        groundLine, sourceSize, pixelsPerUnit, isReplacement);
                     for (int frame = 0; frame < WalkFrameCount; frame++)
-                        AssertSourceImport(WalkPath(variant.SourceFolder, direction, frame), groundLine);
+                        AssertSourceImport(WalkPath(variant.SourceFolder, direction, frame),
+                            groundLine, sourceSize, pixelsPerUnit, isReplacement);
                 }
             }
         }
@@ -130,7 +143,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         }
 
         [Test]
-        public void ShippedPlayerAndHudPrefabsUseThe128PixelStandingSprites()
+        public void ShippedPlayerAndHudPrefabsUseSelectedStandingSprites()
         {
             const string playerPath = "Assets/NoSafeCircle/DoorPrototype/Resources/Player/Player.prefab";
             const string hudPath = "Assets/NoSafeCircle/DoorPrototype/Resources/Hud/Hud.prefab";
@@ -176,10 +189,11 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             }
         }
 
-        private static void AssertSourceImport(string path, int groundLine)
+        private static void AssertSourceImport(
+            string path, int groundLine, int sourceSize, float pixelsPerUnit, bool hasFixedLoopGroundLine)
         {
-            Assert.That(groundLine, Is.InRange(1, SourceSize), path);
-            float expectedPivotY = (SourceSize - groundLine) / (float)SourceSize;
+            Assert.That(groundLine, Is.InRange(1, sourceSize), path);
+            float expectedPivotY = (sourceSize - groundLine) / (float)sourceSize;
             TextureImporter importer = AssetImporter.GetAtPath(path) as TextureImporter;
             Assert.IsNotNull(importer, path);
             Assert.AreEqual(TextureImporterType.Sprite, importer.textureType, path);
@@ -188,7 +202,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             Assert.AreEqual(FilterMode.Point, importer.filterMode, path);
             Assert.AreEqual(TextureImporterCompression.Uncompressed, importer.textureCompression, path);
             Assert.IsFalse(importer.mipmapEnabled, path);
-            Assert.AreEqual(64f, importer.spritePixelsPerUnit, path);
+            Assert.AreEqual(pixelsPerUnit, importer.spritePixelsPerUnit, path);
             SerializedObject serializedImporter = new SerializedObject(importer);
             SerializedProperty gamma = serializedImporter.FindProperty("m_ApplyGammaDecoding");
             SerializedProperty cookie = serializedImporter.FindProperty("m_CookieLightType");
@@ -200,44 +214,49 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
                 Assert.AreEqual(0, gamma.intValue, path + " gamma import reset");
             Assert.AreEqual(0, cookie.intValue, path + " cookie import reset");
 
-            // Read the drawn base from the PNG as an independent witness of the inventory's
-            // ground line; the pivot must plant the feet rather than the transparent canvas.
-            int bottomPad = DrawnBottomPadding(path);
-            Assert.AreEqual(SourceSize - groundLine, bottomPad,
-                "The source inventory ground line must match this frame's actual feet: " + path);
+            // Original sources are planted individually. Frost retains the approved loop's
+            // foot movement above one fixed ground line instead of realigning every frame.
+            int bottomPad = DrawnBottomPadding(path, sourceSize);
+            int groundPadding = sourceSize - groundLine;
+            if (hasFixedLoopGroundLine)
+                Assert.GreaterOrEqual(bottomPad, groundPadding,
+                    "A replacement frame extends below its fixed loop ground line: " + path);
+            else
+                Assert.AreEqual(groundPadding, bottomPad,
+                    "The source inventory ground line must match this frame's actual feet: " + path);
 
             var textureSettings = new TextureImporterSettings();
             importer.ReadTextureSettings(textureSettings);
             Assert.AreEqual((int)SpriteAlignment.Custom, textureSettings.spriteAlignment, path);
             Assert.That(textureSettings.spritePivot.x, Is.EqualTo(0.5f).Within(0.001f), path);
             Assert.That(textureSettings.spritePivot.y, Is.EqualTo(expectedPivotY).Within(0.0001f),
-                path + ": the pivot is not on the drawn base (" + bottomPad + "px of padding under the feet).");
+                path + ": the pivot does not match the source ground line.");
 
             Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
             Assert.IsNotNull(sprite, path);
-            Assert.That(sprite.rect.width, Is.EqualTo(SourceSize).Within(0.001f), path);
-            Assert.That(sprite.rect.height, Is.EqualTo(SourceSize).Within(0.001f), path);
-            Assert.That(sprite.pivot.x, Is.EqualTo(SourceSize * 0.5f).Within(0.001f), path);
-            Assert.That(sprite.pivot.y, Is.EqualTo((float)bottomPad).Within(0.001f), path);
+            Assert.That(sprite.rect.width, Is.EqualTo(sourceSize).Within(0.001f), path);
+            Assert.That(sprite.rect.height, Is.EqualTo(sourceSize).Within(0.001f), path);
+            Assert.That(sprite.pivot.x, Is.EqualTo(sourceSize * 0.5f).Within(0.001f), path);
+            Assert.That(sprite.pivot.y, Is.EqualTo((float)groundPadding).Within(0.001f), path);
             Assert.That(sprite.rect.width / sprite.pixelsPerUnit,
-                Is.EqualTo(2f).Within(0.001f), path);
+                Is.EqualTo(sourceSize / pixelsPerUnit).Within(0.001f), path);
             Assert.That(sprite.rect.height / sprite.pixelsPerUnit,
-                Is.EqualTo(2f).Within(0.001f), path);
+                Is.EqualTo(sourceSize / pixelsPerUnit).Within(0.001f), path);
         }
 
         // Fully transparent rows below the lowest visible pixel, read from the PNG itself.
-        private static int DrawnBottomPadding(string path)
+        private static int DrawnBottomPadding(string path, int sourceSize)
         {
             var sourceTexture = new Texture2D(2, 2, TextureFormat.RGBA32, false);
             try
             {
                 Assert.IsTrue(sourceTexture.LoadImage(File.ReadAllBytes(path)), path);
-                Assert.AreEqual(SourceSize, sourceTexture.width, path);
-                Assert.AreEqual(SourceSize, sourceTexture.height, path);
+                Assert.AreEqual(sourceSize, sourceTexture.width, path);
+                Assert.AreEqual(sourceSize, sourceTexture.height, path);
                 Color32[] pixels = sourceTexture.GetPixels32();
                 Assert.IsTrue(pixels.Any(pixel => pixel.a == 0), "No transparent pixels: " + path);
                 Assert.IsTrue(pixels.Any(pixel => pixel.a > 0), "No visible character pixels: " + path);
-                return LowestOpaqueRow(pixels);
+                return LowestOpaqueRow(pixels, sourceSize);
             }
             finally
             {
@@ -245,12 +264,12 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             }
         }
 
-        private static int LowestOpaqueRow(Color32[] pixels)
+        private static int LowestOpaqueRow(Color32[] pixels, int sourceSize)
         {
-            for (int y = 0; y < SourceSize; y++)
+            for (int y = 0; y < sourceSize; y++)
             {
-                int rowOffset = y * SourceSize;
-                for (int x = 0; x < SourceSize; x++)
+                int rowOffset = y * sourceSize;
+                for (int x = 0; x < sourceSize; x++)
                 {
                     if (pixels[rowOffset + x].a > 0) return y;
                 }
@@ -271,6 +290,21 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
             SourceInventory inventory = JsonUtility.FromJson<SourceInventory>(json);
             Assert.IsNotNull(inventory, InventoryPath);
             Assert.IsNotNull(inventory.wizards, InventoryPath);
+            return inventory;
+        }
+
+        private static ReplacementSourceInventory LoadReplacementInventory()
+        {
+            string path = FeminineLightSourceRoot + "/source-inventory.json";
+            Assert.IsTrue(File.Exists(path), path);
+            ReplacementSourceInventory inventory = JsonUtility.FromJson<ReplacementSourceInventory>(
+                File.ReadAllText(path));
+            Assert.IsNotNull(inventory, path);
+            CollectionAssert.AreEqual(new[] { FeminineLightSourceSize, FeminineLightSourceSize }, inventory.canvas, path);
+            Assert.AreEqual(FeminineLightPixelsPerUnit, inventory.pixels_per_unit, path);
+            Assert.IsNotNull(inventory.directions, path);
+            Assert.AreEqual(Directions.Length, inventory.directions.Length, path);
+            CollectionAssert.AreEquivalent(Directions, inventory.directions.Select(direction => direction.id), path);
             return inventory;
         }
 
@@ -304,6 +338,21 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         [Serializable]
         private sealed class WizardGroundLine
         {
+            public int ground_line_y_from_top;
+        }
+
+        [Serializable]
+        private sealed class ReplacementSourceInventory
+        {
+            public int[] canvas;
+            public float pixels_per_unit;
+            public DirectionGroundLine[] directions;
+        }
+
+        [Serializable]
+        private sealed class DirectionGroundLine
+        {
+            public string id;
             public int ground_line_y_from_top;
         }
 
@@ -352,13 +401,18 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
 
         private static string StandingPath(string sourceFolder, string direction)
         {
-            return SourceRoot + "/" + sourceFolder + "/selected/standing/" + direction + ".png";
+            return VariantSourceRoot(sourceFolder) + "/selected/standing/" + direction + ".png";
         }
 
         private static string WalkPath(string sourceFolder, string direction, int frame)
         {
-            return SourceRoot + "/" + sourceFolder + "/selected/walk/" + direction +
+            return VariantSourceRoot(sourceFolder) + "/selected/walk/" + direction +
                 "/frame_" + frame.ToString("000") + ".png";
+        }
+
+        private static string VariantSourceRoot(string sourceFolder)
+        {
+            return sourceFolder == "feminine-light" ? FeminineLightSourceRoot : SourceRoot + "/" + sourceFolder;
         }
 
         private readonly struct WizardVariant

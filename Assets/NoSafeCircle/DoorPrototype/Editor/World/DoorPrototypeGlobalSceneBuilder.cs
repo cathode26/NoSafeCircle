@@ -1111,8 +1111,8 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
 
         private static Sprite LoadWizardSelectionPreview(string sourceVariant)
         {
-            string path = CharacterAnimationGenerator.WizardSourceRoot + "/" + sourceVariant +
-                "/selected/standing/" + CharacterAnimationGenerator.WizardCanonicalInitialDirection + ".png";
+            string path = CharacterAnimationGenerator.GetWizardStandingSourcePath(
+                sourceVariant, CharacterAnimationGenerator.WizardCanonicalInitialDirection);
             Sprite sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
             if (sprite == null)
             {

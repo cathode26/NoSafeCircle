@@ -39,7 +39,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         {
             "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-light/selected/standing/south-east.png",
             "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/masculine-dark/selected/standing/south-east.png",
-            "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-light/selected/standing/south-east.png",
+            "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab256/feminine-light/selected/standing/south-east.png",
             "Assets/NoSafeCircle/DoorPrototype/Art/Wizard/Source/PixelLab128/feminine-dark/selected/standing/south-east.png"
         };
 
