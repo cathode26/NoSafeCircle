@@ -31,7 +31,7 @@ namespace NoSafeCircle.DoorPrototype.Tests.Editor
         {
             "Ember Wizard",
             "Ash Wizard",
-            "Frost Wizard",
+            "Strawberry Wizard",
             "Dusk Wizard"
         };
 

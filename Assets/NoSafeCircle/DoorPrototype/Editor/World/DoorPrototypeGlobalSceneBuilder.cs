@@ -41,7 +41,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.World
                 WizardPresentation.Feminine,
                 WizardSkin.White,
                 "feminine-light",
-                "Frost Wizard"),
+                "Strawberry Wizard"),
             new WizardSelectionDefinition(
                 WizardPresentation.Feminine,
                 WizardSkin.Black,

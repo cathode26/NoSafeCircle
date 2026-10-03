@@ -66,7 +66,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
             return BuildWizardAnimationAssets(null);
         }
 
-        /// <summary>Regenerates only the replacement Frost wizard's sprites and existing clips.</summary>
+        /// <summary>Regenerates only the replacement Strawberry Wizard's sprites and existing clips.</summary>
         public static void BuildFeminineLightWizardAnimationAssets()
         {
             BuildWizardAnimationAssets("Feminine_White");
@@ -237,7 +237,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
         {
             string inventoryPath = FeminineLightWizardSourceRoot + "/source-inventory.json";
             if (!File.Exists(inventoryPath))
-                throw new FileNotFoundException("Frost wizard source inventory is missing", inventoryPath);
+                throw new FileNotFoundException("Strawberry Wizard source inventory is missing", inventoryPath);
             WizardVariantSourceInventory inventory = JsonUtility.FromJson<WizardVariantSourceInventory>(
                 File.ReadAllText(inventoryPath));
             if (inventory == null || inventory.canvas == null || inventory.canvas.Length != 2 ||
@@ -245,7 +245,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
                 inventory.pixels_per_unit <= 0f || float.IsNaN(inventory.pixels_per_unit) ||
                 float.IsInfinity(inventory.pixels_per_unit) || inventory.directions == null ||
                 inventory.directions.Length != WizardDirections.Length)
-                throw new InvalidDataException("Frost wizard inventory requires a 256 x 256 canvas, positive pixels_per_unit and eight direction ground lines: " + inventoryPath);
+                throw new InvalidDataException("Strawberry Wizard inventory requires a 256 x 256 canvas, positive pixels_per_unit and eight direction ground lines: " + inventoryPath);
 
             var directionPivots = new Dictionary<string, Vector2>();
             foreach (WizardDirectionGroundLine direction in inventory.directions)
@@ -253,7 +253,7 @@ namespace NoSafeCircle.DoorPrototype.Editor.Generation
                 if (direction == null || Array.IndexOf(WizardDirections, direction.id) < 0 ||
                     directionPivots.ContainsKey(direction.id) || direction.ground_line_y_from_top < 1 ||
                     direction.ground_line_y_from_top > inventory.canvas[1])
-                    throw new InvalidDataException("Frost wizard inventory has an invalid or duplicate direction ground line: " + inventoryPath);
+                    throw new InvalidDataException("Strawberry Wizard inventory has an invalid or duplicate direction ground line: " + inventoryPath);
                 // Keep one foot pivot for idle and the whole walk loop; do not erase gait drift.
                 directionPivots.Add(direction.id, new Vector2(0.5f,
                     (inventory.canvas[1] - direction.ground_line_y_from_top) / (float)inventory.canvas[1]));
